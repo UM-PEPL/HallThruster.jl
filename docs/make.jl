@@ -6,7 +6,7 @@ makedocs(
     modules=[PartialFunctions],
     authors="Thomas Marks <marksta@umich.edu> and contributors",
     repo="https://github.com/archermarx/HallThruster.jl/blob/{commit}{path}#L{line}",
-    sitename="PartialFunctions.jl",
+    sitename="HallThruster.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://archermarx.github.io/HallThruster.jl",
