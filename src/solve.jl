@@ -13,27 +13,14 @@ function update!(du, u, params, t)
 	Te_index = nvariables-1
 	ϕ_index = nvariables
 
-	nedges = size(F, 2)
-
 	dU[:, 1] .= 0.0
 	dU[:, ncells] .= 0.0
 
 	reconstruct!(UL, UR, U, scheme)
-
-	# Compute heavy species fluxes
-    for i in 1:nedges
-		for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-			@views F[fluid_range, i] .= scheme.flux_function(
-				UL[fluid_range, i],
-				UR[fluid_range, i],
-				fluid
-			)
-		end
-	end
+	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
 	for i in 2:ncells-1
-
 		Q .= 0.0
 
 		# Compute heavy species source term due to electric field

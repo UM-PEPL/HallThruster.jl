@@ -166,7 +166,62 @@ let Xenon = HallThruster.Xenon,
 
 		@test upwind(euler_state, euler_state_2, euler_eq) ==
 			flux(euler_state_2, euler_eq)
+	end
+    U1 = [continuity_state; isothermal_state; euler_state]
+	U2 = [continuity_state_2; isothermal_state_2; euler_state_2]
+	U = hcat(U1, U1, U2, U2)
 
+	nconservative, ncells = size(U)
+	nedges = ncells - 1
+	UL = zeros(nconservative, nedges)
+	UR = zeros(nconservative, nedges)
+	F = zeros(nconservative, nedges)
+
+	no_limiter(r) = r
+
+	scheme = (reconstruct = false, flux_function = upwind, limiter = no_limiter)
+
+	HallThruster.reconstruct!(UL, UR, U, scheme)
+
+	UL_expected = hcat(U1, U1, U2)
+	UR_expected = hcat(U1, U2, U2)
+
+	fluids = [continuity_eq, isothermal_eq, euler_eq]
+	fluid_ranges = HallThruster.ranges(fluids)
+
+	HallThruster.compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
+
+	F1 = [
+		flux(U1[1:1], continuity_eq);
+		flux(U1[2:3], isothermal_eq);
+		flux(U1[4:6], euler_eq);
+	]
+
+	F2 = [
+		flux(U1[1:1], continuity_eq);
+		flux(U2[2:3], isothermal_eq);
+		flux(U2[4:6], euler_eq);
+	]
+
+	F1_continuity = flux(U1[1:1], continuity_eq)
+	F2_continuity = flux(U2[1:1], continuity_eq)
+	F_continuity = hcat(F1_continuity, F1_continuity, F2_continuity)
+
+	F1_isothermal = flux(U1[2:3], isothermal_eq)
+	F2_isothermal = flux(U2[2:3], isothermal_eq)
+	F_isothermal = hcat(F1_isothermal, F2_isothermal, F2_isothermal)
+
+	F1_euler = flux(U1[4:6], euler_eq)
+	F2_euler = flux(U2[4:6], euler_eq)
+	F_euler = hcat(F1_euler, F2_euler, F2_euler)
+
+	F_expected = vcat(F_continuity, F_isothermal, F_euler)
+
+	@testset "More flux tests" begin
+		@test UL_expected == UL
+		@test UR_expected == UR
+		@test fluid_ranges == [1:1, 2:3, 4:6]
+		@test F ≈ F_expected
 	end
 end
 

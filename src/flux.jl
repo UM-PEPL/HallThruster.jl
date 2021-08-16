@@ -41,7 +41,7 @@ for fluid_type in (ContinuityFluid, IsothermalFluid, EulerFluid)
 
         f = @SVector[
             0.5 * (FL[i] + FR[i]) -
-            0.5 * (smax + smin) / (smax - smin) * (FR[i] - FL[i]) + 
+            0.5 * (smax + smin) / (smax - smin) * (FR[i] - FL[i]) +
             smax * smin / (smax - smin) * (UR[i] - UL[i])
             for i in 1:nvars($fluid_type)
         ]
@@ -86,4 +86,19 @@ function reconstruct!(UL, UR, U, scheme)
     @. @views UR[:, end] = U[:, end]
 
 	return UL, UR
+end
+
+function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
+	_, nedges = size(F)
+
+    for i in 1:nedges
+		for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+			@views F[fluid_range, i] .= scheme.flux_function(
+				UL[fluid_range, i],
+				UR[fluid_range, i],
+				fluid
+			)
+		end
+    end
+    return F
 end
