@@ -271,3 +271,9 @@ end
     @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
     @test repr(rxn_I_III) == "e- + Xe+ -> 3e- + Xe3+"
 end
+
+@testset "Miscellaneous tests" begin
+    @test HallThruster.left_edge(1) == 0
+    @test HallThruster.right_edge(1) == 1
+    @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], [1:1, 2:3, 4:6]) == 6.0
+end
