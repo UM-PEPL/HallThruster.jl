@@ -5,4 +5,5 @@ makedocs(sitename="HallThruster.jl Documentation")
 
 deploydocs(
     repo = "github.com/archermarx/HallThruster.jl.git",
+    devbranch = "main"
 )
