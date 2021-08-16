@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster
+using Test, Documenter, HallThruster, StaticArrays
 
 doctest(HallThruster)
 
@@ -60,6 +60,9 @@ let Xenon = HallThruster.Xenon,
     cp = HallThruster.cp,
     cv = HallThruster.cv,
     kB = HallThruster.kB,
+    flux = HallThruster.flux,
+    HLLE = HallThruster.HLLE,
+    upwind = HallThruster.upwind,
     Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
 
     n = 1e19
@@ -128,4 +131,47 @@ let Xenon = HallThruster.Xenon,
 		@test stagnation_enthalpy(continuity...) ≈ cp(continuity_eq) * T + 0.5 * u^2
 		@test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R(continuity_eq) * T)
 	end
+
+    continuity_state_2 = continuity_state * 2
+	isothermal_state_2 = isothermal_state * 2
+	euler_state_2 = euler_state * 2
+
+    @testset "Flux computation" begin
+		p = n * kB * T
+		f_euler = SA[n * u, n * u^2 + p / mXe, n * u * (ϵ + p / n / mXe)]
+		@test flux(continuity...) == f_euler[1:1]
+		@test flux(isothermal...) == f_euler[1:2]
+			SA[n * u, n * u^2 + n * kB * T / mXe]
+		@test flux(euler...) == f_euler
+
+		# HLLE flux
+		@test HLLE(continuity_state, continuity...) == flux(continuity...)
+		@test HLLE(isothermal_state, isothermal...) == flux(isothermal...)
+		@test HLLE(euler_state, euler...) == flux(euler...)
+
+		@test upwind(continuity_state, continuity_state_2, continuity_eq) ==
+			flux(continuity...)
+
+		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq) ==
+			flux(isothermal...)
+
+		isothermal_state_2[2] *= -2
+
+		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq) ==
+			flux(isothermal_state_2, isothermal_eq)
+
+		@test upwind(euler_state, euler_state_2, euler_eq) == flux(euler...)
+
+		euler_state_2[2] *= -2
+
+		@test upwind(euler_state, euler_state_2, euler_eq) ==
+			flux(euler_state_2, euler_eq)
+
+	end
+end
+
+@testset "Update computations" begin
+    u = [1.0, 2.0, 0.0, 3.0, 0.0, 0.0]
+    ranges = [1:1, 2:3, 4:6]
+    @test HallThruster.electron_density(u, ranges) == 6.0
 end
