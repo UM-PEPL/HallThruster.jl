@@ -3,21 +3,21 @@
 A chemical element in the gaseous state. Container for element properties used in fluid computations.
 
 # Fields
-name::String        Full name of gas (i.e. Xenon)
+`name::String`        Full name of gas (i.e. Xenon)
 
-short_name::String  Short name/symbol (i.e. Xe for Xenon)
+`short_name::String`  Short name/symbol (i.e. Xe for Xenon)
 
-γ::Float64          Specific heat ratio / adiabatic index
+`γ::Float64`          Specific heat ratio / adiabatic index
 
-M::Float64          Molar mass (grams/mol) or atomic mass units
+`M::Float64`          Molar mass (grams/mol) or atomic mass units
 
-m::Float64          Mass of atom in kg
+`m::Float64`          Mass of atom in kg
 
-cp::Float64         Specific heat at constant pressure
+`cp::Float64`         Specific heat at constant pressure in J / kmol / K
 
-cv::Float64         Specific heat at constant volume
+`cv::Float64`         Specific heat at constant volume in J / kmol / K
 
-R::Float64          Gas constant
+`R::Float64`          Gas constant in J / kmol / K
 
 """
 struct Gas
