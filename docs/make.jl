@@ -3,6 +3,7 @@ using Documenter, HallThruster
 push!(LOAD_PATH,"../src/")
 
 makedocs(
+    sitename = "HallThruster.jl",
     pages=[
         "Home" => "index.md",
         "Internals" => "internals.md"
