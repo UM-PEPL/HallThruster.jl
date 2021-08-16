@@ -1,5 +1,5 @@
 # HallThruster.jl
-![build](https://github.com/archermarks/HallThruster/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/archermarx/HallThruster.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/archermarx/HallThruster.jl/actions/workflows/ci.yml)
 
 An open-source fluid Hall thruster code
 
