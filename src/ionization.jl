@@ -6,7 +6,7 @@ end
 
 function Base.show(io::IO, i::IonizationReaction)
 	electron_input = "e-"
-	electron_output = string(i.product.Z - i.reactant.Z) * "e-"
+	electron_output = string(i.product.Z - i.reactant.Z + 1) * "e-"
 	reactant_str = string(i.reactant)
 	product_str = string(i.product)
 	rxn_str = electron_input * " + " * reactant_str * " -> "

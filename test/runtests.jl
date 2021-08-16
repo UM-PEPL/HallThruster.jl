@@ -230,3 +230,44 @@ end
     ranges = [1:1, 2:3, 4:6]
     @test HallThruster.electron_density(u, ranges) == 6.0
 end
+
+@testset "Limiter tests" begin
+    no_limiter = HallThruster.FluxLimiter(identity)
+
+    limiters = [
+        no_limiter,
+        HallThruster.koren,
+        HallThruster.minmod,
+        HallThruster.osher,
+        HallThruster.superbee,
+        HallThruster.van_albada,
+        HallThruster.van_albada_2,
+        HallThruster.van_leer
+    ]
+
+    for limiter in limiters
+        @test limiter(0) == 0
+        @test limiter(-1) == 0
+        @test limiter(1) == 1
+    end
+
+    @test no_limiter(100) == 100
+    @test HallThruster.superbee(100) == 2
+    @test HallThruster.minmod(100) == 1
+end
+
+@testset "Ionization tests" begin
+    Xe_0 = HallThruster.Species(HallThruster.Xenon, 0)
+    Xe_I = HallThruster.Species(HallThruster.Xenon, 1)
+    Xe_II = HallThruster.Species(HallThruster.Xenon, 2)
+    Xe_III = HallThruster.Species(HallThruster.Xenon, 3)
+
+    rxn_0_I = HallThruster.IonizationReaction(Xe_0, Xe_I, Te -> 0.0)
+    rxn_0_II = HallThruster.IonizationReaction(Xe_0, Xe_II, Te -> 0.0)
+    rxn_0_III = HallThruster.IonizationReaction(Xe_0, Xe_III, Te -> 0.0)
+    rxn_I_III = HallThruster.IonizationReaction(Xe_I, Xe_III, Te -> 0.0)
+    @test repr(rxn_0_I) == "e- + Xe -> 2e- + Xe+"
+    @test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
+    @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
+    @test repr(rxn_I_III) == "e- + Xe+ -> 3e- + Xe3+"
+end
