@@ -1,6 +1,16 @@
 """
     Gas
 A chemical element in the gaseous state. Container for element properties used in fluid computations.
+
+# Fields
+    name::String        Full name of gas (i.e. Xenon)
+    short_name::String  Short name/symbol (i.e. Xe for Xenon)
+    γ::Float64          Specific heat ratio / adiabatic index
+    M::Float64          Molar mass (grams/mol) or atomic mass units
+    m::Float64          Mass of atom in kg
+    cp::Float64         Specific heat at constant pressure
+    cv::Float64         Specific heat at constant volume
+    R::Float64          Gas constant
 """
 struct Gas
     name::String
@@ -18,7 +28,9 @@ Base.show(io::IO, m::MIME"text/plain", g::Gas) = show(io, g)
 
 """
     Gas(name::String, short_name::String; γ::Float64, M::Float64)
-Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass
+Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
+Other gas properties, including gas constant, specific heats at constant pressure/volume, and
+mass of atom/molecule in kg will are then computed.
 
 ```jldoctest;setup = :(using HallThruster: Gas)
 julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
