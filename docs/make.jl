@@ -3,7 +3,7 @@ using Documenter, HallThruster
 push!(LOAD_PATH,"../src/")
 
 makedocs(
-    modules=[PartialFunctions],
+    modules=[HallThruster],
     authors="Thomas Marks <marksta@umich.edu> and contributors",
     repo="https://github.com/archermarx/HallThruster.jl/blob/{commit}{path}#L{line}",
     sitename="HallThruster.jl",
