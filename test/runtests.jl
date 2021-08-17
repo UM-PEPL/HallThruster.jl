@@ -270,6 +270,11 @@ end
     @test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
     @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
     @test repr(rxn_I_III) == "e- + Xe+ -> 3e- + Xe3+"
+
+    @test HallThruster.rate_coeff_filename(Xe_0, Xe_II, "ionization") == "ionization_Xe_Xe2+.dat"
+
+    @test isnothing(HallThruster.load_ionization_reaction(Xe_II, Xe_0))
+    @test !isnothing(HallThruster.load_ionization_reaction(Xe_0, Xe_II))
 end
 
 @testset "Miscellaneous tests" begin
@@ -303,7 +308,12 @@ simulation = (
     solve_Te = false,
     solve_ne = false,
     inlet_mdot = 5e-6,
-    tspan = (0., 0.5e-3)
+    tspan = (0., 0.5e-3),
+    scheme = (
+        flux_function = HallThruster.HLLE,
+        limiter = identity,
+        reconstruct = false
+    ),
 )
 
 @testset "Simulation tests" begin
