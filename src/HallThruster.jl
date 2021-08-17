@@ -11,6 +11,7 @@ include("thermodynamics.jl")
 include("limiters.jl")
 include("flux.jl")
 include("ionization.jl")
+include("geometry.jl")
 include("simulation.jl")
 include("solve.jl")
 
