@@ -1,17 +1,3 @@
-# TODO: replace this with a proper struct once details have been worked out
-Simulation1D = @NamedTuple begin
-    ncells::Int
-    propellant::Gas
-    ncharge::Int
-    geometry::Geometry1D
-    neutral_temperature::Float64
-    neutral_velocity::Float64
-    ion_temperature::Float64
-    electron_energy_eq::T where T <:AbstractElectronTemperature
-    electric_potential_eq::P where P <: AbstractElectricPotential
-    tspan::Tuple{Number, Number}
-end
-
 get_species(sim) = [Species(sim.propellant, i) for i in 0:sim.ncharge]
 
 function configure_simulation(sim)
@@ -28,3 +14,72 @@ function configure_simulation(sim)
     return fluids, fluid_ranges, species_range_dict
 end
 
+function allocate_arrays(sim)
+    # Number of variables in the state vector U
+    # U = [nn, ni1, ni1, ni1ui1..., niN, niNuiN, Te, ne, Φ]
+    nvariables = 1 + 2 * sim.ncharge + 3
+
+    ncells = sim.ncells
+    nedges = sim.ncells + 1
+
+    U = zeros(nvariables, ncells+2) # need to allocate room for ghost cells
+    F = zeros(nvariables, nedges)
+    UL = zeros(nvariables, nedges)
+    UR = zeros(nvariables, nedges)
+    Q = zeros(nvariables)
+
+    cache = (F, UL, UR, Q)
+    return U, cache
+end
+
+function run_simulation(sim)
+
+    fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
+    z_cell, z_edge = generate_grid(sim.geometry, sim.ncells)
+
+    U, cache = allocate_arrays(sim)
+
+    IC = initial_condition!(U, z_cell, sim, fluid_ranges)
+
+end
+
+function inlet_neutral_density(sim)
+    un = sim.neutral_velocity
+    A = channel_area(sim.geometry)
+    m_atom = sim.propellant.m
+    nn = sim.inlet_mdot / un / A / m_atom
+    return nn
+end
+
+function initial_condition!(U, z_cell, sim, fluid_ranges)
+    nvariables = size(U, 1)
+    nn = inlet_neutral_density(sim)
+    un = sim.neutral_velocity
+
+    nn_index = 1
+    ni_index = 2
+    ni_ui_index = 3
+
+    Te_index = nvariables - 2
+    ne_index = nvariables - 1
+    ϕ_index  = nvariables
+
+    for (i, z) in enumerate(z_cell)
+        U[nn_index, i] = nn
+        ne = sim.initial_ne(z)
+        Te = sim.initial_Te(z)
+        ϕ = sim.initial_ϕ(z)
+
+        U[ni_index, i] = ne
+        U[ni_ui_index, i] = ne * un
+        for j in fluid_ranges[3:end]
+            # Initialize all other charge states to zero
+            U[j, i] .= 0.0
+        end
+        U[Te_index, i] = Te
+        U[ne_index, i] = ne
+        U[ϕ_index, i]  = ϕ
+    end
+
+    return U
+end

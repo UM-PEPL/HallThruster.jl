@@ -285,11 +285,9 @@ SPT_100 = (
     outer_radius = 0.05
 )
 
-Te_fixed = HallThruster.FixedElectronTemperature(
-    z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
-)
-
-ϕ_fixed = HallThruster.FixedElectricPotential(_ -> 0.0)
+Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
+ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
+ne_func = z -> 1e11
 
 simulation = (
     ncells = 100,
@@ -299,8 +297,12 @@ simulation = (
     neutral_temperature = 500.,
     neutral_velocity = 300.,
     ion_temperature = 500.,
-    electron_energy_eq = Te_fixed,
-    electric_potential_eq = ϕ_fixed,
+    initial_Te = Te_func,
+    initial_ϕ = ϕ_func,
+    initial_ne = ne_func,
+    solve_Te = false,
+    solve_ne = false,
+    inlet_mdot = 5e-6,
     tspan = (0., 0.5e-3)
 )
 
@@ -339,5 +341,31 @@ simulation = (
     @test z_cell[2] == 0.5 * (z_edge[2] + z_edge[1])
     @test z_edge[2] - z_edge[1] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
 
-    
+    U, (F, UL, UR, Q) = HallThruster.allocate_arrays(simulation)
+    @test size(U, 1) == size(F, 1) == size(UL, 1) == size(UR, 1) == size(Q, 1)
+    nvariables = size(U, 1)
+    @test nvariables == 1 + 6 + 3
+
+    @test size(U, 2) == simulation.ncells+2
+    @test size(UL, 2) == size(UR, 2) == size(F, 2) == simulation.ncells+1
+
+    mdot = 5e-6 # kg/s
+    un = 300 # m/s
+    A = π * (0.05^2 - 0.0345^2) # m^2
+    m_atom = HallThruster.Xenon.M / HallThruster.NA
+
+    @test m_atom == HallThruster.Xenon.m
+    nn = mdot / un / A / m_atom
+
+    @test nn == HallThruster.inlet_neutral_density(simulation)
+
+    HallThruster.initial_condition!(U, z_cell, simulation, fluid_ranges)
+
+    @test U[end, :] == ϕ_func.(z_cell)
+    @test U[end-1, :] == ne_func.(z_cell)
+    @test U[end-2, :] == Te_func.(z_cell)
+
+    @test all(U[1, :] .== nn)
+    @test U[2, :] == ne_func.(z_cell)
+    @test U[3, :] == un .* ne_func.(z_cell)
 end
