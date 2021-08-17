@@ -277,3 +277,67 @@ end
     @test HallThruster.right_edge(1) == 1
     @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], [1:1, 2:3, 4:6]) == 6.0
 end
+
+SPT_100 = (
+    domain = (0.0, 0.05),
+    channel_length = 0.025,
+    inner_radius = 0.0345,
+    outer_radius = 0.05
+)
+
+Te_fixed = HallThruster.FixedElectronTemperature(
+    z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
+)
+
+ϕ_fixed = HallThruster.FixedElectricPotential(_ -> 0.0)
+
+simulation = (
+    ncells = 100,
+    propellant = HallThruster.Xenon,
+    ncharge = 3,
+    geometry = SPT_100,
+    neutral_temperature = 500.,
+    neutral_velocity = 300.,
+    ion_temperature = 500.,
+    electron_energy_eq = Te_fixed,
+    electric_potential_eq = ϕ_fixed,
+    tspan = (0., 0.5e-3)
+)
+
+@testset "Simulation tests" begin
+    @test SPT_100 isa HallThruster.Geometry1D
+    @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
+
+    species = [
+        HallThruster.Species(HallThruster.Xenon, 0),
+        HallThruster.Species(HallThruster.Xenon, 1),
+        HallThruster.Species(HallThruster.Xenon, 2),
+        HallThruster.Species(HallThruster.Xenon, 3),
+    ]
+
+    @test HallThruster.get_species(simulation) == species
+
+    fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(simulation)
+    @test fluids == [
+        HallThruster.Fluid(species[1], HallThruster.ContinuityOnly(300.0, 500.0)),
+        HallThruster.Fluid(species[2], HallThruster.IsothermalEuler(500.0)),
+        HallThruster.Fluid(species[3], HallThruster.IsothermalEuler(500.0)),
+        HallThruster.Fluid(species[4], HallThruster.IsothermalEuler(500.0)),
+    ]
+
+    @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
+
+    @test species_range_dict == Dict{HallThruster.Species, UnitRange{Int64}}(
+        species[1] => fluid_ranges[1],
+        species[2] => fluid_ranges[2],
+        species[3] => fluid_ranges[3],
+        species[4] => fluid_ranges[4]
+    )
+
+    z_cell, z_edge = HallThruster.generate_grid(SPT_100, simulation.ncells)
+    @test z_cell[1] == z_edge[1] && z_cell[end] == z_edge[end]
+    @test z_cell[2] == 0.5 * (z_edge[2] + z_edge[1])
+    @test z_edge[2] - z_edge[1] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
+
+    
+end

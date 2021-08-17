@@ -1,4 +1,4 @@
-function update!(du, u, params, t)
+function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
@@ -15,6 +15,9 @@ function update!(du, u, params, t)
 
 	dU[:, 1] .= 0.0
 	dU[:, ncells] .= 0.0
+
+	# TEMPORARY: apply Neumann BC on right edge
+	U[:, end] .= U[:, end-1]
 
 	reconstruct!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
