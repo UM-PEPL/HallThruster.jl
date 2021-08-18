@@ -11,7 +11,7 @@ function configure_simulation(sim)
         fluid.species => fluid_range for (fluid, fluid_range) in zip(fluids, fluid_ranges)
     )
 
-    return fluids, fluid_ranges, species_range_dict
+    return species, fluids, fluid_ranges, species_range_dict
 end
 
 function allocate_arrays(sim)
@@ -41,7 +41,8 @@ function update!(dU, U, params, t)
 	z_cell, z_edge = params.z_cell, params.z_edge
 	scheme = params.scheme
 
-	nvariables, ncells = size(U, 2)
+	nvariables = size(U, 1)
+    ncells = size(U, 2) - 2
 
 	ne_index = nvariables-2
 	Te_index = nvariables-1
@@ -97,10 +98,10 @@ function update!(dU, U, params, t)
 		left = left_edge(i)
 		right = right_edge(i)
 
-		Δx = x_edge[right] - x_edge[left]
+		Δz = z_edge[right] - z_edge[left]
 
 		for j in (fluid_ranges[1][1]):(fluid_ranges[end][end])
-			@views dU[j, i] = (F[j, left] - F[j, right])/Δx + Q[j, i]
+			@views dU[j, i] = (F[j, left] - F[j, right])/Δz + Q[j]
 		end
     end
 end
@@ -108,11 +109,21 @@ end
 left_edge(i) = i-1
 right_edge(i) = i
 
-electron_density(u, fluid_ranges) = sum(u[r[1]] for r in fluid_ranges)
+function electron_density(U, fluid_ranges)
+    ne = 0.0
+    for (i, f) in enumerate(fluid_ranges)
+        if i == 1
+            continue # neutrals do not contribute to electron density
+        end
+        charge_state = i-1
+        ne += charge_state * U[f[1]]
+    end
+    return ne
+end
 
 function run_simulation(sim)
 
-    fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
+    species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
     z_cell, z_edge = generate_grid(sim.geometry, sim.ncells)
 
     U, cache = allocate_arrays(sim)
@@ -120,7 +131,8 @@ function run_simulation(sim)
     initial_condition!(U, z_cell, sim, fluid_ranges)
 
     scheme = sim.scheme
-    reactions = sim.reactions
+
+    reactions = load_ionization_reactions(species)
 
     params = (;
         cache,
@@ -152,8 +164,6 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     un = sim.neutral_velocity
 
     nn_index = 1
-    ni_index = 2
-    ni_ui_index = 3
 
     Te_index = nvariables - 2
     ne_index = nvariables - 1
@@ -162,21 +172,19 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     for (i, z) in enumerate(z_cell)
         U[nn_index, i] = nn
 
-        ne = sim.initial_ne(z)
+        ni = sim.initial_ni(z)
         Te = sim.initial_Te(z)
         ϕ = sim.initial_ϕ(z)
 
-        # singly-charged ions initialized with same density as electrons,
-        # and same velocity as neutrals
-        U[ni_index, i] = ne
-        U[ni_ui_index, i] = ne * un
-
-        for j in fluid_ranges[3:end]
-            # Initialize all other charge states to zero
-            U[j, i] .= 0.0
+        # ions initialized with equal densities, same velocity as neutrals
+        for j in fluid_ranges[2:end]
+            n_index = j[1]
+            nu_index = j[2]
+            U[n_index, i] = ni
+            U[nu_index, i] = ni * un
         end
         U[Te_index, i] = Te
-        U[ne_index, i] = ne
+        @views U[ne_index, i] = electron_density(U[:, i], fluid_ranges)
         U[ϕ_index, i]  = ϕ
     end
 

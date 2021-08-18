@@ -17,7 +17,6 @@ end
 function load_ionization_reaction(reactant, product)
 	rates_file = rate_coeff_filename(reactant, product, "ionization")
 	rates_file = joinpath(REACTION_FOLDER, rates_file)
-	@show rates_file
 	try
 		rates = DataFrame(CSV.File(rates_file))
 		Te = rates[!, 1]

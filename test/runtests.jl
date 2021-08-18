@@ -226,9 +226,9 @@ let Xenon = HallThruster.Xenon,
 end
 
 @testset "Update computations" begin
-    u = [1.0, 2.0, 0.0, 3.0, 0.0, 0.0]
-    ranges = [1:1, 2:3, 4:6]
-    @test HallThruster.electron_density(u, ranges) == 6.0
+    u = [1.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 0.0]
+    ranges = [1:1, 2:3, 4:5, 6:8]
+    @test HallThruster.electron_density(u, ranges) == 1 + 4 + 9.
 end
 
 @testset "Limiter tests" begin
@@ -292,7 +292,7 @@ SPT_100 = (
 
 Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
-ne_func = z -> 1e11
+ni_func = z -> 1e6
 
 simulation = (
     ncells = 100,
@@ -304,7 +304,7 @@ simulation = (
     ion_temperature = 500.,
     initial_Te = Te_func,
     initial_ϕ = ϕ_func,
-    initial_ne = ne_func,
+    initial_ni = ni_func,
     solve_Te = false,
     solve_ne = false,
     inlet_mdot = 5e-6,
@@ -329,7 +329,8 @@ simulation = (
 
     @test HallThruster.get_species(simulation) == species
 
-    fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(simulation)
+    _, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(simulation)
+
     @test fluids == [
         HallThruster.Fluid(species[1], HallThruster.ContinuityOnly(300.0, 500.0)),
         HallThruster.Fluid(species[2], HallThruster.IsothermalEuler(500.0)),
@@ -372,10 +373,14 @@ simulation = (
     HallThruster.initial_condition!(U, z_cell, simulation, fluid_ranges)
 
     @test U[end, :] == ϕ_func.(z_cell)
-    @test U[end-1, :] == ne_func.(z_cell)
+    @test U[end-1, :] == 6 .* ni_func.(z_cell)
     @test U[end-2, :] == Te_func.(z_cell)
 
     @test all(U[1, :] .== nn)
-    @test U[2, :] == ne_func.(z_cell)
-    @test U[3, :] == un .* ne_func.(z_cell)
+    @test U[2, :] == ni_func.(z_cell)
+    @test U[3, :] == un .* ni_func.(z_cell)
+    @test U[4, :] == ni_func.(z_cell)
+    @test U[5, :] == un .* ni_func.(z_cell)
+    @test U[6, :] == ni_func.(z_cell)
+    @test U[7, :] == un .* ni_func.(z_cell)
 end
