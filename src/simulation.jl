@@ -102,7 +102,10 @@ function update!(dU, U, params, t)
 
 		Δz = z_edge[right] - z_edge[left]
 
-		for j in (fluid_ranges[1][1]):(fluid_ranges[end][end])
+        first_fluid_index = 1
+        last_fluid_index = fluid_ranges[end][end]
+
+		for j in first_fluid_index:last_fluid_index
 			@views dU[j, i] = (F[j, left] - F[j, right])/Δz + Q[j]
 		end
     end
