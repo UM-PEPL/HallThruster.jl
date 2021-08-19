@@ -21,16 +21,10 @@ doctest(HallThruster)
 end
 
 @testset "Conservation law systems and fluids" begin
-    @test HallThruster.nvars(HallThruster.ContinuityOnly) == 1
-    @test HallThruster.nvars(HallThruster.IsothermalEuler) == 2
-    @test HallThruster.nvars(HallThruster.EulerEquations) == 3
-    @test HallThruster.nvars(HallThruster.ContinuityFluid) == 1
-    @test HallThruster.nvars(HallThruster.IsothermalFluid) == 2
-    @test HallThruster.nvars(HallThruster.EulerFluid) == 3
     let Xe_0 = HallThruster.Species(HallThruster.Xenon, 0)
-        @test HallThruster.Fluid(Xe_0, HallThruster.ContinuityOnly(300, 300)) isa HallThruster.ContinuityFluid
-        @test HallThruster.Fluid(Xe_0, HallThruster.IsothermalEuler(300)) isa HallThruster.IsothermalFluid
-        @test HallThruster.Fluid(Xe_0, HallThruster.EulerEquations()) isa HallThruster.EulerFluid
+        @test HallThruster.Fluid(Xe_0, HallThruster.ContinuityOnly(u = 300, T = 300)) |> HallThruster.nvars == 1
+        @test HallThruster.Fluid(Xe_0, HallThruster.IsothermalEuler(T = 300)) |> HallThruster.nvars == 2
+        @test HallThruster.Fluid(Xe_0, HallThruster.EulerEquations()) |> HallThruster.nvars == 3
     end
 end
 
@@ -39,9 +33,6 @@ let Xenon = HallThruster.Xenon,
     ContinuityOnly = HallThruster.ContinuityOnly,
     IsothermalEuler = HallThruster.IsothermalEuler,
     EulerEquations = HallThruster.EulerEquations,
-    ContinuityFluid = HallThruster.ContinuityFluid,
-    IsothermalFluid = HallThruster.IsothermalFluid,
-    EulerFluid = HallThruster.EulerFluid,
     temperature = HallThruster.temperature,
     pressure = HallThruster.pressure,
     density = HallThruster.density,
@@ -63,6 +54,8 @@ let Xenon = HallThruster.Xenon,
     flux = HallThruster.flux,
     HLLE = HallThruster.HLLE,
     upwind = HallThruster.upwind,
+    HLLE! = HallThruster.HLLE!,
+    upwind! = HallThruster.upwind!,
     Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
 
     n = 1e19
@@ -101,9 +94,14 @@ let Xenon = HallThruster.Xenon,
 
     @testset "Thermodynamic property computation" begin
 		# Check to make sure our property checking code works
-		fake_property(U, f::Fluid) = 1
-		fake_property(U, f::EulerFluid) = 2
-		@test !test_property(fake_property, laws)
+		function fake_property(U, f::Fluid)
+            if f.conservation_laws.type == :EulerEquations
+                return 2
+            else
+                return 1
+            end
+        end
+        @test !test_property(fake_property, laws)
 
 		# Check that thermodynamic property computations give identical
 		# results for the different fluid types
@@ -179,7 +177,7 @@ let Xenon = HallThruster.Xenon,
 
 	no_limiter(r) = r
 
-	scheme = (reconstruct = false, flux_function = upwind, limiter = no_limiter)
+	scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
 	HallThruster.reconstruct!(UL, UR, U, scheme)
 
@@ -310,13 +308,35 @@ simulation = (
     inlet_mdot = 5e-6,
     tspan = (0., 0.5e-3),
     scheme = (
-        flux_function = HallThruster.HLLE,
+        flux_function = HallThruster.HLLE!,
         limiter = identity,
         reconstruct = false
     ),
 )
 
-@testset "Simulation tests" begin
+using StaticArrays
+
+@testset "Linear Interpolation tests" begin
+
+    xs = 1:100
+    ys = xs .+ 0.1
+    @test [HallThruster.find_left_index(y, xs) for y in ys] == collect(xs)
+    @test HallThruster.find_left_index(1000, xs) == 100
+    @test HallThruster.find_left_index(-1000, xs) == 0
+
+    
+    xs = [1., 2.]
+    ys = [1., 2.]
+    ℓ = HallThruster.LinearInterpolation(xs, ys)
+    @test ℓ isa HallThruster.LinearInterpolation{Float64, Float64}
+    @test ℓ(1.5) == 1.5
+
+    ys = [1., 2., 3.]
+    @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys))
+end
+
+#begin
+@testset "Simulation tests" begin 
     @test SPT_100 isa HallThruster.Geometry1D
     @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
 
@@ -332,10 +352,10 @@ simulation = (
     _, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(simulation)
 
     @test fluids == [
-        HallThruster.Fluid(species[1], HallThruster.ContinuityOnly(300.0, 500.0)),
-        HallThruster.Fluid(species[2], HallThruster.IsothermalEuler(500.0)),
-        HallThruster.Fluid(species[3], HallThruster.IsothermalEuler(500.0)),
-        HallThruster.Fluid(species[4], HallThruster.IsothermalEuler(500.0)),
+        HallThruster.Fluid(species[1], HallThruster.ContinuityOnly(u = 300.0, T = 500.0)),
+        HallThruster.Fluid(species[2], HallThruster.IsothermalEuler(T = 500.0)),
+        HallThruster.Fluid(species[3], HallThruster.IsothermalEuler(T = 500.0)),
+        HallThruster.Fluid(species[4], HallThruster.IsothermalEuler(T = 500.0)),
     ]
 
     @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
@@ -383,4 +403,24 @@ simulation = (
     @test U[5, :] == un .* ni_func.(z_cell)
     @test U[6, :] == ni_func.(z_cell)
     @test U[7, :] == un .* ni_func.(z_cell)
+
+    cache = (F, UL, UR, Q)
+
+    scheme = simulation.scheme
+
+    reactions = HallThruster.load_ionization_reactions(species)
+
+    params = (;
+        cache,
+        fluids,
+        fluid_ranges,
+        species_range_dict,
+        z_cell,
+        z_edge,
+        reactions,
+        scheme
+    )
+    #dU = zeros(size(U))
+    #@time HallThruster.update!(dU, U, params, 0.0)
+    @code_warntype HallThruster.update!(dU, U, params, 0.0)
 end

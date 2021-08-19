@@ -1,62 +1,76 @@
-function flux(U, fluid::ContinuityFluid)
-    n = U[1]
-    u = velocity(U, fluid)
-    return SA[n * u]
+function flux(U, fluid)
+    F = similar(U)
+    flux!(F, U, fluid)
+    return F
 end
 
-function flux(U, fluid::IsothermalFluid)
-    n, nu = U
-    u = velocity(U, fluid)
-    p = pressure(U, fluid)
-    return SA[nu, nu * u + p/m(fluid)]
+function flux!(F, U, fluid)
+    if fluid.conservation_laws.type == :ContinuityOnly
+        n = U[1]
+        u = velocity(U, fluid)
+        F[1] = n * u
+    elseif fluid.conservation_laws.type == :IsothermalEuler
+        n, nu = U
+        u = velocity(U, fluid)
+        p = pressure(U, fluid)
+        F[1] = nu
+        F[2] = nu * u + p / m(fluid)
+    elseif fluid.conservation_laws.type == :EulerEquations
+        n, nu, nE = U
+        u = velocity(U, fluid)
+        p = pressure(U, fluid)
+        nH = nE + p/m(fluid)
+
+        F[1] = nu
+        F[2] = nu * u + p/m(fluid)
+        F[3] = nH * u
+    end
+    return F
 end
 
-function flux(U, fluid::EulerFluid)
-    n, nu, nE = U
-    u = velocity(U, fluid)
-    p = pressure(U, fluid)
-    nH = nE + p/m(fluid)
+function HLLE!(F, UL, UR, fluid)
+    aL = sound_speed(UL, fluid)
+    aR = sound_speed(UR, fluid)
 
-    return SA[nu, nu * u + p/m(fluid), nH * u]
-end
+    uL = velocity(UL, fluid)
+    uR = velocity(UR, fluid)
 
-# This loop automatically generates specialized versions of the flux functions
-# for each fluid type, so that the correct size of array is returned
-for fluid_type in (ContinuityFluid, IsothermalFluid, EulerFluid)
-    @eval function HLLE(UL, UR, fluid::$fluid_type)
-        aL = sound_speed(UL, fluid)
-        aR = sound_speed(UR, fluid)
+    sL_min, sL_max = min(0, uL-aL), max(0, uL+aL)
+    sR_min, sR_max = min(0, uR-aR), max(0, uR+aR)
 
-        uL = velocity(UL, fluid)
-        uR = velocity(UR, fluid)
+    smin = min(sL_min, sR_min)
+    smax = max(sL_max, sR_max)
 
-        sL_min, sL_max = min(0, uL-aL), max(0, uL+aL)
-        sR_min, sR_max = min(0, uR-aR), max(0, uR+aR)
+    FL = flux(UL, fluid)
+    FR = flux(UR, fluid)
 
-        smin = min(sL_min, sR_min)
-        smax = max(sL_max, sR_max)
-
-        FL = flux(UL, fluid)
-        FR = flux(UR, fluid)
-
-        f = @SVector[
-            0.5 * (FL[i] + FR[i]) -
+    for i in 1:length(F)
+        F[i] = 0.5 * (FL[i] + FR[i]) -
             0.5 * (smax + smin) / (smax - smin) * (FR[i] - FL[i]) +
             smax * smin / (smax - smin) * (UR[i] - UL[i])
-            for i in 1:nvars($fluid_type)
-        ]
     end
+    return F
 end
 
-function upwind(UL, UR, fluid::Fluid)
+function upwind!(F, UL, UR, fluid::Fluid)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
 
     if avg_velocity ≥ 0
-        return flux(UL, fluid)
+        flux!(F, UL, fluid)
     else
-        return flux(UR, fluid)
+        flux!(F, UR, fluid)
+    end
+    return F
+end
+
+# Generate out-of-place (allocating) versions of flux functions
+for fluxfn in ["HLLE", "upwind"]
+    let inplace = Symbol(fluxfn * '!'), outofplace = Symbol(fluxfn)
+        eval(quote
+            $outofplace(UL, UR, fluid::Fluid) = $inplace(similar(UL), UL, UR, fluid)
+        end)
     end
 end
 
@@ -93,7 +107,8 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
     for i in 1:nedges
 		for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-			@views F[fluid_range, i] .= scheme.flux_function(
+			@views scheme.flux_function(
+                F[fluid_range, i],
 				UL[fluid_range, i],
 				UR[fluid_range, i],
 				fluid

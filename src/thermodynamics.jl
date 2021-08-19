@@ -7,27 +7,53 @@ cv(f::Fluid) = f.species.element.cv
 number_density(U, f::Fluid) = U[1]
 density(U, f::Fluid) = number_density(U, f) * m(f)
 
-velocity(U, f::ContinuityFluid) = f.conservation_laws.u
-velocity(U, f::Fluid) = U[2] / U[1]
+function velocity(U, f::Fluid)
+    if f.conservation_laws.type == :ContinuityOnly
+        return f.conservation_laws.u
+    else
+        return U[2] / U[1]
+    end
+end
 
-temperature(U, f::Fluid) = f.conservation_laws.T
-temperature(U, f::EulerFluid) =
-    pressure(U, f) / number_density(U, f) / kB
+function temperature(U, f::Fluid)
+    if f.conservation_laws.type == :EulerEquations
+        pressure(U, f) / number_density(U, f) / kB
+    else
+        return f.conservation_laws.T
+    end
+end
 
-pressure(U, f::Fluid) = number_density(U, f) * kB * temperature(U, f)
-pressure(U, f::EulerFluid) =
-    m(f) * (γ(f)-1) * (U[3] - 0.5 * U[2]^2/U[1])
+function pressure(U, f::Fluid)
+    if f.conservation_laws.type == :EulerEquations
+        return m(f) * (γ(f)-1) * (U[3] - 0.5 * U[2]^2/U[1])
+    else
+        return number_density(U, f) * kB * temperature(U, f)
+    end
+end
 
-stagnation_energy(U, f::Fluid) =
-    0.5 * velocity(U, f)^2 + static_energy(U, f)
-stagnation_energy(U, f::EulerFluid) = U[3] / U[1]
+function stagnation_energy(U, f::Fluid)
+    if f.conservation_laws.type == :EulerEquations
+        return U[3] / U[1]
+    else
+        return 0.5 * velocity(U, f)^2 + static_energy(U, f)
+    end
+end
 
-static_energy(U, f::Fluid) = cv(f) * temperature(U, f)
-static_energy(U, f::EulerFluid) =  U[3]/U[1] - 0.5 * (U[2]/U[1])^2
+function static_energy(U, f::Fluid)
+    if f.conservation_laws.type == :EulerEquations
+        return U[3]/U[1] - 0.5 * (U[2]/U[1])^2
+    else
+        return cv(f) * temperature(U, f)
+    end
+end
 
-static_enthalpy(U, f::Fluid) = cp(f) * temperature(U, f)
-static_enthalpy(U, f::EulerFluid) =
-    U[3]/U[1] - 0.5 * (U[2]/U[1])^2 + pressure(U, f) / density(U, f)
+function static_enthalpy(U, f::Fluid)
+    if f.conservation_laws.type == :EulerEquations
+        return U[3]/U[1] - 0.5 * (U[2]/U[1])^2 + pressure(U, f) / density(U, f)
+    else
+        return cp(f) * temperature(U, f)
+    end
+end
 
 sound_speed(U, f::Fluid) = sqrt(γ(f) * R(f) * temperature(U, f))
 mach_number(U, f::Fluid) = velocity(U, f) / sound_speed(U, f)
