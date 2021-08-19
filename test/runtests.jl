@@ -307,6 +307,7 @@ simulation = (
     solve_ne = false,
     inlet_mdot = 5e-6,
     tspan = (0., 0.5e-3),
+    dt = 5e-8,
     scheme = (
         flux_function = HallThruster.HLLE!,
         limiter = identity,
@@ -396,6 +397,8 @@ end
     @test U[end-1, :] == 6 .* ni_func.(z_cell)
     @test U[end-2, :] == Te_func.(z_cell)
 
+    @show maximum(U[end-2, :])
+
     @test all(U[1, :] .== nn)
     @test U[2, :] == ni_func.(z_cell)
     @test U[3, :] == un .* ni_func.(z_cell)
@@ -423,3 +426,5 @@ end
     #dU = zeros(size(U))
     #@time HallThruster.update!(dU, U, params, 0.0)
 end
+
+@time sol = HallThruster.run_simulation(simulation)

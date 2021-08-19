@@ -44,8 +44,8 @@ function update!(dU, U, params, t)
 	nvariables = size(U, 1)
     ncells = size(U, 2) - 2
 
-	ne_index = nvariables-2
-	Te_index = nvariables-1
+	Te_index = nvariables-2
+	ne_index = nvariables-1
 	ϕ_index = nvariables
 
     # zero variables and apply boundary conditions
@@ -149,7 +149,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, saveat = [])
+    sol = solve(prob, SSPRK33(), dt = sim.dt, saveat = [])
     return sol
 end
 
