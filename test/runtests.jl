@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools
 
 doctest(HallThruster)
 
@@ -422,5 +422,4 @@ end
     )
     #dU = zeros(size(U))
     #@time HallThruster.update!(dU, U, params, 0.0)
-    @code_warntype HallThruster.update!(dU, U, params, 0.0)
 end

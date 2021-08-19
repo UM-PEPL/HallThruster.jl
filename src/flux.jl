@@ -41,8 +41,8 @@ function HLLE!(F, UL, UR, fluid)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid)
-    FR = flux(UR, fluid)
+    FL = flux!(F, UL, fluid)
+    FR = flux!(F, UR, fluid)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -76,7 +76,7 @@ end
 
 function reconstruct!(UL, UR, U, scheme)
 	nconservative, ncells = size(U)
-	Ψ = scheme.limiter
+    Ψ = scheme.limiter
 
     # compute left and right edge states
     for i in 2:ncells-1
@@ -96,8 +96,10 @@ function reconstruct!(UL, UR, U, scheme)
             end
         end
     end
-	@. @views UL[:, 1] = U[:, 1]
-    @. @views UR[:, end] = U[:, end]
+    for j in 1:nconservative
+        UL[j, 1] = U[j, 1]
+        UR[j, end] = U[j, end]
+    end
 
 	return UL, UR
 end
