@@ -17,7 +17,4 @@ include("ionization.jl")
 include("geometry.jl")
 include("simulation.jl")
 
-# This is a comment
-println("Change successfully made")
-
 end # module
