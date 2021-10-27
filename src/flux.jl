@@ -74,6 +74,14 @@ for fluxfn in ["HLLE", "upwind"]
     end
 end
 
+"""
+	reconstruct!
+Reconstruction using the MUSCL scheme. UL is the flux to the left, therefore evaluated on
+the right face, UR is the flux to the right, therefore evaluated on the left face.
+
+"""
+
+
 function reconstruct!(UL, UR, U, scheme)
 	nconservative, ncells = size(U)
     Ψ = scheme.limiter
