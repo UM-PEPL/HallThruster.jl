@@ -16,7 +16,7 @@ end
 
 function allocate_arrays(sim)
     # Number of variables in the state vector U
-    # U = [nn, ni1, ni1, ni1ui1..., niN, niNuiN, Te, ne, Φ]
+    # U = [nn, ni1, ni1ui1..., niN, niNuiN, Te, ne, Φ]
     nvariables = 1 + 2 * sim.ncharge + 3
 
     ncells = sim.ncells

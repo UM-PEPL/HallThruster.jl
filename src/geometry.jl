@@ -36,3 +36,15 @@ function generate_grid(geometry, ncells)
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
     return z_cell, z_edge
 end
+
+"""
+    SPT_100
+Geometry of the SPT_100 thruster
+"""
+
+const SPT_100 = (
+    domain = (0.0, 0.05),
+    channel_length = 0.025,
+    inner_radius = 0.0345,
+    outer_radius = 0.05
+)
