@@ -168,16 +168,16 @@ let Xenon = HallThruster.Xenon,
     U1 = [continuity_state; isothermal_state; euler_state]
 	U2 = [continuity_state_2; isothermal_state_2; euler_state_2]
 	U = hcat(U1, U1, U2, U2)
-
 	nconservative, ncells = size(U)
 	nedges = ncells - 1
 	UL = zeros(nconservative, nedges)
 	UR = zeros(nconservative, nedges)
 	F = zeros(nconservative, nedges)
 
-	no_limiter(r) = r
-
-	scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
+	function no_limiter(r)
+    r
+end
+scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
 	HallThruster.reconstruct!(UL, UR, U, scheme)
 
@@ -372,6 +372,7 @@ end
     @test z_cell[1] == z_edge[1] && z_cell[end] == z_edge[end]
     @test z_cell[2] == 0.5 * (z_edge[2] + z_edge[1])
     @test z_edge[2] - z_edge[1] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
+    @test z_cell[3] - z_cell[2] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
 
     U, (F, UL, UR, Q) = HallThruster.allocate_arrays(simulation)
     @test size(U, 1) == size(F, 1) == size(UL, 1) == size(UR, 1) == size(Q, 1)
