@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Setfield, Statistics, Plots
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Statistics, Plots
 
 configure_simulation = HallThruster.configure_simulation
 generate_grid = HallThruster.generate_grid
@@ -12,7 +12,7 @@ right_edge = HallThruster.right_edge
 
 Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
-ni_func = z -> 2000 #1e6
+ni_func = z -> 1e6 #1e6
 
 end_time = 30e-5 #30e-5
 
@@ -22,11 +22,11 @@ end_time = 30e-5 #30e-5
 simulation = (
     ncells = 100,
     propellant = HallThruster.Xenon,
-    ncharge = 0,
+    ncharge = 1,
     geometry = HallThruster.SPT_100,
     neutral_temperature = 500.,
     neutral_velocity = 300.,
-    ion_temperature = 500.,
+    ion_temperature = 0.0,
     initial_Te = Te_func,
     initial_ϕ = ϕ_func,
     initial_ni = ni_func,
@@ -34,10 +34,10 @@ simulation = (
     solve_ne = false,
     inlet_mdot = 5e-6,
     tspan = (0., end_time),
-    dt = 5e-8,
+    dt = 5e-8, #5e-8
     scheme = (
         flux_function = HallThruster.upwind!,
-        limiter = identity,
+        limiter = nothing,
         reconstruct = false
     ),
 )
@@ -51,10 +51,10 @@ const MMS_CONSTS = (
     ion_temperature = 500,
     nn0 = 1000.0,
     nnx = 1000.0,
-    ni0 = 1000.0,
-    nix = 1000.0,
-    ui0 = 150.0,
-    uix = 150.0
+    ni0 = 2000.0,
+    nix = 0.0,
+    ui0 = 300.0,
+    uix = 0.0
 )
 
 @variables x t
@@ -89,7 +89,6 @@ mms = eval(RHS_func[1]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 
 function update_MMS!(dU, U, params, t) #added mms terms to dU and got rid of source term stuff
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
-	reactions, species_range_dict = params.reactions, params.species_range_dict
 
 	F, UL, UR, Q = params.cache
 
@@ -107,9 +106,10 @@ function update_MMS!(dU, U, params, t) #added mms terms to dU and got rid of sou
     # TEMPORARY: apply Neumann BC on right edge
     for i in 1:nvariables
 	    dU[i, 1] = 0.0
-	    dU[i, ncells] = 0.0
+	    dU[i, ncells+1] = 0.0
         U[i, end] = U[i, end-1]
         #U[i, end] = U[i, 1]
+        #U[i, 1] = U[i, end]
     end
 
     reconstruct!(UL, UR, U, scheme)
@@ -117,17 +117,12 @@ function update_MMS!(dU, U, params, t) #added mms terms to dU and got rid of sou
 
     # deleted all the source term parts and electric field stuff
 
-    #create fluid_index
-    fluid_index = [1, 2, 3, 2, 3, 2 ,3]
-
     for i in 2:ncells+1 #since more faces than cells
     # Compute dU/dt
 		left = left_edge(i) #i-1
 		right = right_edge(i) #i
 
 		Δz = z_edge[right] - z_edge[left]
-
-        first_fluid_index = 1
 
         @views dU[1, i] = (F[1, left] - F[1, right])/Δz + params.mms([z_cell[i] z_cell[i]])[1] #added mms terms here
 
@@ -153,16 +148,15 @@ function run_simulation_MMS(sim, mms) #added mms as input and to params
 
     scheme = sim.scheme
 
-    reactions = load_ionization_reactions(species)
+    #reactions = load_ionization_reactions(species)
 
-    params = (;
+    params = (; # deleted reactions
         cache,
         fluids,
         fluid_ranges,
         species_range_dict,
         z_cell,
         z_edge,
-        reactions,
         scheme,
         mms
     )
@@ -199,9 +193,9 @@ function initial_condition_MMS!(U, z_cell, sim, fluid_ranges) #got rid of electr
 
     for (i, z) in enumerate(z_cell)
         if i < length(z_cell)/2
-            U[nn_index, i] = 2000
+            U[nn_index, i] = 2000.0
         else
-            U[nn_index, i] = 0
+            U[nn_index, i] = 2000.0
         end
         
         ni = sim.initial_ni(z)
@@ -213,8 +207,8 @@ function initial_condition_MMS!(U, z_cell, sim, fluid_ranges) #got rid of electr
                 U[n_index, i] = ni
                 U[nu_index, i] = ni * un
             else 
-                U[n_index, i] = 0.0
-                U[nu_index, i] = 0.0
+                U[n_index, i] = 1e6
+                U[nu_index, i] = 300.0*1e6
             end
             
         end
@@ -228,6 +222,7 @@ end
 mutable struct Result
     solution #::Vector{Matrix{Float64}}
     z_cells #::Vector{Float64}
+    ncells
     u_exa
     errors
     L_inf
@@ -257,10 +252,22 @@ for refinement in 1:refinements
         end
     end
     error = abs.(u_exa - sol.u[1])
-    results[refinement] = Result(sol.u, z_cells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
+    results[refinement] = Result(sol.u, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
     println("N cells: $(simulations_mms[refinement].ncells) ")
     println("CFL number: $(simulations_mms[refinement].dt*MMS_CONSTS.un/((z_cells[end]-z_cells[1])/simulations_mms[refinement].ncells))") #CFL number
-end    
+end  
+
+function compute_slope(ncells, errors)
+    p = Array{Union{Nothing, Float64}}(nothing, length(ncells)-2)
+    for i in 1:length(ncells)-2
+        p[i] = log((errors[i+2]-errors[i+1])/(errors[i+1]-errors[i]))/log(0.5)
+    end 
+    return Statistics.mean(p)
+end
+
+println("L1 error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_1[1] for i in 1:length(results)]))")
+println("L_inf error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[1] for i in 1:length(results)]))")
+
 
 plot(log.([length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]))
 
