@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Setfield, Statistics, Plots
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Statistics, Plots
 
 Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
@@ -30,7 +30,7 @@ simulation = (
     tspan = (0., end_time),
     dt = 5e-8,
     scheme = (
-        flux_function = HallThruster.HLLE!,
+        flux_function = HallThruster.upwind!,
         limiter = identity,
         reconstruct = false
     ),
