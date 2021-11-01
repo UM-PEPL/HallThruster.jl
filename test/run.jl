@@ -1,21 +1,22 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Setfield, Statistics, Plots
 
+Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
+ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
+ni_func = z -> 1e6
 
-SPT_100 = (
+end_time = 10e-8
+
+const SPT_100 = (
     domain = (0.0, 0.05),
     channel_length = 0.025,
     inner_radius = 0.0345,
     outer_radius = 0.05
 )
 
-Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
-ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
-ni_func = z -> 1e6
-
 simulation = (
-    ncells = 20,
+    ncells = 100,
     propellant = HallThruster.Xenon,
-    ncharge = 3,
+    ncharge = 1,
     geometry = SPT_100,
     neutral_temperature = 500.,
     neutral_velocity = 300.,
@@ -26,15 +27,13 @@ simulation = (
     solve_Te = false,
     solve_ne = false,
     inlet_mdot = 5e-6,
-    tspan = (0., 0.5e-3),
+    tspan = (0., end_time),
     dt = 5e-8,
     scheme = (
-        flux_function = HallThruster.upwind!,
+        flux_function = HallThruster.HLLE!,
         limiter = identity,
         reconstruct = false
     ),
 )
 
 sol = HallThruster.run_simulation(simulation)
-
-print(HallThruster.SPT_100)

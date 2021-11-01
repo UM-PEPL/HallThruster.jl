@@ -60,7 +60,7 @@ function update!(dU, U, params, t)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
-	for i in 2:ncells-1
+	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 		Q .= 0.0
 
 		# Compute heavy species source term due to electric field
