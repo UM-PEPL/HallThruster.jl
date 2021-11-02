@@ -337,7 +337,7 @@ using StaticArrays
 end
 
 #begin
-@testset "Simulation tests" begin 
+@testset "Simulation setup tests" begin 
     @test SPT_100 isa HallThruster.Geometry1D
     @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
 
@@ -428,4 +428,8 @@ end
     #@time HallThruster.update!(dU, U, params, 0.0)
 end
 
-@time sol = HallThruster.run_simulation(simulation)
+# TODO: using any of the SSP methods, this fails sometimes and succeeds others, in a way that seems independent of CFL number
+@testset "Freestream preservation" begin
+    include("freestream_preservation.jl")
+    test_preservation(0.9)
+end
