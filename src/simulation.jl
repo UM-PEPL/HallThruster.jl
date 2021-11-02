@@ -64,8 +64,7 @@ function update!(dU, U, params, t)
 		Q .= 0.0
 
 		# Compute heavy species source term due to electric field
-		for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-
+		#=or (fluid, fluid_range) in zip(fluids, fluid_ranges)
 			if fluid.species.Z == 0
 				continue # Neutrals not affected by electric field
 			end
@@ -77,7 +76,7 @@ function update!(dU, U, params, t)
 			q = e * fluid.species.Z
 			n = U[density_index]
 			Q[momentum_index] += q * n * E / m(fluid)
-		end
+		end=#
 
 		# Compute electron density in cell
 		ne = @views electron_density(U[:, i], fluid_ranges)
@@ -86,7 +85,7 @@ function update!(dU, U, params, t)
 		Te = U[Te_index, i]
 
 		# Compute heavy species source term due to ionization
-		for r in reactions
+		#=for r in reactions
 			reactant_index = species_range_dict[r.reactant][1]
 			product_index = species_range_dict[r.product][1]
 			n_reactant = U[reactant_index, i]
@@ -94,7 +93,7 @@ function update!(dU, U, params, t)
 			k = r.rate_coeff
 			Q[reactant_index] -= ne * n_reactant * k(Te)
 			Q[product_index]  += ne * n_product  * k(Te)
-		end
+		end=#
 
 		# Compute dU/dt
 		left = left_edge(i)
@@ -152,7 +151,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, SSPRK33(), dt = sim.dt, saveat = [])
+    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false)
     return sol
 end
 
