@@ -12,12 +12,13 @@ right_edge = HallThruster.right_edge
 
 Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
-ni_func = z -> 1e6 #1e6
+ni_func = z -> 2000 #1e6
 
-end_time = 30e-5 #30e-5
+end_time = 1e-5 #30e-5
 
 #need to merge MMS_CONSTS and simulation parameters to not have a discrepancy between the two
 #also for ions calculate the velocity, this is not fixed and not given, ie wrong for now
+#next check convergence
 
 simulation = (
     ncells = 100,
@@ -33,26 +34,27 @@ simulation = (
     solve_Te = false,
     solve_ne = false,
     inlet_mdot = 5e-6,
+    saveat = [end_time],
     tspan = (0., end_time),
     dt = 5e-8, #5e-8
     scheme = (
         flux_function = HallThruster.upwind!,
-        limiter = nothing,
+        limiter = identity,
         reconstruct = false
     ),
 )
 
 const MMS_CONSTS = (
     n_cells_start = 10,
-    refinements = 5,
-    n_waves = 1.0,
+    refinements = 2,
+    n_waves = 2.0,
     un = 300, 
     L = 0.05,
     ion_temperature = 500,
     nn0 = 1000.0,
     nnx = 1000.0,
     ni0 = 2000.0,
-    nix = 0.0,
+    nix = 0000.0,
     ui0 = 300.0,
     uix = 0.0
 )
@@ -71,9 +73,9 @@ function ni_manufactured_f(x, MMS_CONSTS)
     MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 end 
 
-ui_manufactured = MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+ui_manufactured = 2000 - ni_manufactured #MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 function ui_manufactured_f(x, MMS_CONSTS)
-    MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+    2000 - ni_manufactured_f(x, MMS_CONSTS)#MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 end
 
 RHS_1 = Dt(nn_manufactured) + Dx(nn_manufactured * MMS_CONSTS.un)
@@ -162,7 +164,7 @@ function run_simulation_MMS(sim, mms) #added mms as input and to params
     )
 
     prob = ODEProblem{true}(update_MMS!, U, sim.tspan, params)
-    sol = solve(prob, SSPRK33(), dt = sim.dt, saveat = [end_time])
+    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat) #SSPRK33
     return sol
 end
 
@@ -195,7 +197,7 @@ function initial_condition_MMS!(U, z_cell, sim, fluid_ranges) #got rid of electr
         if i < length(z_cell)/2
             U[nn_index, i] = 2000.0
         else
-            U[nn_index, i] = 2000.0
+            U[nn_index, i] = 0.0
         end
         
         ni = sim.initial_ni(z)
@@ -204,11 +206,11 @@ function initial_condition_MMS!(U, z_cell, sim, fluid_ranges) #got rid of electr
             n_index = j[1]
             nu_index = j[2]
             if i < length(z_cell)/2
-                U[n_index, i] = ni
-                U[nu_index, i] = ni * un
+                U[n_index, i] = ni*sin(z)
+                U[nu_index, i] = ni * un * sin(z)
             else 
-                U[n_index, i] = 1e6
-                U[nu_index, i] = 300.0*1e6
+                U[n_index, i] = ni*sin(z)
+                U[nu_index, i] = ni * un*sin(z)
             end
             
         end
@@ -260,13 +262,13 @@ end
 function compute_slope(ncells, errors)
     p = Array{Union{Nothing, Float64}}(nothing, length(ncells)-2)
     for i in 1:length(ncells)-2
-        p[i] = log((errors[i+2]-errors[i+1])/(errors[i+1]-errors[i]))/log(0.5)
+        p[i] = log(abs(errors[i+2]-errors[i+1])/abs(errors[i+1]-errors[i]))/log(0.5)
     end 
     return Statistics.mean(p)
 end
 
 println("L1 error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_1[1] for i in 1:length(results)]))")
-println("L_inf error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[1] for i in 1:length(results)]))")
+#println("L_inf error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[1] for i in 1:length(results)]))")
 
 
 plot(log.([length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]))
