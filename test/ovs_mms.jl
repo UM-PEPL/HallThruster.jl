@@ -2,6 +2,7 @@ using HallThruster, StaticArrays, Symbolics, DifferentialEquations, Statistics, 
 
 mutable struct Result
     solution #::Vector{Matrix{Float64}}
+    timestep
     z_cells #::Vector{Float64}
     ncells
     u_exa
@@ -18,6 +19,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     ncharge = MMS_CONSTS.ncharge,
     MMS = true,
     mms! = mms!, 
+    cb = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass),  #abstol, reltol, test
     geometry = HallThruster.SPT_100,
     neutral_temperature = 500.,
     neutral_velocity = MMS_CONSTS.un,
@@ -29,8 +31,8 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     solve_Te = false,
     solve_ne = false,
     inlet_mdot = 5e-6,
-    saveat = [end_time],
-    tspan = (0., end_time),
+    saveat = [MMS_CONSTS.max_end_time],
+    tspan = (0., MMS_CONSTS.max_end_time),
     dt = 200e-8, #5e-8
     scheme = (
         flux_function = fluxfn,
@@ -63,7 +65,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         end
         u_exa[end-2:end, :] .= 0.0
         error = abs.(u_exa - sol.u[1])
-        results[refinement] = Result(sol.u, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
+        results[refinement] = Result(sol, simulations_mms[refinement].dt, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
     end
     return results
 end

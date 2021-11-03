@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Statistics, Plots
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Statistics, Plots, DiffEqCallbacks
 
 Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - HallThruster.SPT_100.channel_length))))
@@ -58,6 +58,7 @@ simulation = (
     ncharge = MMS_CONSTS.ncharge,
     MMS = true,
     mms! = mms!, 
+    cb = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass),  #abstol, reltol, test
     geometry = HallThruster.SPT_100,
     neutral_temperature = 500.,
     neutral_velocity = MMS_CONSTS.un,
@@ -81,6 +82,7 @@ simulation = (
 
 mutable struct Result
     solution #::Vector{Matrix{Float64}}
+    timestep
     z_cells #::Vector{Float64}
     ncells
     u_exa
@@ -113,7 +115,7 @@ for refinement in 1:refinements
     end
     u_exa[end-2:end, :] .= 0.0
     error = abs.(u_exa - sol.u[1])
-    results[refinement] = Result(sol.u, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
+    results[refinement] = Result(sol, simulations_mms[refinement].dt, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
     println("N cells: $(simulations_mms[refinement].ncells) ")
     println("CFL number: $(simulations_mms[refinement].dt*MMS_CONSTS.un/((z_cells[end]-z_cells[1])/simulations_mms[refinement].ncells))") #CFL number
 end  
