@@ -313,6 +313,7 @@ simulation = (
         limiter = identity,
         reconstruct = false
     ),
+    saveat = (0, 0.5e-3)
 )
 
 using StaticArrays
