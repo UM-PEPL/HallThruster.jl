@@ -10,6 +10,7 @@ end_time = 20e-5 #30e-5
 const MMS_CONSTS = (
     CFL = 0.99, 
     n_cells_start = 10,
+    ncharge = 1, 
     refinements = 7,
     n_waves = 2.0,
     un = 300.0, 
@@ -54,7 +55,7 @@ mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 simulation = (
     ncells = 100,
     propellant = HallThruster.Xenon,
-    ncharge = 1,
+    ncharge = MMS_CONSTS.ncharge,
     MMS = true,
     mms! = mms!, 
     geometry = HallThruster.SPT_100,
@@ -128,6 +129,10 @@ end
 println("L1 error norm continuity neutral $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_1[1] for i in 1:length(results)]))")
 println("L1 error norm continuity ion $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_1[2] for i in 1:length(results)]))")
 println("L1 error norm momentum ion $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_1[3] for i in 1:length(results)]))")
+println("Linf error norm continuity neutral $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[1] for i in 1:length(results)]))")
+println("Linf error norm continuity ion $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[2] for i in 1:length(results)]))")
+println("Linf error norm momentum ion $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[3] for i in 1:length(results)]))")
+
 
 #println("L_inf error norm $(compute_slope([results[i].ncells for i in 1:length(results)], [results[i].L_inf[1] for i in 1:length(results)]))")
 
