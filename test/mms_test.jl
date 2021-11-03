@@ -5,7 +5,7 @@ Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
 ni_func = z -> 2000 #1e6
 nn_mms_func = z -> 2000
 
-end_time = 20e-5 #30e-5
+end_time = 80e-5 #30e-5
 
 const MMS_CONSTS = (
     CFL = 0.99, 
