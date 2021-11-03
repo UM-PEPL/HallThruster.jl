@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics
 
 doctest(HallThruster)
 
@@ -308,6 +308,8 @@ simulation = (
     inlet_mdot = 5e-6,
     tspan = (0., 0.5e-3),
     dt = 5e-8,
+    MMS = false, 
+    mms! = nothing,
     scheme = (
         flux_function = HallThruster.HLLE!,
         limiter = identity,
@@ -374,15 +376,15 @@ end
     @test z_cell[2] == 0.5 * (z_edge[2] + z_edge[1])
     @test z_edge[2] - z_edge[1] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
     @test z_cell[3] - z_cell[2] == (SPT_100.domain[2] - SPT_100.domain[1]) / simulation.ncells
-
+    
     U, (F, UL, UR, Q) = HallThruster.allocate_arrays(simulation)
     @test size(U, 1) == size(F, 1) == size(UL, 1) == size(UR, 1) == size(Q, 1)
     nvariables = size(U, 1)
     @test nvariables == 1 + 6 + 3
-
+    
     @test size(U, 2) == simulation.ncells+2
     @test size(UL, 2) == size(UR, 2) == size(F, 2) == simulation.ncells+1
-
+    
     mdot = 5e-6 # kg/s
     un = 300 # m/s
     A = π * (0.05^2 - 0.0345^2) # m^2
@@ -392,13 +394,13 @@ end
     nn = mdot / un / A / m_atom
 
     @test nn == HallThruster.inlet_neutral_density(simulation)
-
+    
     HallThruster.initial_condition!(U, z_cell, simulation, fluid_ranges)
 
     @test U[end, :] == ϕ_func.(z_cell)
     @test U[end-1, :] == 6 .* ni_func.(z_cell)
     @test U[end-2, :] == Te_func.(z_cell)
-
+    
     @show maximum(U[end-2, :])
 
     @test all(U[1, :] .== nn)
@@ -433,4 +435,69 @@ end
 @testset "Freestream preservation" begin
     include("freestream_preservation.jl")
     test_preservation(0.9)
+end
+
+######################################
+#computations for MMS OVS
+Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
+ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - HallThruster.SPT_100.channel_length))))
+ni_func = z -> 2000 #1e6
+nn_mms_func = z -> 2000
+
+end_time = 20e-5 #30e-5
+
+const MMS_CONSTS = (
+    CFL = 0.99, 
+    n_cells_start = 10,
+    ncharge = 1,
+    refinements = 7,
+    n_waves = 2.0,
+    un = 300.0, 
+    L = HallThruster.SPT_100.domain[2]-HallThruster.SPT_100.domain[1],
+    ion_temperature = 0.0,
+    nn0 = 1000.0,
+    nnx = 1000.0,
+    ni0 = 2000.0,
+    nix = 1000.0,
+    ui0 = 300.0,
+    uix = 100.0
+)
+
+@variables x t
+Dt = Differential(t)
+Dx = Differential(x)
+
+nn_manufactured = MMS_CONSTS.nn0 + MMS_CONSTS.nnx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+function nn_manufactured_f(x, MMS_CONSTS)
+    MMS_CONSTS.nn0 + MMS_CONSTS.nnx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+end
+
+ni_manufactured =  MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L #MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+function ni_manufactured_f(x, MMS_CONSTS)
+    MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L # MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+end 
+
+ui_manufactured = MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured #MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+function ui_manufactured_f(x, MMS_CONSTS)
+    MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured_f(x, MMS_CONSTS)#MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+end
+
+RHS_1 = Dt(nn_manufactured) + Dx(nn_manufactured * MMS_CONSTS.un)
+RHS_2 = Dt(ni_manufactured) + Dx(ni_manufactured * ui_manufactured)
+RHS_3 = Dt(ni_manufactured * ui_manufactured) + Dx(ni_manufactured * ui_manufactured^2 + ni_manufactured*HallThruster.kB*MMS_CONSTS.ion_temperature)
+
+derivs = expand_derivatives.([RHS_1, RHS_2, RHS_3])
+
+RHS_func = build_function(derivs, [x])
+mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
+
+@testset "Order verification studies with MMS" begin
+    include("ovs_mms.jl")
+    results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = false)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
+    expected_slope = 1
+    for i in 1:MMS_CONSTS.ncharge*2+1
+        @test L_1[i] ≈ expected_slope atol = expected_slope*0.1
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*0.2
+    end 
 end
