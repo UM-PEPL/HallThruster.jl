@@ -37,6 +37,7 @@ function update!(dU, U, params, t)
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
 	F, UL, UR, Q = params.cache
+    MMS, mms! = params.mms
 
 	z_cell, z_edge = params.z_cell, params.z_edge
 	scheme = params.scheme
@@ -62,10 +63,12 @@ function update!(dU, U, params, t)
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 		Q .= 0.0
+        if MMS
+            mms!(Q, [z_cell[i]])#mms!(Q, [z_cell[i]])
+        end
 
 		# Compute heavy species source term due to electric field
 		#=or (fluid, fluid_range) in zip(fluids, fluid_ranges)
-
 			if fluid.species.Z == 0
 				continue # Neutrals not affected by electric field
 			end
@@ -133,6 +136,7 @@ function run_simulation(sim)
     z_cell, z_edge = generate_grid(sim.geometry, sim.ncells)
 
     U, cache = allocate_arrays(sim)
+    mms = (sim.MMS, sim.mms!)
 
     initial_condition!(U, z_cell, sim, fluid_ranges)
 
@@ -148,11 +152,12 @@ function run_simulation(sim)
         z_cell,
         z_edge,
         reactions,
-        scheme
+        scheme,
+        mms
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false)
+    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false, callback = sim.cb)
     return sol
 end
 
@@ -168,6 +173,7 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     nvariables = size(U, 1)
     nn = inlet_neutral_density(sim)
     un = sim.neutral_velocity
+    MMS = sim.MMS
 
     nn_index = 1
 
@@ -176,7 +182,11 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     ϕ_index  = nvariables
 
     for (i, z) in enumerate(z_cell)
-        U[nn_index, i] = nn
+        if MMS
+            U[nn_index, i] = sim.initial_nn_mms(z)
+        else
+            U[nn_index, i] = nn
+        end
 
         ni = sim.initial_ni(z)
         Te = sim.initial_Te(z)

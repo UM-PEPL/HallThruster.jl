@@ -30,6 +30,9 @@ function freestream_preservation(;CFL, fluxfn, reconstruct)
         inlet_mdot = 5e-6,
         tspan = (0., end_time),
         dt = dt,
+        MMS = false, 
+        mms! = nothing,
+        cb = nothing, 
         scheme = (
             flux_function = fluxfn,
             limiter = identity,
