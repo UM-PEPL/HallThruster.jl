@@ -444,11 +444,10 @@ Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
 ni_func = z -> 2000 #1e6
 nn_mms_func = z -> 2000
 
-end_time = 20e-5 #30e-5
-
 const MMS_CONSTS = (
     CFL = 0.99, 
     n_cells_start = 10,
+    max_end_time = 200e-5,
     ncharge = 1,
     refinements = 7,
     n_waves = 2.0,
@@ -500,4 +499,7 @@ mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
         @test L_1[i] ≈ expected_slope atol = expected_slope*0.1
         @test L_inf[i] ≈ expected_slope atol = expected_slope*0.2
     end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+    end
 end
