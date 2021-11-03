@@ -157,7 +157,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false)
+    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false, callback = sim.cb)
     return sol
 end
 

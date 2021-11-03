@@ -32,6 +32,7 @@ function freestream_preservation(;CFL, fluxfn, reconstruct)
         dt = dt,
         MMS = false, 
         mms! = nothing,
+        cb = nothing, 
         scheme = (
             flux_function = fluxfn,
             limiter = identity,
