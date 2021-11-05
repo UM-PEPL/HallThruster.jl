@@ -56,10 +56,14 @@ function update!(dU, U, params, t)
     for i in 1:nvariables
 	    dU[i, 1] = 0.0
 	    dU[i, ncells] = 0.0
-        U[i, end] = U[i, end-1]
+        #U[i, end] = U[i, end-1]
     end
 
+    UL .= 0.0
+    UR .= 0.0
+
     reconstruct!(UL, UR, U, scheme)
+
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
@@ -110,7 +114,7 @@ function update!(dU, U, params, t)
         first_fluid_index = 1
         last_fluid_index = fluid_ranges[end][end]
 
-        @views dU[:, i] .= (F[:, left] - F[:, right])/Δz + Q[j]
+        @views dU[:, i] .= (F[:, left] - F[:, right])/Δz# .+ Q
     end
     return nothing
 end
@@ -157,7 +161,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false, callback = sim.cb)
+    sol = solve(prob, Tsit5(), saveat = sim.saveat)
     return sol
 end
 
@@ -181,11 +185,13 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     ne_index = nvariables - 1
     ϕ_index  = nvariables
 
+    mi = sim.propellant.m
+
     for (i, z) in enumerate(z_cell)
         if MMS
             U[nn_index, i] = sim.initial_nn_mms(z)
         else
-            U[nn_index, i] = nn
+            U[nn_index, i] = 1.5e19 * mi
         end
 
         ni = sim.initial_ni(z)
@@ -194,14 +200,16 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
         Ti = sim.initial_Ti(z)
 
         E = sim.propellant.cv * Ti
+      
 
         # ions initialized with equal densities, same velocity as neutrals
         for j in fluid_ranges[2:end]
             n_index = j[1]
             nu_index = j[2]
-            U[n_index, i] = ni
-            U[nu_index, i] = ni * un
-            U[nE_index, i] = ni * E
+            nE_index = j[3]
+            U[n_index, i] = ni * mi
+            U[nu_index, i] = ni * un * mi
+            U[nE_index, i] = ni * E * mi
         end
         U[Te_index, i] = Te
         @views U[ne_index, i] = electron_density(U[:, i], fluid_ranges)

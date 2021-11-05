@@ -4,8 +4,8 @@ R(f::Fluid) = f.species.element.R
 cp(f::Fluid) = f.species.element.cp
 cv(f::Fluid) = f.species.element.cv
 
-number_density(U, f::Fluid) = U[1]
-density(U, f::Fluid) = number_density(U, f) * m(f)
+number_density(U, f::Fluid) = density(U, f) / m(f)
+density(U, f::Fluid) = U[1]
 
 function velocity(U, f::Fluid)
     if f.conservation_laws.type == :ContinuityOnly
@@ -17,7 +17,7 @@ end
 
 function temperature(U, f::Fluid)
     if f.conservation_laws.type == :EulerEquations
-        pressure(U, f) / number_density(U, f) / kB
+        pressure(U, f) / density(U, f) / R(f)
     else
         return f.conservation_laws.T
     end
@@ -25,9 +25,9 @@ end
 
 function pressure(U, f::Fluid)
     if f.conservation_laws.type == :EulerEquations
-        return m(f) * (γ(f)-1) * (U[3] - 0.5 * U[2]^2/U[1])
+        return (γ(f)-1) * (U[3] - 0.5 * U[2]^2/U[1])
     else
-        return number_density(U, f) * kB * temperature(U, f)
+        return density(U, f) * R(f) * temperature(U, f)
     end
 end
 
