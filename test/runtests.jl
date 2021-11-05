@@ -58,22 +58,24 @@ let Xenon = HallThruster.Xenon,
     upwind! = HallThruster.upwind!,
     Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
 
-    n = 1e19
+    R = Xenon.R
+
+    ρ = 1.0
 	T = 300
 	u = 300
 	ϵ = Xenon.cv * T + 0.5 * u^2
 	mXe = Xenon.m
 
 	continuity_eq = Fluid(Xe_0, ContinuityOnly(; u, T))
-	continuity_state = [n]
+	continuity_state = [ρ]
 	continuity = (continuity_state, continuity_eq)
 
 	isothermal_eq = Fluid(Xe_0, IsothermalEuler(T))
-	isothermal_state = [n, n * u]
+	isothermal_state = [ρ, ρ * u]
 	isothermal = (isothermal_state, isothermal_eq)
 
 	euler_eq = Fluid(Xe_0, EulerEquations())
-	euler_state = [n, n * u, n * ϵ]
+	euler_state = [ρ, ρ * u, ρ * ϵ]
 	euler = (euler_state, euler_eq)
 
 	laws = [continuity, isothermal, euler]
@@ -120,14 +122,14 @@ let Xenon = HallThruster.Xenon,
 		# Check that properties are being computed correctly
 		@test temperature(continuity...) ≈ T
 		@test velocity(continuity...) ≈ u
-		@test number_density(continuity...) ≈ n
-		@test density(continuity...) ≈ m(continuity_eq) * n
-		@test pressure(continuity...) ≈ n * kB * T
+		@test number_density(continuity...) ≈ ρ / m(continuity_eq)
+		@test density(continuity...) ≈  ρ
+		@test pressure(continuity...) ≈ ρ * HallThruster.Xenon.R * T
 		@test static_energy(continuity...) ≈ cv(continuity_eq) * T
 		@test stagnation_energy(continuity...) ≈ cv(continuity_eq) * T + 0.5 * u^2
 		@test static_enthalpy(continuity...) ≈ cp(continuity_eq) * T
 		@test stagnation_enthalpy(continuity...) ≈ cp(continuity_eq) * T + 0.5 * u^2
-		@test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R(continuity_eq) * T)
+		@test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R * T)
 	end
 
     continuity_state_2 = continuity_state * 2
@@ -135,35 +137,34 @@ let Xenon = HallThruster.Xenon,
 	euler_state_2 = euler_state * 2
 
     @testset "Flux computation" begin
-		p = n * kB * T
-		f_euler = SA[n * u, n * u^2 + p / mXe, n * u * (ϵ + p / n / mXe)]
-		@test flux(continuity...) == f_euler[1:1]
-		@test flux(isothermal...) == f_euler[1:2]
-			SA[n * u, n * u^2 + n * kB * T / mXe]
+		p = ρ * R * T
+		f_euler = (ρ * u, ρ * u^2 + p, ρ * u * (ϵ + p / ρ))
+		@test flux(continuity...) == (f_euler[1], 0.0, 0.0)
+		@test flux(isothermal...) == (f_euler[1], f_euler[2], 0.0)
 		@test flux(euler...) == f_euler
 
 		# HLLE flux
-		@test HLLE(continuity_state, continuity...) == flux(continuity...)
-		@test HLLE(isothermal_state, isothermal...) == flux(isothermal...)
-		@test HLLE(euler_state, euler...) == flux(euler...)
+		@test HLLE(continuity_state, continuity...)[1] == flux(continuity...)[1]
+		@test HLLE(isothermal_state, isothermal...)[1:2] == flux(isothermal...)[1:2] |> collect
+		@test HLLE(euler_state, euler...) == flux(euler...) |> collect
 
-		@test upwind(continuity_state, continuity_state_2, continuity_eq) ==
-			flux(continuity...)
+		@test upwind(continuity_state, continuity_state_2, continuity_eq)[1] ==
+			flux(continuity...)[1]
 
 		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq) ==
-			flux(isothermal...)
+			flux(isothermal...)[1:2]  |> collect
 
 		isothermal_state_2[2] *= -2
 
-		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq) ==
-			flux(isothermal_state_2, isothermal_eq)
+		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq)[1:2] ==
+			flux(isothermal_state_2, isothermal_eq)[1:2]  |> collect
 
-		@test upwind(euler_state, euler_state_2, euler_eq) == flux(euler...)
+		@test upwind(euler_state, euler_state_2, euler_eq) == flux(euler...) |> collect
 
 		euler_state_2[2] *= -2
 
 		@test upwind(euler_state, euler_state_2, euler_eq) ==
-			flux(euler_state_2, euler_eq)
+			flux(euler_state_2, euler_eq) |> collect
 	end
     U1 = [continuity_state; isothermal_state; euler_state]
 	U2 = [continuity_state_2; isothermal_state_2; euler_state_2]
@@ -201,19 +202,23 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 		flux(U2[4:6], euler_eq);
 	]
 
-	F1_continuity = flux(U1[1:1], continuity_eq)
-	F2_continuity = flux(U2[1:1], continuity_eq)
+	F1_continuity = flux(U1[1:1], continuity_eq)[1]
+	F2_continuity = flux(U2[1:1], continuity_eq)[1]
+    @show F1_continuity, F2_continuity
 	F_continuity = hcat(F1_continuity, F1_continuity, F2_continuity)
 
-	F1_isothermal = flux(U1[2:3], isothermal_eq)
-	F2_isothermal = flux(U2[2:3], isothermal_eq)
+	F1_isothermal = flux(U1[2:3], isothermal_eq)[1:2] |> collect
+	F2_isothermal = flux(U2[2:3], isothermal_eq)[1:2] |> collect
 	F_isothermal = hcat(F1_isothermal, F2_isothermal, F2_isothermal)
 
-	F1_euler = flux(U1[4:6], euler_eq)
-	F2_euler = flux(U2[4:6], euler_eq)
+	F1_euler = flux(U1[4:6], euler_eq) |> collect
+	F2_euler = flux(U2[4:6], euler_eq) |> collect
 	F_euler = hcat(F1_euler, F2_euler, F2_euler)
 
 	F_expected = vcat(F_continuity, F_isothermal, F_euler)
+
+    @show F, size(F)
+    @show F_expected, size(F)
 
 	@testset "More flux tests" begin
 		@test UL_expected == UL
@@ -340,7 +345,8 @@ using StaticArrays
 end
 
 #begin
-@testset "Simulation setup tests" begin 
+#=
+@testset "Simulation setup tests" begin
     @test SPT_100 isa HallThruster.Geometry1D
     @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
 
@@ -502,4 +508,4 @@ mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
-end
+end=#

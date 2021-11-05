@@ -1,39 +1,68 @@
 function flux(U, fluid)
-    F = similar(U)
-    flux!(F, U, fluid)
+    if fluid.conservation_laws.type == :ContinuityOnly
+        ρ = U[1]
+        u = velocity(U, fluid)
+        F = (ρ * u, 0.0, 0.0)
+    elseif fluid.conservation_laws.type == :IsothermalEuler
+        ρ, ρu = U
+        u = velocity(U, fluid)
+        p = pressure(U, fluid)
+        F = (ρu, ρu * u + p, 0.0)
+    elseif fluid.conservation_laws.type == :EulerEquations
+        ρ, ρu, ρE = U
+        u = U[2] / U[1]
+        p = pressure(U, fluid)
+        ρH = ρE + p
+        F = (ρu, ρu * u + p, ρH * u)
+    end
     return F
 end
 
 function flux!(F, U, fluid)
     if fluid.conservation_laws.type == :ContinuityOnly
-        n = U[1]
+        ρ = U[1]
         u = velocity(U, fluid)
-        F[1] = n * u
+        F[1] = ρ * u
     elseif fluid.conservation_laws.type == :IsothermalEuler
-        n, nu = U
+        ρ, ρu = U
         u = velocity(U, fluid)
         p = pressure(U, fluid)
-        F[1] = nu
-        F[2] = nu * u + p / m(fluid)
+        F[1] = ρu
+        F[2] = ρu * u + p
     elseif fluid.conservation_laws.type == :EulerEquations
-        n, nu, nE = U
-        u = velocity(U, fluid)
+        ρ, ρu, ρE = U
+        u = U[2] / U[1]
         p = pressure(U, fluid)
-        nH = nE + p/m(fluid)
+        ρH = ρE + p
 
-        F[1] = nu
-        F[2] = nu * u + p/m(fluid)
-        F[3] = nH * u
+        F[1] = ρu
+        F[2] = ρu * u + p
+        F[3] = ρH * u
     end
     return F
 end
 
-function HLLE!(F, UL, UR, fluid)
-    aL = sound_speed(UL, fluid)
-    aR = sound_speed(UR, fluid)
+function compute_primitive(U, γ)
+    ρ, ρu, ρE = U
+    u = ρu / ρ
+    p = (γ-1) * (ρE - 0.5 * ρu * u)
+    return ρ, u, p
+end
 
+function compute_conservative(ρ, u, p, γ)
+    ρE = p/(γ-1) + 0.5 * ρ *u^2
+    return ρ, ρ*u, ρE
+end
+
+function HLLE!(F, UL, UR, fluid)
+
+    γ = fluid.species.element.γ
+    
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
+
+    aL = sound_speed(UL, fluid)
+    aR = sound_speed(UR, fluid)
 
     sL_min, sL_max = min(0, uL-aL), max(0, uL+aL)
     sR_min, sR_max = min(0, uR-aR), max(0, uR+aR)
@@ -41,8 +70,11 @@ function HLLE!(F, UL, UR, fluid)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux!(F, UL, fluid)
-    FR = flux!(F, UR, fluid)
+    FL = F
+    FR = @views F[:]
+
+    FL = flux(UL, fluid)
+    FR = flux(UR, fluid)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -80,8 +112,6 @@ Reconstruction using the MUSCL scheme. UL is the flux to the left, therefore eva
 the right face, UR is the flux to the right, therefore evaluated on the left face.
 
 """
-
-
 function reconstruct!(UL, UR, U, scheme)
 	nconservative, ncells = size(U)
     Ψ = scheme.limiter
@@ -116,13 +146,13 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 	_, nedges = size(F)
 
     for i in 1:nedges
-		for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-			@views scheme.flux_function(
+		for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
+            @views scheme.flux_function(
                 F[fluid_range, i],
-				UL[fluid_range, i],
-				UR[fluid_range, i],
-				fluid
-			)
+                UL[fluid_range, i],
+                UR[fluid_range, i],
+                fluid
+            )
 		end
     end
     return F

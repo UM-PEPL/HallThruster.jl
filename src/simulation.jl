@@ -4,7 +4,8 @@ function configure_simulation(sim)
     species = get_species(sim)
     fluids = [
         Fluid(species[1], ContinuityOnly(sim.neutral_velocity, sim.neutral_temperature));
-        [Fluid(species[i], IsothermalEuler(sim.ion_temperature)) for i in 2:sim.ncharge+1]
+        #[Fluid(species[i], IsothermalEuler(sim.ion_temperature)) for i in 2:sim.ncharge+1]
+        [Fluid(species[i], EulerEquations()) for i in 2:sim.ncharge+1]
     ]
     fluid_ranges = ranges(fluids)
     species_range_dict = Dict(
@@ -17,7 +18,8 @@ end
 function allocate_arrays(sim)
     # Number of variables in the state vector U
     # U = [nn, ni1, ni1ui1..., niN, niNuiN, Te, ne, Φ]
-    nvariables = 1 + 2 * sim.ncharge + 3
+    #nvariables = 1 + 2 * sim.ncharge + 3
+    nvariables = 1 + 3 * sim.ncharge + 3
 
     ncells = sim.ncells
     nedges = sim.ncells + 1
@@ -54,10 +56,14 @@ function update!(dU, U, params, t)
     for i in 1:nvariables
 	    dU[i, 1] = 0.0
 	    dU[i, ncells] = 0.0
-        U[i, end] = U[i, end-1]
+        #U[i, end] = U[i, end-1]
     end
 
+    UL .= 0.0
+    UR .= 0.0
+
     reconstruct!(UL, UR, U, scheme)
+
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
@@ -83,10 +89,10 @@ function update!(dU, U, params, t)
 		end=#
 
 		# Compute electron density in cell
-		ne = @views electron_density(U[:, i], fluid_ranges)
-		U[ne_index, i] = ne
+		#ne = @views electron_density(U[:, i], fluid_ranges)
+		#U[ne_index, i] = ne
 
-		Te = U[Te_index, i]
+		#Te = U[Te_index, i]
 
 		# Compute heavy species source term due to ionization
 		#=for r in reactions
@@ -108,9 +114,7 @@ function update!(dU, U, params, t)
         first_fluid_index = 1
         last_fluid_index = fluid_ranges[end][end]
 
-		for j in first_fluid_index:last_fluid_index
-			@views dU[j, i] = (F[j, left] - F[j, right])/Δz + Q[j]
-		end
+        @views dU[:, i] .= (F[:, left] - F[:, right])/Δz# .+ Q
     end
     return nothing
 end
@@ -157,7 +161,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)
-    sol = solve(prob, Tsit5(), dt = sim.dt, saveat = sim.saveat, adaptive = false, callback = sim.cb)
+    sol = solve(prob, Tsit5(), saveat = sim.saveat)
     return sol
 end
 
@@ -181,23 +185,31 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     ne_index = nvariables - 1
     ϕ_index  = nvariables
 
+    mi = sim.propellant.m
+
     for (i, z) in enumerate(z_cell)
         if MMS
             U[nn_index, i] = sim.initial_nn_mms(z)
         else
-            U[nn_index, i] = nn
+            U[nn_index, i] = 1.5e19 * mi
         end
 
         ni = sim.initial_ni(z)
         Te = sim.initial_Te(z)
         ϕ = sim.initial_ϕ(z)
+        Ti = sim.initial_Ti(z)
+
+        E = sim.propellant.cv * Ti
+      
 
         # ions initialized with equal densities, same velocity as neutrals
         for j in fluid_ranges[2:end]
             n_index = j[1]
             nu_index = j[2]
-            U[n_index, i] = ni
-            U[nu_index, i] = ni * un
+            nE_index = j[3]
+            U[n_index, i] = ni * mi
+            U[nu_index, i] = ni * un * mi
+            U[nE_index, i] = ni * E * mi
         end
         U[Te_index, i] = Te
         @views U[ne_index, i] = electron_density(U[:, i], fluid_ranges)
