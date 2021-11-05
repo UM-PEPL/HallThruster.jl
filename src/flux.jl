@@ -57,12 +57,12 @@ end
 function HLLE!(F, UL, UR, fluid)
 
     γ = fluid.species.element.γ
+    
+    uL = velocity(UL, fluid)
+    uR = velocity(UR, fluid)
 
-    ρL, uL, pL = compute_primitive(UL, γ)
-    ρR, uR, pR = compute_primitive(UR, γ)
-
-    aL = sqrt(γ * pL/ρL)
-    aR = sqrt(γ * pR/ρR)
+    aL = sound_speed(UL, fluid)
+    aR = sound_speed(UR, fluid)
 
     sL_min, sL_max = min(0, uL-aL), max(0, uL+aL)
     sR_min, sR_max = min(0, uR-aR), max(0, uR+aR)
@@ -147,14 +147,12 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
     for i in 1:nedges
 		for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
-            if j > 1
-                @views scheme.flux_function(
-                    F[fluid_range, i],
-                    UL[fluid_range, i],
-                    UR[fluid_range, i],
-                    fluid
-                )
-            end
+            @views scheme.flux_function(
+                F[fluid_range, i],
+                UL[fluid_range, i],
+                UR[fluid_range, i],
+                fluid
+            )
 		end
     end
     return F
