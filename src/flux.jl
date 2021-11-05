@@ -70,9 +70,6 @@ function HLLE!(F, UL, UR, fluid)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = F
-    FR = @views F[:]
-
     FL = flux(UL, fluid)
     FR = flux(UR, fluid)
 

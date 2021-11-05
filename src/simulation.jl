@@ -51,19 +51,10 @@ function update!(dU, U, params, t)
 	ne_index = nvariables-1
 	ϕ_index = nvariables
 
-    # zero variables and apply boundary conditions
-    # TEMPORARY: apply Neumann BC on right edge
-    for i in 1:nvariables
-	    dU[i, 1] = 0.0
-	    dU[i, ncells] = 0.0
-        #U[i, end] = U[i, end-1]
-    end
-
-    UL .= 0.0
-    UR .= 0.0
+    dU[:, 1] .= 0.0
+    dU[:, end] .= 0.0
 
     reconstruct!(UL, UR, U, scheme)
-
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
@@ -114,7 +105,7 @@ function update!(dU, U, params, t)
         first_fluid_index = 1
         last_fluid_index = fluid_ranges[end][end]
 
-        @views dU[:, i] .= (F[:, left] - F[:, right])/Δz# .+ Q
+        @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
     return nothing
 end
