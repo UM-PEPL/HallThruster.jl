@@ -204,7 +204,6 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
 	F1_continuity = flux(U1[1:1], continuity_eq)[1]
 	F2_continuity = flux(U2[1:1], continuity_eq)[1]
-    @show F1_continuity, F2_continuity
 	F_continuity = hcat(F1_continuity, F1_continuity, F2_continuity)
 
 	F1_isothermal = flux(U1[2:3], isothermal_eq)[1:2] |> collect
@@ -216,9 +215,6 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 	F_euler = hcat(F1_euler, F2_euler, F2_euler)
 
 	F_expected = vcat(F_continuity, F_isothermal, F_euler)
-
-    @show F, size(F)
-    @show F_expected, size(F)
 
 	@testset "More flux tests" begin
 		@test UL_expected == UL
