@@ -47,12 +47,12 @@ function update!(dU, U, params, t)
 	nvariables = size(U, 1)
     ncells = size(U, 2) - 2
 
-	Te_index = nvariables-2
+	#=Te_index = nvariables-2
 	ne_index = nvariables-1
-	ϕ_index = nvariables
+	ϕ_index = nvariables=#
 
-    dU[:, 1] .= 0.0
-    dU[:, end] .= 0.0
+    apply_bc!(U, params.BCs[1], :left)
+    apply_bc!(U, params.BCs[2], :right)
 
     reconstruct!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
@@ -138,6 +138,7 @@ function run_simulation(sim)
     scheme = sim.scheme
 
     reactions = load_ionization_reactions(species)
+    BCs = sim.BCs
 
     params = (;
         cache,
@@ -148,7 +149,8 @@ function run_simulation(sim)
         z_edge,
         reactions,
         scheme,
-        mms
+        mms,
+        BCs
     )
 
     prob = ODEProblem{true}(update!, U, sim.tspan, params)

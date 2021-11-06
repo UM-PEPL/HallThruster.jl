@@ -6,6 +6,16 @@ function shock_tube(fluxfn, ncells, end_time)
 
     gas = HallThruster.Air
 
+    TL = pL / gas.R / ρL
+    TR = pR / gas.R / ρR
+
+    EL = gas.cv * TL
+    ER = gas.cv * TR
+
+    left_state = [0.0, ρL, ρL * uL, ρL * EL, 0.0, 0.0, 0.0]
+    right_state = [0.0, ρR, ρR * uR, ρR * ER, 0.0, 0.0, 0.0]
+
+    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
     L = 1.0
 
@@ -61,6 +71,7 @@ function shock_tube(fluxfn, ncells, end_time)
             limiter = identity,
             reconstruct = false
         ),
+        BCs = BCs
     )
 
     sol = HallThruster.run_simulation(simulation)

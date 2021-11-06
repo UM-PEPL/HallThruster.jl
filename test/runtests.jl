@@ -320,7 +320,8 @@ simulation = (
         limiter = identity,
         reconstruct = false
     ),
-    saveat = (0, 0.5e-3)
+    saveat = (0, 0.5e-3),
+    BCs = (HallThruster.Neumann(), HallThruster.Neumann())
 )
 
 using StaticArrays
