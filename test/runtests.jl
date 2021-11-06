@@ -334,7 +334,6 @@ using StaticArrays
     @test HallThruster.find_left_index(1000, xs) == 100
     @test HallThruster.find_left_index(-1000, xs) == 0
 
-    
     xs = [1., 2.]
     ys = [1., 2.]
     ℓ = HallThruster.LinearInterpolation(xs, ys)
@@ -343,6 +342,24 @@ using StaticArrays
 
     ys = [1., 2., 3.]
     @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys))
+end
+
+@testset "Boundary condition tests" begin
+    BC1 = HallThruster.Dirichlet([1.0, 1.0, 1.0])
+    U = zeros(3, 5)
+    @test typeof(BC1) <: HallThruster.BoundaryCondition
+    HallThruster.apply_bc!(U, BC1, :left)
+    @test U[:, 1] == BC1.state
+    HallThruster.apply_bc!(U, BC1, :right)
+    @test U[:, end] == BC1.state
+    @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC1, :not_left_or_right))
+
+    BC2 = HallThruster.Neumann()
+    HallThruster.apply_bc!(U, BC2, :left)
+    @test U[:, 1] == zeros(3)
+    HallThruster.apply_bc!(U, BC2, :right)
+    @test U[:, end] == zeros(3)
+    @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC2, :not_left_or_right))
 end
 
 #begin
