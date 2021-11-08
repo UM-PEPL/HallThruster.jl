@@ -15,6 +15,7 @@ include("limiters.jl")
 include("flux.jl")
 include("ionization.jl")
 include("geometry.jl")
+include("boundaryconditions.jl")
 include("simulation.jl")
 
 #dere

@@ -204,7 +204,6 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
 	F1_continuity = flux(U1[1:1], continuity_eq)[1]
 	F2_continuity = flux(U2[1:1], continuity_eq)[1]
-    @show F1_continuity, F2_continuity
 	F_continuity = hcat(F1_continuity, F1_continuity, F2_continuity)
 
 	F1_isothermal = flux(U1[2:3], isothermal_eq)[1:2] |> collect
@@ -216,9 +215,6 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 	F_euler = hcat(F1_euler, F2_euler, F2_euler)
 
 	F_expected = vcat(F_continuity, F_isothermal, F_euler)
-
-    @show F, size(F)
-    @show F_expected, size(F)
 
 	@testset "More flux tests" begin
 		@test UL_expected == UL
@@ -320,7 +316,8 @@ simulation = (
         limiter = identity,
         reconstruct = false
     ),
-    saveat = (0, 0.5e-3)
+    saveat = (0, 0.5e-3),
+    BCs = (HallThruster.Neumann(), HallThruster.Neumann())
 )
 
 using StaticArrays
@@ -333,7 +330,6 @@ using StaticArrays
     @test HallThruster.find_left_index(1000, xs) == 100
     @test HallThruster.find_left_index(-1000, xs) == 0
 
-    
     xs = [1., 2.]
     ys = [1., 2.]
     ℓ = HallThruster.LinearInterpolation(xs, ys)
@@ -342,6 +338,24 @@ using StaticArrays
 
     ys = [1., 2., 3.]
     @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys))
+end
+
+@testset "Boundary condition tests" begin
+    BC1 = HallThruster.Dirichlet([1.0, 1.0, 1.0])
+    U = zeros(3, 5)
+    @test typeof(BC1) <: HallThruster.BoundaryCondition
+    HallThruster.apply_bc!(U, BC1, :left)
+    @test U[:, 1] == BC1.state
+    HallThruster.apply_bc!(U, BC1, :right)
+    @test U[:, end] == BC1.state
+    @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC1, :not_left_or_right))
+
+    BC2 = HallThruster.Neumann()
+    HallThruster.apply_bc!(U, BC2, :left)
+    @test U[:, 1] == zeros(3)
+    HallThruster.apply_bc!(U, BC2, :right)
+    @test U[:, end] == zeros(3)
+    @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC2, :not_left_or_right))
 end
 
 #begin
