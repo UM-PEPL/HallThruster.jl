@@ -9,7 +9,7 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC, B1, B2, S, F, L} #could add 
     fluids::Vector{Fluid}     # An array of user-defined fluids. 
                               # This will give us the capacity to more easily do shock tubes (and other problems)
                               # without Hall thruster baggage
-    initial_condition::Vector{IC}
+    initial_condition::IC
     boundary_conditions::Tuple{B1, B2}   # Tuple of left and right boundary conditions, subject to the approval of PR #10 
     end_time::Float64    # How long to simulate
     scheme:: HyperbolicScheme{F, L} # Flux, Limiter
@@ -259,7 +259,7 @@ function run_simulation_v2(sim)
 
     U, cache = allocate_arrays_v2(sim)
 
-    initial_condition_v2!(U, grid.cell_centers, sim.initial_condition, fluid_ranges)
+    @time initial_condition_v2!(U, grid.cell_centers, sim.initial_condition, fluid_ranges, fluids)
 
     scheme = sim.scheme
     tspan = (0., sim.end_time)
@@ -281,6 +281,9 @@ function run_simulation_v2(sim)
 
     prob = ODEProblem{true}(update_v2!, U, tspan, params)
     sol = solve(prob, Tsit5(), saveat = sim.saveat)
+    @show isconcretetype(typeof(sim))
+    @show isconcretetype(typeof(prob))
+
     return sol
 end
 
@@ -338,31 +341,13 @@ function initial_condition!(U, z_cell, sim, fluid_ranges)
     return U
 end
 
-function initial_condition_v2!(U, z_cell, ic, fluid_ranges) #start with only one fluid, can be extended to multiple fluids later
+function initial_condition_v2!(U, z_cell, IC!, fluid_ranges, fluids)
     #can extend later to more 
     #also not using inlet_neutral_density for now
-    nvariables = size(U, 1)
     #nn = inlet_neutral_density(sim)
-    mi = HallThruster.Air.m
     
     for (i, z) in enumerate(z_cell)
-        # ions initialized with equal densities, same velocity as neutrals
-        for (m, j) in enumerate(fluid_ranges)
-            n = ic[1](z)
-            u = ic[2](z)
-            T = ic[3](z)
-            E = HallThruster.Air.cv * T
-            n_index = j[1]
-            U[n_index, i] = n * mi
-            if j[2] !== nothing
-                nu_index = j[2]
-                U[nu_index, i] = n * u * mi
-            end
-            if j[3] !== nothing
-                nE_index = j[3]
-                U[nE_index, i] = n * E * mi
-            end
-        end
+        @views IC!(U[:, i], z, fluids, z_cell[end])
     end
     return U
 end
