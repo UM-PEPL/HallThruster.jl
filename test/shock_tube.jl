@@ -1,4 +1,4 @@
-using HallThruster
+using HallThruster, Plots
 
 function shock_tube(fluxfn, ncells, end_time)
     ρL, uL, pL = 1.0, 0.0, 1.0
@@ -68,8 +68,8 @@ function shock_tube(fluxfn, ncells, end_time)
         dt = 1e-8, #5e-8
         scheme = (
             flux_function = fluxfn,
-            limiter = identity,
-            reconstruct = false
+            limiter = HallThruster.minmod,
+            reconstruct = true
         ),
         BCs = BCs
     )

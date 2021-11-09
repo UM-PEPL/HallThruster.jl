@@ -5,6 +5,12 @@ Geometry1D = @NamedTuple begin
     outer_radius::Float64
 end
 
+struct Grid1D
+    ncells::Int64
+    edges::Vector{Float64}
+    cell_centers::Vector{Float64}
+end
+
 """
     channel_area(geometry::Geometry1D)
 Compute the area of the Hall thruster channel from the given Geometry1D object
@@ -22,7 +28,7 @@ channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2
 """
     generate_grid(geometry, ncells)
 Generate a one-dimensional uniform grid on the domain specified in the geomety. Returns coordinates
-of cell centers (plus ghost cells) as well as cell interface/edges
+of cell centers (plus ghost cells face coordinates) as well as cell interface/edges
 """
 
 function generate_grid(geometry, ncells)
@@ -34,7 +40,8 @@ function generate_grid(geometry, ncells)
 
     # add ghost cells on left and right boundaries
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
-    return z_cell, z_edge
+    #return z_cell, z_edge
+    return Grid1D(ncells, z_edge, z_cell)
 end
 
 """
