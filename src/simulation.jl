@@ -4,7 +4,7 @@ struct HyperbolicScheme{F, L}
     reconstruct::Bool
 end
 
-Base.@kwdef mutable struct MultiFluidSimulation{IC, B1, B2, S, F, L} #could add callback, or autoselect callback when in MMS mode
+Base.@kwdef mutable struct MultiFluidSimulation{IC, B1, B2, S, F, L, CB} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
     fluids::Vector{Fluid}     # An array of user-defined fluids. 
                               # This will give us the capacity to more easily do shock tubes (and other problems)
@@ -15,6 +15,8 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC, B1, B2, S, F, L} #could add 
     scheme:: HyperbolicScheme{F, L} # Flux, Limiter
     source_term!::S  # Source term function. This can include reactons, electric field, and MMS terms
     saveat::Vector{Float64} #when to save
+    timestepcontrol::Tuple{Float64, Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored. 
+    callback::CB
 end
 
 get_species(sim) = [Species(sim.propellant, i) for i in 0:sim.ncharge]
@@ -64,6 +66,7 @@ function update!(dU, U, params, t)
 
 	z_cell, z_edge = params.z_cell, params.z_edge
 	scheme = params.scheme
+    source_term! = params.source_term!
 
 	nvariables = size(U, 1)
     ncells = size(U, 2) - 2
@@ -76,8 +79,8 @@ function update!(dU, U, params, t)
 
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
-		Q .= 0.0
-        #add possible source term input here
+		
+        source_term!(Q, z_cell[i])
 
 		# Compute dU/dt
 		left = left_edge(i)
@@ -118,6 +121,9 @@ function run_simulation(sim)
     initial_condition!(U, grid.cell_centers, sim.initial_condition, fluid_ranges, fluids)
 
     scheme = sim.scheme
+    source_term! = sim.source_term!
+    timestep = sim.timestepcontrol[1]
+    adaptive = sim.timestepcontrol[2]
     tspan = (0., sim.end_time)
 
     reactions = load_ionization_reactions(species)
@@ -130,13 +136,14 @@ function run_simulation(sim)
         species_range_dict,
         z_cell = grid.cell_centers,
         z_edge = grid.edges,
+        source_term!, 
         reactions,
         scheme,
         BCs
     )
 
     prob = ODEProblem{true}(update!, U, tspan, params)
-    sol = solve(prob, Tsit5(), saveat = sim.saveat)
+    sol = solve(prob, Tsit5(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
     return sol
 end
 

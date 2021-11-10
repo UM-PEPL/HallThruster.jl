@@ -282,46 +282,6 @@ end
     @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], [1:1, 2:3, 4:6]) == 8.0
 end
 
-SPT_100 = (
-    domain = (0.0, 0.05),
-    channel_length = 0.025,
-    inner_radius = 0.0345,
-    outer_radius = 0.05
-)
-
-Te_func = z -> 30 * exp(-(2(z - SPT_100.channel_length) / 0.033)^2)
-ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - SPT_100.channel_length))))
-ni_func = z -> 1e6
-
-simulation = (
-    ncells = 100,
-    propellant = HallThruster.Xenon,
-    ncharge = 3,
-    geometry = SPT_100,
-    neutral_temperature = 500.,
-    neutral_velocity = 300.,
-    ion_temperature = 500.,
-    initial_Te = Te_func,
-    initial_ϕ = ϕ_func,
-    initial_ni = ni_func,
-    solve_Te = false,
-    solve_ne = false,
-    inlet_mdot = 5e-6,
-    tspan = (0., 0.5e-3),
-    dt = 5e-8,
-    MMS = false, 
-    mms! = nothing,
-    scheme = (
-        flux_function = HallThruster.HLLE!,
-        limiter = identity,
-        reconstruct = false
-    ),
-    saveat = (0, 0.5e-3),
-    BCs = (HallThruster.Neumann(), HallThruster.Neumann())
-)
-
-using StaticArrays
-
 @testset "Linear Interpolation tests" begin
 
     xs = 1:100
@@ -358,7 +318,6 @@ end
     @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC2, :not_left_or_right))
 end
 
-#begin
 #=
 @testset "Simulation setup tests" begin
     @test SPT_100 isa HallThruster.Geometry1D
@@ -456,24 +415,20 @@ end
     include("freestream_preservation.jl")
     test_preservation(0.9)
 end
-
+=#
 ######################################
 #computations for MMS OVS
-Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
-ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - HallThruster.SPT_100.channel_length))))
-ni_func = z -> 2000 #1e6
-nn_mms_func = z -> 2000
 
 const MMS_CONSTS = (
     CFL = 0.99, 
     n_cells_start = 10,
+    fluid = HallThruster.Xenon,
     max_end_time = 200e-5,
-    ncharge = 1,
     refinements = 7,
     n_waves = 2.0,
-    un = 300.0, 
+    u_constant = 300.0, #for continuity
+    T_constant = 0.0, #for continuity and isothermal
     L = HallThruster.SPT_100.domain[2]-HallThruster.SPT_100.domain[1],
-    ion_temperature = 0.0,
     nn0 = 1000.0,
     nnx = 1000.0,
     ni0 = 2000.0,
@@ -501,9 +456,9 @@ function ui_manufactured_f(x, MMS_CONSTS)
     MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured_f(x, MMS_CONSTS)#MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 end
 
-RHS_1 = Dt(nn_manufactured) + Dx(nn_manufactured * MMS_CONSTS.un)
+RHS_1 = Dt(nn_manufactured) + Dx(nn_manufactured * MMS_CONSTS.u_constant)
 RHS_2 = Dt(ni_manufactured) + Dx(ni_manufactured * ui_manufactured)
-RHS_3 = Dt(ni_manufactured * ui_manufactured) + Dx(ni_manufactured * ui_manufactured^2 + ni_manufactured*HallThruster.kB*MMS_CONSTS.ion_temperature)
+RHS_3 = Dt(ni_manufactured * ui_manufactured) + Dx(ni_manufactured * ui_manufactured^2 + ni_manufactured*HallThruster.kB*MMS_CONSTS.T_constant)
 
 derivs = expand_derivatives.([RHS_1, RHS_2, RHS_3])
 
@@ -515,11 +470,11 @@ mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 1
-    for i in 1:MMS_CONSTS.ncharge*2+1
+    for i in 1:3 ###need to rewrite this without ncharge terms
         @test L_1[i] ≈ expected_slope atol = expected_slope*0.1
         @test L_inf[i] ≈ expected_slope atol = expected_slope*0.2
     end 
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
-end=#
+end
