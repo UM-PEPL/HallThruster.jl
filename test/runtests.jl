@@ -420,59 +420,108 @@ end
 #computations for MMS OVS
 
 const MMS_CONSTS = (
-    CFL = 0.99, 
+    CFL = 0.50, 
     n_cells_start = 10,
     fluid = HallThruster.Xenon,
-    max_end_time = 200e-5,
+    max_end_time = 1000e-5,
     refinements = 7,
     n_waves = 2.0,
     u_constant = 300.0, #for continuity
-    T_constant = 0.0, #for continuity and isothermal
+    T_constant = 300.0, #for continuity and isothermal
     L = HallThruster.SPT_100.domain[2]-HallThruster.SPT_100.domain[1],
-    nn0 = 1000.0,
-    nnx = 1000.0,
-    ni0 = 2000.0,
-    nix = 1000.0,
-    ui0 = 300.0,
-    uix = 100.0
+    n0 = 2000.0,
+    nx = 1000.0,
+    u0 = 300.0,
+    ux = 100.0,
+    T0 = 300.0,
+    Tx = 100.0
 )
 
 @variables x t
 Dt = Differential(t)
 Dx = Differential(x)
 
-nn_manufactured = MMS_CONSTS.nn0 + MMS_CONSTS.nnx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-function nn_manufactured_f(x, MMS_CONSTS)
-    MMS_CONSTS.nn0 + MMS_CONSTS.nnx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-end
+n_manufactured = MMS_CONSTS.n0 + MMS_CONSTS.nx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
+u_manufactured = MMS_CONSTS.u0 + MMS_CONSTS.ux*sin(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L) #MMS_CONSTS.u0 + MMS_CONSTS.ux*x/MMS_CONSTS.L
+T_manufactured = MMS_CONSTS.u0 + MMS_CONSTS.ux*x/MMS_CONSTS.L
+E = MMS_CONSTS.fluid.cv*T_manufactured + 0.5*u_manufactured*u_manufactured
 
-ni_manufactured =  MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L #MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-function ni_manufactured_f(x, MMS_CONSTS)
-    MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L # MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-end 
 
-ui_manufactured = MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured #MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-function ui_manufactured_f(x, MMS_CONSTS)
-    MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured_f(x, MMS_CONSTS)#MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-end
+RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS.u_constant)
+RHS_2 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
+RHS_3 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.kB*MMS_CONSTS.T_constant)
+RHS_4 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
+RHS_5 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.kB*T_manufactured)
+RHS_6 = Dt(n_manufactured*E) + Dx((n_manufactured*E + n_manufactured*HallThruster.kB*T_manufactured)*u_manufactured)
 
-RHS_1 = Dt(nn_manufactured) + Dx(nn_manufactured * MMS_CONSTS.u_constant)
-RHS_2 = Dt(ni_manufactured) + Dx(ni_manufactured * ui_manufactured)
-RHS_3 = Dt(ni_manufactured * ui_manufactured) + Dx(ni_manufactured * ui_manufactured^2 + ni_manufactured*HallThruster.kB*MMS_CONSTS.T_constant)
 
 derivs = expand_derivatives.([RHS_1, RHS_2, RHS_3])
+conservative_func = build_function([n_manufactured, n_manufactured, n_manufactured*u_manufactured], [x, t]) # n_manufactured, n_manufactured*u_manufactured, n_manufactured*E
 
 RHS_func = build_function(derivs, [x])
 mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
+mms_conservative = eval(conservative_func[1])
 
-@testset "Order verification studies with MMS" begin
+
+@testset "Order verification studies with MMS, set 1: upwind, no reconstruct" begin
     include("ovs_mms.jl")
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 1
-    for i in 1:3 ###need to rewrite this without ncharge terms
-        @test L_1[i] ≈ expected_slope atol = expected_slope*0.1
-        @test L_inf[i] ≈ expected_slope atol = expected_slope*0.2
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_inf $(L_inf[i])")
+    end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+    end
+end
+
+@testset "Order verification studies with MMS, set 2: HLLE, no reconstruct" begin
+    include("ovs_mms.jl")
+    results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = false)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
+    expected_slope = 1
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_inf $(L_inf[i])")
+    end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+    end
+end
+
+
+@testset "Order verification studies with MMS, set 3: upwind, minmod reconstruct" begin
+    include("ovs_mms.jl")
+    results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = true)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
+    expected_slope = 2
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_inf $(L_inf[i])")
+    end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+    end
+end
+
+@testset "Order verification studies with MMS, set 4: HLLE, minmod reconstruct" begin
+    include("ovs_mms.jl")
+    results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = true)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
+    expected_slope = 2
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*1
+        println("Row $(i), L_inf $(L_inf[i])")
     end 
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
