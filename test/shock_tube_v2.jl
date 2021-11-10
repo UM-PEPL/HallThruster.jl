@@ -57,13 +57,15 @@ function shock_tube(fluxfn, ncells, end_time)
     #simulation input, need to somehow do initial conditions now as well, do as with boundary conditions in thomas code
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(geometry, ncells), 
     boundary_conditions = BCs,
-    scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, true),
+    scheme = HallThruster.HyperbolicScheme(fluxfn, identity, false),
     initial_condition = IC!, 
     source_term! = source, 
     fluids = [HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations());
     HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations())], 
     end_time = end_time, 
-    saveat = [0, end_time]
+    saveat = [0, end_time],
+    timestepcontrol = (1e-6, true), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
+    callback = nothing
     )
     sol = HallThruster.run_simulation(sim)
 end
