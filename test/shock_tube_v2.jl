@@ -26,7 +26,7 @@ function shock_tube(fluxfn, ncells, end_time)
         outer_radius = 0.05
     )
 
-    function source!(Q, z)
+    function source!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z, i)
        return Q
     end
         
@@ -80,7 +80,7 @@ function run_shock_tube(ncells, time)
         γ = 1.4
     );
     xs = LinRange(0.0, 1.0, ncells+2); # x locations at which to solve
-    positions, regions, values = solve(problem, xs);
+    positions, regions, values = SodShockTube.solve(problem, xs);
 
     #discretised
     @time sol = shock_tube(HallThruster.HLLE!, ncells, time)
@@ -104,10 +104,10 @@ function run_shock_tube(ncells, time)
     lines!(ax_u, values.x, values.u; opts...)
     lines!(ax_u, values.x, ρu_d./ρ_d; opts...)
     lines!(ax_p, values.x, values.p; opts...)
-    lines!(ax_p, values.x, (1.4-1).*(ρE_d-0.5.*ρu_d.*ρu_d./ρ_d); opts...)
+    lines!(ax_p, values.x, @.((1.4-1)*(ρE_d-0.5*ρu_d*ρu_d/ρ_d)); opts...)
     lines!(ax_E, values.x, values.e; opts...) #stagnation energy
-    lines!(ax_E, values.x, ρE_d + 0.5.*ρu_d.*ρu_d./ρ_d./ρ_d.*(1 .-ρ_d); opts...) #stagnation energy
-    lines!(ax_E, values.x, (values.e - 0.5.*values.u.*values.u)./values.ρ; opts...) #internal energy
-    lines!(ax_E, values.x, (ρE_d .- 0.5.*ρu_d.*ρu_d./ρ_d)./ρ_d ; opts...) #internal energy
+    lines!(ax_E, values.x, @.(ρE_d + 0.5*ρu_d*ρu_d/ρ_d/ρ_d*(1 -ρ_d)); opts...) #stagnation energy
+    lines!(ax_E, values.x, @.((values.e - 0.5*values.u*values.u)/values.ρ); opts...) #internal energy
+    lines!(ax_E, values.x, @.((ρE_d - 0.5*ρu_d*ρu_d/ρ_d)/ρ_d); opts...) #internal energy
     display(f)
 end
