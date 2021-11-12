@@ -94,3 +94,23 @@ function load_ionization_reactions(species)
 
 	return reactions
 end
+
+function apply_reactions!(Q, U, reactions::Vector{HallThruster.IonizationReaction{HallThruster.LinearInterpolation{Float64, Float64}}}, 
+	species_range_dict, fluid, fluid_ranges, cell_volume, i::Int64)
+	ne = @views HallThruster.electron_density(U[:, i], fluid_ranges)/fluid.m
+    Te = 15.0 #in eV
+    dt = 1e-6
+	for r in reactions
+		reactant_index = species_range_dict[r.reactant][1]
+		product_index = species_range_dict[r.product][1]
+		n_reactant = U[reactant_index, i]/fluid.m
+		if n_reactant > 1
+			n_product = U[product_index, i]/fluid.m
+			k = r.rate_coeff
+			@views Q[reactant_index] -= ne * n_reactant * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
+			println("$(Q[reactant_index])")
+			@views Q[product_index]  += ne * n_product  * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
+			println("$(Q[product_index])")
+		end
+	end
+end

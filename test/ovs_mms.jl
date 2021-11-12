@@ -13,7 +13,10 @@ end
 
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
-    source = mms!
+    #create a template definition of source! function somewhere
+    function source!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z, i)
+        mms!(Q, [z])
+    end
     
     function IC!(U, z, fluids, L)
         gas1 = fluids[1].species.element
@@ -41,7 +44,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
-    source_term! = source, 
+    source_term! = source!, 
     fluids = [HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.ContinuityOnly(MMS_CONSTS.u_constant, MMS_CONSTS.T_constant));
     HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.IsothermalEuler(MMS_CONSTS.T_constant))],
     #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())], 

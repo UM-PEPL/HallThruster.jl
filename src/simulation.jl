@@ -82,34 +82,13 @@ function update!(dU, U, params, t)
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 		
         Q .= 0.0
-        source_term!(Q, z_cell[i])
-
-        #get electron density and temperature 
-        ne = @views electron_density(U[:, i], fluid_ranges)/fluid.m
-        Te = 15.0 #in eV
-        dt = 1e-6
-
-        # Compute source term due to ionization
-		for r in reactions
-			reactant_index = species_range_dict[r.reactant][1]
-			product_index = species_range_dict[r.product][1]
-			n_reactant = U[reactant_index, i]/fluid.m
-            if n_reactant > 1
-                n_product = U[product_index, i]/fluid.m
-                k = r.rate_coeff
-                Q[reactant_index] -= ne * n_reactant * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
-                Q[product_index]  += ne * n_product  * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
-            end
-		end
+        source_term!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z_cell[i], i)
 
 		# Compute dU/dt
 		left = left_edge(i)
 		right = right_edge(i)
 
 		Δz = z_edge[right] - z_edge[left]
-
-        first_fluid_index = 1
-        last_fluid_index = fluid_ranges[end][end]
 
         @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
