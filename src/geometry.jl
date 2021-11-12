@@ -5,10 +5,11 @@ Geometry1D = @NamedTuple begin
     outer_radius::Float64
 end
 
-struct Grid1D
+struct Grid1D 
     ncells::Int64
     edges::Vector{Float64}
     cell_centers::Vector{Float64}
+    cell_volume::Float64
 end
 
 """
@@ -27,8 +28,8 @@ channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2
 
 """
     generate_grid(geometry, ncells)
-Generate a one-dimensional uniform grid on the domain specified in the geomety. Returns coordinates
-of cell centers (plus ghost cells face coordinates) as well as cell interface/edges
+Generate a one-dimensional uniform grid on the domain specified in the geomety. Returns number of cells, coordinates
+of cell centers (plus ghost cells face coordinates), interface/edges and volume of a cell for number density calculations. 
 """
 
 function generate_grid(geometry, ncells)
@@ -40,8 +41,11 @@ function generate_grid(geometry, ncells)
 
     # add ghost cells on left and right boundaries
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
-    #return z_cell, z_edge
-    return Grid1D(ncells, z_edge, z_cell)
+
+    # get cell area
+    cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius)*abs(geometry.domain[2]-geometry.domain[1])/ncells
+
+    return Grid1D(ncells, z_edge, z_cell, cell_volume)
 end
 
 """

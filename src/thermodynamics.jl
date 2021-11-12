@@ -33,7 +33,7 @@ end
 
 function stagnation_energy(U, f::Fluid)
     if f.conservation_laws.type == :EulerEquations
-        return U[3] / U[1]
+        return  U[3] + (0.5*(U[2])^2/(U[1])^2)*(1 - U[1])
     else
         return 0.5 * velocity(U, f)^2 + static_energy(U, f)
     end
