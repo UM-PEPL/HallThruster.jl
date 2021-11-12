@@ -1,4 +1,4 @@
-using HallThruster, Plots
+using HallThruster, Plots, SodShockTube, CairoMakie
 
 function shock_tube(fluxfn, ncells, end_time)
     ρL, uL, pL = 1.0, 0.0, 1.0
@@ -26,8 +26,8 @@ function shock_tube(fluxfn, ncells, end_time)
         outer_radius = 0.05
     )
 
-    function source(z)
-       return 0.0
+    function source!(Q, z)
+       return Q
     end
         
     function IC!(U, z, fluids, L)
@@ -57,9 +57,9 @@ function shock_tube(fluxfn, ncells, end_time)
     #simulation input, need to somehow do initial conditions now as well, do as with boundary conditions in thomas code
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(geometry, ncells), 
     boundary_conditions = BCs,
-    scheme = HallThruster.HyperbolicScheme(fluxfn, identity, false),
+    scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, true),
     initial_condition = IC!, 
-    source_term! = source, 
+    source_term! = source!, 
     fluids = [HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations());
     HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations())], 
     end_time = end_time, 
@@ -71,12 +71,43 @@ function shock_tube(fluxfn, ncells, end_time)
 end
 
 function run_shock_tube(ncells, time)
-    @time sol = shock_tube(HallThruster.HLLE!, ncells, time)
-    zs = LinRange(0, 1, ncells+2)
-    p = plot(zs, sol.u[1][1, :])
-    plot!(zs, sol.u[end][4, :])
-    display(p)
-    @show sol.t[end]
-    sol
+    #analytical
+    problem = ShockTubeProblem(
+        geometry = (0.0, 1.0, 0.5), # left edge, right edge, initial shock location
+        left_state = (ρ = 1.0, u = 0.0, p = 1.0),
+        right_state = (ρ = 0.125, u = 0.0, p = 0.1),
+        t = time,
+        γ = 1.4
+    );
+    xs = LinRange(0.0, 1.0, ncells+2); # x locations at which to solve
+    positions, regions, values = solve(problem, xs);
 
+    #discretised
+    @time sol = shock_tube(HallThruster.HLLE!, ncells, time)
+    ρ_d = sol.u[2][1, :]
+    ρu_d = sol.u[2][2, :]
+    ρE_d = sol.u[2][3, :]
+    zs = LinRange(0, 1, ncells+2)
+    @show sol.t[end]
+    
+    #plot the discrepancies
+    f = Figure(resolution = (1000, 1000))
+    ax_ρ = Axis(f[1,1], xlabel = "x", ylabel = "ρ", title = "Density")
+    ax_u = Axis(f[2,1], xlabel = "x", ylabel = "u", title = "Velocity")
+    ax_p = Axis(f[1,2], xlabel = "x", ylabel = "p", title = "Pressure")
+    ax_E = Axis(f[2,2], xlabel = "x", ylabel = "E", title = "Stagnation Energy")
+
+    opts = (;linewidth = 4)
+
+    lines!(ax_ρ, values.x, values.ρ; opts...)
+    lines!(ax_ρ, values.x, ρ_d; opts...)
+    lines!(ax_u, values.x, values.u; opts...)
+    lines!(ax_u, values.x, ρu_d./ρ_d; opts...)
+    lines!(ax_p, values.x, values.p; opts...)
+    lines!(ax_p, values.x, (1.4-1).*(ρE_d-0.5.*ρu_d.*ρu_d./ρ_d); opts...)
+    lines!(ax_E, values.x, values.e; opts...) #stagnation energy
+    lines!(ax_E, values.x, ρE_d + 0.5.*ρu_d.*ρu_d./ρ_d./ρ_d.*(1 .-ρ_d); opts...) #stagnation energy
+    lines!(ax_E, values.x, (values.e - 0.5.*values.u.*values.u)./values.ρ; opts...) #internal energy
+    lines!(ax_E, values.x, (ρE_d .- 0.5.*ρu_d.*ρu_d./ρ_d)./ρ_d ; opts...) #internal energy
+    display(f)
 end

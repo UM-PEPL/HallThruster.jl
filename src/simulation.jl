@@ -64,7 +64,7 @@ function update!(dU, U, params, t)
 
 	F, UL, UR, Q = params.cache
 
-	z_cell, z_edge = params.z_cell, params.z_edge
+	z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
 	scheme = params.scheme
     source_term! = params.source_term!
 
@@ -76,11 +76,31 @@ function update!(dU, U, params, t)
 
     reconstruct!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
+    fluid = fluids[1].species.element
 
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 		
+        Q .= 0.0
         source_term!(Q, z_cell[i])
+
+        #get electron density and temperature 
+        ne = @views electron_density(U[:, i], fluid_ranges)/fluid.m
+        Te = 15.0 #in eV
+        dt = 1e-6
+
+        # Compute source term due to ionization
+		for r in reactions
+			reactant_index = species_range_dict[r.reactant][1]
+			product_index = species_range_dict[r.product][1]
+			n_reactant = U[reactant_index, i]/fluid.m
+            if n_reactant > 1
+                n_product = U[product_index, i]/fluid.m
+                k = r.rate_coeff
+                Q[reactant_index] -= ne * n_reactant * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
+                Q[product_index]  += ne * n_product  * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
+            end
+		end
 
 		# Compute dU/dt
 		left = left_edge(i)
@@ -136,6 +156,7 @@ function run_simulation(sim)
         species_range_dict,
         z_cell = grid.cell_centers,
         z_edge = grid.edges,
+        cell_volume = grid.cell_volume,
         source_term!, 
         reactions,
         scheme,

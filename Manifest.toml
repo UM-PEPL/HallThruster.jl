@@ -944,6 +944,11 @@ git-tree-sha1 = "ae4bbcadb2906ccc085cf52ac286dc1377dceccc"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "2.1.2"
 
+[[PartialFunctions]]
+git-tree-sha1 = "c9e22bc046e05f549623d951ab33a6095017982d"
+uuid = "570af359-4316-4cb7-8c74-252c00c2016b"
+version = "1.0.4"
+
 [[Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b4f5d02549a10e20780a24fce72bea96b6329e29"
@@ -1189,6 +1194,14 @@ version = "0.9.4"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
+
+[[SodShockTube]]
+deps = ["Documenter", "NLsolve", "PartialFunctions"]
+git-tree-sha1 = "511a516f8a3bfc0b04228525d43e37134260104b"
+repo-rev = "main"
+repo-url = "https://github.com/archermarx/SodShockTube.jl.git"
+uuid = "2160a001-e9fc-4c63-b529-f2c7ec8d982c"
+version = "0.1.0"
 
 [[SortingAlgorithms]]
 deps = ["DataStructures"]

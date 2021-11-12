@@ -15,10 +15,6 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     source = mms!
     
-    #need to somehow get the functions from runtests.jl to here
-    #think about how to integrate ICs and BCs such that no need to define quantities twice, often BCs will be similar to ICs.
-    #need information about fluid in BCs for certain quantities as well. 
-
     function IC!(U, z, fluids, L)
         gas1 = fluids[1].species.element
 
