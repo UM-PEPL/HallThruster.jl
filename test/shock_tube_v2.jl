@@ -26,7 +26,7 @@ function shock_tube(fluxfn, ncells, end_time)
         outer_radius = 0.05
     )
 
-    function source!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z, i)
+    function source!(Q, U, params, i)
        return Q
     end
         

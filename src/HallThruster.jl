@@ -17,6 +17,7 @@ include("ionization.jl")
 include("geometry.jl")
 include("boundaryconditions.jl")
 include("simulation.jl")
+include("sourceterms.jl")
 
 #dere
 # this change was made on main

@@ -527,3 +527,9 @@ end
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
 end
+
+
+@testset "Test ion acceleration source term" begin
+    include("source.jl")
+    test_ion_accel_source(HallThruster.HLLE!, false, 0.0002, 1e-8)
+end

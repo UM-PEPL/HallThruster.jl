@@ -14,8 +14,8 @@ end
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     #create a template definition of source! function somewhere
-    function source!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z, i)
-        mms!(Q, [z])
+    function source!(Q, U, params, i)
+        mms!(Q, [params.z_cell[i]])
     end
     
     function IC!(U, z, fluids, L)
@@ -26,7 +26,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         T1 = MMS_CONSTS.T_constant
         E = MMS_CONSTS.fluid.cv*T1 + 0.5*u1*u1
 
-        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]
+        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]f
         return U
     end
 
