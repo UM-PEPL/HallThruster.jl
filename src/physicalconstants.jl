@@ -1,6 +1,6 @@
 """
     e
-Electron mass (1.602176634e-19 kg)
+Electron charge (1.602176634e-19 Coulomb)
 """
 const e = 1.602176634e-19
 

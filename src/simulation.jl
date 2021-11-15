@@ -76,13 +76,21 @@ function update!(dU, U, params, t)
 
     reconstruct!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
-    fluid = fluids[1].species.element
 
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 		
         Q .= 0.0
-        source_term!(Q, U, reactions, species_range_dict, fluid_ranges, fluid, cell_volume, z_cell[i], i)
+
+        source_term!(Q, U, params, i)
+        
+        #formulate in terms of change in energy
+        #=
+        for j in 1:length(fluids)
+            if fluids[j].species.Z > 0
+                Q[fluid_ranges[j][2]] = e/fluids[j].species.element.m*U[fluid_ranges[j][1], i]*params.E_d[i]*fluids[j].species.Z
+            end
+        end=#
 
 		# Compute dU/dt
 		left = left_edge(i)
@@ -128,6 +136,16 @@ function run_simulation(sim)
     reactions = load_ionization_reactions(species)
     BCs = sim.boundary_conditions
 
+    E_d = Array{Union{Nothing, Float64}}(nothing, length(grid.cell_centers))
+   
+    for (i, z_cell) in enumerate(grid.cell_centers)
+        if z_cell < 0.025
+            E_d[i] = 8000.0
+        else
+            E_d[i] = 8000.0 #00/(grid.cell_centers[end] - grid.cell_centers[1])
+        end
+    end
+
     params = (;
         cache,
         fluids,
@@ -139,11 +157,12 @@ function run_simulation(sim)
         source_term!, 
         reactions,
         scheme,
-        BCs
+        BCs,
+        E_d
     )
 
     prob = ODEProblem{true}(update!, U, tspan, params)
-    sol = solve(prob, Tsit5(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
+    sol = solve(prob, SSPRK53(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
     return sol
 end
 
