@@ -84,15 +84,7 @@ function update!(dU, U, params, t)
 
         source_term!(Q, U, params, i)
         
-        #formulate in terms of change in energy
-        #=
-        for j in 1:length(fluids)
-            if fluids[j].species.Z > 0
-                Q[fluid_ranges[j][2]] = e/fluids[j].species.element.m*U[fluid_ranges[j][1], i]*params.E_d[i]*fluids[j].species.Z
-            end
-        end=#
-
-		# Compute dU/dt
+        # Compute dU/dt
 		left = left_edge(i)
 		right = right_edge(i)
 
@@ -158,7 +150,8 @@ function run_simulation(sim)
         reactions,
         scheme,
         BCs,
-        E_d
+        E_d,
+        dt = timestep
     )
 
     prob = ODEProblem{true}(update!, U, tspan, params)
