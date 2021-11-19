@@ -114,8 +114,8 @@ function reconstruct!(UL, UR, U, scheme)
     Ψ = scheme.limiter
 
     # compute left and right edge states
-    @inbounds for i in 2:ncells-1
-        @inbounds for j in 1:nconservative
+    for i in 2:ncells-1
+        for j in 1:nconservative
             u₋ = U[j, i-1]
             uᵢ = U[j, i]
             u₊ = U[j, i+1]
@@ -136,8 +136,8 @@ function compute_edge_states!(UL, UR, U, scheme)
     if scheme.reconstruct
         reconstruct!(UL, UR, U, scheme)
     else
-        @inbounds for i in 2:ncells-1
-            @inbounds for j in 1:nconservative
+        for i in 2:ncells-1
+            for j in 1:nconservative
                 UL[j, right_edge(i)] = U[j, i]
                 UR[j, left_edge(i)]  = U[j, i]
             end
