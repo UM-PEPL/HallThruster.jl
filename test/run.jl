@@ -1,4 +1,5 @@
-using Test, HallThruster, Plots
+#using Test, HallThruster, Plots
+using HallThruster, StaticArrays
 
 function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
@@ -10,13 +11,15 @@ function IC!(U, z, fluids, L)
     ρ1 = 1.0
     ρ2 = 0.01
     u1 = 300.0
-    U .= [ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
+    U[1] = ρ1
+    U[2] = ρ2
+    U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
 end
 
 function run()
     fluid = HallThruster.Xenon
-    timestep = 1e-8
+    timestep = 2e-8
     end_time = 0.0002
 
     ρ1 = 1.0
@@ -31,7 +34,7 @@ function run()
     sim = HallThruster.MultiFluidSimulation(
         grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
-        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
+        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, HallThruster.minmod, true),
         initial_condition = IC!,
         source_term! = source!,
         fluids = [
@@ -51,6 +54,8 @@ function run()
         callback = nothing
     )
 
-    @time sol = HallThruster.run_simulation(sim)
+    sol = HallThruster.run_simulation(sim)
 end
+
+run()
 #Plots.plot(sim.grid.cell_centers, sol.u[1][3, :])

@@ -6,16 +6,16 @@ end
 
 Base.@kwdef mutable struct MultiFluidSimulation{IC, B1, B2, S, F, L, CB} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
-    fluids::Vector{Fluid}     # An array of user-defined fluids. 
+    fluids::Vector{Fluid}     # An array of user-defined fluids.
                               # This will give us the capacity to more easily do shock tubes (and other problems)
                               # without Hall thruster baggage
     initial_condition::IC
-    boundary_conditions::Tuple{B1, B2}   # Tuple of left and right boundary conditions, subject to the approval of PR #10 
+    boundary_conditions::Tuple{B1, B2}   # Tuple of left and right boundary conditions, subject to the approval of PR #10
     end_time::Float64    # How long to simulate
     scheme:: HyperbolicScheme{F, L} # Flux, Limiter
     source_term!::S  # Source term function. This can include reactons, electric field, and MMS terms
     saveat::Vector{Float64} #when to save
-    timestepcontrol::Tuple{Float64, Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored. 
+    timestepcontrol::Tuple{Float64, Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored.
     callback::CB
 end
 
@@ -44,7 +44,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
             nvariables += 3
         end
     end
-    
+
     ncells = sim.grid.ncells
     nedges = sim.grid.ncells + 1
 
@@ -74,23 +74,22 @@ function update!(dU, U, params, t)
     apply_bc!(U, params.BCs[1], :left)
     apply_bc!(U, params.BCs[2], :right)
 
-    reconstruct!(UL, UR, U, scheme)
+    compute_edge_states!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
-		
-        Q .= 0.0
 
+        @turbo Q .= 0.0
         source_term!(Q, U, params, i)
-        
+
         # Compute dU/dt
 		left = left_edge(i)
 		right = right_edge(i)
 
 		Δz = z_edge[right] - z_edge[left]
 
-        @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
+        @tturbo @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
     return nothing
 end
@@ -129,7 +128,7 @@ function run_simulation(sim)
     BCs = sim.boundary_conditions
 
     E_d = Array{Union{Nothing, Float64}}(nothing, length(grid.cell_centers))
-   
+
     for (i, z_cell) in enumerate(grid.cell_centers)
         if z_cell < 0.025
             E_d[i] = 8000.0
@@ -146,7 +145,7 @@ function run_simulation(sim)
         z_cell = grid.cell_centers,
         z_edge = grid.edges,
         cell_volume = grid.cell_volume,
-        source_term!, 
+        source_term!,
         reactions,
         scheme,
         BCs,
@@ -155,7 +154,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, tspan, params)
-    sol = solve(prob, SSPRK53(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
+    sol = @time solve(prob, SSPRK22(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
     return sol
 end
 
@@ -168,10 +167,10 @@ function inlet_neutral_density(sim)
 end
 
 function initial_condition!(U, z_cell, IC!, fluid_ranges, fluids)
-    #can extend later to more 
+    #can extend later to more
     #also not using inlet_neutral_density for now
     #nn = inlet_neutral_density(sim)
-    
+
     for (i, z) in enumerate(z_cell)
         @views IC!(U[:, i], z, fluids, z_cell[end])
     end
