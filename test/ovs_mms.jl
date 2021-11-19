@@ -1,4 +1,4 @@
-using HallThruster, StaticArrays, Symbolics, DifferentialEquations, Statistics, Plots
+using HallThruster, StaticArrays, Symbolics, OrdinaryDiffEq, DiffEqBase, Statistics, Plots, DiffEqCallbacks
 
 mutable struct Result
     solution #::Vector{Matrix{Float64}}

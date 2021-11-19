@@ -1,4 +1,7 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, DifferentialEquations, Statistics, Plots, DiffEqCallbacks
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools
+using Symbolics
+using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
+using Statistics, Plots
 
 Te_func = z -> 30 * exp(-(2(z - HallThruster.SPT_100.channel_length) / 0.033)^2)
 ϕ_func = z -> 300 * (1 - 1/(1 + exp(-1000 * (z - HallThruster.SPT_100.channel_length))))
@@ -8,12 +11,12 @@ nn_mms_func = z -> 2000
 end_time = 80e-5 #30e-5
 
 const MMS_CONSTS = (
-    CFL = 0.99, 
+    CFL = 0.99,
     n_cells_start = 10,
-    ncharge = 1, 
+    ncharge = 1,
     refinements = 7,
     n_waves = 2.0,
-    un = 300.0, 
+    un = 300.0,
     L = HallThruster.SPT_100.domain[2]-HallThruster.SPT_100.domain[1],
     ion_temperature = 0.0,
     nn0 = 1000.0,
@@ -36,7 +39,7 @@ end
 ni_manufactured =  MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L #MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 function ni_manufactured_f(x, MMS_CONSTS)
     MMS_CONSTS.ni0 + MMS_CONSTS.nix*x/MMS_CONSTS.L # MMS_CONSTS.ni0 + MMS_CONSTS.nix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
-end 
+end
 
 ui_manufactured = MMS_CONSTS.ui0 + MMS_CONSTS.uix*x/MMS_CONSTS.L #2000 - ni_manufactured #MMS_CONSTS.ui0 + MMS_CONSTS.uix*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L)
 function ui_manufactured_f(x, MMS_CONSTS)
@@ -57,13 +60,13 @@ simulation = (
     propellant = HallThruster.Xenon,
     ncharge = MMS_CONSTS.ncharge,
     MMS = true,
-    mms! = mms!, 
+    mms! = mms!,
     cb = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass),  #abstol, reltol, test
     geometry = HallThruster.SPT_100,
     neutral_temperature = 500.,
     neutral_velocity = MMS_CONSTS.un,
     ion_temperature = MMS_CONSTS.ion_temperature,
-    initial_nn_mms = nn_mms_func, 
+    initial_nn_mms = nn_mms_func,
     initial_Te = Te_func,
     initial_ϕ = ϕ_func,
     initial_ni = ni_func,
@@ -118,13 +121,13 @@ for refinement in 1:refinements
     results[refinement] = Result(sol, simulations_mms[refinement].dt, z_cells, simulations_mms[refinement].ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
     println("N cells: $(simulations_mms[refinement].ncells) ")
     println("CFL number: $(simulations_mms[refinement].dt*MMS_CONSTS.un/((z_cells[end]-z_cells[1])/simulations_mms[refinement].ncells))") #CFL number
-end  
+end
 
 function compute_slope(ncells, errors)
     p = Array{Union{Nothing, Float64}}(nothing, length(ncells)-2)
     for i in 1:length(ncells)-2
         p[i] = log(abs(errors[i+2]-errors[i+1])/abs(errors[i+1]-errors[i]))/log(0.5)
-    end 
+    end
     return Statistics.mean(p)
 end
 

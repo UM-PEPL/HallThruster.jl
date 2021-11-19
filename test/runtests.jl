@@ -180,7 +180,7 @@ let Xenon = HallThruster.Xenon,
 end
 scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
-	HallThruster.reconstruct!(UL, UR, U, scheme)
+	HallThruster.compute_edge_states!(UL, UR, U, scheme)
 
 	UL_expected = hcat(U1, U1, U2)
 	UR_expected = hcat(U1, U2, U2)
