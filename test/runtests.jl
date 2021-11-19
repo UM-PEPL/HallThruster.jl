@@ -462,9 +462,9 @@ RHS_func = build_function(derivs, [x])
 mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 mms_conservative = eval(conservative_func[1])
 
+include("ovs_mms.jl")
 
 @testset "Order verification studies with MMS, set 1: upwind, no reconstruct" begin
-    include("ovs_mms.jl")
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 1
@@ -480,7 +480,6 @@ mms_conservative = eval(conservative_func[1])
 end
 
 @testset "Order verification studies with MMS, set 2: HLLE, no reconstruct" begin
-    include("ovs_mms.jl")
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 1
@@ -497,7 +496,6 @@ end
 
 
 @testset "Order verification studies with MMS, set 3: upwind, minmod reconstruct" begin
-    include("ovs_mms.jl")
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.upwind!, reconstruct = true)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 2
@@ -513,7 +511,6 @@ end
 end
 
 @testset "Order verification studies with MMS, set 4: HLLE, minmod reconstruct" begin
-    include("ovs_mms.jl")
     results = perform_OVS(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = true)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 2
@@ -528,13 +525,7 @@ end
     end
 end
 
-
 @testset "Test ion acceleration source term" begin
     include("source.jl")
     test_ion_accel_source(HallThruster.HLLE!, false, 0.0002, 1e-8)
-end
-
-@testset "Test ion acceleration source term" begin
-    include("source.jl")
-    test_ionization_source(HallThruster.HLLE!, false, 0.0002, 1e-8)
 end

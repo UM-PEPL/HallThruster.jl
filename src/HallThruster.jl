@@ -1,6 +1,11 @@
 module HallThruster
 
-using StaticArrays, CSV, DataFrames, DifferentialEquations
+using StaticArrays
+using CSV
+using DataFrames
+using OrdinaryDiffEq
+using DiffEqBase
+using LoopVectorization
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:end-1]...)
