@@ -10,8 +10,8 @@ function apply_reactions!(Q, U, params, i::Int64)
     neutral_velocity = fluids[1].conservation_laws.u
     
 	for r in reactions
-		reactant_index = species_range_dict[r.reactant][1]
-		product_index = species_range_dict[r.product][1]
+		reactant_index = species_range_dict[r.reactant.symbol][1]
+		product_index = species_range_dict[r.product.symbol][1]
 		n_reactant = U[reactant_index, i]/fluid.m
 		if n_reactant > 1
 			k = r.rate_coeff

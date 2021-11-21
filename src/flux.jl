@@ -54,10 +54,14 @@ function compute_conservative(ρ, u, p, γ)
     return ρ, ρ*u, ρE
 end
 
+# NOTE: this can be sped up significantly if we write specialized versions for each fluid type
+# we're losing a lot of time (~1/4 of the run time) on the conditionals in the thermodynamics, better to do one conditional
+# and then go from there. however, that would lead to about 2x more code in this section and a loss of generality. probably
+# better to wait to overhaul this until the main features are in and we can think about a refactor
 function HLLE!(F, UL, UR, fluid)
 
     γ = fluid.species.element.γ
-    
+
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
 

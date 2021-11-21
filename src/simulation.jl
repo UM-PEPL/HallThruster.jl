@@ -26,7 +26,7 @@ function configure_simulation(sim)
     species = [fluids[i].species for i in 1:length(fluids)]
     fluid_ranges = ranges(fluids)
     species_range_dict = Dict(
-        fluid.species => fluid_range for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+        Symbol(fluid.species) => fluid_range for (fluid, fluid_range) in zip(fluids, fluid_ranges)
     )
 
     return species, fluids, fluid_ranges, species_range_dict
@@ -154,7 +154,7 @@ function run_simulation(sim)
     )
 
     prob = ODEProblem{true}(update!, U, tspan, params)
-    sol = @time solve(prob, SSPRK22(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
+    sol = solve(prob, SSPRK22(), saveat = sim.saveat, callback = sim.callback, adaptive = adaptive, dt = timestep)
     return sol
 end
 

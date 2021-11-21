@@ -1,5 +1,5 @@
 #using Test, HallThruster, Plots
-using HallThruster, StaticArrays
+using HallThruster, StaticArrays, ProfileView
 
 function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
@@ -17,10 +17,10 @@ function IC!(U, z, fluids, L)
     return U
 end
 
-function run()
+function run(end_time = 0.0002, reconstruct = true)
     fluid = HallThruster.Xenon
     timestep = 2e-8
-    end_time = 0.0002
+    #end_time = 0.0002
 
     ρ1 = 1.0
     ρ2 = 0.01
@@ -34,7 +34,7 @@ function run()
     sim = HallThruster.MultiFluidSimulation(
         grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
-        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, HallThruster.minmod, true),
+        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
         fluids = [
@@ -57,5 +57,6 @@ function run()
     sol = HallThruster.run_simulation(sim)
 end
 
-run()
+#ProfileView.@profview run(1e-7);
+ProfileView.@profview run(2e-3, false);
 #Plots.plot(sim.grid.cell_centers, sol.u[1][3, :])
