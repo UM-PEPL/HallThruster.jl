@@ -57,6 +57,4 @@ function run(end_time = 0.0002, reconstruct = true)
     sol = HallThruster.run_simulation(sim)
 end
 
-#ProfileView.@profview run(1e-7);
-ProfileView.@profview run(2e-3, false);
-#Plots.plot(sim.grid.cell_centers, sol.u[1][3, :])
+run(2e-3, false);
