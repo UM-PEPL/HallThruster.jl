@@ -92,8 +92,7 @@ function update!(dU, U, params, t)
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
-        source_term!(Q, U, params, i)
-          
+        source_term!(Q, U, params, ϕ, i)
          # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
