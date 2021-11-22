@@ -2,11 +2,11 @@ using Test, HallThruster, Plots
 
 fluid = HallThruster.Xenon
 timestep = 1e-8
-end_time = 0.0002
+end_time = 0.0002 #1e-8 #0.0002
 
-function source!(Q, U, params, i)
+function source!(Q, U, params, ϕ, i)
     HallThruster.apply_reactions!(Q, U, params, i)
-    #HallThruster.apply_ion_acceleration!(Q, U, params, i)
+    HallThruster.apply_ion_acceleration!(Q, U, params, ϕ, i)
     return Q
 end
 
@@ -43,4 +43,61 @@ callback = nothing
 
 @time sol = HallThruster.run_simulation(sim)
 
-#Plots.plot(sim.grid.cell_centers, sol.u[1][3, :])
+#extract potential at the end, just for now, make proper later ##############################################################
+species, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(sim)
+grid = sim.grid
+
+U, cache = HallThruster.allocate_arrays(sim)
+
+HallThruster.initial_condition!(U, grid.cell_centers, sim.initial_condition, fluid_ranges, fluids)
+
+scheme = sim.scheme
+source_term! = sim.source_term!
+timestep = sim.timestepcontrol[1]
+adaptive = sim.timestepcontrol[2]
+tspan = (0., sim.end_time)
+
+reactions = HallThruster.load_ionization_reactions(species)
+BCs = sim.boundary_conditions
+
+params = (;
+    cache,
+    fluids,
+    fluid_ranges,
+    species_range_dict,
+    z_cell = grid.cell_centers,
+    z_edge = grid.edges,
+    cell_volume = grid.cell_volume,
+    source_term!,
+    reactions,
+    scheme,
+    BCs,
+    dt = timestep
+)
+
+fluids, fluid_ranges = params.fluids, params.fluid_ranges
+reactions, species_range_dict = params.reactions, params.species_range_dict
+
+F, UL, UR, Q, A, b, ϕ, Tev = params.cache
+
+z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
+scheme = params.scheme
+source_term! = params.source_term!
+
+nvariables = size(U, 1)
+ncells = size(U, 2) - 2
+
+
+#make U last timestep
+#U = sol.u[1]
+Tev .= 5.0
+
+A .= 0.0
+b .= 0.0
+HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
+ϕ = A\b
+
+#Plots.plot(sim.grid.cell_centers[1:100], ϕ)
+#Plots.plot(sim.grid.cell_centers, sol.u[1][1, :])
+#Plots.plot(sim.grid.cell_centers, sol.u[1][2, :])
+#Plots.plot(sim.grid.cell_centers, sol.u[1][3, :]./sol.u[1][2, :])

@@ -14,7 +14,7 @@ end
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     #create a template definition of source! function somewhere
-    function source!(Q, U, params, i)
+    function source!(Q, U, params, ϕ, i)
         mms!(Q, [params.z_cell[i]])
     end
     
