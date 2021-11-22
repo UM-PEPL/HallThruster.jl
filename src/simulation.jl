@@ -53,8 +53,12 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables, nedges)
     UR = zeros(nvariables, nedges)
     Q = zeros(nvariables)
+    A = Tridiagonal(zeros(ncells-1), zeros(ncells), zeros(ncells-1)) #for potential equation A*ϕ = b
+    b = zeros(ncells) #for potential equation
+    ϕ = zeros(ncells) #for potential equation
+    Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
 
-    cache = (F, UL, UR, Q)
+    cache = (F, UL, UR, Q, A, b, ϕ, Tev)
     return U, cache
 end
 
@@ -62,7 +66,7 @@ function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
-	F, UL, UR, Q = params.cache
+	F, UL, UR, Q, A, b, ϕ, Tev = params.cache
 
 	z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
 	scheme = params.scheme
@@ -77,17 +81,24 @@ function update!(dU, U, params, t)
     compute_edge_states!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
+    Tev .= 5.0
+
+    A .= 0.0
+    b .= 0.0
+    set_up_potential_equation!(U, A, b, Tev, params)
+    ϕ = A\b
+
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
         source_term!(Q, U, params, i)
+          
+         # Compute dU/dt
+        left = left_edge(i)
+        right = right_edge(i)
 
-        # Compute dU/dt
-		left = left_edge(i)
-		right = right_edge(i)
-
-		Δz = z_edge[right] - z_edge[left]
+        Δz = z_edge[right] - z_edge[left]
 
         @tturbo @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
@@ -127,16 +138,6 @@ function run_simulation(sim)
     reactions = load_ionization_reactions(species)
     BCs = sim.boundary_conditions
 
-    E_d = Array{Union{Nothing, Float64}}(nothing, length(grid.cell_centers))
-
-    for (i, z_cell) in enumerate(grid.cell_centers)
-        if z_cell < 0.025
-            E_d[i] = 8000.0
-        else
-            E_d[i] = 8000.0 #00/(grid.cell_centers[end] - grid.cell_centers[1])
-        end
-    end
-
     params = (;
         cache,
         fluids,
@@ -149,7 +150,6 @@ function run_simulation(sim)
         reactions,
         scheme,
         BCs,
-        E_d,
         dt = timestep
     )
 

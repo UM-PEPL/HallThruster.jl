@@ -2,9 +2,9 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
 
     fluid = HallThruster.Xenon
 
-    function source!(Q, U, params, i)
+    function source!(Q, U, params, ϕ, i)
         #HallThruster.apply_reactions!(Q, U, params, i)
-        HallThruster.apply_ion_acceleration!(Q, U, params, i)
+        HallThruster.apply_ion_acceleration!(Q, U, params, ϕ, i)
         return Q
     end
 
@@ -49,7 +49,7 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
 
     fluid = HallThruster.Xenon
 
-    function source!(Q, U, params, i)
+    function source!(Q, U, params, ϕ, i)
         HallThruster.apply_reactions!(Q, U, params, i)
         #HallThruster.apply_ion_acceleration!(Q, U, params, i)
         return Q

@@ -6,6 +6,7 @@ using DataFrames
 using OrdinaryDiffEq
 using DiffEqBase
 using LoopVectorization
+using LinearAlgebra
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:end-1]...)
@@ -23,6 +24,7 @@ include("geometry.jl")
 include("boundaryconditions.jl")
 include("simulation.jl")
 include("sourceterms.jl")
+include("electrontransport.jl")
 
 #dere
 # this change was made on main
