@@ -1,3 +1,4 @@
+
 using Test, HallThruster, Plots
 
 fluid = HallThruster.Xenon
@@ -14,7 +15,9 @@ function IC!(U, z, fluids, L)
     ρ1 = 1.0
     ρ2 = 0.01
     u1 = 300.0
-    U .= [ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
+    U[1] = ρ1
+    U[2] = ρ2
+    U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
 end
 
@@ -87,7 +90,6 @@ source_term! = params.source_term!
 nvariables = size(U, 1)
 ncells = size(U, 2) - 2
 
-
 #make U last timestep
 #U = sol.u[1]
 Tev .= 5.0
@@ -96,8 +98,3 @@ A .= 0.0
 b .= 0.0
 HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
 ϕ = A\b
-
-#Plots.plot(sim.grid.cell_centers[1:100], ϕ)
-#Plots.plot(sim.grid.cell_centers, sol.u[1][1, :])
-#Plots.plot(sim.grid.cell_centers, sol.u[1][2, :])
-#Plots.plot(sim.grid.cell_centers, sol.u[1][3, :]./sol.u[1][2, :])

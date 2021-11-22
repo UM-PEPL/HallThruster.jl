@@ -1,11 +1,11 @@
-γ(f::Fluid) = f.species.element.γ
-m(f::Fluid) = f.species.element.m
-R(f::Fluid) = f.species.element.R
-cp(f::Fluid) = f.species.element.cp
-cv(f::Fluid) = f.species.element.cv
+@inline γ(f::Fluid) = f.species.element.γ
+@inline m(f::Fluid) = f.species.element.m
+@inline R(f::Fluid) = f.species.element.R
+@inline cp(f::Fluid) = f.species.element.cp
+@inline cv(f::Fluid) = f.species.element.cv
 
-number_density(U, f::Fluid) = density(U, f) / m(f)
-density(U, f::Fluid) = U[1]
+@inline number_density(U, f::Fluid) = density(U, f) / m(f)
+@inline density(U, f::Fluid) = U[1]
 
 function velocity(U, f::Fluid)
     if f.conservation_laws.type == :ContinuityOnly
@@ -23,7 +23,7 @@ function temperature(U, f::Fluid)
     end
 end
 
-function pressure(U, f::Fluid)
+@inline function pressure(U, f::Fluid)
     if f.conservation_laws.type == :EulerEquations
         return (γ(f)-1) * (U[3] - 0.5 * U[2]^2/U[1])
     else
@@ -55,11 +55,11 @@ function static_enthalpy(U, f::Fluid)
     end
 end
 
-sound_speed(U, f::Fluid) = sqrt(γ(f) * R(f) * temperature(U, f))
-mach_number(U, f::Fluid) = velocity(U, f) / sound_speed(U, f)
+@inline sound_speed(U, f::Fluid) = sqrt(γ(f) * R(f) * temperature(U, f))
+@inline mach_number(U, f::Fluid) = velocity(U, f) / sound_speed(U, f)
 
-stagnation_enthalpy(U, f) =
+@inline stagnation_enthalpy(U, f) =
     stagnation_energy(U, f) + pressure(U, f) / density(U, f)
-critical_sound_speed(U, f) = let γ = γ(f)
+@inline critical_sound_speed(U, f) = let γ = γ(f)
     2 * (γ - 1) / (γ + 1) * stagnation_enthalpy(U, f)
 end
