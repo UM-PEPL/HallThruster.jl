@@ -1,3 +1,4 @@
+
 using Test, HallThruster, Plots
 
 fluid = HallThruster.Xenon
@@ -14,7 +15,9 @@ function IC!(U, z, fluids, L)
     ρ1 = 2.1801715574645586e-6
     ρ2 = 2.1801715574645586e-6*0.01
     u1 = 300.0
-    U .= [ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
+    U[1] = ρ1
+    U[2] = ρ2
+    U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
 end
 
@@ -86,7 +89,6 @@ source_term! = params.source_term!
 
 nvariables = size(U, 1)
 ncells = size(U, 2) - 2
-
 
 #make U last timestep
 #U = sol.u[1]

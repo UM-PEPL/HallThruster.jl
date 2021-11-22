@@ -73,16 +73,23 @@ Xe3+
 struct Species
     element::Gas
     Z::Int
+    symbol::Symbol
+end
+
+function Species(element::Gas, Z::Int)
+    return Species(element, Z, Symbol(species_string(element, Z)))
 end
 
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, m::MIME"text/plain", s::Species) = show(io, s)
 
-function Base.string(s::Species)
-	sign_str = s.Z > 0 ? "+" : s.Z < 0 ? "-" : ""
-    sign_str = abs(s.Z) > 1 ? "$(s.Z)" * sign_str : sign_str
-	return s.element.short_name * sign_str
+function species_string(element::Gas, Z::Int)
+    sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
+    sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
+    return element.short_name * sign_str
 end
+
+Base.string(s::Species) = string(s.symbol)
 
 """
     Air::Gas
