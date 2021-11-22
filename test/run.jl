@@ -1,5 +1,5 @@
 
-using Test, HallThruster, Plots
+using Test, HallThruster, Plots, StaticArrays
 
 fluid = HallThruster.Xenon
 timestep = 1e-8
