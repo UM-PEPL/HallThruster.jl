@@ -4,22 +4,22 @@ fluid = HallThruster.Xenon
 timestep = 1e-8
 end_time = 0.0002 #1e-8 #0.0002
 
-function source!(Q, U, params, ϕ, i)
-    HallThruster.apply_reactions!(Q, U, params, i)
+function source!(Q, U, params, ϕ, Tev, i)
+    HallThruster.apply_reactions!(Q, U, params, Tev, i)
     HallThruster.apply_ion_acceleration!(Q, U, params, ϕ, i)
     return Q
 end
 
 function IC!(U, z, fluids, L)
-    ρ1 = 1.0
-    ρ2 = 0.01
+    ρ1 = 2.1801715574645586e-6
+    ρ2 = 2.1801715574645586e-6*0.01
     u1 = 300.0
     U .= [ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
 end
 
-ρ1 = 1.0
-ρ2 = 0.01
+ρ1 = 2.1801715574645586e-6
+ρ2 = 2.1801715574645586e-6*0.01
 u1 = 300.0
 T1 = 300.0
 
@@ -100,4 +100,5 @@ HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
 #Plots.plot(sim.grid.cell_centers[1:100], ϕ)
 #Plots.plot(sim.grid.cell_centers, sol.u[1][1, :])
 #Plots.plot(sim.grid.cell_centers, sol.u[1][2, :])
+#Plots.plot(sim.grid.cell_centers, sol.u[1][2, :]/HallThruster.Xenon.m)
 #Plots.plot(sim.grid.cell_centers, sol.u[1][3, :]./sol.u[1][2, :])
