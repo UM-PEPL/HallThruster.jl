@@ -58,9 +58,10 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     ϕ = zeros(ncells) #for potential equation
     Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
     pe = zeros(ncells+2)
+    B = zeros(ncells+2)
     #ne = zeros(ncells+2)
 
-    cache = (F, UL, UR, Q, A, b, ϕ, Tev, pe)
+    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, B)
     return U, cache
 end
 
@@ -68,7 +69,7 @@ function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
-	F, UL, UR, Q, A, b, ϕ, Tev, pe = params.cache
+	F, UL, UR, Q, A, b, ϕ, Tev, pe, B = params.cache
 
 	z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
 	scheme = params.scheme
