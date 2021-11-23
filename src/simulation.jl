@@ -92,7 +92,7 @@ function update!(dU, U, params, t)
     solve_potential!(ϕ, U, params)
 
 	# Compute heavy species source terms
-	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
+	@inbounds for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
         source_term!(Q, U, params, ϕ, Tev, i)
@@ -114,7 +114,7 @@ right_edge(i) = i
 
 function electron_density(U, fluid_ranges)
     ne = 0.0
-    for (i, f) in enumerate(fluid_ranges)
+    @inbounds for (i, f) in enumerate(fluid_ranges)
         if i == 1
             continue # neutrals do not contribute to electron density
         end

@@ -1,13 +1,4 @@
 function solve_potential!(ϕ, U, params)
-    A, b, Tev = params.cache.A, params.cache.b, params.cache.Tev
-    #LU = params.cache.LU
-    set_up_potential_equation!(U, A, b, Tev, params)
-    #ilu0!(LU, A)
-    #ldiv!(ϕ, LU, b)
-    tridiagonal_solve!(ϕ, A, b)
-end
-
-function set_up_potential_equation!(U, A, b, Tev, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc... 
     #add functionality for nonuniform cell size
     z_cell, z_edge, _ = params.z_cell, params.z_edge, params.cell_volume
@@ -19,11 +10,13 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     pe = params.cache.pe
     ne = params.cache.ne
     B = params.cache.B
+    A = params.cache.A
+    b = params.cache.b
+    Tev = params.cache.Tev
 
-    @inbounds @simd for i in 1:N+2
-        #@views pe[i] = electron_pressure(electron_density(U[:, i], fluid_ranges)/fluid.m, Tev[i])
-        @views ne[i] = electron_density(U[:, i], fluid_ranges)/fluid.m
-        @views pe[i] = electron_pressure(ne[i], Tev[i])
+    @inbounds for i in 1:N+2
+        ne[i] = @views electron_density(U[:, i], fluid_ranges)/fluid.m
+        pe[i] = electron_pressure(ne[i], Tev[i])
     end
 
     #using Dirichlet boundary conditions
@@ -38,8 +31,6 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     end
 
     #left boundary
-    #@views ne⁻ = electron_density(U[:, 1], fluid_ranges)/fluid.m #on boundary, ghost cell, perfect fit for i-1/2 on stencil 
-    #@views ne⁺ = (electron_density(U[:, 2], fluid_ranges)/fluid.m + electron_density(U[:, 3], fluid_ranges)/fluid.m)/2
     ne⁻ = ne[1]
     ne⁺ = 0.5 * (ne[2] + ne[3])
     nn⁻ = U[1, 1]/fluid.m
@@ -47,16 +38,14 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     μ⁻ = cf_electron_transport(get_v_an(), get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B[1])#B_field(B_max, z_cell[1], L_ch))
     μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[2] + Tev[3])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[2] + B[3]))#B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
     #A[1, 1] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 
-    A[1, 1] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
-    A[1, 2] = ne⁺*μ⁺/(Δz)^2
+    A.d[1] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
+    A.du[1] = ne⁺*μ⁺/(Δz)^2
     #b[1] = - ϕ_L*(ne⁻*μ⁻ + ne⁺*μ⁺)/((Δz)^2) #- 1.5*(μ⁺ + μ⁻)*pe[2]/(Δz)^2 + μ⁺*pe[3]/(Δz)^2 + (μ⁺ + μ⁻)*pe[1]/(Δz)^2 +
     #- U[3, 1]/(Δz) + (U[3, 3] + U[3, 2])/(2*Δz)
     b[1] = - ϕ_L*(ne⁻*μ⁻)/((Δz)^2) - 1*(μ⁺ + μ⁻)*pe[2]/(Δz)^2 + μ⁺*pe[3]/(Δz)^2 + (μ⁻)*pe[1]/(Δz)^2
     - U[3, 1]/(Δz) + (U[3, 3] + U[3, 2])/(2*Δz) #no interpolation on boundary
 
     #right boundary
-    #@views ne⁻ = (electron_density(U[:, N+1], fluid_ranges)/fluid.m + electron_density(U[:, N], fluid_ranges)/fluid.m)/2
-    #@views ne⁺ =  electron_density(U[:, N+2], fluid_ranges)/fluid.m
     ne⁻ = 0.5 * (ne[N] + ne[N+1])
     ne⁺ = ne[N+2]
     nn⁻ = (U[1, N+1]/fluid.m + U[1, N]/fluid.m)/2
@@ -64,55 +53,68 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[N+1] + Tev[N])/2, ne⁻, nn⁻, fluid.m), 0.5 * (B[N] + B[N+1]))#B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
     μ⁺ = cf_electron_transport(get_v_an(), get_v_c(Tev[N+2], ne⁺, nn⁺, fluid.m), B[N+2])#B_field(B_max, z_cell[N+2], L_ch))
     #A[N, N] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
-    A[N, N] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
-    A[N, N-1] = ne⁻*μ⁻/(Δz)^2
+    A.d[N] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
+    A.dl[N-1] = ne⁻*μ⁻/(Δz)^2
     #b[N] = - ϕ_R*(ne⁻*μ⁻ + ne⁺*μ⁺)/((Δz)^2) #+ μ⁻*pe[N]/(Δz)^2 - 1.5*(μ⁺ + μ⁻)*pe[N+1]/(Δz)^2 + (μ⁺ + μ⁻)*pe[N+2]/(Δz)^2
     #- (U[3, N] + U[3, N+1])/(2*Δz) + U[3, N+2]/(Δz)
     b[N] = - ϕ_R*(ne⁺*μ⁺)/((Δz)^2) + μ⁻*pe[N]/(Δz)^2 - 1*(μ⁺ + μ⁻)*pe[N+1]/(Δz)^2 + (μ⁺)*pe[N+2]/(Δz)^2
     - (U[3, N] + U[3, N+1])/(2*Δz) + U[3, N+2]/(Δz) #no interpolation on boundary
 
-    for i in 2:N-1
+    @inbounds for i in 2:N-1
         i_f = i+1 #fluid index, due to ghost cell on boundary
-        #@views ne⁻ = (electron_density(U[:, i_f], fluid_ranges)/fluid.m + electron_density(U[:, i_f-1], fluid_ranges)/fluid.m)/2
-        #@views ne⁺ = (electron_density(U[:, i_f+1], fluid_ranges)/fluid.m + electron_density(U[:, i_f], fluid_ranges)/fluid.m)/2
         ne⁻ = 0.5 * (ne[i_f] + ne[i_f-1])
         ne⁺ = 0.5 * (ne[i_f] + ne[i_f+1])
 
-        nn⁻ = (U[1, i_f] + U[1, i_f-1])/(2 * fluid.m)
-        nn⁺ = (U[1, i_f] + U[1, i_f+1])/(2 * fluid.m)
+        nn⁻ = (U[1, i_f] + U[1, i_f-1]) / (2 * fluid.m)
+        nn⁺ = (U[1, i_f] + U[1, i_f+1]) / (2 * fluid.m)
         μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f-1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f-1] + B[i_f]))#B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
         μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f+1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f] + B[i_f+1]))#B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
 		Δz = z_edge[i-1] - z_edge[i]
 
         Δz² = Δz^2
 
-        A[i, i-1] = ne⁻*μ⁻ / Δz²
-        A[i, i]   = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
-        A[i, i+1] = ne⁺*μ⁺ / Δz²
+        A.dl[i-1] = ne⁻*μ⁻ / Δz²
+        A.d[i] = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
+        A.du[i] = ne⁺*μ⁺ / Δz²
+        #A[i, i-1] = ne⁻*μ⁻ / Δz²
+        #A[i, i]   = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
+       #A[i, i+1] = ne⁺*μ⁺ / Δz²
         b[i] = (μ⁻*pe[i_f-1] - (μ⁺ + μ⁻)*pe[i_f] + μ⁺*pe[i_f+1]) / Δz²
             + 0.5 * (U[3, i_f+1] - U[3, i_f-1]) / Δz
+
+        # precondition for thomas's algorithm
+        #w = A[i, i-1] / A[i-1, i-1]
+        #A[i, i] -= w * A[i-1, i]
+        #b[i] -= w * b[i-1]
+    end
+
+    tridiagonal_solve!(ϕ, A, b)
+end
+
+function tridiagonal_forward_sweep!(A::Tridiagonal, b)
+    n = length(A.d)
+
+    @inbounds for i in 2:n
+        w = A.dl[i-1] / A.d[i-1]
+        A.d[i] -= w * A.du[i-1]
+        b[i] -= w * b[i-1]
+    end
+end
+
+function tridiagonal_backward_sweep!(y, A::Tridiagonal, b)
+    n = size(A, 1)
+    y[n] = b[n] / A.d[n]
+    # back-substitution
+    @inbounds for i in n-1:-1:1
+        y[i] =(b[i] - A.du[i] * y[i+1])/A.d[i]
     end
 end
 
 # our matrix is diagonally dominant so we can use Thomas' algorithm to solve
 # the tridiagonal system
 function tridiagonal_solve!(y, A, b)
-    #@show is_diagonally_dominant(A)
-    n = size(A, 1)
-    # forward sweep
-    @inbounds for i in 2:n
-        w = A[i, i-1] / A[i-1, i-1]
-        A[i, i] -= w * A[i-1, i]
-        b[i] -= w * b[i-1]
-    end
-
-    y[n] = b[n] / A[n,n]
-
-    # back-substitution
-    @inbounds for i in n-1:-1:1
-        y[i] =(b[i] - A[i, i+1] * y[i+1])/A[i,i]
-    end
-
+    tridiagonal_forward_sweep!(A, b)
+    tridiagonal_backward_sweep!(y, A, b)
     return y
 end
 
@@ -121,16 +123,4 @@ function tridiagonal_solve(A, b)
     A′ = copy(A)
     b′ = copy(b)
     tridiagonal_solve!(y, A′, b′)
-end
-
-function is_diagonally_dominant(A)
-    n = size(A, 1)
-    for i in 1:n
-        diag = A[i, i]
-        rowsum = sum(abs(A[i, j]) for j in 1:n) - abs(diag)
-        if  abs(diag) < rowsum
-            return false
-        end
-    end
-    return true
 end
