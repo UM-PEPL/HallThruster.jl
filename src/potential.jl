@@ -1,9 +1,10 @@
 function solve_potential!(ϕ, U, params)
     A, b, Tev = params.cache.A, params.cache.b, params.cache.Tev
-    LU = params.cache.LU
+    #LU = params.cache.LU
     set_up_potential_equation!(U, A, b, Tev, params)
-    ilu0!(LU, A)
-    ldiv!(ϕ, LU, b)
+    #ilu0!(LU, A)
+    #ldiv!(ϕ, LU, b)
+    tridiagonal_solve!(ϕ, A, b)
 end
 
 function set_up_potential_equation!(U, A, b, Tev, params)
@@ -91,4 +92,45 @@ function set_up_potential_equation!(U, A, b, Tev, params)
         b[i] = (μ⁻*pe[i_f-1] - (μ⁺ + μ⁻)*pe[i_f] + μ⁺*pe[i_f+1]) / Δz²
             + 0.5 * (U[3, i_f+1] - U[3, i_f-1]) / Δz
     end
+end
+
+# our matrix is diagonally dominant so we can use Thomas' algorithm to solve
+# the tridiagonal system
+function tridiagonal_solve!(y, A, b)
+    #@show is_diagonally_dominant(A)
+    n = size(A, 1)
+    # forward sweep
+    @inbounds for i in 2:n
+        w = A[i, i-1] / A[i-1, i-1]
+        A[i, i] -= w * A[i-1, i]
+        b[i] -= w * b[i-1]
+    end
+
+    y[n] = b[n] / A[n,n]
+
+    # back-substitution
+    @inbounds for i in n-1:-1:1
+        y[i] =(b[i] - A[i, i+1] * y[i+1])/A[i,i]
+    end
+
+    return y
+end
+
+function tridiagonal_solve(A, b)
+    y = similar(b)
+    A′ = copy(A)
+    b′ = copy(b)
+    tridiagonal_solve!(y, A′, b′)
+end
+
+function is_diagonally_dominant(A)
+    n = size(A, 1)
+    for i in 1:n
+        diag = A[i, i]
+        rowsum = sum(abs(A[i, j]) for j in 1:n) - abs(diag)
+        if  abs(diag) < rowsum
+            return false
+        end
+    end
+    return true
 end

@@ -1,5 +1,3 @@
-using ILUZero, SparseArrays
-
 struct HyperbolicScheme{F, L}
     flux_function::F  # in-place flux function
     limiter::L # limiter
@@ -55,8 +53,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables, nedges)
     UR = zeros(nvariables, nedges)
     Q = zeros(nvariables)
-    A = spdiagm(-1 => ones(ncells-1), 0 => ones(ncells), 1 => ones(ncells-1)) #for potential equation A*ϕ = b
-    #A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
     Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
@@ -64,10 +61,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     B = zeros(ncells+2)
     ne = zeros(ncells+2)
 
-    # allocate initial factorization which can be updated
-    LU = ilu0(A)
-
-    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, LU)
+    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B)
     return U, cache
 end
 
@@ -75,7 +69,7 @@ function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
-	F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, LU = params.cache
+	F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B = params.cache
 
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     ϕ, Tev = params.cache.ϕ, params.cache.Tev
