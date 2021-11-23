@@ -19,7 +19,7 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     ne = params.cache.ne
     B = params.cache.B
 
-    for i in 1:N+2
+    @inbounds @simd for i in 1:N+2
         #@views pe[i] = electron_pressure(electron_density(U[:, i], fluid_ranges)/fluid.m, Tev[i])
         @views ne[i] = electron_density(U[:, i], fluid_ranges)/fluid.m
         @views pe[i] = electron_pressure(ne[i], Tev[i])
@@ -32,6 +32,7 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     ϕ_R = 0
 
     Δz = z_edge[3] - z_edge[2]
+
     function source_term_potential() #make this to be able to verify implementation with 0 source term
     end
 
@@ -76,17 +77,18 @@ function set_up_potential_equation!(U, A, b, Tev, params)
         ne⁻ = 0.5 * (ne[i_f] + ne[i_f-1])
         ne⁺ = 0.5 * (ne[i_f] + ne[i_f+1])
 
-        nn⁻ = (U[1, i_f]/fluid.m + U[1, i_f-1]/fluid.m)/2
-        nn⁺ = (U[1, i_f]/fluid.m + U[1, i_f+1]/fluid.m)/2
+        nn⁻ = (U[1, i_f] + U[1, i_f-1])/(2 * fluid.m)
+        nn⁺ = (U[1, i_f] + U[1, i_f+1])/(2 * fluid.m)
         μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f-1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f-1] + B[i_f]))#B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
         μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f+1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f] + B[i_f+1]))#B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
 		Δz = z_edge[i-1] - z_edge[i]
-        #=Δz¹ = z_edge[i-2] - z_edge[i-1]
-        Δz² = z_edge[i-1] - z_edge[i]=#
-        A[i, i-1] = ne⁻*μ⁻/(Δz)^2
-        A[i, i] = -(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
-        A[i, i+1] = ne⁺*μ⁺/(Δz)^2
-        b[i] = μ⁻*pe[i_f-1]/(Δz)^2 - (μ⁺ + μ⁻)*pe[i_f]/(Δz)^2 + μ⁺*pe[i_f+1]/(Δz)^2
-        + U[3, i_f+1]/(2*Δz) - U[3, i_f-1]/(2*Δz)
+
+        Δz² = Δz^2
+
+        A[i, i-1] = ne⁻*μ⁻ / Δz²
+        A[i, i]   = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
+        A[i, i+1] = ne⁺*μ⁺ / Δz²
+        b[i] = (μ⁻*pe[i_f-1] - (μ⁺ + μ⁻)*pe[i_f] + μ⁺*pe[i_f+1]) / Δz²
+            + 0.5 * (U[3, i_f+1] - U[3, i_f-1]) / Δz
     end
 end
