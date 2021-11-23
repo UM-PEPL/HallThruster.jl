@@ -45,6 +45,14 @@ function run(end_time = 0.0002)
 
     @time sol = HallThruster.run_simulation(sim)
 
+    p = plot()#plot(sol.u[end][1, :], yaxis = :log)
+    plot!(p, sol.u[end][3, :] ./ sol.u[end][2, :])
+
+    display(p)
+
+    #@show fieldnames(typeof(sol))
+    return sol
+
     #extract potential at the end, just for now, make proper later ##############################################################
     species, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(sim)
     grid = sim.grid
@@ -91,11 +99,13 @@ function run(end_time = 0.0002)
 
     #make U last timestep
     #U = sol.u[1]
-    Tev .= 5.0
+    Tev .= 2.0
 
     A .= 0.0
     b .= 0.0
     HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
     ϕ = A\b
+
+    plot(z_cell, ϕ)
 
 end

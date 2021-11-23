@@ -125,6 +125,14 @@ function electron_density(U, fluid_ranges)
     return ne
 end
 
+function precompute_bfield!(B, zs)
+    B_max = 0.015
+    L_ch = 0.025
+    for (i, z) in enumerate(zs)
+        B[i] = B_field(B_max, z, L_ch)
+    end
+end
+
 function run_simulation(sim)
 
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
@@ -142,6 +150,8 @@ function run_simulation(sim)
 
     reactions = load_ionization_reactions(species)
     BCs = sim.boundary_conditions
+
+    precompute_bfield!(cache.B, grid.cell_centers)
 
     params = (;
         cache,
