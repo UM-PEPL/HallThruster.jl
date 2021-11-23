@@ -108,7 +108,6 @@ end
 function tridiagonal_solve!(y, A, b)
     tridiagonal_forward_sweep!(A, b)
     tridiagonal_backward_sweep!(y, A, b)
-    return y
 end
 
 function tridiagonal_solve(A, b)
@@ -116,4 +115,5 @@ function tridiagonal_solve(A, b)
     A′ = copy(A)
     b′ = copy(b)
     tridiagonal_solve!(y, A′, b′)
+    return y
 end
