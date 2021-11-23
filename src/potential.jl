@@ -1,5 +1,5 @@
 function solve_potential!(ϕ, U, params)
-    #directly discretising the equation, conserves properties such as negative semidefinite etc... 
+    #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
     z_cell, z_edge, _ = params.z_cell, params.z_edge, params.cell_volume
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
@@ -21,7 +21,6 @@ function solve_potential!(ϕ, U, params)
 
     #using Dirichlet boundary conditions
     #make smth like a BC function for this
-
     ϕ_L = 400
     ϕ_R = 0
 
@@ -37,7 +36,7 @@ function solve_potential!(ϕ, U, params)
     nn⁺ = (U[1, 2]/fluid.m + U[1, 3]/fluid.m)/2
     μ⁻ = cf_electron_transport(get_v_an(), get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B[1])#B_field(B_max, z_cell[1], L_ch))
     μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[2] + Tev[3])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[2] + B[3]))#B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
-    #A[1, 1] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 
+    #A[1, 1] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
     A.d[1] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
     A.du[1] = ne⁺*μ⁺/(Δz)^2
     #b[1] = - ϕ_L*(ne⁻*μ⁻ + ne⁺*μ⁺)/((Δz)^2) #- 1.5*(μ⁺ + μ⁻)*pe[2]/(Δz)^2 + μ⁺*pe[3]/(Δz)^2 + (μ⁺ + μ⁻)*pe[1]/(Δz)^2 +
@@ -60,32 +59,26 @@ function solve_potential!(ϕ, U, params)
     b[N] = - ϕ_R*(ne⁺*μ⁺)/((Δz)^2) + μ⁻*pe[N]/(Δz)^2 - 1*(μ⁺ + μ⁻)*pe[N+1]/(Δz)^2 + (μ⁺)*pe[N+2]/(Δz)^2
     - (U[3, N] + U[3, N+1])/(2*Δz) + U[3, N+2]/(Δz) #no interpolation on boundary
 
-    @inbounds for i in 2:N-1
+    @turbo for i in 2:N-1
         i_f = i+1 #fluid index, due to ghost cell on boundary
+
         ne⁻ = 0.5 * (ne[i_f] + ne[i_f-1])
         ne⁺ = 0.5 * (ne[i_f] + ne[i_f+1])
 
         nn⁻ = (U[1, i_f] + U[1, i_f-1]) / (2 * fluid.m)
         nn⁺ = (U[1, i_f] + U[1, i_f+1]) / (2 * fluid.m)
-        μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f-1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f-1] + B[i_f]))#B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
-        μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f+1])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f] + B[i_f+1]))#B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
+
+        μ⁻ = cf_electron_transport(get_v_an(), get_v_c(0.5 * (Tev[i_f] + Tev[i_f-1]), ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f-1] + B[i_f]))#B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
+        μ⁺ = cf_electron_transport(get_v_an(), get_v_c(0.5 * (Tev[i_f] + Tev[i_f+1]), ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f] + B[i_f+1]))#B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
 		Δz = z_edge[i-1] - z_edge[i]
 
         Δz² = Δz^2
 
         A.dl[i-1] = ne⁻*μ⁻ / Δz²
-        A.d[i] = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
-        A.du[i] = ne⁺*μ⁺ / Δz²
-        #A[i, i-1] = ne⁻*μ⁻ / Δz²
-        #A[i, i]   = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
-       #A[i, i+1] = ne⁺*μ⁺ / Δz²
-        b[i] = (μ⁻*pe[i_f-1] - (μ⁺ + μ⁻)*pe[i_f] + μ⁺*pe[i_f+1]) / Δz²
-            + 0.5 * (U[3, i_f+1] - U[3, i_f-1]) / Δz
+        A.d[i]    = -(ne⁻*μ⁻ + ne⁺*μ⁺) / Δz²
+        A.du[i]   = ne⁺*μ⁺ / Δz²
 
-        # precondition for thomas's algorithm
-        #w = A[i, i-1] / A[i-1, i-1]
-        #A[i, i] -= w * A[i-1, i]
-        #b[i] -= w * b[i-1]
+        b[i] = (μ⁻*pe[i_f-1] - (μ⁺ + μ⁻)*pe[i_f] + μ⁺*pe[i_f+1]) / Δz² + 0.5 * (U[3, i_f+1] - U[3, i_f-1]) / Δz
     end
 
     tridiagonal_solve!(ϕ, A, b)
