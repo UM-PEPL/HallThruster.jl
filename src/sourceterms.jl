@@ -29,7 +29,8 @@ function apply_ion_acceleration!(Q, U, params, ϕ, i) #make use of calculated po
             E_d = -(ϕ[i]-ϕ[i-1])/(params.z_cell[i] - params.z_cell[i-1])
         end
         if fluids[j].species.Z > 0
-            @views Q[fluid_ranges[j][2]] += e/fluids[j].species.element.m*U[fluid_ranges[j][1], i]*E_d*fluids[j].species.Z
+            ni = U[fluid_ranges[j][1], i]
+            @views Q[fluid_ranges[j][2]] += e/m(fluids[j])*ni*E_d*fluids[j].species.Z
         end
     end
 end
@@ -107,8 +108,7 @@ function set_up_potential_equation!(U, A, b, Tev, params)
         b[i] = μ⁻*p[i_f-1]/(Δz)^2 - (μ⁺ + μ⁻)*p[i_f]/(Δz)^2 + μ⁺*p[i_f+1]/(Δz)^2
         + U[3, i_f+1]/(2*Δz) - U[3, i_f-1]/(2*Δz)
     end
-
-end 
+end
 
 #=
 function set_up_potential_equation_staggered!(U, A, b, Tev, params)
