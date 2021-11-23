@@ -57,8 +57,10 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
     Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
+    pe = zeros(ncells+2)
+    #ne = zeros(ncells+2)
 
-    cache = (F, UL, UR, Q, A, b, ϕ, Tev)
+    cache = (F, UL, UR, Q, A, b, ϕ, Tev, pe)
     return U, cache
 end
 
@@ -66,7 +68,7 @@ function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
-	F, UL, UR, Q, A, b, ϕ, Tev = params.cache
+	F, UL, UR, Q, A, b, ϕ, Tev, pe = params.cache
 
 	z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
 	scheme = params.scheme
@@ -86,7 +88,9 @@ function update!(dU, U, params, t)
     A .= 0.0
     b .= 0.0
     set_up_potential_equation!(U, A, b, Tev, params)
-    ϕ = A\b
+    A = lu!(A)
+    ldiv!(A, b)
+    ϕ = b
 
 	# Compute heavy species source terms
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values

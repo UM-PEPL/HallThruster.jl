@@ -19,7 +19,7 @@ end
 
 function B_field(B_max, z, L_ch)
     B_max*exp(-0.5*((z-L_ch)/(0.011))^2) #for SPT_100
-    B_max*exp(-0.5*((z-L_ch)/(0.018))^2) 
+    #B_max*exp(-0.5*((z-L_ch)/(0.018))^2) 
 end
 
 function cf_electron_transport(v_an, v_c, B)

@@ -43,10 +43,16 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     N = length(z_cell) - 2 #remove boundary ghost cells
 
     #have to think about how to do this, either with a vector or a function that will be called multiple times using Tev and electron density
-    p = zeros(N+2)
-    for i in 1:N+2
-        p[i] = electron_pressure(electron_density(U[:, i], fluid_ranges)/fluid.m, Tev[i])
-    end
+    p = params.cache[end]
+
+    #ne, pe = params.ne, params.pe
+    #@. p = 1.6e-19 * ne * Tev
+
+
+
+    #=for i in 1:N+2
+        @views p[i] = electron_pressure(electron_density(U[:, i], fluid_ranges)/fluid.m, Tev[i])
+    end=#
 
     #using Dirichlet boundary conditions
     #make smth like a BC function for this
@@ -63,8 +69,8 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     end
 
     #left boundary
-    ne⁻ = electron_density(U[:, 1], fluid_ranges)/fluid.m #on boundary, ghost cell, perfect fit for i-1/2 on stencil 
-    ne⁺ = (electron_density(U[:, 2], fluid_ranges)/fluid.m + electron_density(U[:, 3], fluid_ranges)/fluid.m)/2
+    @views ne⁻ = electron_density(U[:, 1], fluid_ranges)/fluid.m #on boundary, ghost cell, perfect fit for i-1/2 on stencil 
+    @views ne⁺ = (electron_density(U[:, 2], fluid_ranges)/fluid.m + electron_density(U[:, 3], fluid_ranges)/fluid.m)/2
     nn⁻ = U[1, 1]/fluid.m
     nn⁺ = (U[1, 2]/fluid.m + U[1, 3]/fluid.m)/2
     μ⁻ = cf_electron_transport(get_v_an(), get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B_field(B_max, z_cell[1], L_ch))
@@ -78,8 +84,8 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     - U[3, 1]/(Δz) + (U[3, 3] + U[3, 2])/(2*Δz) #no interpolation on boundary
 
     #right boundary
-    ne⁻ = (electron_density(U[:, N+1], fluid_ranges)/fluid.m + electron_density(U[:, N], fluid_ranges)/fluid.m)/2
-    ne⁺ =  electron_density(U[:, N+2], fluid_ranges)/fluid.m
+    @views ne⁻ = (electron_density(U[:, N+1], fluid_ranges)/fluid.m + electron_density(U[:, N], fluid_ranges)/fluid.m)/2
+    @views ne⁺ =  electron_density(U[:, N+2], fluid_ranges)/fluid.m
     nn⁻ = (U[1, N+1]/fluid.m + U[1, N]/fluid.m)/2
     nn⁺ = U[1, N+2]/fluid.m
     μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[N+1] + Tev[N])/2, ne⁻, nn⁻, fluid.m), B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
@@ -94,8 +100,8 @@ function set_up_potential_equation!(U, A, b, Tev, params)
 
     for i in 2:N-1
         i_f = i+1 #fluid index, due to ghost cell on boundary
-        ne⁻ = (electron_density(U[:, i_f], fluid_ranges)/fluid.m + electron_density(U[:, i_f-1], fluid_ranges)/fluid.m)/2
-        ne⁺ = (electron_density(U[:, i_f+1], fluid_ranges)/fluid.m + electron_density(U[:, i_f], fluid_ranges)/fluid.m)/2
+        @views ne⁻ = (electron_density(U[:, i_f], fluid_ranges)/fluid.m + electron_density(U[:, i_f-1], fluid_ranges)/fluid.m)/2
+        @views ne⁺ = (electron_density(U[:, i_f+1], fluid_ranges)/fluid.m + electron_density(U[:, i_f], fluid_ranges)/fluid.m)/2
         nn⁻ = (U[1, i_f]/fluid.m + U[1, i_f-1]/fluid.m)/2
         nn⁺ = (U[1, i_f]/fluid.m + U[1, i_f+1]/fluid.m)/2
         μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f-1])/2, ne⁺, nn⁺, fluid.m), B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
@@ -109,7 +115,7 @@ function set_up_potential_equation!(U, A, b, Tev, params)
         A[i, i+1] = ne⁺*μ⁺/(Δz)^2
         b[i] = μ⁻*p[i_f-1]/(Δz)^2 - (μ⁺ + μ⁻)*p[i_f]/(Δz)^2 + μ⁺*p[i_f+1]/(Δz)^2
         + U[3, i_f+1]/(2*Δz) - U[3, i_f-1]/(2*Δz)
-    end 
+    end
 
 end 
 
