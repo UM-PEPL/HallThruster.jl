@@ -1,8 +1,8 @@
 
 using Test, HallThruster, Plots, StaticArrays
 
-function source!(Q, U, params, ϕ, i)
-    HallThruster.apply_reactions!(Q, U, params, i)
+function source!(Q, U, params, ϕ, Tev, i)
+    HallThruster.apply_reactions!(Q, U, params, Tev, i)
     HallThruster.apply_ion_acceleration!(Q, U, params, ϕ, i)
     return Q
 end
