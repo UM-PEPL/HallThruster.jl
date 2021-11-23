@@ -529,3 +529,8 @@ end
     include("source.jl")
     test_ion_accel_source(HallThruster.HLLE!, false, 0.0002, 1e-8)
 end
+
+@testset "Test ionization source term" begin
+    include("source.jl")
+    test_ionization_source(HallThruster.HLLE!, false, 0.0002, 1e-8)
+end
