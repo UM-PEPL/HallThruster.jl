@@ -1,5 +1,5 @@
 
-using Test, HallThruster, Plots
+using Test, HallThruster, Plots, StaticArrays
 
 function source!(Q, U, params, ϕ, i)
     HallThruster.apply_reactions!(Q, U, params, i)
@@ -8,15 +8,14 @@ function source!(Q, U, params, ϕ, i)
 end
 
 function IC!(U, z, fluids, L)
-    ρ1 = 1.0
-    ρ2 = 0.01
+    ρ1 = 2.1801715574645586e-6
+    ρ2 = 2.1801715574645586e-6*0.01
     u1 = 300.0
     U[1] = ρ1
     U[2] = ρ2
     U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
 end
-
 
 function run(end_time = 0.0002)
     fluid = HallThruster.Xenon

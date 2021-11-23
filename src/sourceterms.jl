@@ -1,4 +1,4 @@
-function apply_reactions!(Q, U, params, i::Int64)
+function apply_reactions!(Q, U, params, Tev, i::Int64) #replace Te with Tev
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
     _, __, cell_volume = params.z_cell, params.z_edge, params.cell_volume
@@ -6,7 +6,6 @@ function apply_reactions!(Q, U, params, i::Int64)
 
     fluid = fluids[1].species.element
 	ne = @views electron_density(U[:, i], fluid_ranges)/fluid.m
-    Te = 2.0 #in eV
     neutral_velocity = fluids[1].conservation_laws.u
     
 	for r in reactions
@@ -15,9 +14,9 @@ function apply_reactions!(Q, U, params, i::Int64)
 		n_reactant = U[reactant_index, i]/fluid.m
 		if n_reactant > 1
 			k = r.rate_coeff
-			@views Q[reactant_index] -= ne * n_reactant * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
-			@views Q[product_index]  += ne * n_reactant  * k(Te) * dt*fluid.m/cell_volume #can probably use periodic callback
-            @views Q[product_index+1] += ne * n_reactant  * k(Te) * dt*fluid.m/cell_volume * neutral_velocity #momentum transfer
+			@views Q[reactant_index] -= ne * n_reactant * k(Tev[i]) * dt*fluid.m/cell_volume #can probably use periodic callback
+			@views Q[product_index]  += ne * n_reactant  * k(Tev[i]) * dt*fluid.m/cell_volume #can probably use periodic callback
+            @views Q[product_index+1] += ne * n_reactant  * k(Tev[i]) * dt*fluid.m/cell_volume * neutral_velocity #momentum transfer
 		end
 	end
 end
@@ -63,11 +62,13 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     function source_term_potential() #make this to be able to verify implementation with 0 source term
     end
 
-    #left boundary #make boundary for p
-    μ⁻ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, z_cell[1], L_ch))
-    μ⁺ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
+    #left boundary
     ne⁻ = electron_density(U[:, 1], fluid_ranges)/fluid.m #on boundary, ghost cell, perfect fit for i-1/2 on stencil 
     ne⁺ = (electron_density(U[:, 2], fluid_ranges)/fluid.m + electron_density(U[:, 3], fluid_ranges)/fluid.m)/2
+    nn⁻ = U[1, 1]/fluid.m
+    nn⁺ = (U[1, 2]/fluid.m + U[1, 3]/fluid.m)/2
+    μ⁻ = cf_electron_transport(get_v_an(), get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B_field(B_max, z_cell[1], L_ch))
+    μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[2] + Tev[3])/2, ne⁺, nn⁺, fluid.m), B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
     #A[1, 1] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 
     A[1, 1] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
     A[1, 2] = ne⁺*μ⁺/(Δz)^2
@@ -77,10 +78,12 @@ function set_up_potential_equation!(U, A, b, Tev, params)
     - U[3, 1]/(Δz) + (U[3, 3] + U[3, 2])/(2*Δz) #no interpolation on boundary
 
     #right boundary
-    μ⁻ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
-    μ⁺ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, z_cell[N+2], L_ch))
     ne⁻ = (electron_density(U[:, N+1], fluid_ranges)/fluid.m + electron_density(U[:, N], fluid_ranges)/fluid.m)/2
     ne⁺ =  electron_density(U[:, N+2], fluid_ranges)/fluid.m
+    nn⁻ = (U[1, N+1]/fluid.m + U[1, N]/fluid.m)/2
+    nn⁺ = U[1, N+2]/fluid.m
+    μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[N+1] + Tev[N])/2, ne⁻, nn⁻, fluid.m), B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
+    μ⁺ = cf_electron_transport(get_v_an(), get_v_c(Tev[N+2], ne⁺, nn⁺, fluid.m), B_field(B_max, z_cell[N+2], L_ch))
     #A[N, N] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
     A[N, N] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
     A[N, N-1] = ne⁻*μ⁻/(Δz)^2
@@ -91,10 +94,12 @@ function set_up_potential_equation!(U, A, b, Tev, params)
 
     for i in 2:N-1
         i_f = i+1 #fluid index, due to ghost cell on boundary
-        μ⁻ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
-        μ⁺ = cf_electron_transport(get_v_an(), get_v_c(10e19), B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
         ne⁻ = (electron_density(U[:, i_f], fluid_ranges)/fluid.m + electron_density(U[:, i_f-1], fluid_ranges)/fluid.m)/2
         ne⁺ = (electron_density(U[:, i_f+1], fluid_ranges)/fluid.m + electron_density(U[:, i_f], fluid_ranges)/fluid.m)/2
+        nn⁻ = (U[1, i_f]/fluid.m + U[1, i_f-1]/fluid.m)/2
+        nn⁺ = (U[1, i_f]/fluid.m + U[1, i_f+1]/fluid.m)/2
+        μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f-1])/2, ne⁺, nn⁺, fluid.m), B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
+        μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[i_f] + Tev[i_f+1])/2, ne⁺, nn⁺, fluid.m), B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
     
 		Δz = z_edge[i-1] - z_edge[i]
         #=Δz¹ = z_edge[i-2] - z_edge[i-1]

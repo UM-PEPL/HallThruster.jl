@@ -81,7 +81,7 @@ function update!(dU, U, params, t)
     compute_edge_states!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
-    Tev .= 5.0
+    Tev .= 2.0
 
     A .= 0.0
     b .= 0.0
@@ -92,7 +92,8 @@ function update!(dU, U, params, t)
 	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
-        source_term!(Q, U, params, ϕ, i)
+        source_term!(Q, U, params, ϕ, Tev, i)
+          
          # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
