@@ -25,8 +25,16 @@ end
 end
 
 function B_field(B_max, z, L_ch)
-    B_max*exp(-0.5*((z-L_ch)/(0.011))^2) #for SPT_100
-    #B_max*exp(-0.5*((z-L_ch)/(0.018))^2) 
+    B = if z < L_ch
+        B_max*exp(-0.5*((z-L_ch)/(0.011))^2) #for SPT_100
+    else
+        B_max*exp(-0.5*((z-L_ch)/(0.018))^2)
+    end
+    return B
+end
+
+function Te_func(z, L_ch)
+    return 30 * exp(-(2 * (z - L_ch) / 0.033)^2)
 end
 
 @inline function cf_electron_transport(v_an, v_c, B)

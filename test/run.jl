@@ -17,9 +17,9 @@ function IC!(U, z, fluids, L)
     return U
 end
 
-function run(end_time = 0.0002)
+function run(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
-    timestep = 1e-8
+    timestep = 0.9e-8
 
     ρ1 = 1.0
     ρ2 = 0.01
@@ -38,7 +38,7 @@ function run(end_time = 0.0002)
         HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
         end_time = end_time, #0.0002
-        saveat = [end_time],
+        saveat = LinRange(0.0, end_time, n_save) |> collect,
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing
         )
@@ -108,4 +108,12 @@ function run(end_time = 0.0002)
 
     plot(z_cell, ϕ)
 
+end
+
+function animate_solution(sol)
+    @gif for u in sol.u
+        p = plot()
+        plot!(u[1, :], ylims = (0.0, 1.0))
+        plot!(u[2, :])
+    end
 end

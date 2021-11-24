@@ -56,11 +56,14 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
-    Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
+    #Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
     pe = zeros(ncells+2)
     B = zeros(ncells+2)
     ne = zeros(ncells+2)
     νan = zeros(ncells+2)
+
+    L_ch = 0.025
+    Tev = map(x -> Te_func(x, L_ch), sim.grid.cell_centers)
 
     cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, νan)
     return U, cache
@@ -86,7 +89,7 @@ function update!(dU, U, params, t)
     compute_edge_states!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
-    Tev .= 2.0
+    #Tev .= 2.0
 
     solve_potential!(ϕ, U, params)
 
