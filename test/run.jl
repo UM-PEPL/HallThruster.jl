@@ -21,10 +21,10 @@ function run(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
     timestep = 0.9e-8
 
-    ρ1 = 1.0
-    ρ2 = 0.01
+    ρ1 = 2.1801715574645586e-6
+    ρ2 = 2.1801715574645586e-6*0.01
     u1 = 300.0
-    T1 = 300.0
+    T1 = 1000.0
 
     left_state = [ρ1, ρ2, ρ2*u1] # [ρ1, ρ1*u1, ρ1*E]
     right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
@@ -111,9 +111,10 @@ function run(end_time = 0.0002, n_save = 2)
 end
 
 function animate_solution(sol)
-    @gif for u in sol.u
-        p = plot()
-        plot!(u[1, :], ylims = (0.0, 1.0))
-        plot!(u[2, :])
+    mi = HallThruster.Xenon.m
+    @gif for (u, t) in zip(sol.u, sol.t)
+        p = plot(ylims = (1e5, 1e26))
+        plot!(p, u[1, :]/mi, yaxis = :log)
+        plot!(p, u[2, :]/mi)
     end
 end
