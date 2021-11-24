@@ -60,16 +60,15 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     pe = zeros(ncells+2)
     B = zeros(ncells+2)
     ne = zeros(ncells+2)
+    νan = zeros(ncells+2)
 
-    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B)
+    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, νan)
     return U, cache
 end
 
 function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
-
-	F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B = params.cache
 
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     ϕ, Tev = params.cache.ϕ, params.cache.Tev

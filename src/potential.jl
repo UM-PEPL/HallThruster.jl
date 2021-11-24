@@ -6,6 +6,8 @@ function solve_potential!(ϕ, U, params)
     fluid = fluids[1].species.element
     N = length(z_cell) - 2 #remove boundary ghost cells
 
+    L_ch = 0.025
+
     #have to think about how to do this, either with a vector or a function that will be called multiple times using Tev and electron density
     pe = params.cache.pe
     ne = params.cache.ne
@@ -13,10 +15,12 @@ function solve_potential!(ϕ, U, params)
     A = params.cache.A
     b = params.cache.b
     Tev = params.cache.Tev
+    νan = params.cache.νan
 
     @inbounds for i in 1:N+2
         ne[i] = @views electron_density(U[:, i], fluid_ranges)/fluid.m
         pe[i] = electron_pressure(ne[i], Tev[i])
+        νan[i] = get_v_an(z_cell[i], B[i], L_ch)
     end
 
     #using Dirichlet boundary conditions
@@ -34,8 +38,12 @@ function solve_potential!(ϕ, U, params)
     ne⁺ = 0.5 * (ne[2] + ne[3])
     nn⁻ = U[1, 1]/fluid.m
     nn⁺ = (U[1, 2]/fluid.m + U[1, 3]/fluid.m)/2
-    μ⁻ = cf_electron_transport(get_v_an(), get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B[1])#B_field(B_max, z_cell[1], L_ch))
-    μ⁺ = cf_electron_transport(get_v_an(), get_v_c((Tev[2] + Tev[3])/2, ne⁺, nn⁺, fluid.m), 0.5 * (B[2] + B[3]))#B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
+    B⁻ = B[1]
+    B⁺ = 0.5 * (B[2] + B[3])
+    νan⁻ = νan[1]
+    νan⁺ = 0.5 * (νan[2] + νan[3])
+    μ⁻ = cf_electron_transport(νan⁻, get_v_c(Tev[1], ne⁻, nn⁻, fluid.m), B⁻)#B_field(B_max, z_cell[1], L_ch))
+    μ⁺ = cf_electron_transport(νan⁺, get_v_c((Tev[2] + Tev[3])/2, ne⁺, nn⁺, fluid.m), B⁺)#B_field(B_max, (z_cell[3]+z_cell[2])/2, L_ch))
     #A[1, 1] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
     A.d[1] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
     A.du[1] = ne⁺*μ⁺/(Δz)^2
@@ -49,8 +57,12 @@ function solve_potential!(ϕ, U, params)
     ne⁺ = ne[N+2]
     nn⁻ = (U[1, N+1]/fluid.m + U[1, N]/fluid.m)/2
     nn⁺ = U[1, N+2]/fluid.m
-    μ⁻ = cf_electron_transport(get_v_an(), get_v_c((Tev[N+1] + Tev[N])/2, ne⁻, nn⁻, fluid.m), 0.5 * (B[N] + B[N+1]))#B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
-    μ⁺ = cf_electron_transport(get_v_an(), get_v_c(Tev[N+2], ne⁺, nn⁺, fluid.m), B[N+2])#B_field(B_max, z_cell[N+2], L_ch))
+    B⁻ = 0.5 * (B[N] + B[N+1])
+    B⁺ = B[N+2]
+    νan⁻ = 0.5 * (νan[N] + νan[N+1])
+    νan⁺ = νan[N+2]
+    μ⁻ = cf_electron_transport(νan⁻, get_v_c((Tev[N+1] + Tev[N])/2, ne⁻, nn⁻, fluid.m), B⁻)#B_field(B_max, (z_cell[N]+z_cell[N+1])/2, L_ch))
+    μ⁺ = cf_electron_transport(νan⁺, get_v_c(Tev[N+2], ne⁺, nn⁺, fluid.m), B⁺)#B_field(B_max, z_cell[N+2], L_ch))
     #A[N, N] = -1.5*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2
     A.d[N] = -1*(ne⁻*μ⁻ + ne⁺*μ⁺)/(Δz)^2 #no interpolation on boundary
     A.dl[N-1] = ne⁻*μ⁻/(Δz)^2
@@ -68,8 +80,13 @@ function solve_potential!(ϕ, U, params)
         nn⁻ = (U[1, i_f] + U[1, i_f-1]) / (2 * fluid.m)
         nn⁺ = (U[1, i_f] + U[1, i_f+1]) / (2 * fluid.m)
 
-        μ⁻ = cf_electron_transport(get_v_an(), get_v_c(0.5 * (Tev[i_f] + Tev[i_f-1]), ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f-1] + B[i_f]))#B_field(B_max, (z_cell[i_f-1]+z_cell[i_f])/2, L_ch))
-        μ⁺ = cf_electron_transport(get_v_an(), get_v_c(0.5 * (Tev[i_f] + Tev[i_f+1]), ne⁺, nn⁺, fluid.m), 0.5 * (B[i_f] + B[i_f+1]))#B_field(B_max, (z_cell[i_f+1]+z_cell[i_f])/2, L_ch))
+        B⁻ = 0.5 * (B[i_f-1] + B[i_f])
+        B⁺ = 0.5 * (B[i_f] + B[i_f+1])
+        νan⁻ = 0.5 * (νan[i_f-1] + νan[i_f])
+        νan⁺ = 0.5 * (νan[i_f+1] + νan[i_f])
+
+        μ⁻ = cf_electron_transport(νan⁻, get_v_c(0.5 * (Tev[i_f] + Tev[i_f-1]), ne⁺, nn⁺, fluid.m), B⁻)
+        μ⁺ = cf_electron_transport(νan⁺, get_v_c(0.5 * (Tev[i_f] + Tev[i_f+1]), ne⁺, nn⁺, fluid.m), B⁺)
 		Δz = z_edge[i-1] - z_edge[i]
 
         Δz² = Δz^2

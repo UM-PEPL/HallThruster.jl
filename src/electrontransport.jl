@@ -13,8 +13,15 @@ end
     #return 2.5e-13*nn
 end
 
-@inline function get_v_an() #anomalous momentum transfer collision frequency
-    return 0.0
+@inline function get_v_an(z, B, L_ch) #anomalous momentum transfer collision frequency
+    ωce = e * B / mₑ
+    #νan = ωce/16
+    νan = if z < L_ch
+        ωce/160
+    else
+        ωce/16
+    end
+    return νan
 end
 
 function B_field(B_max, z, L_ch)
