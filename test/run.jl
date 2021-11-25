@@ -9,7 +9,7 @@ end
 
 function IC!(U, z, fluids, L)
     ρ1 = 2.1801715574645586e-6
-    ρ2 = 2.1801715574645586e-6*0.01
+    ρ2 = ρ1 * exp(-((z - L)/0.033)^2)
     u1 = 300.0
     U[1] = ρ1
     U[2] = ρ2
@@ -22,7 +22,7 @@ function run(end_time = 0.0002, n_save = 2)
     timestep = 0.9e-8
 
     ρ1 = 2.1801715574645586e-6
-    ρ2 = 2.1801715574645586e-6*0.01
+    ρ2 = 2.1801715574645586e-6
     u1 = 300.0
     T1 = 1000.0
 
@@ -113,7 +113,7 @@ end
 function animate_solution(sol)
     mi = HallThruster.Xenon.m
     @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (1e5, 1e26))
+        p = plot(ylims = (1e13, 1e20))
         plot!(p, u[1, :]/mi, yaxis = :log)
         plot!(p, u[2, :]/mi)
     end
