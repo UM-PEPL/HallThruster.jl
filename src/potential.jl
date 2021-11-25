@@ -18,7 +18,7 @@ function solve_potential!(ϕ, U, params)
     νan = params.cache.νan
 
     @inbounds for i in 1:N+2
-        ne[i] = @views electron_density(U[:, i], fluid_ranges)/fluid.m
+        ne[i] = electron_density(@view(U[:, i]), fluid_ranges)/fluid.m
         pe[i] = electron_pressure(ne[i], Tev[i])
         νan[i] = get_v_an(z_cell[i], B[i], L_ch)
     end
@@ -71,7 +71,7 @@ function solve_potential!(ϕ, U, params)
     b[N] = - ϕ_R*(ne⁺*μ⁺)/((Δz)^2) + μ⁻*pe[N]/(Δz)^2 - 1*(μ⁺ + μ⁻)*pe[N+1]/(Δz)^2 + (μ⁺)*pe[N+2]/(Δz)^2
     - (U[3, N] + U[3, N+1])/(2*Δz) + U[3, N+2]/(Δz) #no interpolation on boundary
 
-    @turbo for i in 2:N-1
+    @tturbo for i in 2:N-1
         i_f = i+1 #fluid index, due to ghost cell on boundary
 
         ne⁻ = 0.5 * (ne[i_f] + ne[i_f-1])
@@ -112,7 +112,7 @@ function tridiagonal_forward_sweep!(A::Tridiagonal, b)
 end
 
 function tridiagonal_backward_sweep!(y, A::Tridiagonal, b)
-    n = size(A, 1)
+    n = length(A.d)
     y[n] = b[n] / A.d[n]
     # back-substitution
     @inbounds for i in n-1:-1:1

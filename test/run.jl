@@ -30,7 +30,8 @@ function run(end_time = 0.0002, n_save = 2)
     right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
-    sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
+    sim = HallThruster.MultiFluidSimulation(
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!, source_term! = source!,
@@ -38,10 +39,14 @@ function run(end_time = 0.0002, n_save = 2)
         HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
         end_time = end_time, #0.0002
-        saveat = LinRange(0.0, end_time, n_save) |> collect,
+        saveat = if n_save == 1
+                [end_time]
+            else
+                LinRange(0.0, end_time, n_save) |> collect
+            end,
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing
-        )
+    )
 
     @time sol = HallThruster.run_simulation(sim)
 
