@@ -1,4 +1,5 @@
 using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics
+using LinearAlgebra
 
 doctest(HallThruster)
 
@@ -280,6 +281,12 @@ end
     @test HallThruster.left_edge(1) == 0
     @test HallThruster.right_edge(1) == 1
     @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], [1:1, 2:3, 4:6]) == 8.0
+end
+
+@testset "Linear algebra tests" begin
+    A = Tridiagonal(ones(3), -2.6 * ones(4), ones(3))
+    b = [-240., 0, 0, -150]
+    @test A\b == HallThruster.tridiagonal_solve(A, b)
 end
 
 @testset "Linear Interpolation tests" begin

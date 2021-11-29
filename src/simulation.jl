@@ -53,12 +53,15 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables, nedges)
     UR = zeros(nvariables, nedges)
     Q = zeros(nvariables)
-    A = Tridiagonal(zeros(ncells-1), zeros(ncells), zeros(ncells-1)) #for potential equation A*ϕ = b
+    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
     Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
+    pe = zeros(ncells+2)
+    B = zeros(ncells+2)
+    ne = zeros(ncells+2)
 
-    cache = (F, UL, UR, Q, A, b, ϕ, Tev)
+    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B)
     return U, cache
 end
 
@@ -66,7 +69,10 @@ function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
 
-	F, UL, UR, Q, A, b, ϕ, Tev = params.cache
+	F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B = params.cache
+
+    F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
+    ϕ, Tev = params.cache.ϕ, params.cache.Tev
 
 	z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
 	scheme = params.scheme
@@ -83,17 +89,14 @@ function update!(dU, U, params, t)
 
     Tev .= 2.0
 
-    A .= 0.0
-    b .= 0.0
-    set_up_potential_equation!(U, A, b, Tev, params)
-    ϕ = A\b
+    solve_potential!(ϕ, U, params)
 
 	# Compute heavy species source terms
-	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
+	@inbounds for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
         source_term!(Q, U, params, ϕ, Tev, i)
-          
+
          # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
@@ -102,6 +105,7 @@ function update!(dU, U, params, t)
 
         @tturbo @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
+
     return nothing
 end
 
@@ -110,7 +114,7 @@ right_edge(i) = i
 
 function electron_density(U, fluid_ranges)
     ne = 0.0
-    for (i, f) in enumerate(fluid_ranges)
+    @inbounds for (i, f) in enumerate(fluid_ranges)
         if i == 1
             continue # neutrals do not contribute to electron density
         end
@@ -118,6 +122,14 @@ function electron_density(U, fluid_ranges)
         ne += charge_state * U[f[1]]
     end
     return ne
+end
+
+function precompute_bfield!(B, zs)
+    B_max = 0.015
+    L_ch = 0.025
+    for (i, z) in enumerate(zs)
+        B[i] = B_field(B_max, z, L_ch)
+    end
 end
 
 function run_simulation(sim)
@@ -137,6 +149,8 @@ function run_simulation(sim)
 
     reactions = load_ionization_reactions(species)
     BCs = sim.boundary_conditions
+
+    precompute_bfield!(cache.B, grid.cell_centers)
 
     params = (;
         cache,
