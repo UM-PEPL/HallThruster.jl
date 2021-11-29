@@ -9,7 +9,7 @@ end
 
 function IC!(U, z, fluids, L)
     ρ1 = 2.1801715574645586e-6
-    ρ2 = 2.1801715574645586e-6*0.01
+    ρ2 = ρ1 * exp(-((z - L)/0.033)^2)
     u1 = 300.0
     U[1] = ρ1
     U[2] = ρ2
@@ -17,20 +17,21 @@ function IC!(U, z, fluids, L)
     return U
 end
 
-function run(end_time = 0.0002)
+function run(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
-    timestep = 1e-8
+    timestep = 0.9e-8
 
-    ρ1 = 1.0
-    ρ2 = 0.01
+    ρ1 = 2.1801715574645586e-6
+    ρ2 = 2.1801715574645586e-6
     u1 = 300.0
-    T1 = 300.0
+    T1 = 1000.0
 
     left_state = [ρ1, ρ2, ρ2*u1] # [ρ1, ρ1*u1, ρ1*E]
     right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
-    sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
+    sim = HallThruster.MultiFluidSimulation(
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!, source_term! = source!,
@@ -38,12 +39,24 @@ function run(end_time = 0.0002)
         HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
         end_time = end_time, #0.0002
-        saveat = [end_time],
+        saveat = if n_save == 1
+                [end_time]
+            else
+                LinRange(0.0, end_time, n_save) |> collect
+            end,
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing
-        )
+    )
 
     @time sol = HallThruster.run_simulation(sim)
+
+    p = plot()#plot(sol.u[end][1, :], yaxis = :log)
+    plot!(p, sol.u[end][3, :] ./ sol.u[end][2, :])
+
+    display(p)
+
+    #@show fieldnames(typeof(sol))
+    return sol
 
     #extract potential at the end, just for now, make proper later ##############################################################
     species, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(sim)
@@ -91,11 +104,22 @@ function run(end_time = 0.0002)
 
     #make U last timestep
     #U = sol.u[1]
-    Tev .= 5.0
+    Tev .= 2.0
 
     A .= 0.0
     b .= 0.0
     HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
     ϕ = A\b
 
+    plot(z_cell, ϕ)
+
+end
+
+function animate_solution(sol)
+    mi = HallThruster.Xenon.m
+    @gif for (u, t) in zip(sol.u, sol.t)
+        p = plot(ylims = (1e13, 1e20))
+        plot!(p, u[1, :]/mi, yaxis = :log)
+        plot!(p, u[2, :]/mi)
+    end
 end
