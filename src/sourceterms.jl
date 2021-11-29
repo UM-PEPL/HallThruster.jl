@@ -25,7 +25,7 @@ function apply_ion_acceleration!(Q, U, params, ϕ, i) #make use of calculated po
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     for j in 1:length(fluids)
         E_d = 0.0
-        if i < 101
+        if i < length(params.z_cell)-1
             E_d = -(ϕ[i]-ϕ[i-1])/(params.z_cell[i] - params.z_cell[i-1])
         end
         if fluids[j].species.Z > 0
