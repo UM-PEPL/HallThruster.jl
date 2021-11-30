@@ -60,6 +60,5 @@ end
 
 @inline stagnation_enthalpy(U, f) = stagnation_energy(U, f) + pressure(U, f) / density(U, f)
 @inline function critical_sound_speed(U, f)
-    γ = γ(f)
-    return 2 * (γ - 1) / (γ + 1) * stagnation_enthalpy(U, f)
+    return 2 * (γ(f) - 1) / (γ(f) + 1) * stagnation_enthalpy(U, f)
 end
