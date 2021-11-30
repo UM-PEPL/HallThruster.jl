@@ -1,33 +1,33 @@
-function σ_en(Tev) #Te in eV, from intro to EP, 3.6-13
+@inline function σ_en(Tev) #Te in eV, from intro to EP, 3.6-13
     return 6.6e-19*((Tev/4-0.1)/(1+(Tev/4)^1.6)) #[m^2] 
 end
 
-function ln_λ(ne, Tev) #from intro to EP, 3.6-15, or just assume constant 15-25
+@inline function ln_λ(ne, Tev) #from intro to EP, 3.6-15, or just assume constant 15-25
     return 23 - 0.5*log(ne*1e-6/Tev^3)
 end
 
-function get_v_c(Tev, nn, ne, m) #classical momentum transfer collision frequency, v_ei + v_en, nn neutral number density, ne electron number density, m ion mass
+@inline function get_v_c(Tev, nn, ne, m) #classical momentum transfer collision frequency, v_ei + v_en, nn neutral number density, ne electron number density, m ion mass
     v_en = σ_en(Tev)*nn*sqrt(8*e*Tev/pi/m) # intro to EP, 3.6-12
     v_ei = 2.9e-12*ne*ln_λ(ne, Tev)/Tev^1.5 #intro to EP, 3.6-14
     return v_en + v_ei #2.5e-13*nn #from Hara paper, is similar to formula for v_ei from intro to EP
     #return 2.5e-13*nn
 end
 
-function get_v_an() #anomalous momentum transfer collision frequency
-    return 0
+@inline function get_v_an() #anomalous momentum transfer collision frequency
+    return 0.0
 end
 
 function B_field(B_max, z, L_ch)
     B_max*exp(-0.5*((z-L_ch)/(0.011))^2) #for SPT_100
-    B_max*exp(-0.5*((z-L_ch)/(0.018))^2) 
+    #B_max*exp(-0.5*((z-L_ch)/(0.018))^2) 
 end
 
-function cf_electron_transport(v_an, v_c, B)
+@inline function cf_electron_transport(v_an, v_c, B)
     vₑ = v_an + v_c
     Ω = e*B/(mₑ*vₑ)
     return e/(mₑ*vₑ*(1+Ω^2))
 end 
 
 function electron_pressure(ne, Tev)
-    return ne*e.*Tev
+    return e * ne * Tev
 end

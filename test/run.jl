@@ -1,5 +1,5 @@
 
-using Test, HallThruster, Plots, StaticArrays
+using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra
 
 function source!(Q, U, params, ϕ, Tev, i)
     HallThruster.apply_reactions!(Q, U, params, Tev, i)
@@ -29,6 +29,8 @@ function run(end_time = 0.0002)
     left_state = [ρ1, ρ2, ρ2*u1] # [ρ1, ρ1*u1, ρ1*E]
     right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
+    saved_values = SavedValues(Float64, Matrix{Float64})
+    #(;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B)
 
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
@@ -40,10 +42,18 @@ function run(end_time = 0.0002)
         end_time = end_time, #0.0002
         saveat = [end_time],
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-        callback = nothing
+        callback = SavingCallback((params, tspan, integrator)->(params), saved_values, saveat = [end_time])
         )
 
     @time sol = HallThruster.run_simulation(sim)
+
+    p = plot()#plot(sol.u[end][1, :], yaxis = :log)
+    plot!(p, sol.u[end][3, :] ./ sol.u[end][2, :])
+
+    display(p)
+
+    #@show fieldnames(typeof(sol))=#
+    return sol, saved_values.saveval
 
     #extract potential at the end, just for now, make proper later ##############################################################
     species, fluids, fluid_ranges, species_range_dict = HallThruster.configure_simulation(sim)
@@ -91,11 +101,13 @@ function run(end_time = 0.0002)
 
     #make U last timestep
     #U = sol.u[1]
-    Tev .= 5.0
+    Tev .= 2.0
 
     A .= 0.0
     b .= 0.0
     HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
     ϕ = A\b
+
+    plot(z_cell, ϕ)
 
 end
