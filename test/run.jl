@@ -9,7 +9,7 @@ end
 
 function IC!(U, z, fluids, L)
     ρ1 = 2.1801715574645586e-6
-    ρ2 = ρ1 * exp(-((z - L)/0.033)^2)
+    ρ2 = ρ1 * exp(-((z - L) / 0.033)^2)
     u1 = 300.0
     U[1] = ρ1
     U[2] = ρ2
@@ -26,8 +26,8 @@ function run(end_time = 0.0002, n_save = 2)
     u1 = 300.0
     T1 = 1000.0
 
-    left_state = [ρ1, ρ2, ρ2*u1] # [ρ1, ρ1*u1, ρ1*E]
-    right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
+    left_state = [ρ1, ρ2, ρ2 * u1] # [ρ1, ρ1*u1, ρ1*E]
+    right_state = [ρ1, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
     sim = HallThruster.MultiFluidSimulation(
@@ -35,15 +35,15 @@ function run(end_time = 0.0002, n_save = 2)
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!, source_term! = source!,
-        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(300.0, 300.0));
-        HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
+        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(300.0, 300.0))
+            HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
         end_time = end_time, #0.0002
         saveat = if n_save == 1
-                [end_time]
-            else
-                LinRange(0.0, end_time, n_save) |> collect
-            end,
+            [end_time]
+        else
+            LinRange(0.0, end_time, n_save) |> collect
+        end,
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing
     )
@@ -70,7 +70,7 @@ function run(end_time = 0.0002, n_save = 2)
     source_term! = sim.source_term!
     timestep = sim.timestepcontrol[1]
     adaptive = sim.timestepcontrol[2]
-    tspan = (0., sim.end_time)
+    tspan = (0.0, sim.end_time)
 
     reactions = HallThruster.load_ionization_reactions(species)
     BCs = sim.boundary_conditions
@@ -109,7 +109,7 @@ function run(end_time = 0.0002, n_save = 2)
     A .= 0.0
     b .= 0.0
     HallThruster.set_up_potential_equation!(U, A, b, Tev, params)
-    ϕ = A\b
+    ϕ = A \ b
 
     plot(z_cell, ϕ)
 
@@ -119,7 +119,7 @@ function animate_solution(sol)
     mi = HallThruster.Xenon.m
     @gif for (u, t) in zip(sol.u, sol.t)
         p = plot(ylims = (1e13, 1e20))
-        plot!(p, u[1, :]/mi, yaxis = :log)
-        plot!(p, u[2, :]/mi)
+        plot!(p, u[1, :] / mi, yaxis = :log)
+        plot!(p, u[2, :] / mi)
     end
 end
