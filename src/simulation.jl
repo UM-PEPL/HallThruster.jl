@@ -56,20 +56,22 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
-    Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
+    #Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
     pe = zeros(ncells+2)
     B = zeros(ncells+2)
     ne = zeros(ncells+2)
+    νan = zeros(ncells+2)
 
-    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B)
+    L_ch = 0.025
+    Tev = map(x -> Te_func(x, L_ch), sim.grid.cell_centers)
+
+    cache = (;F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, νan)
     return U, cache
 end
 
 function update!(dU, U, params, t)
 	fluids, fluid_ranges = params.fluids, params.fluid_ranges
 	reactions, species_range_dict = params.reactions, params.species_range_dict
-
-	F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B = params.cache
 
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     ϕ, Tev = params.cache.ϕ, params.cache.Tev
@@ -87,16 +89,16 @@ function update!(dU, U, params, t)
     compute_edge_states!(UL, UR, U, scheme)
 	compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
-    Tev .= 2.0
+    #Tev .= 2.0
 
     solve_potential!(ϕ, U, params)
 
 	# Compute heavy species source terms
-	for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
+	@inbounds for i in 2:ncells+1 #+1 since ncells takes the amount of cells, but there are 2 more face values
 
         @turbo Q .= 0.0
         source_term!(Q, U, params, ϕ, Tev, i)
-          
+
          # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
@@ -105,6 +107,7 @@ function update!(dU, U, params, t)
 
         @tturbo @views @. dU[:, i] = (F[:, left] - F[:, right])/Δz + Q
     end
+
     return nothing
 end
 
