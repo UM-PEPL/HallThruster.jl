@@ -1,11 +1,11 @@
 Geometry1D = @NamedTuple begin
-    domain::Tuple{Float64, Float64}
+    domain::Tuple{Float64,Float64}
     channel_length::Float64
     inner_radius::Float64
     outer_radius::Float64
 end
 
-struct Grid1D 
+struct Grid1D
     ncells::Int64
     edges::Vector{Float64}
     cell_centers::Vector{Float64}
@@ -16,15 +16,15 @@ end
     channel_area(geometry::Geometry1D)
 Compute the area of the Hall thruster channel from the given Geometry1D object
 """
-channel_area(geometry::Geometry1D) =
-    channel_area(geometry.outer_radius, geometry.inner_radius)
+function channel_area(geometry::Geometry1D)
+    return channel_area(geometry.outer_radius, geometry.inner_radius)
+end
 
 """
     channel_area(outer_radius, inner_radius, length)
 Compute the area of a Hall thruster channel from its dimensions
 """
 channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2)
-
 
 """
     generate_grid(geometry, ncells)
@@ -34,16 +34,17 @@ of cell centers (plus ghost cells face coordinates), interface/edges and volume 
 
 function generate_grid(geometry, ncells)
     # generate cell interface coordinates
-    z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells+1)
+    z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells + 1)
 
     # generate cell center coordinates
-    z_cell = [0.5 * (z_edge[i+1] + z_edge[i]) for i in 1:ncells]
+    z_cell = [0.5 * (z_edge[i + 1] + z_edge[i]) for i in 1:ncells]
 
     # add ghost cells on left and right boundaries
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
 
     # get cell area
-    cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius)*abs(geometry.domain[2]-geometry.domain[1])/ncells
+    cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius) *
+                  abs(geometry.domain[2] - geometry.domain[1]) / ncells
 
     return Grid1D(ncells, z_edge, z_cell, cell_volume)
 end
@@ -53,9 +54,5 @@ end
 Geometry of the SPT_100 thruster
 """
 
-const SPT_100 = (
-    domain = (0.0, 0.05),
-    channel_length = 0.025,
-    inner_radius = 0.0345,
-    outer_radius = 0.05
-)
+const SPT_100 = (domain=(0.0, 0.05), channel_length=0.025, inner_radius=0.0345,
+                 outer_radius=0.05)

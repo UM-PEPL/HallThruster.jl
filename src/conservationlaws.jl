@@ -1,21 +1,29 @@
 
 Base.@kwdef struct ConservationLawSystem
-	type::Symbol
-	nvars::Int
-	u::Union{Float64, Nothing}
-	T::Union{Float64, Nothing}
+    type::Symbol
+    nvars::Int
+    u::Union{Float64,Nothing}
+    T::Union{Float64,Nothing}
 end
 
 nvars(c::ConservationLawSystem) = c.nvars
 
 function Base.show(io::IO, c::ConservationLawSystem)
-	name = string(c.type)
-	u = c.u
-	T = c.T
-	ustring = if isnothing(u); ""; else; "u = $u m/s"; end
-	Tstring = if isnothing(T); ""; else; "T = $T K"; end
-	argstring = join(filter(!isempty, [ustring, Tstring]), ", ")
-	print(io, name * "(" * argstring * ")")
+    name = string(c.type)
+    u = c.u
+    T = c.T
+    ustring = if isnothing(u)
+        ""
+    else
+        "u = $u m/s"
+    end
+    Tstring = if isnothing(T)
+        ""
+    else
+        "T = $T K"
+    end
+    argstring = join(filter(!isempty, [ustring, Tstring]), ", ")
+    return print(io, name * "(" * argstring * ")")
 end
 
 """
@@ -28,13 +36,11 @@ julia> equation = ContinuityOnly(u = 300, T = 500)
 ContinuityOnly(u = 300.0 m/s, T = 500.0 K)
 ```
 """
-ContinuityOnly(;u, T) = ConservationLawSystem(
-	type = :ContinuityOnly,
-	nvars = 1;
-	u = Float64(u),
-	T = Float64(T)
-)
-ContinuityOnly(u, T) = ContinuityOnly(;u, T)
+function ContinuityOnly(; u, T)
+    return ConservationLawSystem(; type=:ContinuityOnly, nvars=1, u=Float64(u),
+                                 T=Float64(T))
+end
+ContinuityOnly(u, T) = ContinuityOnly(; u, T)
 
 """
 	IsothermalEuler
@@ -46,13 +52,10 @@ julia> equation = IsothermalEuler(T = 500)
 IsothermalEuler(T = 500.0 K)
 ```
 """
-IsothermalEuler(;T) = ConservationLawSystem(
-	type = :IsothermalEuler,
-	nvars = 2,
-	u = nothing,
-	T = Float64(T)
-)
-IsothermalEuler(T) = IsothermalEuler(;T)
+function IsothermalEuler(; T)
+    return ConservationLawSystem(; type=:IsothermalEuler, nvars=2, u=nothing, T=Float64(T))
+end
+IsothermalEuler(T) = IsothermalEuler(; T)
 
 """
 	EulerEquations
@@ -65,9 +68,6 @@ julia> equation = EulerEquations()
 EulerEquations()
 ```
 """
-EulerEquations() = ConservationLawSystem(
-	type = :EulerEquations,
-	nvars = 3,
-	u = nothing,
-	T = nothing
-)
+function EulerEquations()
+    return ConservationLawSystem(; type=:EulerEquations, nvars=3, u=nothing, T=nothing)
+end

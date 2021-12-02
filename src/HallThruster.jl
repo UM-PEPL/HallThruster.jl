@@ -9,7 +9,7 @@ using LoopVectorization
 using LinearAlgebra
 
 # path to the HallThruster directory
-const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:end-1]...)
+const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 
 include("physicalconstants.jl")
@@ -26,8 +26,5 @@ include("potential.jl")
 include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
-
-#dere
-# this change was made on main
 
 end # module
