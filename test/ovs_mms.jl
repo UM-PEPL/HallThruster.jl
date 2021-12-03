@@ -11,6 +11,13 @@ mutable struct Result
     L_1
 end
 
+"""
+    perform_OVS(; MMS_CONSTS::NamedTuple, fluxfn::Function, reconstruct::Bool)
+
+function to perform OVS for the fluid equations using definition of manufactured
+solution in runtests.jl
+"""
+
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     #create a template definition of source! function somewhere
@@ -73,6 +80,15 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         n_cells = n_cells*2
     end
     return results
+end
+
+function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
+#need to only call potential solver 
+#find way to deal with variables 
+#then refine grid a couple of times, look at convergence order
+
+
+
 end
 
 function compute_slope(ncells, errors)

@@ -540,3 +540,4 @@ end
     include("source.jl")
     test_ionization_source(HallThruster.HLLE!, false, 0.0002, 0.9e-8)
 end
+
