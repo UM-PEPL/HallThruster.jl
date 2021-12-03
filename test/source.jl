@@ -8,6 +8,18 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
         return Q
     end
 
+    function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        #HallThruster.OVS_potential_source_term!(b, i)
+    end
+    
+    function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz)
+        ϕ_L = 400.0
+        ϕ_R = 0.0
+        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
+        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz)
+    end
+
     function IC!(U, z, fluids, L)
         ρ1 = 1e19 * fluid.m
         u1 = 300.0
@@ -28,6 +40,8 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
+        source_potential! = source_potential!,
+        boundary_potential! = boundary_potential!, 
         fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(300.0, T1));
         HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(T1))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
@@ -55,6 +69,18 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
         return Q
     end
 
+    function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        #HallThruster.OVS_potential_source_term!(b, i)
+    end
+    
+    function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz)
+        ϕ_L = 400.0
+        ϕ_R = 0.0
+        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
+        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz)
+    end
+
     function IC!(U, z, fluids, L)
         ρ1 = 1e19 * fluid.m
         ρ2 = 0.01 * ρ1
@@ -77,6 +103,8 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
+        source_potential! = source_potential!,
+        boundary_potential! = boundary_potential!, 
         fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(300.0, 300.0));
         HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],

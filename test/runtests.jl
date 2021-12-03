@@ -1,5 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics
-using LinearAlgebra
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
 
 doctest(HallThruster)
 
@@ -541,3 +540,4 @@ end
     include("source.jl")
     test_ionization_source(HallThruster.HLLE!, false, 0.0002, 0.9e-8)
 end
+

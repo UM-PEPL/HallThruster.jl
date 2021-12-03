@@ -4,7 +4,7 @@ struct HyperbolicScheme{F,L}
     reconstruct::Bool
 end
 
-Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,S,F,L,CB} #could add callback, or autoselect callback when in MMS mode
+Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
     fluids::Vector{Fluid}     # An array of user-defined fluids.
     # This will give us the capacity to more easily do shock tubes (and other problems)
@@ -14,6 +14,8 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,S,F,L,CB} #could add ca
     end_time::Float64    # How long to simulate
     scheme::HyperbolicScheme{F,L} # Flux, Limiter
     source_term!::S  # Source term function. This can include reactons, electric field, and MMS terms
+    source_potential!::SP #potential source term
+    boundary_potential!::BP #boundary conditions potential
     saveat::Vector{Float64} #when to save
     timestepcontrol::Tuple{Float64,Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored.
     callback::CB
@@ -55,7 +57,6 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     A = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1))
     b = zeros(ncells) #for potential equation
     ϕ = zeros(ncells) #for potential equation
-    #Tev = zeros(ncells+2) #for energy equation in the long run, now to implement pe in pressure equation without adapting later
     pe = zeros(ncells + 2)
     B = zeros(ncells + 2)
     ne = zeros(ncells + 2)
@@ -68,7 +69,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     return U, cache
 end
 
-function update!(dU, U, params, t)
+function update!(dU, U, params, t) #get source and BCs for potential from params
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     reactions, species_range_dict = params.reactions, params.species_range_dict
 
@@ -132,7 +133,7 @@ function precompute_bfield!(B, zs)
     end
 end
 
-function run_simulation(sim)
+function run_simulation(sim) #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
     grid = sim.grid
 
@@ -153,7 +154,8 @@ function run_simulation(sim)
 
     params = (; cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
-              scheme, BCs, dt=timestep)
+              scheme, BCs, dt=timestep, source_potential! = sim.source_potential!, 
+              boundary_potential! = sim.boundary_potential!)
 
     prob = ODEProblem{true}(update!, U, tspan, params)
     sol = solve(prob, SSPRK22(); saveat=sim.saveat, callback=sim.callback,

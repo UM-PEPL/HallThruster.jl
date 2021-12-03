@@ -11,11 +11,30 @@ mutable struct Result
     L_1
 end
 
+"""
+    perform_OVS(; MMS_CONSTS::NamedTuple, fluxfn::Function, reconstruct::Bool)
+
+function to perform OVS for the fluid equations using definition of manufactured
+solution in runtests.jl
+"""
+
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     #create a template definition of source! function somewhere
     function source!(Q, U, params, ϕ, Tev, i)
         mms!(Q, [params.z_cell[i]])
+    end
+
+    function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        #HallThruster.OVS_potential_source_term!(b, i)
+    end
+    
+    function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz)
+        ϕ_L = 400.0
+        ϕ_R = 0.0
+        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
+        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz)
     end
     
     function IC!(U, z, fluids, L)
@@ -44,7 +63,9 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
-    source_term! = source!, 
+    source_term! = source!,
+    source_potential! = source_potential!,
+    boundary_potential! = boundary_potential!, 
     fluids = [HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.ContinuityOnly(MMS_CONSTS.u_constant, MMS_CONSTS.T_constant));
     HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.IsothermalEuler(MMS_CONSTS.T_constant))],
     #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())], 
@@ -73,6 +94,15 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         n_cells = n_cells*2
     end
     return results
+end
+
+function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
+#need to only call potential solver 
+#find way to deal with variables 
+#then refine grid a couple of times, look at convergence order
+
+
+
 end
 
 function compute_slope(ncells, errors)
