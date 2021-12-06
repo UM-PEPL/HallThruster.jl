@@ -44,9 +44,9 @@ function solve_potential!(ϕ, U, params)
 
     Δz = z_edge[3] - z_edge[2]
 
-    OVS = false
-
-    boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz)
+    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
+    OVS[1] = false
+    boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS) #if OVS, this sets to true
 
     for i in 2:(N - 1) #@tturbo
         i_f = i + 1 #fluid index, due to ghost cell on boundary
@@ -68,9 +68,9 @@ function solve_potential!(ϕ, U, params)
         μ⁺ = cf_electron_transport(νan⁺,
                                    get_v_c(0.5 * (Tev[i_f] + Tev[i_f + 1]), ne⁺, nn⁺,
                                            fluid.m), B⁺)
-                                           
-        if OVS == true
-            ne⁻, ne⁺, nn⁻, nn⁺, B⁻, B⁺, νan⁻, νan⁺, μ⁻, μ⁺ = 1.0
+        
+        if OVS[1] == true
+            ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
         end
 
         Δz = z_edge[i - 1] - z_edge[i]
@@ -186,7 +186,7 @@ Applies a scalar as source term for potential OVS.
 """
 
 function OVS_potential_source_term!(b, i) #for OVS
-    b[i] = 5.0
+    b[i] = 50000.0
 end
 
 """
@@ -195,19 +195,23 @@ end
 Applies Dirichlet boundary conditions to potential equation for OVS.
 """
 
-function OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz) #for OVS
-    ne⁻, ne⁺, μ⁻, μ⁺ = 1.0
-
-    A.d[1] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
+function OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS) #for OVS, need to implement interpolation on boundary for real case as well
+    ne⁻ = ne⁺ = μ⁻ = μ⁺ = 1.0    
+    #A.d[1] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
     A.du[1] = ne⁺ * μ⁺ / (Δz)^2
-    b[1] = -ϕ_L / ((Δz)^2) #no interpolation on boundary
+    #b[1] = -ϕ_L / ((Δz)^2) #no interpolation on boundary
 
     #right boundary   
-    A.d[N] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
+    #A.d[N] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
     A.dl[N - 1] = ne⁻ * μ⁻ / (Δz)^2
-    b[N] = -ϕ_R / ((Δz)^2) #no interpolation on boundary
-end
+    #b[N] = -ϕ_R / ((Δz)^2) #no interpolation on boundary
 
-#need to make function that selects either OVS term or physical term
-#define this is simulation MFS struct
-#then good to go
+    #interpolation on boundary
+    A.d[1] = -1.5 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2
+    b[1] = -2*ϕ_L / ((Δz)^2)
+    A.d[N] = -1.5 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2
+    b[N] = -2*ϕ_R / ((Δz)^2)
+
+
+    OVS[1] = true
+ end

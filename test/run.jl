@@ -11,11 +11,11 @@ function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
     #HallThruster.OVS_potential_source_term!(b, i)
 end
 
-function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz)
+function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS)
     ϕ_L = 400.0
     ϕ_R = 0.0
     HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
-    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz)
+    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS)
 end
 
 function IC!(U, z, fluids, L)
@@ -28,7 +28,7 @@ function IC!(U, z, fluids, L)
     return U
 end
 
-function run(end_time = 0.0002, n_save = 2)
+function run_sim(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
     timestep = 0.9e-8 #0.9e-8
 
@@ -68,8 +68,8 @@ function run(end_time = 0.0002, n_save = 2)
     @time sol = HallThruster.run_simulation(sim)
 
     p = plot() #plot(sol.u[end][1, :], yaxis = :log)
-    #plot!(p, sol.u[end][3, :] ./ sol.u[end][2, :])
-    plot!(p, sol.u[end][1, :]/HallThruster.Xenon.m)
+    plot!(p, sol.u[end][3, :] ./ sol.u[end][2, :])
+    #plot!(p, sol.u[end][1, :]/HallThruster.Xenon.m)
 
     display(p)
     return sol, saved_values.saveval
