@@ -10,8 +10,6 @@ If required, interpolation is used to infer properties at mesh boundaries. Poten
 field, anomalous and classical collision frequency, neutral and ion density as well as ion velocity, and electron density
 and temperature leading to electron pressure. Solved by inverting a tridiagonal matrix. 
 """
-
-
 function solve_potential!(ϕ, U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size

@@ -31,7 +31,6 @@ channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2
 Generate a one-dimensional uniform grid on the domain specified in the geomety. Returns number of cells, coordinates
 of cell centers (plus ghost cells face coordinates), interface/edges and volume of a cell for number density calculations. 
 """
-
 function generate_grid(geometry, ncells)
     # generate cell interface coordinates
     z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells + 1)

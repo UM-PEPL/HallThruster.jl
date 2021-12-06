@@ -6,7 +6,6 @@ as a function of electron temperature in eV. Eq. 3.6-13, from Fundamentals of
 Electric Propulsion, Goebel and Katz, 2008.
 
 """
-
 @inline function σ_en(Tev) #Te in eV, from intro to EP, 3.6-13
     return 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6)) #[m^2] 
 end
@@ -19,7 +18,6 @@ electron temperature in eV. Eq. 3.6-15, from Fundamentals of
 Electric Propulsion, Goebel and Katz, 2008.
 
 """
-
 @inline function ln_λ(ne, Tev) #from intro to EP, 3.6-15, or just assume constant 15-25
     return 23 - 0.5 * log(ne * 1e-6 / Tev^3)
 end
@@ -32,7 +30,6 @@ frequencies. Eq. 3.6-12 and 3.6-14, from Fundamentals of
 Electric Propulsion, Goebel and Katz, 2008.
 
 """
-
 @inline function get_v_c(Tev, nn, ne, m) #classical momentum transfer collision frequency, v_ei + v_en, nn neutral number density, ne electron number density, m ion mass
     v_en = σ_en(Tev) * nn * sqrt(8 * e * Tev / pi / m) # intro to EP, 3.6-12
     v_ei = 2.9e-12 * ne * ln_λ(ne, Tev) / Tev^1.5 #intro to EP, 3.6-14
@@ -45,7 +42,6 @@ end
 
 defines model for anomalous collision frequency.
 """
-
 @inline function get_v_an(z, B, L_ch) #anomalous momentum transfer collision frequency
     ωce = e * B / mₑ
     #νan = ωce/16
@@ -62,7 +58,6 @@ end
 
 defines magnetic field as a function of position. 
 """
-
 function B_field(B_max, z, L_ch)
     B = if z < L_ch
         B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
@@ -83,7 +78,6 @@ calculates electron transport according to the generalized Ohm's law
 as a function of the classical and anomalous collision frequencies
 and the magnetic field. 
 """
-
 @inline function cf_electron_transport(v_an, v_c, B)
     vₑ = v_an + v_c
     Ω = e * B / (mₑ * vₑ)
@@ -95,7 +89,6 @@ end
 
 ideal gas law for electrons. Tev is in eV.
 """
-
 function electron_pressure(ne, Tev)
     return e * ne * Tev
 end
