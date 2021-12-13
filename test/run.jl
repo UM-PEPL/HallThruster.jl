@@ -11,11 +11,11 @@ function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
     #HallThruster.OVS_potential_source_term!(b, i)
 end
 
-function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS) #if OVS, this sets to true
     ϕ_L = 400.0
     ϕ_R = 0.0
-    HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
-    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS)
+    HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
+    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
 end
 
 function IC!(U, z, fluids, L)

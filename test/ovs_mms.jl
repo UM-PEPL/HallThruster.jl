@@ -30,11 +30,11 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         #HallThruster.OVS_potential_source_term!(b, i)
     end
     
-    function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+    function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS)
         ϕ_L = 400.0
         ϕ_R = 0.0
-        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
-        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS)
+        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
+        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
     end
     
     function IC!(U, z, fluids, L)
@@ -108,11 +108,11 @@ function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
         ϕ = params.cache.ϕ
         HallThruster.solve_potential!(ϕ, U, params)
         z_cells = params.z_cell
-        u_exa = Array{Union{Nothing, Float64}}(nothing, length(ϕ))
-        for i in 1:length(ϕ)
-            u_exa[i] = 25000.0*z_cells[i+1]^2 - 3250.0*z_cells[i+1] + 100.0 #need to correct for missing of face values in phi
+        u_exa = Array{Union{Nothing, Float64}}(nothing, length(ϕ)-2)
+        for i in 1:length(ϕ)-2
+            u_exa[i] = 25000.0*z_cells[i+1]^2 - 3250.0*z_cells[i+1] + 100.0
         end
-        error = abs.(u_exa - ϕ)
+        error = abs.(u_exa - ϕ[2:end-1])
         #timestep irrelevant, adapt ncells to amount of cells for 
         results[refinement] = Result(ϕ, 1.0, z_cells, n_cells-2, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
         n_cells = n_cells*2
@@ -158,11 +158,11 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
         HallThruster.OVS_potential_source_term!(b, i)
     end
 
-    function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+    function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS)
         ϕ_L = 100.0
         ϕ_R = 0.0
-        #HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
-        HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS)
+        #HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
+        HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
     end
 
     function IC!(U, z, fluids, L)
@@ -173,7 +173,7 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
         T1 = MMS_CONSTS.T_constant
         E = MMS_CONSTS.fluid.cv*T1 + 0.5*u1*u1
 
-        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]f
+        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]
         return U
     end
 

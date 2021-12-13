@@ -54,27 +54,36 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables, nedges)
     UR = zeros(nvariables, nedges)
     Q = zeros(nvariables)
-    A = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1))
+    A = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)) #for potential
     b = zeros(ncells) #for potential equation
-    ϕ = zeros(ncells) #for potential equation
+    ϕ = zeros(ncells + 2) #for potential equation, need to add ghost cells to potential as well
     pe = zeros(ncells + 2)
     B = zeros(ncells + 2)
     ne = zeros(ncells + 2)
     νan = zeros(ncells + 2)
+    νc = zeros(ncells + 2)
+    μ = zeros(ncells + 2)
+    E = zeros(1, ncells + 2) #electron energy equ., make matrix for compatibility with functions
+    FE = zeros(1, nedges)
+    EL = zeros(1, nedges)
+    ER = zeros(1, nedges)
 
     L_ch = 0.025
     Tev = map(x -> Te_func(x, L_ch), sim.grid.cell_centers)
 
-    cache = (; F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, νan)
+    cache = (; F, UL, UR, Q, A, b, ϕ, Tev, pe, ne, B, νan, νc, μ, E, FE, EL, ER)
     return U, cache
 end
 
 function update!(dU, U, params, t) #get source and BCs for potential from params
+    ####################################################################
+    #extract some useful stuff from params
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
+
     reactions, species_range_dict = params.reactions, params.species_range_dict
 
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
-    ϕ, Tev = params.cache.ϕ, params.cache.Tev
+    ϕ, Tev, B = params.cache.ϕ, params.cache.Tev, params.cache.B
 
     z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
     scheme = params.scheme
@@ -83,15 +92,44 @@ function update!(dU, U, params, t) #get source and BCs for potential from params
     nvariables = size(U, 1)
     ncells = size(U, 2) - 2
 
+    ####################################################################
+    #PREPROCESS
+    #calculate useful quantities relevant for potential, electron energy and fluid solve
+    L_ch = 0.025
+    fluid = fluids[1].species.element
+    @inbounds for i in 1:(ncells + 2)
+        params.cache.ne[i] = electron_density(@view(U[:, i]), fluid_ranges) / fluid.m
+        params.cache.pe[i] = electron_pressure(params.cache.ne[i], Tev[i])
+        params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
+        params.cache.νc[i] = get_v_c(Tev[i], U[1, i]/fluid.m , params.cache.ne[i], fluid.m)
+        params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
+    end
+
+    ####################################################################
+    #POTENTIAL MODULE
+    solve_potential!(ϕ, U, params)
+
+    #####################################################################3
+    #ELECTRON ENERGY MODULE
+    #set up simulation and simulate for one timestep using the CNAB2 scheme
+    #should maybe write my own timemarching, to simplify this step
+
+    #=
+    E = params.cache.E
+    tspan = (0.0, params.dt)
+    prob_E = ODEProblem{true}(update_E!, E, tspan, params)
+    sol = solve(prob_E, CNAB2(); saveat=[params.dt], callback=nothing,
+                adaptive=false, dt=params.dt)
+    Tev .= sol.u[1]*2/3/params.cache.ne/e =#
+
+    ##############################################################
+    #FLUID MODULE
+
     apply_bc!(U, params.BCs[1], :left)
     apply_bc!(U, params.BCs[2], :right)
 
     compute_edge_states!(UL, UR, U, scheme)
     compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
-
-    #Tev .= 2.0
-
-    solve_potential!(ϕ, U, params)
 
     # Compute heavy species source terms
     @inbounds for i in 2:(ncells + 1)
@@ -109,6 +147,38 @@ function update!(dU, U, params, t) #get source and BCs for potential from params
 
     return nothing
 end
+
+function update_E!(E, dE, params, t)
+    FE, EL, ER = params.cache.FE, params.cache.EL, params.cache.ER
+    
+    Tev_anode = 3 #eV 
+    Tev_cathode = 3 #eV
+    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
+    right_state = [3/2*params.cache.ne[1]*e*Tev_cathode]
+    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
+
+    apply_bc!(E, BCs[1], :left)
+    apply_bc!(E, BCs[2], :right)
+    
+    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
+    compute_edge_states!(EL, ER, E, scheme)
+    compute_fluxes_electron!(FE, EL, ER, [HallThruster.Electron], [1:1], scheme, params)
+    
+    # Compute heavy species source terms
+    @inbounds for i in 2:(ncells + 1)
+        QE = 0.0
+        source_electron_energy!(QE, E, params, i)
+
+        # Compute dU/dt
+        left = left_edge(i)
+        right = right_edge(i)
+
+        Δz = z_edge[right] - z_edge[left]
+
+        @tturbo @views @. dE[:, i] = (FE[:, left] - FE[:, right]) / Δz + QE
+    end
+end
+
 
 left_edge(i) = i - 1
 right_edge(i) = i

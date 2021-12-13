@@ -148,8 +148,8 @@ function compute_edge_states!(UL, UR, U, scheme)
     end
 
     for j in 1:nconservative
-        UL[j, 1] = U[j, 1]
-        UR[j, end] = U[j, end]
+        UL[j, 1] = U[j, 1] #2 this would be more consistent
+        UR[j, end] = U[j, end] #end - 1 
     end
 
     return UL, UR
