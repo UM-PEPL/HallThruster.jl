@@ -13,7 +13,7 @@ function e_heat_conductivity(params, i)
 end
 
 function flux_electron(U, fluid, params, i)
-    ϵ = U[1] #3/2 ne kB Te
+    ϵ = U #3/2 ne kB Te
     grad_Te = first_deriv_central_diff(params.cache.Tev, params.z_cell, i)*e/kB#Te is inside ϵ, so could rewrite this
     uₑ = electron_velocity(params, i) #use Ohms law
     κₑ = e_heat_conductivity(params, i) #from the braginskii closure, need Te and cyclotron frequency, and tau e, which come from anomalous transport
@@ -24,21 +24,21 @@ end
 #have to parallel updates for now, ϵ and Tev makes both messy
 
 function flux_electron!(F, U, fluid, params, i)
-    ϵ = U[1] #3/2 ne kB Te
+    ϵ = U #3/2 ne kB Te
     grad_Te = first_deriv_central_diff(params.cache.Tev, params.z_cell, i)*e/kB#Te is inside ϵ, so could rewrite this
     uₑ = electron_velocity(params, i) #use Ohms law
     κₑ = e_heat_conductivity(params, i) #from the braginskii closure, need Te and cyclotron frequency, and tau e, which come from anomalous transport
-    F[1] = ϵ*5/3*uₑ + κₑ*grad_Te
+    F = ϵ*5/3*uₑ + κₑ*grad_Te
     return F
 end
 
 function compute_fluxes_electron!(F, UL, UR, fluids, fluid_ranges, scheme, params)
-    _, nedges = size(F)
+    nedges = length(F)
 
     for i in 1:nedges
         for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
-            @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
-                                        UR[fluid_range, i], fluid, params, i)
+            @views scheme.flux_function(F[i], UL[i],
+                                        UR[i], fluid, params, i)
         end
     end
     return F
@@ -64,9 +64,9 @@ function source_electron_energy!(QE, E, params, i)
     grad_pe = first_deriv_central_diff(params.cache.pe, params.z_cell, i)
     ν = params.cache.νan[i] + params.cache.νc[i]
     QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 + S_wall_simple(E, i)
+    return QE
     #need to add S_coll
     #for landmark other terms, using lookup table here and there
-    return QE
 end
 
 """
