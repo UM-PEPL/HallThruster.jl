@@ -49,7 +49,6 @@ function upwind_electron!(F, UL, UR, fluid, params, i)
     uL = electron_velocity(params, left_edge(i+1))
     uR = electron_velocity(params, right_edge(i+1)) 
     avg_velocity = 0.5 * (uL + uR)
-    println(avg_velocity)
 
     if avg_velocity ≥ 0
         flux_electron!(F, UL, fluid, params, i)
@@ -62,12 +61,12 @@ end
 
 function source_electron_energy!(QE, E, params, i)
     uₑ = electron_velocity(params, i)
-    grad_pe = (params.cache.pe[i+1] - params.cache.pe[i-1])/(abs(params.z_cell[i+1]-params.z_cell[i-1])) #centered difference
+    grad_pe = first_deriv_central_diff(params.cache.pe, params.z_cell, i)
     ν = params.cache.νan[i] + params.cache.νc[i]
-    @views QE[i] = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2
-    #need to add S_coll and S_wall for source term
+    QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 + S_wall_simple(E, i)
+    #need to add S_coll
     #for landmark other terms, using lookup table here and there
-    #not self consistent though.
+    return QE
 end
 
 """
@@ -87,4 +86,30 @@ function first_deriv_central_diff(u::Vector{Float64}, z_cell::Vector{Float64}, i
         grad = (u[i+1] - u[i-1])/(abs(z_cell[i+1]-z_cell[i-1])) #centered difference
     end
     return grad
+end
+
+
+"""
+    S_wall(params)
+
+wall heat loss. electron density multiplied by electron wall collision frequency and mean electron energy loss due to wall collision, 
+which is assumed 2 Tev + sheath potential, using from Eq. ..., from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
+"""
+
+function S_wall_Bohm(params, i)
+    σ = 1e-10 #electron collision area
+    νₑ_w = 1 #needs to be added
+    fluid = params.fluids[1].species.element
+    Δϵ_w = 2*params.Tev[i] + params.Tev[i]*log(1-σ)/sqrt(2*pi*mₑ/fluid.m)
+    return params.ne[i]*νₑ_w*Δϵ_w
+end
+
+function S_wall_simple(E, i)
+    return 0.1*10e7*exp(-20/E[i])*E[i]
+end
+
+function S_coll(params, i) #need to find neutral density as input, state vector U to params????
+    neutral_density = 1e18
+    return neutral_density*params.ne[i]
+    #add lookup table from landmark
 end

@@ -4,12 +4,13 @@ struct HyperbolicScheme{F,L}
     reconstruct::Bool
 end
 
-Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
+Base.@kwdef mutable struct MultiFluidSimulation{IC,IC_E,B1,B2,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
     fluids::Vector{Fluid}     # An array of user-defined fluids.
     # This will give us the capacity to more easily do shock tubes (and other problems)
     # without Hall thruster baggage
     initial_condition::IC
+    initial_condition_E::IC_E
     boundary_conditions::Tuple{B1,B2}   # Tuple of left and right boundary conditions, subject to the approval of PR #10
     end_time::Float64    # How long to simulate
     scheme::HyperbolicScheme{F,L} # Flux, Limiter
@@ -113,14 +114,17 @@ function update!(dU, U, params, t) #get source and BCs for potential from params
     #ELECTRON ENERGY MODULE
     #set up simulation and simulate for one timestep using the CNAB2 scheme
     #should maybe write my own timemarching, to simplify this step
-
     #=
-    E = params.cache.E
+    
+    E = params.cache.E #will be used as initial condition
+    #println("before calculations: ", E)
     tspan = (0.0, params.dt)
-    prob_E = ODEProblem{true}(update_E!, E, tspan, params)
-    sol = solve(prob_E, CNAB2(); saveat=[params.dt], callback=nothing,
+    prob_E = SplitODEProblem{true}(implicit_E!, explicit_E!, E, tspan, params)
+    sol = solve(prob_E, KenCarp4(); saveat=[params.dt], callback=nothing,
                 adaptive=false, dt=params.dt)
-    Tev .= sol.u[1]*2/3/params.cache.ne/e =#
+    #println("after calculations, ie the solution: ", sol.u[1])
+    #Tev .= sol.u[1]*2/3/params.cache.ne/e
+    =#
 
     ##############################################################
     #FLUID MODULE
@@ -128,6 +132,7 @@ function update!(dU, U, params, t) #get source and BCs for potential from params
     apply_bc!(U, params.BCs[1], :left)
     apply_bc!(U, params.BCs[2], :right)
 
+    #println("U after BCs applied: ", U)
     compute_edge_states!(UL, UR, U, scheme)
     compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
 
@@ -148,37 +153,59 @@ function update!(dU, U, params, t) #get source and BCs for potential from params
     return nothing
 end
 
-function update_E!(E, dE, params, t)
+function implicit_E!(dE, E, params, t)
     FE, EL, ER = params.cache.FE, params.cache.EL, params.cache.ER
     
-    Tev_anode = 3 #eV 
+    Tev_anode = 3 #eV, adapt this to the gaussian input conditions
     Tev_cathode = 3 #eV
     left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
-    right_state = [3/2*params.cache.ne[1]*e*Tev_cathode]
+    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
+
+    println("E before BCs applied: ", E)
 
     apply_bc!(E, BCs[1], :left)
     apply_bc!(E, BCs[2], :right)
     
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    compute_edge_states!(EL, ER, E, scheme)
+    #compute_edge_states!(EL, ER, E, scheme)
     compute_fluxes_electron!(FE, EL, ER, [HallThruster.Electron], [1:1], scheme, params)
     
-    # Compute heavy species source terms
-    @inbounds for i in 2:(ncells + 1)
-        QE = 0.0
-        source_electron_energy!(QE, E, params, i)
+    ncells = size(E, 2) - 2
+    z_edge = params.z_edge
 
+    @inbounds for i in 2:(ncells + 1)
         # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
 
-        @tturbo @views @. dE[:, i] = (FE[:, left] - FE[:, right]) / Δz + QE
+        @views @. dE[:, i] = (FE[:, left] - FE[:, right]) / Δz # + QE
     end
+    return nothing
 end
 
+function explicit_E!(dE, E, params, t)    
+    Tev_anode = 3 #eV 
+    Tev_cathode = 3 #eV
+    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
+    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
+    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
+
+    apply_bc!(E, BCs[1], :left)
+    apply_bc!(E, BCs[2], :right)
+    
+    ncells = size(E, 2) - 2
+
+    @inbounds for i in 2:(ncells + 1)
+        QE = 0.0
+        QE = source_electron_energy!(QE, E, params, i)
+
+        @views @. dE[:, i] = QE
+    end
+    return nothing
+end
 
 left_edge(i) = i - 1
 right_edge(i) = i
@@ -209,7 +236,10 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     U, cache = allocate_arrays(sim)
 
-    initial_condition!(U, grid.cell_centers, sim.initial_condition, fluid_ranges, fluids)
+    initial_condition!(U, cache.E, grid.cell_centers, sim.initial_condition,
+    sim.initial_condition_E, fluid_ranges, fluids)
+
+    #println("E after initial cond applied", cache.E)
 
     scheme = sim.scheme
     source_term! = sim.source_term!
@@ -218,6 +248,8 @@ function run_simulation(sim) #put source and Bcs potential in params
     tspan = (0.0, sim.end_time)
 
     reactions = load_ionization_reactions(species)
+    landmark = load_landmark()
+
     BCs = sim.boundary_conditions
 
     precompute_bfield!(cache.B, grid.cell_centers)
@@ -225,7 +257,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     params = (; cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!, 
-              boundary_potential! = sim.boundary_potential!)
+              boundary_potential! = sim.boundary_potential!, landmark)
 
     prob = ODEProblem{true}(update!, U, tspan, params)
     sol = solve(prob, SSPRK22(); saveat=sim.saveat, callback=sim.callback,
@@ -241,13 +273,12 @@ function inlet_neutral_density(sim)
     return nn
 end
 
-function initial_condition!(U, z_cell, IC!, fluid_ranges, fluids)
+function initial_condition!(U, E, z_cell, IC!, IC_E!, fluid_ranges, fluids)
     #can extend later to more
     #also not using inlet_neutral_density for now
     #nn = inlet_neutral_density(sim)
-
     for (i, z) in enumerate(z_cell)
         @views IC!(U[:, i], z, fluids, z_cell[end])
+        IC_E!(E, U[:, i], z, z_cell[end], fluid_ranges, fluids, i)
     end
-    return U
 end

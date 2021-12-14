@@ -141,6 +141,7 @@ function compute_edge_states!(UL, UR, U, scheme)
     else
         for i in 2:(ncells - 1)
             for j in 1:nconservative
+                #println("j: ", j)
                 UL[j, right_edge(i)] = U[j, i]
                 UR[j, left_edge(i)] = U[j, i]
             end

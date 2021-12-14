@@ -4,6 +4,11 @@ Base.@kwdef struct IonizationReaction{I}
     rate_coeff::I
 end
 
+Base.@kwdef struct LandmarkTable{L, IL}
+    loss_coeff::L
+    rate_coeff::IL
+end
+
 struct LinearInterpolation{X<:Number,Y<:Number}
     xs::Vector{X}
     ys::Vector{Y}
@@ -75,6 +80,22 @@ function load_ionization_reaction(reactant, product)
         return nothing
     end
 end
+
+function load_landmark()
+    rates_file = joinpath(LANDMARK_FOLDER, "landmark.dat")
+    try
+        rates = DataFrame(CSV.File(rates_file))
+        Tev = rates[!, 1]
+        k = rates[!, 2]
+        W = rates[!, 3]
+        rate_coeff = LinearInterpolation(Tev, k)
+        loss_coeff = LinearInterpolation(Tev, W)
+        return LandmarkTable(loss_coeff, rate_coeff)
+    catch e
+        return nothing
+    end
+end
+
 
 function rate_coeff_filename(reactant, product, reaction_type)
     return join([reaction_type, repr(reactant), repr(product)], "_") * ".dat"

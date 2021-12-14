@@ -49,6 +49,14 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
         return U
     end
 
+    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+        #println("Tev in a row: ", Tev)
+        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+        #println("neutral density in a row: ", ne)
+        @views E[i] = 3/2*ne*HallThruster.e*Tev
+    end
+
     ρ1 = 3000.0
     u1 = MMS_CONSTS.u_constant
     T1 = MMS_CONSTS.T_constant
@@ -63,6 +71,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
+    initial_condition_E = IC_E!,
     source_term! = source!,
     source_potential! = source_potential!,
     boundary_potential! = boundary_potential!, 
@@ -177,6 +186,14 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
         return U
     end
 
+    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+        #println("Tev in a row: ", Tev)
+        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+        #println("neutral density in a row: ", ne)
+        @views E[i] = 3/2*ne*HallThruster.e*Tev
+    end
+
     ρ1 = 3000.0
     u1 = MMS_CONSTS.u_constant
     T1 = MMS_CONSTS.T_constant
@@ -191,6 +208,7 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
+    initial_condition_E = IC_E!,
     source_term! = source!,
     source_potential! = source_potential!,
     boundary_potential! = boundary_potential!, 
@@ -210,7 +228,9 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
 
     U, cache = HallThruster.allocate_arrays(sim)
 
-    HallThruster.initial_condition!(U, grid.cell_centers, sim.initial_condition, fluid_ranges, fluids)
+    HallThruster.initial_condition!(U, cache.E, grid.cell_centers, sim.initial_condition,
+    sim.initial_condition_E, fluid_ranges, fluids)
+
 
     scheme = sim.scheme
     source_term! = sim.source_term!

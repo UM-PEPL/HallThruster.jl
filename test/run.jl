@@ -28,6 +28,14 @@ function IC!(U, z, fluids, L)
     return U
 end
 
+function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+    Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+    #println("Tev in a row: ", Tev)
+    ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+    #println("neutral density in a row: ", ne)
+    @views E[i] = 3/2*ne*HallThruster.e*Tev
+end
+
 function run_sim(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
     timestep = 0.9e-8 #0.9e-8
@@ -49,10 +57,11 @@ function run_sim(end_time = 0.0002, n_save = 2)
     callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
-        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
-        initial_condition = IC!, 
+        initial_condition = IC!,
+        initial_condition_E = IC_E!,
         source_term! = source!,
         source_potential! = source_potential!,
         boundary_potential! = boundary_potential!,

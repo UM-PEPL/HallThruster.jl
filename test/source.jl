@@ -27,6 +27,14 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
         return U
     end
 
+    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+        #println("Tev in a row: ", Tev)
+        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+        #println("neutral density in a row: ", ne)
+        @views E[i] = 3/2*ne*HallThruster.e*Tev
+    end
+
     ρ1 = 1.0
     u1 = 300.0
     T1 = 300.0
@@ -39,6 +47,7 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
+        initial_condition_E = IC_E!,
         source_term! = source!,
         source_potential! = source_potential!,
         boundary_potential! = boundary_potential!, 
@@ -89,6 +98,14 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
         return U
     end
 
+    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+        #println("Tev in a row: ", Tev)
+        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+        #println("neutral density in a row: ", ne)
+        @views E[i] = 3/2*ne*HallThruster.e*Tev
+    end
+
     ρ1 = 1e19 * fluid.m
     ρ2 = 0.01 * ρ1
     u1 = 300.0
@@ -102,6 +119,7 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
+        initial_condition_E = IC_E!,
         source_term! = source!,
         source_potential! = source_potential!,
         boundary_potential! = boundary_potential!, 
