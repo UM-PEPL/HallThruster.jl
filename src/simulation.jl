@@ -310,8 +310,11 @@ function run_simulation(sim) #put source and Bcs potential in params
               boundary_potential! = sim.boundary_potential!, landmark)
 
     prob = SplitODEProblem{true}(update_imp!, update_exp!, U, tspan, params)
-    sol = solve(prob, CNAB2(); saveat=sim.saveat, callback=sim.callback,
-                adaptive=adaptive, dt=timestep)
+    tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
+    sol = solve(tmp_prob, KenCarp3(); saveat=sim.saveat, callback=sim.callback,
+    adaptive=adaptive, dt=timestep)
+    #=sol = solve(prob, KenCarp3(); saveat=sim.saveat, callback=sim.callback,
+                adaptive=adaptive, dt=timestep)=#
     return sol
 end
 
