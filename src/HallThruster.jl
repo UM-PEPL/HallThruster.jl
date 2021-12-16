@@ -11,6 +11,7 @@ using LinearAlgebra
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
+const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 
 include("physicalconstants.jl")
 include("gas.jl")
@@ -26,5 +27,6 @@ include("potential.jl")
 include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
+include("electronenergy.jl")
 
 end # module

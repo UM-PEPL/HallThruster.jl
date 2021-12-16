@@ -134,22 +134,33 @@ function reconstruct!(UL, UR, U, scheme)
 end
 
 function compute_edge_states!(UL, UR, U, scheme)
-    nconservative, ncells = size(U)
+    if length(U) == size(U)[1]
+        ncells = length(U)
+        nconservative = 1
+    else
+        nconservative, ncells = size(U)
+    end
 
     if scheme.reconstruct
         reconstruct!(UL, UR, U, scheme)
     else
         for i in 2:(ncells - 1)
-            for j in 1:nconservative
-                UL[j, right_edge(i)] = U[j, i]
-                UR[j, left_edge(i)] = U[j, i]
-            end
+            if nconservative == 1
+                UL[right_edge(i)] = U[i]
+                UR[left_edge(i)] = U[i]
+            else 
+                for j in 1:nconservative
+                    #println("j: ", j)
+                    UL[j, right_edge(i)] = U[j, i]
+                    UR[j, left_edge(i)] = U[j, i]
+                end
+            end        
         end
     end
 
     for j in 1:nconservative
-        UL[j, 1] = U[j, 1]
-        UR[j, end] = U[j, end]
+        UL[j, 1] = U[j, 1] #2 this would be more consistent
+        UR[j, end] = U[j, end] #end - 1 
     end
 
     return UL, UR

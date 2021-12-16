@@ -11,11 +11,11 @@ function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
     #HallThruster.OVS_potential_source_term!(b, i)
 end
 
-function boundary_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS) #if OVS, this sets to true
     ϕ_L = 400.0
     ϕ_R = 0.0
-    HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
-    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz, OVS)
+    HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
+    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
 end
 
 function IC!(U, z, fluids, L)
@@ -26,6 +26,14 @@ function IC!(U, z, fluids, L)
     U[2] = ρ2
     U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
     return U
+end
+
+function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+    Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
+    #println("Tev in a row: ", Tev)
+    ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
+    #println("neutral density in a row: ", ne)
+    @views E[i] = 3/2*ne*HallThruster.e*Tev
 end
 
 function run_sim(end_time = 0.0002, n_save = 2)
@@ -49,10 +57,11 @@ function run_sim(end_time = 0.0002, n_save = 2)
     callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
-        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
-        initial_condition = IC!, 
+        initial_condition = IC!,
+        initial_condition_E = IC_E!,
         source_term! = source!,
         source_potential! = source_potential!,
         boundary_potential! = boundary_potential!,

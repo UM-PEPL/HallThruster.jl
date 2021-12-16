@@ -71,3 +71,13 @@ EulerEquations()
 function EulerEquations()
     return ConservationLawSystem(; type=:EulerEquations, nvars=3, u=nothing, T=nothing)
 end
+
+"""
+    ElectronEnergy
+Not exactly a `ConservationLawSystem`, but setup to be used for the ElectronEnergy equation.
+Values for u and T set to 0 but unused.
+"""
+
+function ElectronEnergy()
+    return ConservationLawSystem(; type=:ElectronEnergy, nvars = 1, u = 0.0, T = 0.0)
+end
