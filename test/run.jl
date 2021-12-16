@@ -53,8 +53,8 @@ function run_sim(end_time = 0.0002, n_save = 2)
     else
         LinRange(0.0, end_time, n_save) |> collect
     end
-    saved_values = SavedValues(Float64, Vector{Float64})
-    callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ), saved_values, saveat = saveat)
+    saved_values = SavedValues(Float64, NTuple{2, Vector{Float64}})
+    callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
         grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
