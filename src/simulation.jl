@@ -50,6 +50,8 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     ncells = sim.grid.ncells
     nedges = sim.grid.ncells + 1
 
+    #Dual = ForwardDiff.Dual
+
     U = zeros(nvariables, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables, nedges)
     UL = zeros(nvariables, nedges)
@@ -310,8 +312,8 @@ function run_simulation(sim) #put source and Bcs potential in params
               boundary_potential! = sim.boundary_potential!, landmark)
 
     prob = SplitODEProblem{true}(update_imp!, update_exp!, U, tspan, params)
-    tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
-    sol = solve(tmp_prob, KenCarp3(); saveat=sim.saveat, callback=sim.callback,
+    #tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
+    sol = solve(prob, KenCarp3(autodiff = false); saveat=sim.saveat, callback=sim.callback,
     adaptive=adaptive, dt=timestep)
     #=sol = solve(prob, KenCarp3(); saveat=sim.saveat, callback=sim.callback,
                 adaptive=adaptive, dt=timestep)=#
