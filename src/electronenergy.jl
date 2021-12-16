@@ -59,14 +59,12 @@ function upwind_electron!(F, UL, UR, fluid, params, i)
 end
 
 
-function source_electron_energy!(QE, E, params, i)
+function source_electron_energy!(QE, U, params, i)
     uₑ = electron_velocity(params, i)
     grad_pe = first_deriv_central_diff(params.cache.pe, params.z_cell, i)
     ν = params.cache.νan[i] + params.cache.νc[i]
-    QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 + S_wall_simple(E, i)
+    QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 + S_wall_simple(U[4, :], i) + S_coll(U, params, i) #resistive heating collisions, u has to be total u not just z, azimuthal component dominating
     return QE
-    #need to add S_coll
-    #for landmark other terms, using lookup table here and there
 end
 
 """
@@ -82,7 +80,7 @@ function first_deriv_central_diff(u::Vector{Float64}, z_cell::Vector{Float64}, i
         grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i]-z_cell[i+2])) #second order one sided for boundary
     elseif i == length(u)
         grad = (u[i-2] - 4*u[i-1] + 3*u[i])/(abs(z_cell[i-2]-z_cell[i])) #second order one sided for boundary
-    else 
+    else
         grad = (u[i+1] - u[i-1])/(abs(z_cell[i+1]-z_cell[i-1])) #centered difference
     end
     return grad
@@ -96,7 +94,7 @@ wall heat loss. electron density multiplied by electron wall collision frequency
 which is assumed 2 Tev + sheath potential, using from Eq. ..., from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
 """
 
-function S_wall_Bohm(params, i)
+function S_wall_Bohm(params, i) #hara mikellides 2018
     σ = 1e-10 #electron collision area
     νₑ_w = 1 #needs to be added
     fluid = params.fluids[1].species.element
@@ -104,12 +102,13 @@ function S_wall_Bohm(params, i)
     return params.ne[i]*νₑ_w*Δϵ_w
 end
 
-function S_wall_simple(E, i)
+function S_wall_simple(E, i) #landmark and Hara non-oscillatory
     return 0.1*10e7*exp(-20/E[i])*E[i]
 end
 
-function S_coll(params, i) #need to find neutral density as input, state vector U to params????
-    neutral_density = 1e18
-    return neutral_density*params.ne[i]
-    #add lookup table from landmark
+function S_coll(U, params, i) #landmark table
+    fluid = params.fluids[1].species.element
+    neutral_density = U[1, i]/fluid.m
+    W = params.landmark.loss_coeff(params.cache.Tev[i])
+    return neutral_density*params.cache.ne[i]*W
 end

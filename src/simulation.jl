@@ -154,7 +154,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         source_term!(@views(Q[1:3]), @views(U[1:3, :]), params, ϕ, Tev, i)
 
         #electron source term
-        Q[4] = source_electron_energy!(@views(Q[4]), @views(U[4, :]), params, i)
+        Q[4] = source_electron_energy!(@views(Q[4]), @views(U), params, i)
 
         # Compute dU/dt
         left = left_edge(i)
@@ -183,8 +183,8 @@ function update_imp!(dU, U, params, t)
     
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    compute_edge_states!(@views(UL[4, :]), @views(UR[4, :]), @views(U[4, :]), scheme)
-    compute_fluxes_electron!(@views(F[4, :]), @views(UL[4, :]), @views(UR[4, :]), [HallThruster.Electron], [1:1], scheme, params)
+    #compute_edge_states!(@views(UL[4, :]), @views(UR[4, :]), @views(U[4, :]), scheme)
+    #compute_fluxes_electron!(@views(F[4, :]), @views(UL[4, :]), @views(UR[4, :]), [HallThruster.Electron], [1:1], scheme, params)
     
     ncells = size(U, 2) - 2
     z_edge = params.z_edge

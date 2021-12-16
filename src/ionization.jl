@@ -82,7 +82,8 @@ function load_ionization_reaction(reactant, product)
 end
 
 function load_landmark()
-    rates_file = joinpath(LANDMARK_FOLDER, "landmark.dat")
+    rates_file = joinpath(LANDMARK_FOLDER, "landmark.csv")
+    rates = DataFrame(CSV.File(rates_file))
     try
         rates = DataFrame(CSV.File(rates_file))
         Tev = rates[!, 1]
