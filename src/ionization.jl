@@ -88,9 +88,9 @@ function load_landmark()
         rates = DataFrame(CSV.File(rates_file))
         Tev = rates[!, 1]
         k = rates[!, 2]
-        W = rates[!, 3]
+        K = rates[!, 3]
         rate_coeff = LinearInterpolation(Tev, k)
-        loss_coeff = LinearInterpolation(Tev, W)
+        loss_coeff = LinearInterpolation(Tev, K)
         return LandmarkTable(loss_coeff, rate_coeff)
     catch e
         return nothing

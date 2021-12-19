@@ -32,8 +32,8 @@ function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
     Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
     #println("Tev in a row: ", Tev)
     ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
-    #println("neutral density in a row: ", ne)
-    @views E[i] = 3/2*ne*HallThruster.e*Tev
+    #println("electron density in a row: ", ne)
+    E[i] = 3/2*ne*Tev
 end
 
 function run_sim(end_time = 0.0002, n_save = 2)
@@ -53,8 +53,8 @@ function run_sim(end_time = 0.0002, n_save = 2)
     else
         LinRange(0.0, end_time, n_save) |> collect
     end
-    saved_values = SavedValues(Float64, NTuple{2, Vector{Float64}})
-    callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev), saved_values, saveat = saveat)
+    saved_values = SavedValues(Float64, NTuple{3, Vector{Float64}})
+    callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
         grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
@@ -85,14 +85,34 @@ function run_sim(end_time = 0.0002, n_save = 2)
 end
 
 function animate_solution(sol, saved_values)
+    ϕ = Array{Union{Nothing, Vector{Float64}}}(nothing, length(sol.t))
+    Tev = Array{Union{Nothing, Vector{Float64}}}(nothing, length(sol.t))
+    ne = Array{Union{Nothing, Vector{Float64}}}(nothing, length(sol.t))
+    for i in 1:length(sol.t)
+        ϕ[i] = saved_values[i][1]
+        Tev[i] = saved_values[i][2]
+        ne[i] = saved_values[i][3]
+    end
     mi = HallThruster.Xenon.m
     @gif for (u, t) in zip(sol.u, sol.t)
         p = plot(ylims = (1e13, 1e20))
         plot!(p, u[1, :] / mi, yaxis = :log)
         plot!(p, u[2, :] / mi)
     end
-    @gif for (ϕ, t) in zip(saved_values, sol.t)
+    @gif for (u, t) in zip(sol.u, sol.t)
+        p = plot(ylims = (1e17, 1e21))
+        plot!(p, u[4, :])
+    end
+    @gif for (ϕ, t) in zip(ϕ, sol.t)
         p = plot(ylims = (-100, 400))
         plot!(p, ϕ)
+    end
+    @gif for (Tev, t) in zip(Tev, sol.t)
+        p = plot(ylims = (0, 30))
+        plot!(p, Tev)
+    end
+    @gif for (ne, t) in zip(ne, sol.t)
+        p = plot(ylims = (1e13, 1e20))
+        plot!(p, ne)
     end
 end

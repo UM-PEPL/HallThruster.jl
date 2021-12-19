@@ -67,12 +67,6 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     νc = zeros(ncells + 2)
     μ = zeros(ncells + 2)
 
-    #=
-    E = zeros(1, ncells + 2) #electron energy equ., make matrix for compatibility with functions
-    FE = zeros(1, nedges)
-    EL = zeros(1, nedges)
-    ER = zeros(1, nedges)=#
-
     L_ch = 0.025
     Tev = map(x -> Te_func(x, L_ch), sim.grid.cell_centers)
 
@@ -100,32 +94,34 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     L_ch = 0.025
     fluid = fluids[1].species.element
     @inbounds for i in 1:(ncells + 2)
-        params.cache.ne[i] = electron_density(@view(U[:, i]), fluid_ranges) / fluid.m
+        #update electron temperature from energy using old density
+        params.cache.Tev[i] = max(0, U[4, i]/3*2/params.cache.ne[i])
+        params.cache.ne[i] = max(0, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
         params.cache.pe[i] = electron_pressure(params.cache.ne[i], Tev[i])
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
         params.cache.νc[i] = get_v_c(Tev[i], U[1, i]/fluid.m , params.cache.ne[i], fluid.m)
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
     end
 
+    #=
+    println("ne: ", params.cache.ne)
+    println("pe: ", params.cache.pe)
+    println("νan: ", params.cache.νan)
+    println("νc: ", params.cache.νc)
+    println("Tev K: ", params.cache.Tev .*e ./kB)
+    =#
+
+    #update internal electron energy according to new electron density
+    U[4, :] .= 3/2 .* params.cache.ne .* params.cache.Tev
+
     ####################################################################
     #POTENTIAL MODULE
+    #println("ϕ before solve: ", params.cache.ϕ)
+
     solve_potential!(ϕ, U, params)
 
-    #####################################################################
-    #ELECTRON ENERGY MODULE
-    #set up simulation and simulate for one timestep using the CNAB2 scheme
-    #should maybe write my own timemarching, to simplify this step
-    #=
-    
-    E = params.cache.E #will be used as initial condition
-    #println("before calculations: ", E)
-    tspan = (0.0, params.dt)
-    prob_E = SplitODEProblem{true}(implicit_E!, explicit_E!, E, tspan, params)
-    sol = solve(prob_E, KenCarp4(); saveat=[params.dt], callback=nothing,
-                adaptive=false, dt=params.dt)
-    #println("after calculations, ie the solution: ", sol.u[1])
-    #Tev .= sol.u[1]*2/3/params.cache.ne/e
-    =#
+    #println("ϕ after solve: ", params.cache.ϕ)
+
 
     ##############################################################
     #FLUID MODULE
@@ -137,12 +133,14 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     #electron BCs
     Tev_anode = 3 #eV 
     Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
+    left_state = [3/2*params.cache.ne[1]*Tev_anode]
+    right_state = [3/2*params.cache.ne[end]*Tev_cathode]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
-    apply_bc!(@views(U[4, :]), BCs[1], :left)
-    apply_bc!(@views(U[4, :]), BCs[2], :right)
+    U[4, begin] = left_state[1]
+    U[4, end] = right_state[1]
+    #apply_bc!(@views(U[4, :]), BCs[1], :left)
+    #apply_bc!(@views(U[4, :]), BCs[2], :right)
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:3, :]), @views(UR[1:3, :]), @views(U[1:3, :]), scheme)
@@ -157,6 +155,8 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
         #electron source term
         Q[4] = source_electron_energy!(@views(Q[4]), @views(U), params, i)
+
+        #@show Q[4] 
 
         # Compute dU/dt
         left = left_edge(i)
@@ -176,18 +176,23 @@ function update_imp!(dU, U, params, t)
     #electron BCs
     Tev_anode = 3 #eV 
     Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
+    left_state = [3/2*params.cache.ne[1]*Tev_anode]
+    right_state = [3/2*params.cache.ne[end]*Tev_cathode]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
-    apply_bc!(@views(U[4, :]), BCs[1], :left)
-    apply_bc!(@views(U[4, :]), BCs[2], :right)
+    U[4, begin] = left_state[1]
+    U[4, end] = right_state[1]
+    #println("U after BCs applied: ", U[4, :])
+
     
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    #compute_edge_states!(@views(UL[4, :]), @views(UR[4, :]), @views(U[4, :]), scheme)
-    #compute_fluxes_electron!(@views(F[4, :]), @views(UL[4, :]), @views(UR[4, :]), [HallThruster.Electron], [1:1], scheme, params)
+    compute_edge_states!(@views(UL[4, :]), @views(UR[4, :]), @views(U[4, :]), scheme)
+    #println("UL and UR after comp edge: ", UL[4, :], UR[4, :])
+    compute_fluxes_electron!(@views(F[4, :]), @views(UL[4, :]), @views(UR[4, :]), [HallThruster.Electron], [1:1], scheme, params)
+    #println("Flux after compute fluxes: ", F[4, :])
     
+
     ncells = size(U, 2) - 2
     z_edge = params.z_edge
 
@@ -202,62 +207,6 @@ function update_imp!(dU, U, params, t)
     end
     return nothing
 end
-
-#=
-function implicit_E!(dE, E, params, t)
-    FE, EL, ER = params.cache.FE, params.cache.EL, params.cache.ER
-    
-    Tev_anode = 3 #eV, adapt this to the gaussian input conditions
-    Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
-    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
-
-    println("E before BCs applied: ", E)
-
-    apply_bc!(E, BCs[1], :left)
-    apply_bc!(E, BCs[2], :right)
-    
-    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    #compute_edge_states!(EL, ER, E, scheme)
-    compute_fluxes_electron!(FE, EL, ER, [HallThruster.Electron], [1:1], scheme, params)
-    
-    ncells = size(E, 2) - 2
-    z_edge = params.z_edge
-
-    @inbounds for i in 2:(ncells + 1)
-        # Compute dU/dt
-        left = left_edge(i)
-        right = right_edge(i)
-
-        Δz = z_edge[right] - z_edge[left]
-
-        @views @. dE[:, i] = (FE[:, left] - FE[:, right]) / Δz # + QE
-    end
-    return nothing
-end
-
-function explicit_E!(dE, E, params, t)    
-    Tev_anode = 3 #eV 
-    Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*e*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*e*Tev_cathode]
-    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
-
-    apply_bc!(E, BCs[1], :left)
-    apply_bc!(E, BCs[2], :right)
-    
-    ncells = size(E, 2) - 2
-
-    @inbounds for i in 2:(ncells + 1)
-        QE = 0.0
-        QE = source_electron_energy!(QE, E, params, i)
-
-        @views @. dE[:, i] = QE
-    end
-    return nothing
-end
-=#
 
 left_edge(i) = i - 1
 right_edge(i) = i
@@ -288,10 +237,12 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     U, cache = allocate_arrays(sim)
 
+    println("E before initial cond applied", U[4, :])
+
     initial_condition!(@views(U[1:3, :]), @views(U[4, :]), grid.cell_centers, sim.initial_condition,
     sim.initial_condition_E, fluid_ranges, fluids)
 
-    #println("E after initial cond applied", cache.E)
+    println("E after initial cond applied", U[4, :])
 
     scheme = sim.scheme
     source_term! = sim.source_term!
@@ -311,6 +262,19 @@ function run_simulation(sim) #put source and Bcs potential in params
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!, 
               boundary_potential! = sim.boundary_potential!, landmark)
 
+    #PREPROCESS
+    #make values in params available for first implicit timestep
+    ncells = size(U, 2) - 2
+    L_ch = 0.025
+    fluid = fluids[1].species.element
+    @inbounds for i in 1:(ncells + 2)
+        params.cache.ne[i] = electron_density(@view(U[:, i]), fluid_ranges) / fluid.m
+        params.cache.pe[i] = electron_pressure(params.cache.ne[i], params.cache.Tev[i])
+        params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
+        params.cache.νc[i] = get_v_c(params.cache.Tev[i], U[1, i]/fluid.m , params.cache.ne[i], fluid.m)
+        params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
+    end
+
     prob = SplitODEProblem{true}(update_imp!, update_exp!, U, tspan, params)
     #tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
     sol = solve(prob, KenCarp3(autodiff = false); saveat=sim.saveat, callback=sim.callback,
@@ -329,9 +293,6 @@ function inlet_neutral_density(sim)
 end
 
 function initial_condition!(U, E, z_cell, IC!, IC_E!, fluid_ranges, fluids)
-    #can extend later to more
-    #also not using inlet_neutral_density for now
-    #nn = inlet_neutral_density(sim)
     for (i, z) in enumerate(z_cell)
         @views IC!(U[:, i], z, fluids, z_cell[end])
         IC_E!(E, U[:, i], z, z_cell[end], fluid_ranges, fluids, i)
