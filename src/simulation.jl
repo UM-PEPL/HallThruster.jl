@@ -95,8 +95,8 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     fluid = fluids[1].species.element
     @inbounds for i in 1:(ncells + 2)
         #update electron temperature from energy using old density
-        params.cache.Tev[i] = max(0, U[4, i]/3*2/params.cache.ne[i])
-        params.cache.ne[i] = max(0, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
+        params.cache.Tev[i] = max(1, U[4, i]/3*2/params.cache.ne[i])
+        params.cache.ne[i] = max(1, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
         params.cache.pe[i] = electron_pressure(params.cache.ne[i], Tev[i])
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
         params.cache.νc[i] = get_v_c(Tev[i], U[1, i]/fluid.m , params.cache.ne[i], fluid.m)

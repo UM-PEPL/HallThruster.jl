@@ -69,7 +69,7 @@ function source_electron_energy!(QE, U, params, i)
     #Hara source term
     #QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 - S_wall_simple(U[4, :], i) - S_coll(U, params, i) #resistive heating collisions, u has to be total u not just z, azimuthal component dominating
     #Landmark source term
-    QE = -params.cache.ne[i]*uₑ*grad_ϕ - S_wall_simple(U[4, :], i) - S_coll(U, params, i)
+    QE = params.cache.ne[i]*uₑ*grad_ϕ - S_wall_simple(U[4, :], i) - S_coll(U, params, i)
     #@show -params.cache.ne[i]*uₑ*grad_ϕ
     #@show -S_wall_simple(U[4, :], i)
     #@show S_coll(U, params, i)
