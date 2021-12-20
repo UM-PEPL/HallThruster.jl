@@ -52,7 +52,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
 
     #Dual = ForwardDiff.Dual
 
-    U = zeros(nvariables, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 5, ncells + 2) # need to allocate room for ghost cells, +phi +ne +uₑ + -grad_ϕ +grad_pe/e/params.cache.ne[i]
     F = zeros(nvariables, nedges)
     UL = zeros(nvariables, nedges)
     UR = zeros(nvariables, nedges)
@@ -111,14 +111,16 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     println("Tev K: ", params.cache.Tev .*e ./kB)
     =#
 
-    #update internal electron energy according to new electron density
-    U[4, :] .= 3/2 .* params.cache.ne .* params.cache.Tev
+    #U[4, :] .= 3/2 .* params.cache.ne .* params.cache.Tev
 
     ####################################################################
     #POTENTIAL MODULE
     #println("ϕ before solve: ", params.cache.ϕ)
 
     solve_potential!(ϕ, U, params)
+
+    U[5, :] = ϕ
+    U[6, :] = params.cache.ne
 
     #println("ϕ after solve: ", params.cache.ϕ)
 
@@ -130,6 +132,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     apply_bc!(@views(U[1:3, :]), params.BCs[1], :left)
     apply_bc!(@views(U[1:3, :]), params.BCs[2], :right)
 
+    #=
     #electron BCs
     Tev_anode = 3 #eV 
     Tev_cathode = 3 #eV
@@ -140,7 +143,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     U[4, begin] = left_state[1]
     U[4, end] = right_state[1]
     #apply_bc!(@views(U[4, :]), BCs[1], :left)
-    #apply_bc!(@views(U[4, :]), BCs[2], :right)
+    #apply_bc!(@views(U[4, :]), BCs[2], :right)=#
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:3, :]), @views(UR[1:3, :]), @views(U[1:3, :]), scheme)
@@ -154,7 +157,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         source_term!(@views(Q[1:3]), @views(U[1:3, :]), params, ϕ, Tev, i)
 
         #electron source term
-        Q[4] = source_electron_energy!(@views(Q[4]), @views(U), params, i)
+        Q[4] = source_electron_energy!(@views(Q[4]), @views(U[1:4, :]), params, i)
 
         #@show Q[4] 
 
@@ -164,7 +167,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
         Δz = z_edge[right] - z_edge[left]
 
-        @tturbo @views @. dU[:, i] = (F[:, left] - F[:, right]) / Δz + Q #should be fine, F[4, :] should be 0
+        @tturbo @views @. dU[1:4, i] = (F[:, left] - F[:, right]) / Δz + Q #should be fine, F[4, :] should be 0
     end
 
     return nothing
@@ -202,6 +205,12 @@ function update_imp!(dU, U, params, t)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
+        
+        #save electron velocity
+        U[7, i] = electron_velocity(params, i)
+        U[8, i] = - first_deriv_central_diff(params.cache.ϕ, params.z_cell, i)
+        grad_pe = first_deriv_central_diff(params.cache.pe, params.z_cell, i)
+        U[9, i] = grad_pe/e/params.cache.ne[i]
 
         dU[4, i] = (F[4, left] - F[4, right]) / Δz
     end
