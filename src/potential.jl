@@ -1,6 +1,6 @@
 
 """
-    solve_potential!(; ϕ::Vector{Float64}, U::Matrix{Float64}, params::NamedTuple)
+    solve_potential!(; U::Matrix{Float64}, params::NamedTuple)
 
 function to solve the potential equation derived from the generalized Ohm's law
 and employing charge conservation using quasineutrality. Second derivatives approximated
@@ -10,7 +10,7 @@ If required, interpolation is used to infer properties at mesh boundaries. Poten
 field, anomalous and classical collision frequency, neutral and ion density as well as ion velocity, and electron density
 and temperature leading to electron pressure. Solved by inverting a tridiagonal matrix. 
 """
-function solve_potential!(ϕ, U, params)
+function solve_potential!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
     z_cell, z_edge, _ = params.z_cell, params.z_edge, params.cell_volume
@@ -18,23 +18,26 @@ function solve_potential!(ϕ, U, params)
     fluid = fluids[1].species.element
     boundary_potential! = params.boundary_potential!
     source_potential! = params.source_potential!
+    index = params.index
     N = length(z_cell) - 2 #remove boundary ghost cells
 
     L_ch = 0.025 #add to params
 
-    pe = params.cache.pe
-    ne = params.cache.ne
+    pe = U[index.pe, :]
+    ne = U[index.ne, :]
     B = params.cache.B
     A = params.cache.A
     b = params.cache.b
-    Tev = params.cache.Tev
+    Tev = U[index.Tev, :]
     νan = params.cache.νan
 
     Δz = z_edge[3] - z_edge[2]
 
     OVS = Array{Union{Nothing, Bool}}(nothing, 1)
     OVS[1] = false
-    boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS) #if OVS, this sets to true
+
+    bc_consts = (; fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index)
+    boundary_potential!(A, b, U, bc_consts) #if OVS, this sets to true
 
     for i in 2:(N - 1) #@tturbo
         i_f = i + 1 #fluid index, due to ghost cell on boundary
@@ -54,16 +57,6 @@ function solve_potential!(ϕ, U, params)
         μ⁻ = cf_electron_transport(νan⁻, νc⁻, B⁻)
         μ⁺ = cf_electron_transport(νan⁺, νc⁺, B⁺)
 
-        #=
-        μ⁻ = cf_electron_transport(νan⁻,
-                                   get_v_c(0.5 * (Tev[i_f] + Tev[i_f - 1]), ne⁻, nn⁻,
-                                           fluid.m), B⁻)
-
-        μ⁺ = cf_electron_transport(νan⁺,
-                                   get_v_c(0.5 * (Tev[i_f] + Tev[i_f + 1]), ne⁺, nn⁺,
-                                           fluid.m), B⁺)
-        =#
-        
         if OVS[1] == true
             ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
         end
@@ -76,13 +69,14 @@ function solve_potential!(ϕ, U, params)
         A.d[i] = -(ne⁻ * μ⁻ + ne⁺ * μ⁺) / Δz²
         A.du[i] = ne⁺ * μ⁺ / Δz²
 
-        source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+        s_consts = (; i, i_f, μ⁻, μ⁺, pe, Δz)
+        source_potential!(b, U, s_consts)
     end
 
     #make ghost cells correspond to boundary values
 
     #make sure ghost cells not used in tridiagonal solve
-    return tridiagonal_solve!(@views(ϕ[2:end-1]), A, b)
+    return tridiagonal_solve!(@views(U[index.ϕ, 2:end-1]), A, b)
 end
 
 function tridiagonal_forward_sweep!(A::Tridiagonal, b)
@@ -120,15 +114,17 @@ function tridiagonal_solve(A, b)
 end
 
 """
-    boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ_L, ϕ_R, Δz)
+    boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
 
 Applies dirichlet boundary conditions for potential. 
 """
 
-function boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
+function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
+    fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index = bc_consts
+    
     #make ghost cells correspond to boundary
-    ϕ[1] = ϕ_L
-    ϕ[end] =  ϕ_R
+    U[index.ϕ, 1] = ϕ_L
+    U[index.ϕ, end] =  ϕ_R
     
     #left boundary
     ne⁻ = ne[1]
@@ -170,37 +166,41 @@ function boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan,
 end
 
 """
-    potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+    potential_source_term!(b, U, s_consts)
 
 Applies source term to potential.
 """
 
-function potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
+function potential_source_term!(b, U, s_consts)
+    i, i_f, μ⁻, μ⁺, pe, Δz = s_consts
     Δz² = Δz^2
     b[i] = (μ⁻ * pe[i_f - 1] - (μ⁺ + μ⁻) * pe[i_f] + μ⁺ * pe[i_f + 1]) / Δz² +
     0.5 * (U[3, i_f + 1] - U[3, i_f - 1]) / Δz
 end
 
 """
-    OVS_potential_source_term!(b, i)
+    OVS_potential_source_term!(b, s_consts)
 
 Applies a scalar as source term for potential OVS.
 """
 
-function OVS_potential_source_term!(b, i) #for OVS
+function OVS_potential_source_term!(b, s_consts) #for OVS
+    i, i_f, μ⁻, μ⁺, pe, Δz = s_consts
     b[i] = 50000.0
 end
 
 """
-    OVS_boundary_conditions_potential!(N, A, b, ϕ_L, ϕ_R, Δz)
+    OVS_boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
 
 Applies Dirichlet boundary conditions to potential equation for OVS.
 """
 
-function OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS) #for OVS, need to implement interpolation on boundary for real case as well
+function OVS_boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R) #for OVS, need to implement interpolation on boundary for real case as well
+    fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index = bc_consts
+    
     #make ghost cells correspond to boundary
-    ϕ[1] = ϕ_L
-    ϕ[end] =  ϕ_R
+    U[index.ϕ, 1] = ϕ_L
+    U[index.ϕ, end] =  ϕ_R
 
     ne⁻ = ne⁺ = μ⁻ = μ⁺ = 1.0    
     #A.d[1] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
