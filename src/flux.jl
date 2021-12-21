@@ -157,12 +157,16 @@ function compute_edge_states!(UL, UR, U, scheme)
             end        
         end
     end
-
-    for j in 1:nconservative
-        UL[j, 1] = U[j, 1] #2 this would be more consistent
-        UR[j, end] = U[j, end] #end - 1 
+    
+    if nconservative == 1
+        UL[1] = U[1]
+        UR[end] = U[end]
+    else
+        for j in 1:nconservative
+            UL[j, 1] = U[j, 1] #2 this would be more consistent
+            UR[j, end] = U[j, end] #end - 1 
+        end
     end
-
     return UL, UR
 end
 

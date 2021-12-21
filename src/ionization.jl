@@ -82,14 +82,15 @@ function load_ionization_reaction(reactant, product)
 end
 
 function load_landmark()
-    rates_file = joinpath(LANDMARK_FOLDER, "landmark.dat")
+    rates_file = joinpath(LANDMARK_FOLDER, "landmark.csv")
+    rates = DataFrame(CSV.File(rates_file))
     try
         rates = DataFrame(CSV.File(rates_file))
         Tev = rates[!, 1]
         k = rates[!, 2]
-        W = rates[!, 3]
+        K = rates[!, 3]
         rate_coeff = LinearInterpolation(Tev, k)
-        loss_coeff = LinearInterpolation(Tev, W)
+        loss_coeff = LinearInterpolation(Tev, K)
         return LandmarkTable(loss_coeff, rate_coeff)
     catch e
         return nothing

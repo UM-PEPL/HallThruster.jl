@@ -21,40 +21,32 @@ solution in runtests.jl
 function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     #create a template definition of source! function somewhere
-    function source!(Q, U, params, ϕ, Tev, i)
-        mms!(Q, [params.z_cell[i]])
+    function source!(Q, U, params, i)
+        mms!(@views(Q[1:3]), [params.z_cell[i]])
+        Q[4] = 0
     end
 
-    function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-        HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-        #HallThruster.OVS_potential_source_term!(b, i)
+    function source_potential!(b, U, s_consts)
+        HallThruster.potential_source_term!(b, U, s_consts)
+        #HallThruster.OVS_potential_source_term!(b, s_consts)
     end
     
-    function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+    function boundary_potential!(A, b, U, bc_consts)
         ϕ_L = 400.0
         ϕ_R = 0.0
-        HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
-        #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
+        HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
+        #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
     end
     
     function IC!(U, z, fluids, L)
         gas1 = fluids[1].species.element
 
         ρ1 = 3000.0
-        u1 = MMS_CONSTS.u_constant
-        T1 = MMS_CONSTS.T_constant
-        E = MMS_CONSTS.fluid.cv*T1 + 0.5*u1*u1
+        u1 = 300.0
+        #u1 = MMS_CONSTS.u_constant
 
-        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]f
+        U .= [ρ1, ρ1, ρ1*u1, 0.0] #[ρ1, ρ1*u1, ρ1*E]f
         return U
-    end
-
-    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
-        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
-        #println("Tev in a row: ", Tev)
-        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
-        #println("neutral density in a row: ", ne)
-        @views E[i] = 3/2*ne*HallThruster.e*Tev
     end
 
     ρ1 = 3000.0
@@ -71,7 +63,6 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
-    initial_condition_E = IC_E!,
     source_term! = source!,
     source_potential! = source_potential!,
     boundary_potential! = boundary_potential!, 
@@ -81,24 +72,27 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     end_time = MMS_CONSTS.max_end_time, 
     saveat = [MMS_CONSTS.max_end_time],
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-    callback = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass) 
+    callback = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass), 
+    solve_energy = false
     )
 
     #generate different number of cells while keeping CFL number constant over refinements chosen
     refinements = MMS_CONSTS.refinements
     results = Array{Result, 1}(undef, refinements)
     n_cells = MMS_CONSTS.n_cells_start
+    _, fluids, fluid_ranges, __ = HallThruster.configure_simulation(simulation)
+    lf = fluid_ranges[end][end]
 
     for refinement in 1:refinements
         simulation.grid = HallThruster.generate_grid(HallThruster.SPT_100, n_cells)
         simulation.timestepcontrol = (MMS_CONSTS.CFL*MMS_CONSTS.L/(MMS_CONSTS.u_constant*n_cells), false)
         sol = HallThruster.run_simulation(simulation)
         z_cells = simulation.grid.cell_centers
-        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.u[1][:, 1]), length(z_cells))
+        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.u[1][1:lf, 1]), length(z_cells))
         for (i, z_cell) in enumerate(z_cells)
             u_exa[:, i] = mms_conservative([z_cell, 0])
         end
-        error = abs.(u_exa - sol.u[1])
+        error = abs.(u_exa - sol.u[1][1:lf, :])
         results[refinement] = Result(sol, simulation.timestepcontrol[1], z_cells, simulation.grid.ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
         n_cells = n_cells*2
     end
@@ -114,9 +108,9 @@ function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
 
     for refinement in 1:refinements
         U, params = set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells = n_cells)
-        ϕ = params.cache.ϕ
-        HallThruster.solve_potential!(ϕ, U, params)
+        HallThruster.solve_potential!(U, params)
         z_cells = params.z_cell
+        ϕ = U[params.index.ϕ, :]
         u_exa = Array{Union{Nothing, Float64}}(nothing, length(ϕ)-2)
         for i in 1:length(ϕ)-2
             u_exa[i] = 25000.0*z_cells[i+1]^2 - 3250.0*z_cells[i+1] + 100.0
@@ -159,19 +153,19 @@ just a helper function to generate U and params for use in potential OVS. Not us
 
 function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not really matter, just to generate params and U
     
-    function source!(Q, U, params, ϕ, Tev, i)
+    function source!(Q, U, params, i)
     end
 
-    function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-        #HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-        HallThruster.OVS_potential_source_term!(b, i)
+    function source_potential!(b, U, s_consts)
+        #HallThruster.potential_source_term!(b, U, s_consts)
+        HallThruster.OVS_potential_source_term!(b, s_consts)
     end
-
-    function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS)
+    
+    function boundary_potential!(A, b, U, bc_consts)
         ϕ_L = 100.0
         ϕ_R = 0.0
-        #HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
-        HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
+        #HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
+        HallThruster.OVS_boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     end
 
     function IC!(U, z, fluids, L)
@@ -182,16 +176,8 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
         T1 = MMS_CONSTS.T_constant
         E = MMS_CONSTS.fluid.cv*T1 + 0.5*u1*u1
 
-        U .= [ρ1, ρ1, ρ1*u1] #[ρ1, ρ1*u1, ρ1*E]
+        U .= [ρ1, ρ1, ρ1*u1, 0.0] #[ρ1, ρ1*u1, ρ1*E]
         return U
-    end
-
-    function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
-        Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
-        #println("Tev in a row: ", Tev)
-        ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
-        #println("neutral density in a row: ", ne)
-        @views E[i] = 3/2*ne*HallThruster.e*Tev
     end
 
     ρ1 = 3000.0
@@ -208,7 +194,6 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     boundary_conditions = BCs,
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
-    initial_condition_E = IC_E!,
     source_term! = source!,
     source_potential! = source_potential!,
     boundary_potential! = boundary_potential!, 
@@ -218,7 +203,8 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     end_time = MMS_CONSTS.max_end_time, 
     saveat = [MMS_CONSTS.max_end_time],
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-    callback = nothing
+    callback = nothing,
+    solve_energy = false
     )
 
     sim = simulation
@@ -228,9 +214,10 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
 
     U, cache = HallThruster.allocate_arrays(sim)
 
-    HallThruster.initial_condition!(U, cache.E, grid.cell_centers, sim.initial_condition,
-    sim.initial_condition_E, fluid_ranges, fluids)
+    lf = fluid_ranges[end][end]
+    index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5)
 
+    HallThruster.initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
 
     scheme = sim.scheme
     source_term! = sim.source_term!
@@ -239,14 +226,16 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     tspan = (0.0, sim.end_time)
 
     reactions = HallThruster.load_ionization_reactions(species)
+    landmark = HallThruster.load_landmark()
+
     BCs = sim.boundary_conditions
 
     HallThruster.precompute_bfield!(cache.B, grid.cell_centers)
 
-    params = (; cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
+    params = (; index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!, 
-              boundary_potential! = sim.boundary_potential!)
+              boundary_potential! = sim.boundary_potential!, landmark, solve_energy = sim.solve_energy)
 
     return U, params
 end

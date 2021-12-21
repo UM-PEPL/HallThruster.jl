@@ -1,77 +1,72 @@
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra
 
-function source!(Q, U, params, ϕ, Tev, i)
-    HallThruster.apply_reactions!(Q, U, params, Tev, i)
-    HallThruster.apply_ion_acceleration!(Q, U, params, ϕ, i)
+function source!(Q, U, params, i)
+    HallThruster.apply_reactions!(Q, U, params, i)
+    HallThruster.apply_ion_acceleration!(Q, U, params, i)
+    #HallThruster.source_electron_energy!(Q, U, params, i)
     return Q
 end
 
-function source_potential!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-    HallThruster.potential_source_term!(b, i, i_f, μ⁻, μ⁺, pe, U, Δz)
-    #HallThruster.OVS_potential_source_term!(b, i)
+function source_potential!(b, U, s_consts)
+    HallThruster.potential_source_term!(b, U, s_consts)
+    #HallThruster.OVS_potential_source_term!(b, s_consts)
 end
 
-function boundary_potential!(U, fluid, N, ϕ, pe, ne, B, A, b, Tev, νan, Δz, OVS) #if OVS, this sets to true
-    ϕ_L = 400.0
+function boundary_potential!(A, b, U, bc_consts)
+    ϕ_L = 300.0
     ϕ_R = 0.0
-    HallThruster.boundary_conditions_potential!(U, fluid, N, pe, ne, B, A, b, Tev, νan, ϕ, ϕ_L, ϕ_R, Δz)
-    #HallThruster.OVS_boundary_conditions_potential!(N, A, b, ϕ, ϕ_L, ϕ_R, Δz, OVS)
+    HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
+    #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
 end
 
 function IC!(U, z, fluids, L)
-    ρ1 = 2.1801715574645586e-6
-    ρ2 = ρ1 * exp(-((z - L) / 0.033)^2)
-    u1 = 300.0
-    U[1] = ρ1
-    U[2] = ρ2
-    U .= SA[ρ1, ρ2, ρ2*u1] #[ρ1, ρ1*u1, ρ1*E]
-    return U
-end
-
-function IC_E!(E, U, z, L, fluid_ranges, fluids, i)
+    ρ2 = 2.1801715574645586e-7 #ρ1 * exp(-((z - L) / 0.033)^2)
+    u1 = 150.0
+    ρ1 = 5e-6/0.004/u1
     Tev = 30 * exp(-(2 * (z - L/2) / 0.033)^2)
-    #println("Tev in a row: ", Tev)
-    ne = HallThruster.electron_density(U, fluid_ranges) / fluids[1].species.element.m
-    #println("neutral density in a row: ", ne)
-    @views E[i] = 3/2*ne*HallThruster.e*Tev
+    ne = 2.1801715574645586e-7 / fluids[1].species.element.m
+    U .= SA[ρ1, ρ2, ρ2*u1, 3/2*ne*Tev]
+    return U
 end
 
 function run_sim(end_time = 0.0002, n_save = 2)
     fluid = HallThruster.Xenon
     timestep = 0.9e-8 #0.9e-8
 
-    ρ1 = 2.1801715574645586e-6
-    ρ2 = 2.1801715574645586e-6
-    u1 = 300.0
+    #fluid BCs #############################
+    ρ2 = 2.1801715574645586e-7 #ρ1 * exp(-((z - L) / 0.033)^2)
+    u1 = 150.0 #150
+    ρ1 = 5e-6/0.004/u1
+    @show ρ1/HallThruster.Xenon.m
     T1 = 1000.0
-
     left_state = [ρ1, ρ2, ρ2 * u1] # [ρ1, ρ1*u1, ρ1*E]
     right_state = [ρ1, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
+
     saveat = if n_save == 1
         [end_time]
     else
         LinRange(0.0, end_time, n_save) |> collect
     end
-    saved_values = SavedValues(Float64, NTuple{2, Vector{Float64}})
-    callback = SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev), saved_values, saveat = saveat)
+    #saved_values = SavedValues(Float64, NTuple{3, Vector{Float64}})
+    callback = nothing #SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
-        grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!,
-        initial_condition_E = IC_E!,
         source_term! = source!,
         source_potential! = source_potential!,
         boundary_potential! = boundary_potential!,
-        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(300.0, 300.0))
+        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(u1, 300.0))
             HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(300.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
         end_time = end_time, #0.0002
         saveat = saveat, 
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-        callback = callback
+        callback = callback,
+        solve_energy = false
     )
 
     @time sol = HallThruster.run_simulation(sim)
@@ -81,18 +76,39 @@ function run_sim(end_time = 0.0002, n_save = 2)
     #plot!(p, sol.u[end][1, :]/HallThruster.Xenon.m)
 
     display(p)
-    return sol, saved_values.saveval
+    return sol #, saved_values.saveval
 end
 
-function animate_solution(sol, saved_values)
+function animate_solution(sol)
     mi = HallThruster.Xenon.m
     @gif for (u, t) in zip(sol.u, sol.t)
         p = plot(ylims = (1e13, 1e20))
         plot!(p, u[1, :] / mi, yaxis = :log)
         plot!(p, u[2, :] / mi)
     end
-    @gif for (ϕ, t) in zip(saved_values, sol.t)
+    @gif for (u, t) in zip(sol.u, sol.t)
+        p = plot(ylims = (0, 3e4))
+        plot!(p, u[3, :] ./ u[2, :])
+    end
+    @gif for (u, t) in zip(sol.u, sol.t) #nϵ
+        p = plot(ylims = (1e13, 1e21))
+        plot!(p, u[4, :], yaxis = :log)
+    end
+    @gif for (u, t) in zip(sol.u, sol.t) #Tev
+        p = plot(ylims = (0, 40))
+        plot!(p, u[5, :])
+    end
+    @gif for (u, t) in zip(sol.u, sol.t) #ne
+        p = plot(ylims = (1e16, 1e20))
+        plot!(p, u[6, :], yaxis = :log)
+        plot!(p, u[7, :] ./ HallThruster.e)
+    end
+    @gif for (u, t) in zip(sol.u, sol.t) #pe
+        p = plot(ylims = (1e13, 1e22))
+        plot!(p, u[7, :] ./ HallThruster.e, yaxis = :log)
+    end
+    @gif for (u, t) in zip(sol.u, sol.t) #ϕ
         p = plot(ylims = (-100, 400))
-        plot!(p, ϕ)
+        plot!(p, u[8, :])
     end
 end
