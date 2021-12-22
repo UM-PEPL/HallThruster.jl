@@ -38,7 +38,6 @@ function run_sim(end_time = 0.0002, n_save = 2)
     u1 = 150.0 #150
     ρ1 = 5e-6/0.004/u1
     @show ρ1/HallThruster.Xenon.m
-    T1 = 1000.0
     left_state = [ρ1, ρ2, ρ2 * u1] # [ρ1, ρ1*u1, ρ1*E]
     right_state = [ρ1, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
@@ -52,7 +51,7 @@ function run_sim(end_time = 0.0002, n_save = 2)
     callback = nothing #SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
 
     sim = HallThruster.MultiFluidSimulation(
-        grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
+        grid = HallThruster.generate_grid(HallThruster.SPT_100, 10),
         boundary_conditions = BCs,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!,
@@ -66,7 +65,7 @@ function run_sim(end_time = 0.0002, n_save = 2)
         saveat = saveat, 
         timestepcontrol = (timestep, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = callback,
-        solve_energy = false
+        solve_energy = true
     )
 
     @time sol = HallThruster.run_simulation(sim)

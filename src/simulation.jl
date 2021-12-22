@@ -1,3 +1,5 @@
+using Test
+
 struct HyperbolicScheme{F,L}
     flux_function::F  # in-place flux function
     limiter::L # limiter
@@ -91,6 +93,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     L_ch = 0.025
     fluid = fluids[1].species.element
 
+    #=
     @inbounds for i in 1:(ncells + 2)
         #update electron temperature from energy using old density
         if params.solve_energy
@@ -103,10 +106,11 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
         
     end
+    =#
 
     ####################################################################
     #POTENTIAL MODULE
-    solve_potential!(U, params)
+    #solve_potential!(U, params)
 
     ##############################################################
     #FLUID MODULE
@@ -119,8 +123,8 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     #electron BCs
     Tev_anode = 3 #eV 
     Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*Tev_cathode]
+    left_state = [3/2*1e18*Tev_anode]
+    right_state = [3/2*1e18*Tev_cathode]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
     U[4, begin] = left_state[1]
@@ -139,6 +143,8 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         #fluid source term
         source_term!(Q, U, params, i)
 
+        #@show Q[4]
+
         # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
@@ -152,10 +158,12 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 end
 
 function update_imp!(dU, U, params, t)
+    
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     index = params.index
 
     #electron BCs
+    #
     Tev_anode = 3 #eV
     Tev_cathode = 3 #eV
     left_state = [3/2*1e18*Tev_anode]
@@ -167,9 +175,20 @@ function update_imp!(dU, U, params, t)
     
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    #compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
+    compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
     #println("UL and UR after comp edge: ", UL[4, :], UR[4, :])
-    #compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, [HallThruster.Electron], [1:1], scheme, params)
+    println("BEFORE CALC below: #########################")
+    a =  UL[index.nϵ, :]
+    b =  UR[index.nϵ, :]
+    c =  U[index.nϵ, :]
+    @show size(F)
+    @show F
+    compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, [HallThruster.Electron], [1:1], scheme, params)
+    println("AFTER CALC below: #########################")
+    @show F
+    @show @test UL[index.nϵ, :] == a
+    @show @test UR[index.nϵ, :] == b
+    @show @test U[index.nϵ, :] == c
     #println("Flux after compute fluxes: ", F[4, :])
     
 
@@ -191,6 +210,8 @@ function update_imp!(dU, U, params, t)
         U[9, i] = grad_pe/e/params.cache.ne[i]=#
 
         #dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
+        #@show F[index.nϵ, left]
+        #@show F[index.nϵ, right]
     end
     
     return nothing
