@@ -1,6 +1,7 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
     index = params.index
+    #println("i in electron velocity: ", i)
     grad_ϕ = first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
     grad_pe = first_deriv_central_diff(U[index.pe, :], params.z_cell, i)
     uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_pe/e/U[index.ne, i])
@@ -21,17 +22,17 @@ function flux_electron!(F, US, fluid, params, U, i)
     grad_Tev = first_deriv_central_diff(U[index.Tev, :], params.z_cell, i)# *e #to get in [J]
     κₑ = e_heat_conductivity(params, i)
     F = nϵ*5/3*uₑ - κₑ*nϵ*grad_Tev #κₑ*grad_Te/e #convert second term back to eV
+    #println("i in flux_electron!: ", i)
     return F
 end
 
-function compute_fluxes_electron!(F, UL, UR, U, fluids, fluid_ranges, scheme, params)
+function compute_fluxes_electron!(F, UL, UR, U, fluid, fluid_ranges, scheme, params)
     nedges = length(F)
 
     for i in 1:nedges
-        for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
-            @views F[i] = scheme.flux_function(F[i], UL[i],
+        #println("i in compute_fluxes!: ", i)
+        @views F[i] = scheme.flux_function(F[i], UL[i],
                                         UR[i], fluid, params, U, i)
-        end
     end
     return F
 end
@@ -47,7 +48,7 @@ function upwind_electron!(F, UL, UR, fluid, params, U, i)
     else
         F = flux_electron!(F, UR, fluid, params, U, i+1)
     end
-    #println("F at i in upwind func: ", F, i)
+    #println("F at i in upwind func: ", F, "   ", i+1)
     return F
 end
 
@@ -88,8 +89,8 @@ function S_wall_Bohm(params, i) #hara mikellides 2018
     return params.ne[i]*νₑ_w*Δϵ_w
 end
 
-function S_wall_simple(E, i) #landmark and Hara non-oscillatory
-    return 10e7*exp(-20/E[i])*E[i] #also anomalous energy loss, #different cases for ν\_ϵ    
+function S_wall_simple(ϵ, i) #landmark and Hara non-oscillatory
+    return 1e7*exp(-20/ϵ[i])*ϵ[i] #also anomalous energy loss, #different cases for ν\_ϵ    
 end
 
 function S_coll(U, params, i) #landmark table

@@ -501,6 +501,21 @@ include("ovs_mms.jl")
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
+    #=
+    p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p1, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]), title = "L_1 neutral continuity", label = false)
+    p2 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p2, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[1] for i in 1:length(results)]), title = "L_inf neutral continuity", label = false)
+    p3 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p3, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[2] for i in 1:length(results)]), title = "L_1 ion continuity", label = false)
+    p4 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p4, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[2] for i in 1:length(results)]), title = "L_inf ion continuity", label = false)
+    p5 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p5, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[3] for i in 1:length(results)]), title = "L_1 ion momentum", label = false)
+    p6 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p6, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[3] for i in 1:length(results)]), title = "L_inf ion momentum", label = false)
+    p7 = Plots.plot!(p1, p2, p3, p4, p5, p6, layout = (3, 2), size = (1000, 500),  margin=5Plots.mm)
+    Plots.png(p7, "alfa")=#
 end
 
 @testset "Order verification studies with MMS, set 2: HLLE, no reconstruct" begin
@@ -557,6 +572,13 @@ end
     println("L_1 $(L_1[1])")
     @test L_inf[1] ≈ expected_slope atol = expected_slope*0.1
     println("L_inf $(L_inf[1])")
+    #=
+    p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p1, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]), title = "L_1", label = false)
+    p2 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
+    Plots.plot!(p2, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[1] for i in 1:length(results)]), title = "L_inf", label = false)
+    p3 = Plots.plot!(p1, p2, layout = (1, 2), size = (1000, 500),  margin=5Plots.mm)
+    Plots.png(p3, "alfa")=#
 end
 
 @testset "Test ion acceleration source term" begin
