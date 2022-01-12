@@ -52,7 +52,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
 
     #Dual = ForwardDiff.Dual
 
-    U = zeros(nvariables + 5, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 8, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
@@ -85,48 +85,12 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
     ncells = size(U, 2) - 2
 
-    ####################################################################
-    #PREPROCESS
-    #calculate useful quantities relevant for potential, electron energy and fluid solve
-    L_ch = 0.025
-    fluid = fluids[1].species.element
-
-    @inbounds for i in 1:(ncells + 2)
-        #update electron temperature from energy using old density
-        if params.solve_energy
-            U[index.Tev, i] = max(1, U[index.nϵ, i]/3*2/U[index.ne, i])
-        end
-        U[index.ne, i] = max(1e-10, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
-        U[index.pe, i] = electron_pressure(U[index.ne, i], U[index.Tev, i])
-        params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
-        params.cache.νc[i] = get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
-        params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
-        
-    end
-
-    ####################################################################
-    #POTENTIAL MODULE
-    solve_potential!(U, params)
-
     ##############################################################
     #FLUID MODULE
 
     #fluid BCs
     apply_bc!(@views(U[1:index.lf, :]), params.BCs[1], :left)
     apply_bc!(@views(U[1:index.lf, :]), params.BCs[2], :right)
-
-    #=
-    #electron BCs
-    Tev_anode = 3 #eV 
-    Tev_cathode = 3 #eV
-    left_state = [3/2*params.cache.ne[1]*Tev_anode]
-    right_state = [3/2*params.cache.ne[end]*Tev_cathode]
-    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
-
-    U[4, begin] = left_state[1]
-    U[4, end] = right_state[1]
-    #apply_bc!(@views(U[4, :]), BCs[1], :left)
-    #apply_bc!(@views(U[4, :]), BCs[2], :right)=#
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), @views(U[1:index.lf, :]), scheme)
@@ -139,23 +103,28 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         #fluid source term
         source_term!(Q, U, params, i)
 
+        #@show Q[4]
+
         # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
 
-        @tturbo @views @. dU[1:index.nϵ, i] = (F[:, left] - F[:, right]) / Δz + Q
+        @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
+        @views dU[index.nϵ, i] = Q[index.nϵ]
     end
 
     return nothing
 end
 
 function update_imp!(dU, U, params, t)
+    
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     index = params.index
 
     #electron BCs
+    #
     Tev_anode = 3 #eV
     Tev_cathode = 3 #eV
     left_state = [3/2*1e18*Tev_anode]
@@ -167,12 +136,10 @@ function update_imp!(dU, U, params, t)
     
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    #compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
-    #println("UL and UR after comp edge: ", UL[4, :], UR[4, :])
-    #compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, [HallThruster.Electron], [1:1], scheme, params)
-    #println("Flux after compute fluxes: ", F[4, :])
-    
+    compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
+    compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, HallThruster.Electron, [1:1], scheme, params)
 
+    ##############################################################################################################################################
     ncells = size(U, 2) - 2
     z_edge = params.z_edge
 
@@ -183,14 +150,7 @@ function update_imp!(dU, U, params, t)
 
         Δz = z_edge[right] - z_edge[left]
 
-        #could save additional quantities of interest
-        #=
-        U[7, i] = electron_velocity(params, i)
-        U[8, i] = - first_deriv_central_diff(params.cache.ϕ, params.z_cell, i)
-        grad_pe = first_deriv_central_diff(params.cache.pe, params.z_cell, i)
-        U[9, i] = grad_pe/e/params.cache.ne[i]=#
-
-        #dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
+        dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
     end
     
     return nothing
@@ -226,7 +186,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     U, cache = allocate_arrays(sim)
 
     lf = fluid_ranges[end][end]
-    index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5)
+    index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
 
     initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
 

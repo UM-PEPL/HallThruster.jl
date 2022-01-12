@@ -45,8 +45,10 @@ defines model for anomalous collision frequency.
 @inline function get_v_an(z, B, L_ch) #anomalous momentum transfer collision frequency
     ωce = e * B / mₑ
     #νan = ωce/16
-    νan = if z < L_ch
+    νan = if z < L_ch*0.8
         ωce / 160 + 1e7 # +1e7 anomalous wall from Landmark inside channel
+    elseif L_ch*0.8 < z < L_ch*1.2
+        ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
     else
         ωce / 16
     end

@@ -49,10 +49,21 @@ function shock_tube(fluxfn, ncells, end_time)
         end
         u1 = 0.0
         u2 = 0.0
-        U .= [ρ1, ρ1*u1, ρ1*T1*gas1.cv, ρ2, ρ2*u2, ρ2*T2*gas2.cv]
+        U .= [ρ1, ρ1*u1, ρ1*T1*gas1.cv, ρ2, ρ2*u2, ρ2*T2*gas2.cv, 0.0]
         return U
     end
 
+    function source_potential!(b, U, s_consts)
+        HallThruster.potential_source_term!(b, U, s_consts)
+        #HallThruster.OVS_potential_source_term!(b, s_consts)
+    end
+    
+    function boundary_potential!(A, b, U, bc_consts)
+        ϕ_L = 300.0
+        ϕ_R = 0.0
+        HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
+        #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
+    end
 
     #simulation input, need to somehow do initial conditions now as well, do as with boundary conditions in thomas code
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(geometry, ncells), 
@@ -60,12 +71,15 @@ function shock_tube(fluxfn, ncells, end_time)
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, true),
     initial_condition = IC!, 
     source_term! = source!, 
+    source_potential! = source_potential!,
+    boundary_potential! = boundary_potential!,
     fluids = [HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations());
     HallThruster.Fluid(HallThruster.Species(HallThruster.Air, 0), HallThruster.EulerEquations())], 
     end_time = end_time, 
     saveat = [0, end_time],
     timestepcontrol = (1e-6, true), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-    callback = nothing
+    callback = nothing,
+    solve_energy = false
     )
     sol = HallThruster.run_simulation(sim)
 end
@@ -95,7 +109,7 @@ function run_shock_tube(ncells, time)
     ax_ρ = Axis(f[1,1], xlabel = "x", ylabel = "ρ", title = "Density")
     ax_u = Axis(f[2,1], xlabel = "x", ylabel = "u", title = "Velocity")
     ax_p = Axis(f[1,2], xlabel = "x", ylabel = "p", title = "Pressure")
-    ax_E = Axis(f[2,2], xlabel = "x", ylabel = "E", title = "Stagnation Energy")
+    ax_E = Axis(f[2,2], xlabel = "x", ylabel = "E", title = "Stagnation/Internal Energy")
 
     opts = (;linewidth = 4)
 
@@ -110,4 +124,5 @@ function run_shock_tube(ncells, time)
     lines!(ax_E, values.x, @.((values.e - 0.5*values.u*values.u)/values.ρ); opts...) #internal energy
     lines!(ax_E, values.x, @.((ρE_d - 0.5*ρu_d*ρu_d/ρ_d)/ρ_d); opts...) #internal energy
     display(f)
+    #save("shocktube.png", f) 
 end
