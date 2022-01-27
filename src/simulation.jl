@@ -52,7 +52,7 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
 
     #Dual = ForwardDiff.Dual
 
-    U = zeros(nvariables + 8, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 7, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
@@ -95,9 +95,33 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), @views(U[1:index.lf, :]), scheme)
     compute_fluxes!(@views(F[1:index.lf, :]), @views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), fluids, fluid_ranges, scheme)
+    #@show F[1, :]
+
+    #=
+    ############################################################## this entire section for testing purposes of electron equation solely
+    #electron BCs
+    #
+    Tev_anode = 3 #eV
+    Tev_cathode = 3 #eV
+    left_state = [3/2*4/3*1e18*Tev_anode] 
+    right_state = [3/2*4/3*1e18*Tev_cathode]
+    #right_state = [3/2*U[index.ne, end]*Tev_cathode]
+    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
+
+    U[index.nϵ, begin] = left_state[1]
+    U[index.nϵ, end] = right_state[1]
+    #U[index.nϵ, end] = U[index.nϵ, end-1]
+    
+    #electron computations, fluid in explicit
+    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
+    compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
+    compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, HallThruster.Electron, [1:1], scheme, params)
+    #@show F[index.nϵ, :]
+    ############################################################# end electron extra stuff, another section in loop below
+    =#
 
     # Compute heavy species source terms
-    @inbounds for i in 2:(ncells + 1)
+    #=@inbounds=# for i in 2:(ncells + 1)
         @turbo Q .= 0.0
 
         #fluid source term
@@ -105,15 +129,47 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
         #@show Q[4]
 
-        # Compute dU/dt
+        #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
+        #Δz = z_cell[right] - z_cell[left]
+        #if i == ncells + 1
+        #    Δz = 0.00125
+        #end
         Δz = z_edge[right] - z_edge[left]
 
+        #@show Δz
+        #Δz = z_edge[3] - z_edge[2]
+
+        #@show i
+        #@show F[1:index.lf, i]
+        #@show size(F[1:index.lf, :])
+
+        ########################################################################## for testing only
+        #=
+        for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
+            if velocity(U[fluid_range, i], fluid) > 0
+                dU[fluid_range, i] = (F[fluid_range, left] - F[fluid_range, right]) / Δz + Q[fluid_range]
+            else
+                dU[fluid_range, i] = (F[fluid_range, left] - F[fluid_range, right]) / Δz + Q[fluid_range]
+            end
+        end=#
+        ###########################################################################
+
         @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
-        @views dU[index.nϵ, i] = Q[index.nϵ]
+        @views dU[index.nϵ, i] = #=(F[index.nϵ, left] - F[index.nϵ, right]) / Δz=# Q[index.nϵ]
     end
+    
+    #=
+    #add du 1, du end for electron source
+    @turbo Q .= 0.0
+    source_term!(Q, U, params, 1)
+    @views dU[index.nϵ, 1] = Q[index.nϵ]
+    @turbo Q .= 0.0
+    source_term!(Q, U, params, ncells+2)
+    @views dU[index.nϵ, ncells+2] = Q[index.nϵ]
+    =#
 
     return nothing
 end
@@ -125,10 +181,11 @@ function update_imp!(dU, U, params, t)
 
     #electron BCs
     #
-    Tev_anode = 3 #eV
-    Tev_cathode = 3 #eV
-    left_state = [3/2*1e18*Tev_anode]
-    right_state = [3/2*1e18*Tev_cathode]
+    Tev_anode = 50000.0 #eV
+    Tev_cathode = 50000.0 #eV
+    left_state = [3/2*4/3*1e18*Tev_anode*HallThruster.kB] 
+    right_state = [3/2*4/3*1e18*Tev_cathode*HallThruster.kB]
+    #right_state = [3/2*U[index.ne, end]*Tev_cathode]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
     U[index.nϵ, begin] = left_state[1]
@@ -142,15 +199,23 @@ function update_imp!(dU, U, params, t)
     ##############################################################################################################################################
     ncells = size(U, 2) - 2
     z_edge = params.z_edge
+    source_term! = params.source_term!
 
     @inbounds for i in 2:(ncells + 1)
+        @turbo Q .= 0.0
+        
+        #fluid source term
+        source_term!(Q, U, params, i)
+
         # Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
 
-        dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
+        @views dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
+        #@views dU[index.nϵ, i] = second_deriv_central_diff_energy(U, params.z_cell, params, i)
+        
     end
     
     return nothing
@@ -215,11 +280,14 @@ function run_simulation(sim) #put source and Bcs potential in params
     fluid = fluids[1].species.element
     @inbounds for i in 1:(ncells + 2)
         U[index.ne, i] = max(1e-10, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
-        U[index.Tev, i] = max(1, U[index.nϵ, i]/3*2/U[index.ne, i])
+        U[index.Tev, i] = max(0.1, U[index.nϵ, i]/3*2/U[index.ne, i]/kB)
         U[index.pe, i] = electron_pressure(U[index.ne, i], U[index.Tev, i])
+        U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
         params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
         params.cache.νc[i] = get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
+        U[index.ue, i] = -100.0 #HallThruster.electron_velocity(U, params, i)
+        @show params.cache.μ[i]
     end
 
     solve_potential!(U, params)
@@ -227,7 +295,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     #tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
     if sim.solve_energy
         splitprob = SplitODEProblem{true}(update_imp!, update_exp!, U, tspan, params)
-        sol = solve(splitprob, KenCarp3(autodiff = false); saveat=sim.saveat, callback=sim.callback,
+        sol = solve(splitprob, SBDF2(autodiff = false); saveat=sim.saveat, callback=sim.callback, #SBDF2
         adaptive=adaptive, dt=timestep)
     else 
         prob = ODEProblem{true}(update_exp!, U, tspan, params)

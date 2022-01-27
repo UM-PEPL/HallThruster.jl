@@ -88,7 +88,6 @@ function upwind!(F, UL, UR, fluid::Fluid)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
-
     if avg_velocity ≥ 0
         flux!(F, UL, fluid)
     else
@@ -163,8 +162,8 @@ function compute_edge_states!(UL, UR, U, scheme)
         UR[end] = U[end]
     else
         for j in 1:nconservative
-            UL[j, 1] = U[j, 1] #2 this would be more consistent
-            UR[j, end] = U[j, end] #end - 1 
+            UL[j, 1] = U[j, 1]
+            UR[j, end] = U[j, end]
         end
     end
     return UL, UR

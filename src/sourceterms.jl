@@ -15,9 +15,9 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
         n_reactant = U[reactant_index, i] / fluid.m
         if n_reactant > 1
             k = r.rate_coeff
-            @views Q[reactant_index] -= ne * n_reactant * k(U[index.Tev, i]) * fluid.m  #no more *dt/cell_volume, dt taken care of in timemarching scheme, /cell_volume was wrong
+            @views Q[reactant_index] -= ne * n_reactant * k(U[index.Tev, i]) * fluid.m #no more *dt/cell_volume, dt taken care of in timemarching scheme, /cell_volume was wrong
                                          #can probably use periodic callback
-            @views Q[product_index] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m 
+            @views Q[product_index] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m
                                         #can probably use periodic callback
             @views Q[product_index + 1] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m *
                                              neutral_velocity #momentum transfer
