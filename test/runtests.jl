@@ -444,7 +444,7 @@ end
 #computations for MMS OVS
 
 const MMS_CONSTS = (
-    CFL = 0.50, 
+    CFL = 0.1, 
     n_cells_start = 10,
     fluid = HallThruster.Xenon,
     max_end_time = 300e-5,
@@ -501,7 +501,7 @@ include("ovs_mms.jl")
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[end]) converged after $(round(results[i].solution.t[1]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
     end
-    
+    #=
     p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
     Plots.plot!(p1, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]), title = "L_1 neutral continuity", label = false)
     p2 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
@@ -515,7 +515,7 @@ include("ovs_mms.jl")
     p6 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
     Plots.plot!(p6, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[3] for i in 1:length(results)]), title = "L_inf ion momentum", label = false)
     p7 = Plots.plot!(p1, p2, p3, p4, p5, p6, layout = (3, 2), size = (1000, 500),  margin=5Plots.mm)
-    Plots.png(p7, "alfa")
+    Plots.png(p7, "alfa")=#
 end
 
 @testset "Order verification studies with MMS, set 2: HLLE, no reconstruct" begin
@@ -594,13 +594,13 @@ end
 #####################################################################################################################################
 #ELECTRON ENERGY OVS
 #redefine MMS CONSTS according to values in simulation
-#=
-const MMS_CONSTS = (
+
+const MMS_CONSTS_ELEC = (
     CFL = 0.01, 
     n_cells_start = 20,
     fluid = HallThruster.Xenon,
     max_end_time = 300e-5,
-    refinements = 3,
+    refinements = 4,
     n_waves = 2.0,
     u_constant = 150.0, #for continuity
     T_constant = 300.0, #for continuity and isothermal
@@ -613,26 +613,26 @@ const MMS_CONSTS = (
     Tx = 100.0,
     Tev0 = 50000.0, 
     Tev_elec_max = 20000.0,
-    ue = 0, 
-)=#
+    μ = 0.0,
+    ue = -100.0,
+)
 
 @variables x t
 Dt = Differential(t)
 Dx = Differential(x)
 
-uₑ_manufactured = MMS_CONSTS.ue #set electron velocity in beginning, to see if that works at least
-#Tev_manufactured = MMS_CONSTS.Tev_elec_max * exp(-(2 * (x - MMS_CONSTS.L/2) / 0.033)^2)
-Tev_manufactured = MMS_CONSTS.Tev0 + MMS_CONSTS.Tev_elec_max*sin(π * x / (MMS_CONSTS.L))
+uₑ_manufactured = MMS_CONSTS_ELEC.ue #set electron velocity in beginning, to see if that works at least
+Tev_manufactured = MMS_CONSTS_ELEC.Tev0 + MMS_CONSTS_ELEC.Tev_elec_max*sin(π * x / (MMS_CONSTS_ELEC.L))
 
-n_manufactured = MMS_CONSTS.n0 + MMS_CONSTS.nx*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L) #ions and neutrals
-u_manufactured = MMS_CONSTS.u0 + MMS_CONSTS.ux*sin(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L) #ion velocity #MMS_CONSTS.u0 + MMS_CONSTS.ux*x/MMS_CONSTS.L 
-nϵ_manufactured = 1e18*Tev_manufactured*3/2 + 1/3*3/2*Tev_manufactured*1e18*cos(2 * π * MMS_CONSTS.n_waves * x / MMS_CONSTS.L) #cos will be 1 at start and end of domain
+n_manufactured = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #ions and neutrals
+u_manufactured = MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*sin(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #ion velocity #MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*x/MMS_CONSTS_ELEC.L 
+nϵ_manufactured = 1e18*Tev_manufactured*3/2 + 1/3*3/2*Tev_manufactured*1e18*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #cos will be 1 at start and end of domain
 nϵ_manufactured = nϵ_manufactured*HallThruster.kB
 
-RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS.u_constant)
+RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS_ELEC.u_constant)
 RHS_2 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
-RHS_3 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.Xenon.R*MMS_CONSTS.T_constant) 
-RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*10.0*nϵ_manufactured*Dx(3/2*Tev_manufactured*HallThruster.kB))
+RHS_3 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.Xenon.R*MMS_CONSTS_ELEC.T_constant) 
+RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(3/2*Tev_manufactured*HallThruster.kB))
 #RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*10.0*Tev_manufactured*3/2*HallThruster.kB/HallThruster.e*Dx(nϵ_manufactured)) 
 #RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*10.0*Dx(nϵ_manufactured)) 
 
@@ -644,8 +644,8 @@ mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 mms_conservative = eval(conservative_func[1])
 
 @testset "Order verification studies with MMS electron energy, upwind and no reconstruct" begin
-    results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = false)
-    L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
+    results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = false)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
     expected_slope = 1
     for i in 1:size(results[1].u_exa)[1]
         @test L_1[i] ≈ expected_slope atol = expected_slope*10

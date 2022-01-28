@@ -40,7 +40,6 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     
     function IC!(U, z, fluids, L)
         gas1 = fluids[1].species.element
-
         ρ1 = 3000.0
         u1 = 300.0
         #u1 = MMS_CONSTS.u_constant
@@ -59,6 +58,10 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     right_state = [ρ1, ρ1, ρ1*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
+    left_state_elec = 0.0
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     n_save = 1
     saveat = if n_save == 1
         [MMS_CONSTS.max_end_time]
@@ -67,7 +70,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     end
 
     simulation = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, MMS_CONSTS.n_cells_start), 
-    boundary_conditions = BCs,
+    boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
     source_term! = source!,
@@ -197,8 +200,12 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     right_state = [ρ1, ρ1, ρ1*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
+    left_state_elec = 0.0
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     simulation = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells), 
-    boundary_conditions = BCs,
+    boundary_conditions =  (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
     source_term! = source!,
@@ -211,7 +218,7 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     saveat = [MMS_CONSTS.max_end_time],
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
     callback = nothing,
-    solve_energy = false
+    solve_energy = true, 
     )
 
     sim = simulation
@@ -289,6 +296,10 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     right_state = [ρ1, ρ1, ρ1*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
+    left_state_elec = 3/2*ρ1/HallThruster.Xenon.m*MMS_CONSTS.Tev0*HallThruster.kB
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     n_save = 100
     saveat = if n_save == 1
         [MMS_CONSTS.max_end_time]
@@ -323,10 +334,10 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
             U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update
             #U[index.pe, i] = U[index.nϵ, i]/3*2*HallThruster.e #if using the same for pe and ne, might solve some instabilities
             U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
-            U[index.ue, i] = -0.0001 #HallThruster.electron_velocity(U, params, i) #for first try, set equal to 2000
+            U[index.ue, i] = MMS_CONSTS.ue #HallThruster.electron_velocity(U, params, i) #for first try, set equal to 2000
             params.cache.νan[i] = HallThruster.get_v_an(z_cell[i], B[i], L_ch)
             params.cache.νc[i] = HallThruster.get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
-            params.cache.μ[i] = HallThruster.cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
+            params.cache.μ[i] = MMS_CONSTS.μ #HallThruster.cf_electron_transport(params.cache.νan[i], params.cache.νc[i], B[i])
         end
         
         #POTENTIAL #########################################################
@@ -338,7 +349,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     cb = CallbackSet(cb_update, cb_convergence)
 
     simulation = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, MMS_CONSTS.n_cells_start), 
-    boundary_conditions = BCs,
+    boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
     scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
     initial_condition = IC!, 
     source_term! = source!,

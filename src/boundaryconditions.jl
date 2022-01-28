@@ -12,6 +12,17 @@ end
 
 struct Neumann_ionbohm <: BoundaryCondition end
 
+struct Dirichlet_energy <: BoundaryCondition
+    state::Float64
+end
+
+struct Dirichlet_energy_upd_ne <: BoundaryCondition
+    int_energy::Float64
+end
+
+struct Neumann_energy <: BoundaryCondition
+end
+
 function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol)
     if left_or_right == :left
         @. @views U[:, begin] = bc.state
@@ -34,7 +45,8 @@ end
 
 function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) #recombination missing
     if left_or_right == :left
-        #@views U[1, begin] = bc.state[1]
+        @views U[1, begin] = bc.state[1]
+        @views U[2, begin] = U[2, begin + 1]
         if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
             @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
         end
@@ -43,6 +55,36 @@ function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64
         if U[3, end] < sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
             @views U[3, end] = sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
         end
+    else
+        throw(ArgumentError("left_or_right must be either :left or :right"))
+    end
+end
+
+function apply_bc_electron!(U, bc::Dirichlet_energy, left_or_right::Symbol, index::NamedTuple)
+    if left_or_right == :left
+        @views U[begin] = bc.state
+    elseif left_or_right == :right
+        @views U[end] = bc.state
+    else
+        throw(ArgumentError("left_or_right must be either :left or :right"))
+    end
+end
+
+function apply_bc_electron!(U, bc::Dirichlet_energy_upd_ne, left_or_right::Symbol, index::NamedTuple)
+    if left_or_right == :left
+        @views U[begin] = bc.int_energy*U[index.ne, begin]
+    elseif left_or_right == :right
+        @views U[end] = bc.int_energy*U[index.ne, begin]
+    else
+        throw(ArgumentError("left_or_right must be either :left or :right"))
+    end
+end
+
+function apply_bc_electron!(U, bc::Neumann_energy, left_or_right::Symbol, index::NamedTuple)
+    if left_or_right == :left
+        @views U[begin] = bc.int_energy*U[index.ne, begin]
+    elseif left_or_right == :right
+        @views U[end] = bc.int_energy*U[index.ne, begin]
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end

@@ -42,6 +42,10 @@ function run_sim(end_time = 0.0002, n_save = 2)
     right_state = [ρ1, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
+    left_state_elec = 0.0
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     saveat = if n_save == 1
         [end_time]
     else
@@ -74,7 +78,7 @@ function run_sim(end_time = 0.0002, n_save = 2)
             end
             U[index.ne, i] = max(1e-10, HallThruster.electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
             #U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update
-            U[index.pe, i] = U[index.nϵ, i]/3*2*HallThruster.e #if using the same for pe and ne, might solve some instabilities
+            U[index.pe, i] = U[index.nϵ, i]/3*2 #if using the same for pe and ne, might solve some instabilities
             U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
             U[index.ue, i] = HallThruster.electron_velocity(U, params, i)
             params.cache.νan[i] = HallThruster.get_v_an(z_cell[i], B[i], L_ch)
@@ -91,7 +95,7 @@ function run_sim(end_time = 0.0002, n_save = 2)
 
     sim = HallThruster.MultiFluidSimulation(
         grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
-        boundary_conditions = BCs,
+        boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!,
         source_term! = source!,
@@ -157,15 +161,15 @@ function animate_solution1(sol)
         p1 = plot(ylims = (1e17, 1e20))
         plot!(p1, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
         plot!(p1, u[2, :] / mi, label = ["nᵢ" ""])
-        p2 = plot(ylims = (-1300, 1300))
+        p2 = plot(ylims = (-1300, 20000))
         plot!(p2, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
-        p3 = plot(ylims = (0, 5))
+        p3 = plot(ylims = (0, 30))
         plot!(p3, u[4, :], title = "Internal electron energy [eV*n/m^3]", label = ["nϵ" ""])
-        p4 = plot(ylims = (0, 120000))
+        p4 = plot(ylims = (0, 1e6))
         plot!(p4, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
         p5 = plot(ylims = (1e16, 1e20))
         plot!(p5, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
-        plot!(p5, u[7, :] ./ HallThruster.e, label = ["pₑ [n*eV/m^3]" ""])
+        plot!(p5, u[7, :] ./ HallThruster.e , label = ["pₑ [n*eV/m^3]" ""])
         p6 = plot(ylims = (-1e5, 1e5))
         plot!(p6, u[10, :], title = "Electron velocity", label = ["uₑ [m/s]" ""])
         p7 = plot(ylims = (-100, 400))

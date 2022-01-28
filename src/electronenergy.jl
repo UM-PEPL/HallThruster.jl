@@ -1,10 +1,12 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
     index = params.index
-    #println("i in electron velocity: ", i)
-    grad_ϕ = first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
+    grad_ϕ = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
     grad_pe = first_deriv_central_diff(U[index.pe, :], params.z_cell, i)
-    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_pe/e/U[index.ne, i])
+    grad_nϵ = first_deriv_central_diff_pot(U[index.nϵ, :], params.z_cell, i)
+    #uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_pe/e/U[index.ne, i])
+    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ) #/e/U[index.ne, i])
+    #@show grad_nϵ
     #try a different formulation of this, with grad tev for example, then no need to take grad pe and divide by ne
     return uₑ
 end
@@ -13,8 +15,8 @@ function e_heat_conductivity(params, i) #without nϵ term, that is in state vect
     ν = params.cache.νan[i] + params.cache.νc[i]
     ω = e*params.cache.B[i]/mₑ
     #return 4.7/(mₑ*(1/(ν))*ω^2) #Braginskii closure, should be Tev
-    #return 10/9*params.cache.μ[i]
-    return 10/9*10.0
+    return 10/9*params.cache.μ[i]
+    #return 10/9*10.0
 end
 
 function flux_electron!(F, US, fluid, params, U, i)
@@ -24,9 +26,9 @@ function flux_electron!(F, US, fluid, params, U, i)
     grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
     #grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
     κₑ = e_heat_conductivity(params, i)
-    #F = 5/3*nϵ*uₑ - κₑ*nϵ*grad_Tev*3/2*HallThruster.kB/HallThruster.e
+    F = 5/3*nϵ*uₑ #- κₑ*nϵ*grad_Tev*3/2*HallThruster.kB/HallThruster.e
     #F = - κₑ*grad_Tev*U[index.Tev, i]*3/2*HallThruster.kB/HallThruster.e
-    F = - κₑ*grad_Tev
+    #F = - κₑ*grad_Tev
     #println("i in flux_electron!: ", i)
     return F
 end
@@ -105,6 +107,20 @@ function first_deriv_central_diff(u::Vector{Float64}, z_cell::Vector{Float64}, i
     return grad
 end
 
+function first_deriv_central_diff_pot(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64) #central second order approx of first derivative
+    if i == 1
+        #grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i]-z_cell[i+2])) #second order one sided for boundary, or adapt for non constant stencil
+        grad = (-u[i]+u[i+1])/abs(z_cell[i+1] - z_cell[i+2]) #first order to not switch sign
+    elseif i == length(u)
+        #grad = (u[i-2] - 4*u[i-1] + 3*u[i])/(abs(z_cell[i-2]-z_cell[i])) #second order one sided for boundary
+        grad = (-u[i-1]+u[i])/abs(z_cell[i-1] - z_cell[i-2]) #first order to not switch sign
+    else
+        grad = (u[i+1] - u[i-1])/(abs(z_cell[4]-z_cell[2])) #centered difference
+    end
+
+    return grad
+end
+
 function second_deriv_central_diff_energy(U::Matrix{Float64}, z_cell::Vector{Float64}, params, i::Int64)
     index = params.index
     #do once with 1/2 e^2 and once with e only
@@ -173,6 +189,6 @@ function S_coll(U, params, i) #landmark table
     index = params.index
     fluid = params.fluids[1].species.element
     neutral_density = U[1, i]/fluid.m
-    W = params.landmark.loss_coeff(U[index.Tev, i])
-    return neutral_density*U[index.ne, i]*W
+    W = params.landmark.loss_coeff(U[index.Tev, i]*3/2*kB/e)
+    return neutral_density*U[index.ne, i]*W*e
 end

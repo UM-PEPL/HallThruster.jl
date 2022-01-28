@@ -4,13 +4,13 @@ struct HyperbolicScheme{F,L}
     reconstruct::Bool
 end
 
-Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
+Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
     fluids::Vector{Fluid}     # An array of user-defined fluids.
     # This will give us the capacity to more easily do shock tubes (and other problems)
     # without Hall thruster baggage
     initial_condition::IC
-    boundary_conditions::Tuple{B1,B2}   # Tuple of left and right boundary conditions, subject to the approval of PR #10
+    boundary_conditions::Tuple{B1,B2,B3,B4}   # Tuple of left and right boundary conditions, subject to the approval of PR #10
     end_time::Float64    # How long to simulate
     scheme::HyperbolicScheme{F,L} # Flux, Limiter
     source_term!::S  # Source term function. This can include reactons, electric field, and MMS terms
@@ -89,36 +89,12 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     #FLUID MODULE
 
     #fluid BCs
-    apply_bc!(@views(U[1:index.lf, :]), params.BCs[1], :left)
+    apply_bc!(@views(U[1:index.lf, :]), params.BCs[1], :left) # 3.0, HallThruster.Xenon.m)
     apply_bc!(@views(U[1:index.lf, :]), params.BCs[2], :right)
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), @views(U[1:index.lf, :]), scheme)
     compute_fluxes!(@views(F[1:index.lf, :]), @views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), fluids, fluid_ranges, scheme)
-    #@show F[1, :]
-
-    #=
-    ############################################################## this entire section for testing purposes of electron equation solely
-    #electron BCs
-    #
-    Tev_anode = 3 #eV
-    Tev_cathode = 3 #eV
-    left_state = [3/2*4/3*1e18*Tev_anode] 
-    right_state = [3/2*4/3*1e18*Tev_cathode]
-    #right_state = [3/2*U[index.ne, end]*Tev_cathode]
-    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
-
-    U[index.nϵ, begin] = left_state[1]
-    U[index.nϵ, end] = right_state[1]
-    #U[index.nϵ, end] = U[index.nϵ, end-1]
-    
-    #electron computations, fluid in explicit
-    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
-    compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
-    compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, HallThruster.Electron, [1:1], scheme, params)
-    #@show F[index.nϵ, :]
-    ############################################################# end electron extra stuff, another section in loop below
-    =#
 
     # Compute heavy species source terms
     #=@inbounds=# for i in 2:(ncells + 1)
@@ -127,50 +103,16 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         #fluid source term
         source_term!(Q, U, params, i)
 
-        #@show Q[4]
-
         #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
-        #Δz = z_cell[right] - z_cell[left]
-        #if i == ncells + 1
-        #    Δz = 0.00125
-        #end
         Δz = z_edge[right] - z_edge[left]
-
-        #@show Δz
-        #Δz = z_edge[3] - z_edge[2]
-
-        #@show i
-        #@show F[1:index.lf, i]
-        #@show size(F[1:index.lf, :])
-
-        ########################################################################## for testing only
-        #=
-        for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
-            if velocity(U[fluid_range, i], fluid) > 0
-                dU[fluid_range, i] = (F[fluid_range, left] - F[fluid_range, right]) / Δz + Q[fluid_range]
-            else
-                dU[fluid_range, i] = (F[fluid_range, left] - F[fluid_range, right]) / Δz + Q[fluid_range]
-            end
-        end=#
-        ###########################################################################
 
         @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
         @views dU[index.nϵ, i] = #=(F[index.nϵ, left] - F[index.nϵ, right]) / Δz=# Q[index.nϵ]
     end
     
-    #=
-    #add du 1, du end for electron source
-    @turbo Q .= 0.0
-    source_term!(Q, U, params, 1)
-    @views dU[index.nϵ, 1] = Q[index.nϵ]
-    @turbo Q .= 0.0
-    source_term!(Q, U, params, ncells+2)
-    @views dU[index.nϵ, ncells+2] = Q[index.nϵ]
-    =#
-
     return nothing
 end
 
@@ -179,17 +121,8 @@ function update_imp!(dU, U, params, t)
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     index = params.index
 
-    #electron BCs
-    #
-    Tev_anode = 50000.0 #eV
-    Tev_cathode = 50000.0 #eV
-    left_state = [3/2*4/3*1e18*Tev_anode*HallThruster.kB] 
-    right_state = [3/2*4/3*1e18*Tev_cathode*HallThruster.kB]
-    #right_state = [3/2*U[index.ne, end]*Tev_cathode]
-    BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
-
-    U[index.nϵ, begin] = left_state[1]
-    U[index.nϵ, end] = right_state[1]
+    apply_bc_electron!(@views(U[index.nϵ, :]), params.BCs[3], :left, index)
+    apply_bc_electron!(@views(U[index.nϵ, :]), params.BCs[4], :right, index)
     
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
@@ -217,7 +150,6 @@ function update_imp!(dU, U, params, t)
         #@views dU[index.nϵ, i] = second_deriv_central_diff_energy(U, params.z_cell, params, i)
         
     end
-    
     return nothing
 end
 
@@ -286,8 +218,7 @@ function run_simulation(sim) #put source and Bcs potential in params
         params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
         params.cache.νc[i] = get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
-        U[index.ue, i] = -100.0 #HallThruster.electron_velocity(U, params, i)
-        @show params.cache.μ[i]
+        U[index.ue, i] = 0.0 #HallThruster.electron_velocity(U, params, i)
     end
 
     solve_potential!(U, params)

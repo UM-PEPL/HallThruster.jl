@@ -122,10 +122,9 @@ Applies dirichlet boundary conditions for potential.
 function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index = bc_consts
     
-    #make ghost cells correspond to boundary
     U[index.ϕ, 1] = ϕ_L
-    U[index.ϕ, end] =  ϕ_R
-    
+    U[index.ϕ, end] = ϕ_R
+
     #left boundary
     ne⁻ = ne[1]
     ne⁺ = 0.5 * (ne[2] + ne[3])
@@ -163,6 +162,7 @@ function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     b[N] = -ϕ_R * (ne⁺ * μ⁺) / ((Δz)^2) + μ⁻ * pe[N] / (Δz)^2 -
            1 * (μ⁺ + μ⁻) * pe[N + 1] / (Δz)^2 + (μ⁺) * pe[N + 2] / (Δz)^2
     -(U[3, N] + U[3, N + 1]) / (2 * Δz) + U[3, N + 2] / (Δz) #no interpolation on boundary
+
 end
 
 """
