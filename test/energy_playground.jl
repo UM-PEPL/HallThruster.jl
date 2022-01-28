@@ -6,9 +6,9 @@
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase
 
 function source!(Q, U, params, i)
-    #HallThruster.apply_reactions!(Q, U, params, i)
-    #HallThruster.apply_ion_acceleration!(Q, U, params, i)
-    #HallThruster.source_electron_energy!(Q, U, params, i)
+    HallThruster.apply_reactions!(Q, U, params, i)
+    HallThruster.apply_ion_acceleration!(Q, U, params, i)
+    HallThruster.source_electron_energy!(Q, U, params, i)
     return Q
 end
 
@@ -51,8 +51,9 @@ function run_sim_energytest(end_time = 0.0002, n_save = 2)
 
     Tev = 52220.331546975365
     left_state_elec = 3/2*ρ2/HallThruster.Xenon.m*Tev*HallThruster.kB
+    left_internal_energy = 3/2*Tev*HallThruster.kB
     right_state_elec = left_state_elec
-    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Neumann_energy())
+    BCs_elec = (HallThruster.Neumann_energy(), HallThruster.Dirichlet_energy(right_state_elec))
 
     saveat = if n_save == 1
         [end_time]
@@ -88,7 +89,7 @@ function run_sim_energytest(end_time = 0.0002, n_save = 2)
             #U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update
             U[index.pe, i] = U[index.nϵ, i]/3*2 #if using the same for pe and ne, might solve some instabilities
             U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-            U[index.ue, i] = 150 #max(-200000, HallThruster.electron_velocity(U, params, i))
+            U[index.ue, i] = max(-200000, HallThruster.electron_velocity(U, params, i))
             #@show U[index.ue, i]
             params.cache.νan[i] = HallThruster.get_v_an(z_cell[i], B[i], L_ch)
             params.cache.νc[i] = HallThruster.get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)

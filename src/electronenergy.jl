@@ -23,10 +23,10 @@ function flux_electron!(F, US, fluid, params, U, i)
     index = params.index
     nϵ = US #3/2 ne kB Te
     uₑ = U[index.ue, i]
-    grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
-    #grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
+    #grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
+    grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
     κₑ = e_heat_conductivity(params, i)
-    F = 5/3*nϵ*uₑ #- κₑ*nϵ*grad_Tev*3/2*HallThruster.kB/HallThruster.e
+    F = 5/3*nϵ*uₑ - κₑ*grad_Tev*100
     #F = - κₑ*grad_Tev*U[index.Tev, i]*3/2*HallThruster.kB/HallThruster.e
     #F = - κₑ*grad_Tev
     #println("i in flux_electron!: ", i)
