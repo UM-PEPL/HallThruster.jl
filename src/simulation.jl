@@ -89,8 +89,8 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
     #FLUID MODULE
 
     #fluid BCs
-    apply_bc!(@views(U[1:index.lf, :]), params.BCs[1], :left) # 3.0, HallThruster.Xenon.m)
-    apply_bc!(@views(U[1:index.lf, :]), params.BCs[2], :right)
+    apply_bc!(@views(U[1:index.lf, :]), params.BCs[1], :left, 3.0, HallThruster.Xenon.m)
+    apply_bc!(@views(U[1:index.lf, :]), params.BCs[2], :right, 3.0, HallThruster.Xenon.m)
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), @views(U[1:index.lf, :]), scheme)
@@ -125,7 +125,7 @@ function update_imp!(dU, U, params, t)
     apply_bc_electron!(@views(U[index.nϵ, :]), params.BCs[4], :right, index)
     
     #electron computations, fluid in explicit
-    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
+    scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE_electron!, identity, false)
     compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
     compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, HallThruster.Electron, [1:1], scheme, params)
 
