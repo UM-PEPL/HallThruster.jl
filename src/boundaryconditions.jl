@@ -81,9 +81,9 @@ end
 
 function apply_bc_electron!(U, bc::Dirichlet_energy, left_or_right::Symbol, index::NamedTuple)
     if left_or_right == :left
-        @views U[begin] = bc.state
+        @views U[index.nϵ, begin] = bc.state
     elseif left_or_right == :right
-        @views U[end] = bc.state
+        @views U[index.nϵ, end] = bc.state
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end
@@ -91,9 +91,9 @@ end
 
 function apply_bc_electron!(U, bc::Dirichlet_energy_upd_ne, left_or_right::Symbol, index::NamedTuple)
     if left_or_right == :left
-        @views U[begin] = bc.int_energy*U[index.ne, begin]
+        @views U[index.nϵ, begin] = bc.int_energy*U[2, begin]/HallThruster.Xenon.m
     elseif left_or_right == :right
-        @views U[end] = bc.int_energy*U[index.ne, begin]
+        @views U[index.nϵ, end] = bc.int_energy*U[2, end]/HallThruster.Xenon.m 
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end
@@ -101,9 +101,9 @@ end
 
 function apply_bc_electron!(U, bc::Neumann_energy, left_or_right::Symbol, index::NamedTuple)
     if left_or_right == :left
-        @views U[begin] = U[begin+1]
+        @views U[index.nϵ, begin] = U[index.nϵ, begin+1]
     elseif left_or_right == :right
-        @views U[end] = U[end-1]
+        @views U[index.nϵ, end] = U[index.nϵ, end-1]
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end

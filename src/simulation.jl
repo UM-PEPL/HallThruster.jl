@@ -121,9 +121,9 @@ function update_imp!(dU, U, params, t)
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     index = params.index
 
-    apply_bc_electron!(@views(U[index.nϵ, :]), params.BCs[3], :left, index)
-    apply_bc_electron!(@views(U[index.nϵ, :]), params.BCs[4], :right, index)
-    
+    apply_bc_electron!(@views(U), params.BCs[3], :left, index)
+    apply_bc_electron!(@views(U), params.BCs[4], :right, index)
+
     #electron computations, fluid in explicit
     scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
     compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
@@ -218,7 +218,7 @@ function run_simulation(sim) #put source and Bcs potential in params
         params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
         params.cache.νc[i] = get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
-        U[index.ue, i] = 0.0 #HallThruster.electron_velocity(U, params, i)
+        U[index.ue, i] = HallThruster.electron_velocity(U, params, i)
     end
 
     solve_potential!(U, params)

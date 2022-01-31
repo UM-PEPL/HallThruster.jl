@@ -53,7 +53,7 @@ function run_sim_energytest(end_time = 0.0002, n_save = 2)
     left_state_elec = 3/2*ρ2/HallThruster.Xenon.m*Tev*HallThruster.kB
     left_internal_energy = 3/2*Tev*HallThruster.kB
     right_state_elec = left_state_elec
-    BCs_elec = (HallThruster.Neumann_energy(), HallThruster.Dirichlet_energy(right_state_elec))
+    BCs_elec = (HallThruster.Dirichlet_energy_upd_ne(left_internal_energy), HallThruster.Dirichlet_energy_upd_ne(left_internal_energy))
 
     saveat = if n_save == 1
         [end_time]
@@ -82,10 +82,11 @@ function run_sim_energytest(end_time = 0.0002, n_save = 2)
 
         @inbounds for i in 1:(ncells + 2)
             #update electron temperature from energy using old density
+            U[index.ne, i] = max(1e-10, HallThruster.electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
             if params.solve_energy
                 U[index.Tev, i] = max(1, U[index.nϵ, i]/3*2/U[index.ne, i]/HallThruster.kB)
             end
-            U[index.ne, i] = max(1e-10, HallThruster.electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
+            #U[index.ne, i] = max(1e-10, HallThruster.electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
             #U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update
             U[index.pe, i] = U[index.nϵ, i]/3*2 #if using the same for pe and ne, might solve some instabilities
             U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
