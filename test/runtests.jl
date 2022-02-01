@@ -613,7 +613,7 @@ const MMS_CONSTS_ELEC = (
     Tx = 100.0,
     Tev0 = 50000.0, 
     Tev_elec_max = 20000.0,
-    μ = 0.0,
+    μ = 10.0,
     ue = -100.0,
 )
 

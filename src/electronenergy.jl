@@ -5,7 +5,7 @@ function electron_velocity(U, params, i)
     grad_pe = first_deriv_central_diff(U[index.pe, :], params.z_cell, i)
     grad_nϵ = first_deriv_central_diff_pot(U[index.nϵ, :], params.z_cell, i)
     #uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_pe/e/U[index.ne, i])
-    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ) #/e/U[index.ne, i])
+    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ/e/U[index.ne, i]) #/e/U[index.ne, i])
     #@show grad_nϵ
     #try a different formulation of this, with grad tev for example, then no need to take grad pe and divide by ne
     return uₑ
@@ -23,10 +23,12 @@ function flux_electron!(F, US, fluid, params, U, i)
     index = params.index
     nϵ = US #3/2 ne kB Te
     uₑ = U[index.ue, i]
+    ϵ = U[index.Tev, i]*3/2*HallThruster.kB
     #grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
     grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
     κₑ = e_heat_conductivity(params, i)
-    F = 5/3*nϵ*uₑ - κₑ*grad_Tev*100
+    #F = 5/3*nϵ*uₑ - κₑ*grad_Tev*100 #works more or less
+    F = 5/3*nϵ*uₑ #- κₑ*nϵ*ϵ/(params.z_cell[i+1] - params.z_cell[i])
     #F = - κₑ*grad_Tev*U[index.Tev, i]*3/2*HallThruster.kB/HallThruster.e
     #F = - κₑ*grad_Tev
     #println("i in flux_electron!: ", i)
@@ -149,7 +151,19 @@ function second_deriv_central_diff_energy(U::Matrix{Float64}, z_cell::Vector{Flo
         grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/(z_cell[i]-z_cell[i-1])^2) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/(z_cell[i+1]-z_cell[i])^2))
     end
     return grad
+end
+
+function second_deriv_central_diff_gen(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64)
+    if i == 2 
+        grad = (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i]-z_cell[i-1]))) + (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i]-z_cell[i-1]))
+    elseif i == length(z_cell)-1
+        grad = (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i+1]-z_cell[i]))) + (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i+1]-z_cell[i]))
+    else
+        grad = (-u[i] + u[i-1])/(z_cell[i]-z_cell[i-1])^2 + (-u[i] + u[i+1])/(z_cell[i+1]-z_cell[i])^2
+    end
+    return grad
 end 
+
 
 """
     first_deriv_facereconstr_2order(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64)

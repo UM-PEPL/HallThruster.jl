@@ -146,7 +146,9 @@ function update_imp!(dU, U, params, t)
 
         Δz = z_edge[right] - z_edge[left]
 
-        @views dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz
+        @views dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz 
+        +(params.cache.μ[i+1]*U[index.nϵ, i+1] - params.cache.μ[i]*U[index.nϵ, i+1])*(U[index.Tev, i+1]*3/2*kB - U[index.Tev, i]*3/2*kB)/Δz^2
+        + params.cache.μ[i]*U[index.nϵ, i]*second_deriv_central_diff_gen(U[index.Tev, :].*3/2*kB, params.z_cell, i)
         #@views dU[index.nϵ, i] = second_deriv_central_diff_energy(U, params.z_cell, params, i)
         
     end

@@ -328,7 +328,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
         @inbounds for i in 1:(ncells + 2)
             #update electron temperature from energy using old density
             if params.solve_energy
-                #U[index.Tev, i] = max(1, U[index.nϵ, i]/3*2/U[index.ne, i])
+                U[index.Tev, i] = max(1, U[index.nϵ, i]/3*2/U[index.ne, i])
             end
             U[index.ne, i] = max(1e-10, HallThruster.electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
             U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update

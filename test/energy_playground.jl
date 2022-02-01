@@ -90,7 +90,7 @@ function run_sim_energytest(end_time = 0.0002, n_save = 2)
             #U[index.pe, i] = HallThruster.electron_pressure(U[index.ne, i], U[index.Tev, i]) #this would be real electron pressure, ie next step use for previous in energy convection update
             U[index.pe, i] = U[index.nϵ, i]/3*2 #if using the same for pe and ne, might solve some instabilities
             U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-            U[index.ue, i] = max(-200000, HallThruster.electron_velocity(U, params, i))
+            U[index.ue, i] = min(-150.0, HallThruster.electron_velocity(U, params, i))
             #@show U[index.ue, i]
             params.cache.νan[i] = HallThruster.get_v_an(z_cell[i], B[i], L_ch)
             params.cache.νc[i] = HallThruster.get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)

@@ -23,7 +23,7 @@ end
 struct Neumann_energy <: BoundaryCondition
 end
 
-function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol)
+function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
     if left_or_right == :left
         @. @views U[:, begin] = bc.state
     elseif left_or_right == :right
@@ -33,7 +33,7 @@ function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol)
     end
 end
 
-function apply_bc!(U, ::Neumann, left_or_right::Symbol)
+function apply_bc!(U, ::Neumann, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
     if left_or_right == :left
         @. @views U[:, begin] = U[:, begin + 1]
     elseif left_or_right == :right
@@ -46,9 +46,10 @@ end
 function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
     if left_or_right == :left
         @views U[1, begin] = bc.state[1] + U[2, begin + 1]
+        #@views U[2, begin] = bc.state[2]
         @. @views U[2:3, begin] = U[2:3, begin + 1]
-        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
-            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
+        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
+            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
         end
     elseif left_or_right == :right
         @views U[1, end] = bc.state[1] + U[2, end - 1]
