@@ -15,17 +15,17 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
         n_reactant = U[reactant_index, i] / fluid.m
         if n_reactant > 1
             k = r.rate_coeff
-            @views Q[reactant_index] -= ne * n_reactant * k(U[index.Tev, i]*3/2*kB/e) * fluid.m #no more *dt/cell_volume, dt taken care of in timemarching scheme, /cell_volume was wrong
+            @views Q[reactant_index] -= ne * n_reactant * k(U[index.Tev, i]) * fluid.m #no more *dt/cell_volume, dt taken care of in timemarching scheme, /cell_volume was wrong
                                          #can probably use periodic callback
-            @views Q[product_index] += ne * n_reactant * k(U[index.Tev, i]*3/2*kB/e) * fluid.m
+            @views Q[product_index] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m
                                         #can probably use periodic callback
-            @views Q[product_index + 1] += ne * n_reactant * k(U[index.Tev, i]*3/2*kB/e) * fluid.m *
+            @views Q[product_index + 1] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m *
                                              neutral_velocity #momentum transfer
         end
     end
 end
 
-function apply_ion_acceleration!(Q, U, params, i) #make use of calculated potential not electric field input
+function apply_ion_acceleration!(Q, U, params, i)
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     index = params.index
     for j in 1:length(fluids)
@@ -43,6 +43,18 @@ function apply_ion_acceleration!(Q, U, params, i) #make use of calculated potent
                                             ni *
                                             E_d *
                                             fluids[j].species.Z
+        end
+    end
+end
+
+function apply_ion_acceleration_coupled!(Q, U, params, i)
+    fluids, fluid_ranges = params.fluids, params.fluid_ranges
+    index = params.index
+    for j in 1:length(fluids)
+        if fluids[j].species.Z > 0
+            ni = U[fluid_ranges[j][1], i]
+            @views Q[fluid_ranges[j][2]] += e / m(fluids[j]) *
+                                            ni * fluids[j].species.Z * U[index.ue, i] /params.cache.μ[i]
         end
     end
 end

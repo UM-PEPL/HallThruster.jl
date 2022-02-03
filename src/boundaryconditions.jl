@@ -47,9 +47,12 @@ function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64
     if left_or_right == :left
         @views U[1, begin] = bc.state[1] + U[2, begin + 1]
         #@views U[2, begin] = bc.state[2]
+        if U[2, begin + 1] < 2.1801715574645583e-12
+            U[2, begin + 1] = 2.1801715574645583e-12
+        end
         @. @views U[2:3, begin] = U[2:3, begin + 1]
-        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
-            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*bc.state[2]
+        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
+            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
         end
     elseif left_or_right == :right
         @views U[1, end] = bc.state[1] + U[2, end - 1]

@@ -1,4 +1,4 @@
-using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase
+using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2
 
 function source!(Q, U, params, i)
     #HallThruster.apply_reactions!(Q, U, params, i)
@@ -158,14 +158,14 @@ end
 function animate_solution1(sol)
     mi = HallThruster.Xenon.m
     @gif for (u, t) in zip(sol.u, sol.t)
-        p1 = plot(ylims = (1e17, 1e20))
+        p1 = plot(ylims = (1e11, 1e20))
         plot!(p1, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
         plot!(p1, u[2, :] / mi, label = ["nᵢ" ""])
         p2 = plot(ylims = (-3000, 20000))
         plot!(p2, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
-        p3 = plot(ylims = (0, 30))
+        p3 = plot(ylims = (1e16, 1e20))
         plot!(p3, u[4, :], title = "Internal electron energy [eV*n/m^3]", label = ["nϵ" ""])
-        p4 = plot(ylims = (0, 1e6))
+        p4 = plot(ylims = (0, 50))
         plot!(p4, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
         p5 = plot(ylims = (1e16, 1e20))
         plot!(p5, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
@@ -174,12 +174,38 @@ function animate_solution1(sol)
         plot!(p6, u[10, :], title = "Electron velocity", label = ["uₑ [m/s]" ""])
         p7 = plot(ylims = (-100, 400))
         plot!(p7, u[8, :], title = "Potential", label = ["ϕ [V]" ""])
-        p8 = plot(ylims = (-80000, 1000))
-        plot!(p8, u[9, :], title = "Electric field", label = ["E [V/m]" ""])
+        p8 = plot(ylims = (-1000, 80000))
+        plot!(p8, -u[9, :], title = "Electric field", label = ["E [V/m]" ""])
 
         plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (2, 4), size = (2000, 1000))
     end
 end
+
+function plot_solution(u)
+    mi = HallThruster.Xenon.m
+    p1 = plot(ylims = (1e17, 1e20))
+    plot!(p1, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
+    plot!(p1, u[2, :] / mi, label = ["nᵢ" ""])
+    p2 = plot(ylims = (-3000, 20000))
+    plot!(p2, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
+    p3 = plot(ylims = (1e16, 1e20))
+    plot!(p3, u[4, :], title = "Internal electron energy [eV*n/m^3]", label = ["nϵ" ""])
+    p4 = plot(ylims = (0, 50))
+    plot!(p4, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
+    p5 = plot(ylims = (1e16, 1e20))
+    plot!(p5, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
+    plot!(p5, u[7, :] ./ HallThruster.e , label = ["pₑ [n*eV/m^3]" ""])
+    p6 = plot(ylims = (-1e5, 1e5))
+    plot!(p6, u[10, :], title = "Electron velocity", label = ["uₑ [m/s]" ""])
+    p7 = plot(ylims = (-100, 400))
+    plot!(p7, u[8, :], title = "Potential", label = ["ϕ [V]" ""])
+    p8 = plot(ylims = (-1000, 80000))
+    plot!(p8, -u[9, :], title = "Electric field", label = ["E [V/m]" ""])
+
+    p9 = plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (2, 4), size = (2000, 1000))
+    png(p9, "timeaveraged")
+end
+
 
 function animate_solution2(sol)
     mi = HallThruster.Xenon.m
@@ -200,9 +226,66 @@ function animate_solution2(sol)
         plot!(p6, u[10, :], title = "Electron velocity", label = ["uₑ [m/s]" ""])
         p7 = plot(ylims = (-100, 400))
         plot!(p7, u[8, :], title = "Potential", label = ["ϕ [V]" ""])
-        p8 = plot(ylims = (-80000, 1000))
-        plot!(p8, u[9, :], title = "Electric field", label = ["E [V/m]" ""])
-
+        p8 = plot(ylims = (-1000, 80000))
+        plot!(p8, -u[9, :], title = "Electric field", label = ["E [V/m]" ""])
         plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (2, 4), size = (2000, 1000))
     end
+end
+
+function write_sol_csv(filename, sol)
+    CSV.write(filename*".csv", DataFrame(sol), header = false)
+end
+
+function write_sol_jld2(filename, sol)
+    jldsave(filename*".jld2"; sol)
+end
+
+function read_csv(filename)
+    sol = CSV.read(filename, DataFrame, header = false)
+    return sol
+end
+
+function read_jld2(filename)
+    f = jldopen(filename*".jld2", "r")
+    sol = read(f, "sol")
+    return sol
+end
+
+#=analyse simulation
+make time averaged quantities and plot them, to compare with Landmark
+make time resolved discharge current plots 
+make x, t space plots
+include ionization rate, can be inferred after from nn, ne, and Tev
+get boundaries right with not fixing value ion density
+run simulation under three test cases
+return to implicit and other general framework, see what happens
+=#
+
+function timeaveraged(sol, tstampstart)
+    avg = zeros(size(sol.u[1]))
+    tstamps = length(sol.t)
+    for i in tstampstart:length(sol.t)
+        avg .+= sol.u[i]
+    end
+    avg /= (tstamps - tstampstart + 1)
+    return avg
+end
+
+function calc_current(sol) #need to divide by area?
+    current = zeros(2, length(sol.t))
+    area = pi*(0.05^2 - 0.025^2)
+    distance = 0.050 - 0.0350
+    for i in 1:length(sol.t)
+        current[1, i] = sol.u[i][3, end]*HallThruster.e/HallThruster.Xenon.m*area
+        current[2, i] = -sol.u[i][6, end]*HallThruster.e*sol.u[i][10, end]*area
+    end
+    return current
+end
+
+function plot_current(current, sol)
+    p1 = plot(ylims = (0, 30))
+    plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
+    plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
+    plot!(p1, sol.t, current[2, :] + current[1, :], label = ["I total" ""])
+    png(p1, "currents")
 end

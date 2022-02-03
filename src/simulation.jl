@@ -110,9 +110,61 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         Δz = z_edge[right] - z_edge[left]
 
         @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
-        @views dU[index.nϵ, i] = #=(F[index.nϵ, left] - F[index.nϵ, right]) / Δz=# Q[index.nϵ]
+        #@views dU[index.nϵ, i] = #=(F[index.nϵ, left] - F[index.nϵ, right]) / Δz=# Q[index.nϵ]
     end
     
+    #########################################################
+    #ELECTRON SOLVE 
+    
+    #ue, ne, nn, E, μ, ϕ = params.ue, params.ne, params.nn, params.E, params.μ, params.ϕ
+    ue, ne, nn, E, μ, ϕ = U[index.ue, :], U[index.ne, :], U[1, :]/HallThruster.Xenon.m, -U[index.grad_ϕ, :], params.cache.μ, U[index.ϕ, :]
+    ε = Vector{Float64}(undef, ncells+2)
+    #z = params.zs
+    z = z_edge #check
+    #dz = z[2] - z[1]
+    dz = z_cell[3] - z_cell[2]
+    #use real K(ε) in place of fit function
+    K(ε) = 6e-12 * exp(-39.0 / (ε + 3.0))
+    νε = 1e7
+    UU = 20.0
+
+    ε[1] = 3.0
+    ε[end] = 3.0
+    U[index.nϵ, end] = U[index.ne, end]*ε[end]
+    U[index.nϵ, begin] = U[index.ne, begin]*ε[begin]
+
+    for i in 2:ncells+1
+        E[i] = -(ϕ[i+1] - ϕ[i-1])/2/dz
+        ue[i] = μ[i] * (-E[i] - (U[index.nϵ, i+1] - U[index.nϵ, i-1])/(2dz * ne[i]))
+        if ue[i] > -100.0
+            ue[i] = -100.0
+        end
+        #ue[i] = -300.0
+        #ε[i] = U[index.nϵ, i] / ne[i]
+        ε[i] = U[index.Tev, i]
+    end
+
+    ue[1] = ue[2]
+    ue[end] = ue[end-1]
+    E[1] = E[2]
+    E[end] = E[end-1]
+
+    for i in 1:ncells+2
+        U[index.ue, i] = ue[i]
+    end
+
+    for i in 2:ncells+1
+        advection_term = -(ue[i] * U[index.nϵ, i] - ue[i+1] * U[index.nϵ, i+1]) / dz
+
+        diffusion_term = (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (ε[i+1] - ε[i])
+        diffusion_term += μ[i] * U[index.nϵ, i] * (ε[i-1] - 2ε[i] + ε[i+1])
+        diffusion_term /= dz^2
+
+        W = νε * ε[i] * exp(-UU / ε[i])
+        source_term = ne[i] * (-ue[i] * E[i] - nn[i] * params.landmark.loss_coeff(ε[i]) - W)
+        dU[index.nϵ, i] = -5/3 * advection_term + 10/9 * diffusion_term + source_term
+    end
+
     return nothing
 end
 
@@ -214,13 +266,16 @@ function run_simulation(sim) #put source and Bcs potential in params
     fluid = fluids[1].species.element
     @inbounds for i in 1:(ncells + 2)
         U[index.ne, i] = max(1e-10, electron_density(@view(U[:, i]), fluid_ranges) / fluid.m)
-        U[index.Tev, i] = max(0.1, U[index.nϵ, i]/3*2/U[index.ne, i]/kB)
-        U[index.pe, i] = electron_pressure(U[index.ne, i], U[index.Tev, i])
+        #U[index.Tev, i] = max(0.1, U[index.nϵ, i]/3*2/U[index.ne, i]/kB)
+        U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
+        @show  U[index.Tev, i]
+        #U[index.pe, i] = electron_pressure(U[index.ne, i], U[index.Tev, i])
+        U[index.pe, i] = U[index.nϵ, i]/3*2
         U[index.grad_ϕ, i] = HallThruster.first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
         params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
         params.cache.νc[i] = get_v_c(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = cf_electron_transport(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
-        U[index.ue, i] = HallThruster.electron_velocity(U, params, i)
+        U[index.ue, i] = -300.0 #HallThruster.electron_velocity(U, params, i)
     end
 
     solve_potential!(U, params)
