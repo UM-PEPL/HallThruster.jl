@@ -169,7 +169,7 @@ function animate_solution1(sol)
         plot!(p4, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
         p5 = plot(ylims = (1e16, 1e20))
         plot!(p5, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
-        plot!(p5, u[7, :] ./ HallThruster.e , label = ["pₑ [n*eV/m^3]" ""])
+        plot!(p5, u[7, :], label = ["pₑ [n*eV/m^3]" ""])
         p6 = plot(ylims = (-1e5, 1e5))
         plot!(p6, u[10, :], title = "Electron velocity", label = ["uₑ [m/s]" ""])
         p7 = plot(ylims = (-100, 400))
@@ -183,7 +183,7 @@ end
 
 function plot_solution(u)
     mi = HallThruster.Xenon.m
-    p1 = plot(ylims = (1e17, 1e20))
+    p1 = plot(ylims = (1e15, 1e20))
     plot!(p1, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
     plot!(p1, u[2, :] / mi, label = ["nᵢ" ""])
     p2 = plot(ylims = (-3000, 20000))

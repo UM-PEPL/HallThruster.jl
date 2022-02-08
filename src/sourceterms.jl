@@ -53,25 +53,25 @@ function apply_ion_acceleration_coupled!(Q, U, params, i)
     for j in 1:length(fluids)
         if fluids[j].species.Z > 0
             ni = U[fluid_ranges[j][1], i]
-            @views Q[fluid_ranges[j][2]] += e / m(fluids[j]) *
+            @views Q[fluid_ranges[j][2]] += -e / m(fluids[j]) *
                                             ni * fluids[j].species.Z * U[index.ue, i] /params.cache.μ[i]
         end
     end
 end
 
-function source_electron_energy!(Q, U, params, i)
+function source_electron_energy_landmark!(Q, U, params, i)
     index = params.index
-    uₑ = electron_velocity(U, params, i)
-    grad_pe = first_deriv_central_diff(U[index.pe, :], params.z_cell, i)
-    grad_ϕ = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-    ν = params.cache.νan[i] + params.cache.νc[i]
+    #ν = params.cache.νan[i] + params.cache.νc[i]
     #Hara source term
     #QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 - S_wall_simple(U[4, :], i) - S_coll(U, params, i) #resistive heating collisions, u has to be total u not just z, azimuthal component dominating
     #Landmark source term
-    @views Q[4] = U[index.ne, i]*uₑ*grad_ϕ*e - S_coll(U, params, i) - S_wall_simple(3/2*U[index.Tev, :]*kB/e, i)*e #U[index.ne, i]*uₑ*grad_ϕ - U[index.ne, i]*S_wall_simple(3/2*U[index.Tev, :], i) - S_coll(U, params, i)
-    #=@show Q[4]
-    @show i
-    @show U[index.ne, i]*uₑ*grad_ϕ
-    @show - U[index.ne, i]*S_wall_simple(3/2*U[index.Tev, :], i)
-    @show - S_coll(U, params, i)=#
+    if params.z_cell[i] <= 0.025
+        νε = 0.4*1e7
+    else
+        νε = 1e7
+    end
+    UU = 20.0
+    W = νε * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
+    @views Q[4] =  U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/HallThruster.Xenon.m * params.landmark.loss_coeff(U[index.Tev, i]) - W)
+    #@views Q[4] = U[index.ne, i]*uₑ*grad_ϕ - S_coll(U, params, i) - S_wall_simple(U[index.Tev, :], i)
 end

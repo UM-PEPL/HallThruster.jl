@@ -142,7 +142,7 @@ function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     b[1] = -ϕ_L * (ne⁻ * μ⁻) / ((Δz)^2) - 1 * (μ⁺ + μ⁻) * pe[2] / (Δz)^2 +
            μ⁺ * pe[3] / (Δz)^2 +
            (μ⁻) * pe[1] / (Δz)^2
-    -U[3, 1] / (Δz) + (U[3, 3] + U[3, 2]) / (2 * Δz) #no interpolation on boundary
+    -(U[3, 1] / (Δz) + (U[3, 3] + U[3, 2]) / (2 * Δz)) / HallThruster.Xenon.m #no interpolation on boundary
 
     #right boundary
     ne⁻ = 0.5 * (ne[N] + ne[N + 1])
@@ -161,7 +161,7 @@ function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     A.dl[N - 1] = ne⁻ * μ⁻ / (Δz)^2
     b[N] = -ϕ_R * (ne⁺ * μ⁺) / ((Δz)^2) + μ⁻ * pe[N] / (Δz)^2 -
            1 * (μ⁺ + μ⁻) * pe[N + 1] / (Δz)^2 + (μ⁺) * pe[N + 2] / (Δz)^2
-    -(U[3, N] + U[3, N + 1]) / (2 * Δz) + U[3, N + 2] / (Δz) #no interpolation on boundary
+    -((U[3, N] + U[3, N + 1]) / (2 * Δz) + U[3, N + 2] / (Δz)) / HallThruster.Xenon.m #no interpolation on boundary
 
 end
 
@@ -175,7 +175,7 @@ function potential_source_term!(b, U, s_consts)
     i, i_f, μ⁻, μ⁺, pe, Δz = s_consts
     Δz² = Δz^2
     b[i] = (μ⁻ * pe[i_f - 1] - (μ⁺ + μ⁻) * pe[i_f] + μ⁺ * pe[i_f + 1]) / Δz² +
-    0.5 * (U[3, i_f + 1] - U[3, i_f - 1]) / Δz
+    0.5 * (U[3, i_f + 1] - U[3, i_f - 1]) / Δz / HallThruster.Xenon.m
 end
 
 """

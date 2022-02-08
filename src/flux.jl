@@ -1,4 +1,4 @@
-function flux(U, fluid)
+function flux(U, fluid, pe)
     if fluid.conservation_laws.type == :ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
@@ -18,7 +18,7 @@ function flux(U, fluid)
     return F
 end
 
-function flux!(F, U, fluid)
+function flux!(F, U, fluid, pe)
     if fluid.conservation_laws.type == :ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
@@ -58,7 +58,7 @@ end
 # we're losing a lot of time (~1/4 of the run time) on the conditionals in the thermodynamics, better to do one conditional
 # and then go from there. however, that would lead to about 2x more code in this section and a loss of generality. probably
 # better to wait to overhaul this until the main features are in and we can think about a refactor
-function HLLE!(F, UL, UR, fluid)
+function HLLE!(F, UL, UR, fluid, pe)
     γ = fluid.species.element.γ
 
     uL = velocity(UL, fluid)
@@ -73,8 +73,8 @@ function HLLE!(F, UL, UR, fluid)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid)
-    FR = flux(UR, fluid)
+    FL = flux(UL, fluid, pe)
+    FR = flux(UR, fluid, pe)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -84,14 +84,14 @@ function HLLE!(F, UL, UR, fluid)
     return F
 end
 
-function upwind!(F, UL, UR, fluid::Fluid)
+function upwind!(F, UL, UR, fluid::Fluid, pe)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
     if avg_velocity ≥ 0
-        flux!(F, UL, fluid)
+        flux!(F, UL, fluid, pe)
     else
-        flux!(F, UR, fluid)
+        flux!(F, UR, fluid, pe)
     end
     return F
 end
@@ -169,13 +169,13 @@ function compute_edge_states!(UL, UR, U, scheme)
     return UL, UR
 end
 
-function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
+function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe)
     _, nedges = size(F)
 
     for i in 1:nedges
         for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
-                                        UR[fluid_range, i], fluid)
+                                        UR[fluid_range, i], fluid, pe[i])
         end
     end
     return F

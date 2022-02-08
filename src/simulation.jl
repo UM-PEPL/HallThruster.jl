@@ -94,7 +94,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
     #fluid computations, electron in implicit
     compute_edge_states!(@views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), @views(U[1:index.lf, :]), scheme)
-    compute_fluxes!(@views(F[1:index.lf, :]), @views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), fluids, fluid_ranges, scheme)
+    compute_fluxes!(@views(F[1:index.lf, :]), @views(UL[1:index.lf, :]), @views(UR[1:index.lf, :]), fluids, fluid_ranges, scheme, U[index.pe, :].*e)
 
     # Compute heavy species source terms
     #=@inbounds=# for i in 2:(ncells + 1)
@@ -110,66 +110,69 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
         Δz = z_edge[right] - z_edge[left]
 
         @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
-        #@views dU[index.nϵ, i] = #=(F[index.nϵ, left] - F[index.nϵ, right]) / Δz=# Q[index.nϵ]
+        η = 0.0005*sqrt(2*e*U[index.Tev, i]/(3*HallThruster.Xenon.m))
+        @views dU[index.lf, i] += η*(U[index.lf, i-1] - 2U[index.lf, i] + U[index.lf, i+1])/(Δz)^2
+        @views dU[index.nϵ, i] = Q[index.nϵ]
     end
     
     #########################################################
-    #ELECTRON SOLVE 
+    #ELECTRON SOLVE
     
-    #ue, ne, nn, E, μ, ϕ = params.ue, params.ne, params.nn, params.E, params.μ, params.ϕ
-    ue, ne, nn, E, μ, ϕ = U[index.ue, :], U[index.ne, :], U[1, :]/HallThruster.Xenon.m, -U[index.grad_ϕ, :], params.cache.μ, U[index.ϕ, :]
-    ε = Vector{Float64}(undef, ncells+2)
-    #z = params.zs
-    z = z_edge #check
-    #dz = z[2] - z[1]
     dz = z_cell[3] - z_cell[2]
-    #use real K(ε) in place of fit function
-    K(ε) = 6e-12 * exp(-39.0 / (ε + 3.0))
-    νε = 1e7
-    UU = 20.0
-
-    ε[1] = 3.0
-    ε[end] = 3.0
-    U[index.nϵ, end] = U[index.ne, end]*ε[end]
-    U[index.nϵ, begin] = U[index.ne, begin]*ε[begin]
+    apply_bc_electron!(@views(U), params.BCs[3], :left, index)
+    apply_bc_electron!(@views(U), params.BCs[4], :right, index)
 
     for i in 2:ncells+1
-        E[i] = -(ϕ[i+1] - ϕ[i-1])/2/dz
-        ue[i] = μ[i] * (-E[i] - (U[index.nϵ, i+1] - U[index.nϵ, i-1])/(2dz * ne[i]))
-        if ue[i] > -100.0
-            ue[i] = -100.0
+        if U[index.ue, i] < 0
+            advection_term = -(U[index.ue, i] * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1]) / dz
+            diffusion_term = (params.cache.μ[i+1] * U[index.nϵ, i+1] - params.cache.μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
+        else 
+            advection_term = (U[index.ue, i] * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) / dz
+            diffusion_term = -(params.cache.μ[i-1] * U[index.nϵ, i-1] - params.cache.μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])
         end
-        #ue[i] = -300.0
-        #ε[i] = U[index.nϵ, i] / ne[i]
-        ε[i] = U[index.Tev, i]
-    end
 
-    ue[1] = ue[2]
-    ue[end] = ue[end-1]
-    E[1] = E[2]
-    E[end] = E[end-1]
-
-    for i in 1:ncells+2
-        U[index.ue, i] = ue[i]
-    end
-
-    for i in 2:ncells+1
-        advection_term = -(ue[i] * U[index.nϵ, i] - ue[i+1] * U[index.nϵ, i+1]) / dz
-
-        diffusion_term = (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (ε[i+1] - ε[i])
-        diffusion_term += μ[i] * U[index.nϵ, i] * (ε[i-1] - 2ε[i] + ε[i+1])
+        diffusion_term += params.cache.μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
         diffusion_term /= dz^2
 
-        W = νε * ε[i] * exp(-UU / ε[i])
-        source_term = ne[i] * (-ue[i] * E[i] - nn[i] * params.landmark.loss_coeff(ε[i]) - W)
-        dU[index.nϵ, i] = -5/3 * advection_term + 10/9 * diffusion_term + source_term
+        @views dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * diffusion_term
     end
+    
+    #=
+    ######################################################################################
+    #electron solve implicit
+    apply_bc_electron!(@views(U), params.BCs[3], :left, index)
+    apply_bc_electron!(@views(U), params.BCs[4], :right, index)
+
+    #electron computations, fluid in explicit
+    scheme = HallThruster.HyperbolicScheme(HallThruster.upwind_electron!, identity, false)
+    compute_edge_states!(@views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), @views(U[index.nϵ, :]), scheme)
+    compute_fluxes_electron!(@views(F[index.nϵ, :]), @views(UL[index.nϵ, :]), @views(UR[index.nϵ, :]), U, HallThruster.Electron, [1:1], scheme, params)
+
+    ##############################################################################################################################################
+    ncells = size(U, 2) - 2
+    z_edge = params.z_edge
+    source_term! = params.source_term!
+
+    @inbounds for i in 2:(ncells + 1)
+        
+        # Compute dU/dt
+        left = left_edge(i)
+        right = right_edge(i)
+
+        Δz = z_edge[right] - z_edge[left]
+
+        @views dU[index.nϵ, i] += (F[index.nϵ, left] - F[index.nϵ, right]) / Δz 
+        + 10/9*((params.cache.μ[i+1]*U[index.nϵ, i+1] - params.cache.μ[i]*U[index.nϵ, i])*(U[index.Tev, i+1] - U[index.Tev, i])/Δz^2
+        + params.cache.μ[i]*U[index.nϵ, i]*second_deriv_central_diff_gen(U[index.Tev, :], params.z_cell, i)) #10/9 missing
+        
+    end
+    =#
 
     return nothing
 end
 
 function update_imp!(dU, U, params, t)
-    
+    #=
     F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
     index = params.index
 
@@ -199,11 +202,43 @@ function update_imp!(dU, U, params, t)
         Δz = z_edge[right] - z_edge[left]
 
         @views dU[index.nϵ, i] = (F[index.nϵ, left] - F[index.nϵ, right]) / Δz 
-        +(params.cache.μ[i+1]*U[index.nϵ, i+1] - params.cache.μ[i]*U[index.nϵ, i+1])*(U[index.Tev, i+1]*3/2*kB - U[index.Tev, i]*3/2*kB)/Δz^2
-        + params.cache.μ[i]*U[index.nϵ, i]*second_deriv_central_diff_gen(U[index.Tev, :].*3/2*kB, params.z_cell, i)
+        +(params.cache.μ[i+1]*U[index.nϵ, i+1] - params.cache.μ[i]*U[index.nϵ, i+1])*(U[index.Tev, i+1] - U[index.Tev, i])/Δz^2
+        + params.cache.μ[i]*U[index.nϵ, i]*second_deriv_central_diff_gen(U[index.Tev, :], params.z_cell, i)
         #@views dU[index.nϵ, i] = second_deriv_central_diff_energy(U, params.z_cell, params, i)
         
     end
+    =#
+
+    
+    index = params.index
+    z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
+    ncells = size(U, 2) - 2
+    Q = params.cache.Q
+    source_term! = params.source_term!
+
+    dz = z_cell[3] - z_cell[2]
+    apply_bc_electron!(@views(U), params.BCs[3], :left, index)
+    apply_bc_electron!(@views(U), params.BCs[4], :right, index)
+
+    for i in 2:ncells+1
+        @turbo Q .= 0.0
+        source_term!(Q, U, params, i)
+
+        if U[index.ue, i] < 0
+            advection_term = -(U[index.ue, i] * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1]) / dz
+            diffusion_term = (params.cache.μ[i+1] * U[index.nϵ, i+1] - params.cache.μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
+        else 
+            advection_term = (U[index.ue, i] * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) / dz
+            diffusion_term = -(params.cache.μ[i-1] * U[index.nϵ, i-1] - params.cache.μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])
+        end
+
+        diffusion_term += params.cache.μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
+        diffusion_term /= dz^2
+
+        @views dU[index.nϵ, i] = -5/3 * advection_term + 10/9 * diffusion_term + Q[index.nϵ]
+
+    end
+    
     return nothing
 end
 
@@ -283,7 +318,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     #tmp_prob = remake(prob, u0=convert.(eltype(params),prob.u0), p=params)
     if sim.solve_energy
         splitprob = SplitODEProblem{true}(update_imp!, update_exp!, U, tspan, params)
-        sol = solve(splitprob, SBDF2(autodiff = false); saveat=sim.saveat, callback=sim.callback, #SBDF2
+        sol = solve(splitprob, SBDF2(autodiff = false); saveat=sim.saveat, callback=sim.callback, #SBDF2, CNAB2
         adaptive=adaptive, dt=timestep)
     else 
         prob = ODEProblem{true}(update_exp!, U, tspan, params)
