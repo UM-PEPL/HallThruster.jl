@@ -111,7 +111,7 @@ function update_exp!(dU, U, params, t) #get source and BCs for potential from pa
 
         @tturbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
         η = 0.0005*sqrt(2*e*U[index.Tev, i]/(3*HallThruster.Xenon.m))
-        @views dU[index.lf, i] += η*(U[index.lf, i-1] - 2U[index.lf, i] + U[index.lf, i+1])/(Δz)^2
+        @views dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
         @views dU[index.nϵ, i] = Q[index.nϵ]
     end
     
