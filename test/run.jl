@@ -251,6 +251,10 @@ function read_jld2(filename)
     return sol
 end
 
+function plot_ionization(landmark, Tev)
+
+end
+
 #=analyse simulation
 make time averaged quantities and plot them, to compare with Landmark
 make time resolved discharge current plots 
