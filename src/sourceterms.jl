@@ -5,38 +5,45 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
     dt = params.dt
     index = params.index
 
-    fluid = fluids[1].species.element
+    mi = m(fluids[1])
     ne = U[index.ne, i]
+    ϵ = U[index.Tev, i]
     neutral_velocity = fluids[1].conservation_laws.u
 
     for r in reactions
         reactant_index = species_range_dict[r.reactant.symbol][1]
         product_index = species_range_dict[r.product.symbol][1]
-        n_reactant = U[reactant_index, i] / fluid.m
+        n_reactant = U[reactant_index, i] / mi
         if n_reactant > 1
             k = r.rate_coeff
-            @views Q[reactant_index] -= ne * n_reactant * k(U[index.Tev, i]) * fluid.m #no more *dt/cell_volume, dt taken care of in timemarching scheme, /cell_volume was wrong
-                                         #can probably use periodic callback
-            @views Q[product_index] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m
-                                        #can probably use periodic callback
-            @views Q[product_index + 1] += ne * n_reactant * k(U[index.Tev, i]) * fluid.m *
-                                             neutral_velocity #momentum transfer
+
+            ndot = k(ϵ) * n_reactant * ne
+            #can probably use periodic callback
+            Q[reactant_index] -= ndot * mi
+            Q[product_index] += ndot * mi
+            Q[product_index + 1] += ndot * mi * neutral_velocity #momentum transfer
         end
     end
+
+    # Simplify ionization for now, only single ionization
+    #=mi = m(fluids[1])
+
+    k = params.landmark.rate_coeff
+    nn = U[1, i] / mi
+    ne = U[index.ne, i]
+    Te = U[index.Tev, i]
+
+    ndot = k(Te) * nn * ne
+    Q[1] -= ndot * mi
+    Q[2] += ndot * mi
+    Q[3] += ndot * neutral_velocity * mi=#
 end
 
 function apply_ion_acceleration!(Q, U, params, i)
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     index = params.index
     for j in 1:length(fluids)
-        E_d = 0.0
-        if i <= length(params.z_cell)
-            if i == 2
-                E_d = -(U[index.ϕ, i] - U[index.ϕ, i - 1]) / (params.z_cell[i+1] - params.z_cell[i])
-            else 
-                E_d = -(U[index.ϕ, i] - U[index.ϕ, i - 1]) / (params.z_cell[i] - params.z_cell[i-1])
-            end
-        end
+        E_d = -U[index.grad_ϕ, i]
         if fluids[j].species.Z > 0
             ni = U[fluid_ranges[j][1], i]
             @views Q[fluid_ranges[j][2]] += e / m(fluids[j]) *
@@ -54,7 +61,7 @@ function apply_ion_acceleration_coupled!(Q, U, params, i)
         if fluids[j].species.Z > 0
             ni = U[fluid_ranges[j][1], i]
             @views Q[fluid_ranges[j][2]] += -e / m(fluids[j]) *
-                                            ni * fluids[j].species.Z * U[index.ue, i] /params.cache.μ[i]
+                                            ni * fluids[j].species.Z * U[index.ue, i] / params.cache.μ[i]
         end
     end
 end

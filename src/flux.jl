@@ -7,7 +7,7 @@ function flux(U, fluid, pe)
         ρ, ρu = U
         u = velocity(U, fluid)
         p = pressure(U, fluid)
-        F = (ρu, ρu * u + p, 0.0)
+        F = (ρu, ρu * u + p + pe, 0.0)
     elseif fluid.conservation_laws.type == :EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
@@ -28,7 +28,7 @@ function flux!(F, U, fluid, pe)
         u = velocity(U, fluid)
         p = pressure(U, fluid)
         F[1] = ρu
-        F[2] = ρu * u + p
+        F[2] = ρu * u + p + pe
     elseif fluid.conservation_laws.type == :EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
@@ -64,17 +64,35 @@ function HLLE!(F, UL, UR, fluid, pe)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
 
-    aL = sound_speed(UL, fluid)
-    aR = sound_speed(UR, fluid)
+    #aL = sound_speed(UL, fluid)
+    #aR = sound_speed(UR, fluid)
 
+    # electron pressure coupling, use cs instead of a
+    mi = m(fluid)
+
+    #@show pe
+    Te_L = 2/3 * pe / UL[1] * mi
+    Te_R = 2/3 * pe / UR[1] * mi
+    #@show Te_L
+    #@show Te_R
+
+    if Te_L < 0
+        aL = NaN
+        aR = NaN
+    else
+        aL = sqrt(e * Te_L / mi)
+        aR = sqrt(e * Te_R / mi)
+    end
+
+    #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
 
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid, pe)
-    FR = flux(UR, fluid, pe)
+    FL = flux(UL, fluid, 2/3 * e * pe )
+    FR = flux(UR, fluid, 2/3 * e * pe)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -147,16 +165,16 @@ function compute_edge_states!(UL, UR, U, scheme)
             if nconservative == 1
                 UL[right_edge(i)] = U[i]
                 UR[left_edge(i)] = U[i]
-            else 
+            else
                 for j in 1:nconservative
                     #println("j: ", j)
                     UL[j, right_edge(i)] = U[j, i]
                     UR[j, left_edge(i)] = U[j, i]
                 end
-            end        
+            end
         end
     end
-    
+
     if nconservative == 1
         UL[1] = U[1]
         UR[end] = U[end]

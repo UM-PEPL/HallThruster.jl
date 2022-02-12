@@ -6,7 +6,7 @@ end
 
 struct Neumann <: BoundaryCondition end
 
-struct Dirichlet_ionbohm <: BoundaryCondition 
+struct Dirichlet_ionbohm <: BoundaryCondition
     state::Vector{Float64}
 end
 
@@ -23,7 +23,7 @@ end
 struct Neumann_energy <: BoundaryCondition
 end
 
-function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
+function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)
     if left_or_right == :left
         @. @views U[:, begin] = bc.state
     elseif left_or_right == :right
@@ -33,7 +33,7 @@ function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::
     end
 end
 
-function apply_bc!(U, ::Neumann, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
+function apply_bc!(U, ::Neumann, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)
     if left_or_right == :left
         @. @views U[:, begin] = U[:, begin + 1]
     elseif left_or_right == :right
@@ -43,41 +43,52 @@ function apply_bc!(U, ::Neumann, left_or_right::Symbol, ϵ0::Float64, mᵢ::Floa
     end
 end
 
-function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
+function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)
+    u_bohm = sqrt(2/3*e*ϵ0/mᵢ)
+
     if left_or_right == :left
-        @views U[1, begin] = bc.state[1] + U[2, begin + 1]
-        #@views U[2, begin] = bc.state[2]
-        if U[2, begin + 1] < 2.1801715574645583e-12
-            U[2, begin + 1] = 2.1801715574645583e-12
-        end
-        @. @views U[2:3, begin] = U[2:3, begin + 1]
-        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
-            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
-        end
+        U[1, begin] = bc.state[1] + U[2, begin + 1]
+
+        # Ion bohm condition, ui ≤ -u_bohm
+        boundary_flux = U[3, begin+1]
+        boundary_velocity = min(-u_bohm, boundary_flux / U[2, begin+1])
+        boundary_density = boundary_flux / boundary_velocity
+        U[2, begin] = boundary_density
+        U[3, begin] = U[3, begin+1]
+
     elseif left_or_right == :right
-        @views U[1, end] = bc.state[1] + U[2, end - 1]
-        @views U[2:3, end] = U[2:3, end - 1]
-        if U[3, end] < sqrt(2/3*e*ϵ0/mᵢ)*U[2, end]
-            @views U[3, end] = sqrt(2/3*e*ϵ0/mᵢ)*U[2, end]
-        end
+
+        U[1, end] = bc.state[1] + U[2, end-1]
+
+        boundary_flux = U[3, end-1]
+        boundary_velocity = max(U[3, end-1] / U[2, end-1], u_bohm)
+        boundary_density = boundary_flux / boundary_velocity
+        U[2, end] = boundary_density
+        U[3, end] = boundary_density * boundary_velocity
+
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end
 end
 
-function apply_bc!(U, bc::Neumann_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64) 
+function apply_bc!(U, bc::Neumann_ionbohm, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)
+    u_bohm = sqrt(2/3*e*ϵ0/mᵢ)
+
     if left_or_right == :left
-        @views U[1, begin] = U[1, begin + 1]
-        @views U[2:3, begin] = U[2:3, begin + 1]
-        if U[3, begin] > -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
-            @views U[3, begin] = -sqrt(2/3*e*ϵ0/mᵢ)*U[2, begin]
-        end
+        @. @views U[1:2, begin] = U[1:2, begin+1]
+
+        # Ion bohm condition, ui ≤ -u_bohm
+        boundary_flux = U[3, begin+1]
+        boundary_velocity = min(-u_bohm, boundary_flux / U[2, begin+1])
+        boundary_density = boundary_flux / boundary_velocity
+        U[2, begin] = boundary_density
+        U[3, begin] = U[3, begin+1]
+
     elseif left_or_right == :right
-        @views U[1, end] = U[1, end - 1]
-        @views U[2:3, end] = U[2:3, end - 1]
-        if U[3, end] < sqrt(2/3*e*ϵ0/mᵢ)*U[2, end]
-            @views U[3, end] = sqrt(2/3*e*ϵ0/mᵢ)*U[2, end]
-        end
+        @. @views U[1:2, end] = U[1:2, end-1]
+
+        # make sure ui[end] ≥ u_bohm
+        U[3, end] = max(U[3, end-1], u_bohm * U[2, end])
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end
@@ -97,7 +108,7 @@ function apply_bc_electron!(U, bc::Dirichlet_energy_upd_ne, left_or_right::Symbo
     if left_or_right == :left
         @views U[index.nϵ, begin] = bc.int_energy*U[2, begin]/HallThruster.Xenon.m
     elseif left_or_right == :right
-        @views U[index.nϵ, end] = bc.int_energy*U[2, end]/HallThruster.Xenon.m 
+        @views U[index.nϵ, end] = bc.int_energy*U[2, end]/HallThruster.Xenon.m
     else
         throw(ArgumentError("left_or_right must be either :left or :right"))
     end

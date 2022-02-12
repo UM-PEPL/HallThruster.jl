@@ -1,10 +1,9 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
     index = params.index
-    grad_ϕ = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-    grad_nϵ = first_deriv_central_diff_pot(U[index.nϵ, :], params.z_cell, i)
-    #uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_pe/e/U[index.ne, i])
-    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ/U[index.ne, i]) #/e/U[index.ne, i])
+    @views grad_ϕ = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
+    @views grad_nϵ = first_deriv_central_diff_pot(U[index.nϵ, :], params.z_cell, i)
+    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ/U[index.ne, i])
     return uₑ
 end
 
@@ -22,7 +21,7 @@ function flux_electron!(F, US, fluid, params, U, i)
     uₑ = U[index.ue, i]
     ϵ = U[index.Tev, i]
     #grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
-    grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
+    @views grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
     κₑ = e_heat_conductivity(params, i)
     #F = 5/3*nϵ*uₑ - κₑ*grad_Tev*100 #works more or less
     F = 5/3*nϵ*uₑ #- κₑ*nϵ*ϵ/(params.z_cell[i+1] - params.z_cell[i])
@@ -92,7 +91,7 @@ if i == 1, returns right one sided second order approx, elseif i == length(array
 returns left one sided second order approx. 
 """
 
-function first_deriv_central_diff(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64) #central second order approx of first derivative
+function first_deriv_central_diff(u, z_cell, i) #central second order approx of first derivative
     if i == 1
         #grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i]-z_cell[i+2])) #second order one sided for boundary, or adapt for non constant stencil
         grad = (-u[i]+u[i+1])/abs(z_cell[i] - z_cell[i+1]) #first order to not switch sign
@@ -106,7 +105,7 @@ function first_deriv_central_diff(u::Vector{Float64}, z_cell::Vector{Float64}, i
     return grad
 end
 
-function first_deriv_central_diff_pot(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64) #central second order approx of first derivative
+function first_deriv_central_diff_pot(u, z_cell, i) #central second order approx of first derivative
     if i == 1
         i = 2
     elseif i == length(u)
@@ -116,7 +115,7 @@ function first_deriv_central_diff_pot(u::Vector{Float64}, z_cell::Vector{Float64
     return grad
 end
 
-function second_deriv_central_diff_energy(U::Matrix{Float64}, z_cell::Vector{Float64}, params, i::Int64)
+function second_deriv_central_diff_energy(U, z_cell, params, i)
     index = params.index
     #do once with 1/2 e^2 and once with e only
     μ⁺ = 10.0 #*3/2*HallThruster.kB/HallThruster.e*(U[index.Tev, i] + U[index.Tev, i+1])/2
@@ -146,7 +145,7 @@ function second_deriv_central_diff_energy(U::Matrix{Float64}, z_cell::Vector{Flo
     return grad
 end
 
-function second_deriv_central_diff_gen(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64)
+function second_deriv_central_diff_gen(u, z_cell, i)
     if i == 2 
         grad = (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i]-z_cell[i-1]))) + (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i]-z_cell[i-1]))
     elseif i == length(z_cell)-1
@@ -167,7 +166,7 @@ if i == 1, returns right one sided second order approx, elseif i == length(array
 returns left one sided second order approx. 
 """
 
-function first_deriv_facereconstr_2order(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64)
+function first_deriv_facereconstr_2order(u, z_cell, i)
     grad = (u[i+1]-u[i])/abs(z_cell[i+1] - z_cell[i]) #centered difference
     #grad = (-u[i] + u[i-1])/abs(z_cell[i] - z_cell[i-1])
     return grad
