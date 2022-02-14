@@ -57,8 +57,8 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
     Q = zeros(nvariables + 1)
-    A = Tridiagonal(ones(ncells+1), ones(ncells+2), ones(ncells+1)) #for potential
-    b = zeros(ncells+2) #for potential equation
+    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for potential
+    b = zeros(ncells) #for potential equation
     B = zeros(ncells + 2)
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
@@ -121,6 +121,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     end
 
+    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end

@@ -239,7 +239,7 @@ function set_up_params_U(; MMS_CONSTS, fluxfn, reconstruct, ncells) #does not re
     adaptive = sim.timestepcontrol[2]
     tspan = (0.0, sim.end_time)
 
-    reactions = HallThruster.load_ionization_reactions(species)
+    reactions = nothing#HallThruster.load_ionization_reactions(species)
     landmark = HallThruster.load_landmark()
 
     BCs = sim.boundary_conditions

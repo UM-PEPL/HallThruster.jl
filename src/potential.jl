@@ -1,7 +1,8 @@
+#check merge_solve_lite commit 02/11 for updated potential solve, this is old since potential with matrix to solve does not have boundary cells, need to keep the i_f indexer
+
 
 """
     solve_potential!(; U::Matrix{Float64}, params::NamedTuple)
-
 function to solve the potential equation derived from the generalized Ohm's law
 and employing charge conservation using quasineutrality. Second derivatives approximated
 with 2nd order central difference scheme, first derivatives with central difference. 
@@ -13,91 +14,71 @@ and temperature leading to electron pressure. Solved by inverting a tridiagonal 
 function solve_potential!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-
     z_cell, z_edge, _ = params.z_cell, params.z_edge, params.cell_volume
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     fluid = fluids[1].species.element
     boundary_potential! = params.boundary_potential!
     source_potential! = params.source_potential!
     index = params.index
-    N = length(z_cell) #remove boundary ghost cells
+    N = length(z_cell) - 2 #remove boundary ghost cells
 
     L_ch = 0.025 #add to params
 
-    ϕ_L = 300.0 # add to params
-    ϕ_R = 0.0
-
-    mi = m(fluids[1])
-
     pe = @views U[index.pe, :]
     ne = @views U[index.ne, :]
-    Tev = @views U[index.Tev, :]
     B = params.cache.B
     A = params.cache.A
     b = params.cache.b
+    Tev = @views U[index.Tev, :] 
     νan = params.cache.νan
-    νc = params.cache.νc
-    μ = params.cache.μ
 
     Δz = z_edge[3] - z_edge[2]
 
-    params.OVS[1] = false
+    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
+    OVS[1] = false
 
-    #bc_consts = (; fluid, N, pe, ne, B, Tev, νan, Δz, params.OVS, index)
-    #boundary_potential!(A, b, U, bc_consts) #if OVS, this sets to true
+    bc_consts = (; fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index)
+    boundary_potential!(A, b, U, bc_consts) #if OVS, this sets to true
 
-    A.d[1] = 1.0
-    A.du[1] = 0.0
-    A.d[N] = 1.0
-    A.dl[N-1] = 0.0
+    for i in 2:(N - 1) #@tturbo
+        i_f = i + 1 #fluid index, due to ghost cell on boundary
 
-    @inbounds for i in 2:N-1
+        ne⁻ = 0.5 * (ne[i_f] + ne[i_f - 1])
+        ne⁺ = 0.5 * (ne[i_f] + ne[i_f + 1])
 
-        ne⁻ = 0.5 * (ne[i] + ne[i - 1])
-        ne⁺ = 0.5 * (ne[i] + ne[i + 1])
+        nn⁻ = (U[1, i_f] + U[1, i_f - 1]) / (2 * fluid.m)
+        nn⁺ = (U[1, i_f] + U[1, i_f + 1]) / (2 * fluid.m)
 
-        nn⁻ = (U[1, i] + U[1, i - 1]) / (2 * fluid.m)
-        nn⁺ = (U[1, i] + U[1, i + 1]) / (2 * fluid.m)
-
-        B⁻ = 0.5 * (B[i - 1] + B[i])
-        B⁺ = 0.5 * (B[i] + B[i + 1])
-        νan⁻ = 0.5 * (νan[i - 1] + νan[i])
-        νan⁺ = 0.5 * (νan[i + 1] + νan[i])
-        νc⁻ = electron_collision_freq(0.5 * (Tev[i] + Tev[i - 1]), nn⁻, ne⁻, fluid.m)
-        νc⁺ = electron_collision_freq(0.5 * (Tev[i] + Tev[i + 1]), nn⁺, ne⁺, fluid.m)
+        B⁻ = 0.5 * (B[i_f - 1] + B[i_f])
+        B⁺ = 0.5 * (B[i_f] + B[i_f + 1])
+        νan⁻ = 0.5 * (νan[i_f - 1] + νan[i_f])
+        νan⁺ = 0.5 * (νan[i_f + 1] + νan[i_f])
+        νc⁻ = electron_collision_freq(0.5 * (Tev[i_f] + Tev[i_f - 1]), nn⁻, ne⁻, fluid.m)
+        νc⁺ = electron_collision_freq(0.5 * (Tev[i_f] + Tev[i_f + 1]), nn⁺, ne⁺, fluid.m)
         μ⁻ = electron_mobility(νan⁻, νc⁻, B⁻)
         μ⁺ = electron_mobility(νan⁺, νc⁺, B⁺)
 
-        #if params.OVS[1]
-        #    ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
-        #end
+        if OVS[1] == true
+            ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
+        end
+
+        Δz = z_edge[i - 1] - z_edge[i]
 
         Δz² = Δz^2
-
-        #α = (ne⁺ * μ⁺ - ne⁻ * μ⁻)/2Δz^2
-        #β = ne[i] * μ[i]/Δz^2
-
-        #A.d[i] = -2β
-        #A.dl[i-1] = -α + β
-        #A.du[i] = α + β
-
-        #s_consts = (; i, i_f, μ⁻, μ⁺, pe, Δz, mi)
-        #source_potential!(b, U, s_consts)
-
-        b[i] = (
-            (μ[i+1] - μ[i-1]) * (pe[i+1] - pe[i-1]) / 4Δz^2 +
-            μ[i] * (pe[i-1] - 2pe[i] + pe[i+1]) / Δz^2
-        ) + (U[3, i+1] - U[3, i-1]) / 2Δz / mi
 
         A.dl[i - 1] = ne⁻ * μ⁻ / Δz²
         A.d[i] = -(ne⁻ * μ⁻ + ne⁺ * μ⁺) / Δz²
         A.du[i] = ne⁺ * μ⁺ / Δz²
+
+        s_consts = (; i, i_f, μ⁻, μ⁺, pe, Δz)
+        source_potential!(b, U, s_consts)
+
     end
 
-    b[1] = ϕ_L
-    b[end] = ϕ_R
+    #make ghost cells correspond to boundary values
 
-    @views tridiagonal_solve!(U[index.ϕ, :], A, b)
+    #make sure ghost cells not used in tridiagonal solve
+    return tridiagonal_solve!(@views(U[index.ϕ, 2:end-1]), A, b)
 end
 
 function tridiagonal_forward_sweep!(A::Tridiagonal, b)
@@ -136,13 +117,12 @@ end
 
 """
     boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
-
 Applies dirichlet boundary conditions for potential. 
 """
 
 function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index = bc_consts
-
+    
     U[index.ϕ, 1] = ϕ_L
     U[index.ϕ, end] = ϕ_R
 
@@ -157,7 +137,7 @@ function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     νan⁺ = 0.5 * (νan[2] + νan[3])
     μ⁻ = electron_mobility(νan⁻, electron_collision_freq(Tev[1], ne⁻, nn⁻, fluid.m), B⁻)
     μ⁺ = electron_mobility(νan⁺, electron_collision_freq((Tev[2] + Tev[3]) / 2, ne⁺, nn⁺, fluid.m), B⁺)
-
+    
     A.d[1] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
     A.du[1] = ne⁺ * μ⁺ / (Δz)^2
     b[1] = -ϕ_L * (ne⁻ * μ⁻) / ((Δz)^2) - 1 * (μ⁺ + μ⁻) * pe[2] / (Δz)^2 +
@@ -177,7 +157,7 @@ function boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
     μ⁻ = electron_mobility(νan⁻, electron_collision_freq((Tev[N + 1] + Tev[N]) / 2, ne⁻, nn⁻, fluid.m),
                                B⁻)
     μ⁺ = electron_mobility(νan⁺, electron_collision_freq(Tev[N + 2], ne⁺, nn⁺, fluid.m), B⁺)
-
+   
     A.d[N] = -1 * (ne⁻ * μ⁻ + ne⁺ * μ⁺) / (Δz)^2 #no interpolation on boundary
     A.dl[N - 1] = ne⁻ * μ⁻ / (Δz)^2
     b[N] = -ϕ_R * (ne⁺ * μ⁺) / ((Δz)^2) + μ⁻ * pe[N] / (Δz)^2 -
@@ -188,22 +168,18 @@ end
 
 """
     potential_source_term!(b, U, s_consts)
-
 Applies source term to potential.
 """
-#=
+
 function potential_source_term!(b, U, s_consts)
-    (;i, i_f, μ⁻, μ⁺, pe, Δz, mi) = s_consts
-    # b = d/dz(μ)*d/dz(pₑ,ₑᵥ) + μ*d²/dz²(pₑ,ₑᵥ) + d/dz(nᵢuᵢ)
-    b[i] = (
-        (μ⁺ - μ⁻) * (pe[i_f+1] - pe[i_f-1]) - (μ⁺ + μ⁻) *
-        2/3 * (-pe[i_f-1] + 2pe[i_f] - pe[i_f+1])
-    ) / 2 / Δz^2 + (U[3, i_f+1] - U[3, i_f-1]) / 2Δz / mi
-end=#
+    i, i_f, μ⁻, μ⁺, pe, Δz = s_consts
+    Δz² = Δz^2
+    b[i] = (μ⁻ * pe[i_f - 1] - (μ⁺ + μ⁻) * pe[i_f] + μ⁺ * pe[i_f + 1]) / Δz² +
+    0.5 * (U[3, i_f + 1] - U[3, i_f - 1]) / Δz / HallThruster.Xenon.m
+end
 
 """
     OVS_potential_source_term!(b, s_consts)
-
 Applies a scalar as source term for potential OVS.
 """
 
@@ -214,7 +190,6 @@ end
 
 """
     OVS_boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
-
 Applies Dirichlet boundary conditions to potential equation for OVS.
 """
 
