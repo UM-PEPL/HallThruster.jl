@@ -30,7 +30,7 @@ frequencies. Eq. 3.6-12 and 3.6-14, from Fundamentals of
 Electric Propulsion, Goebel and Katz, 2008.
 
 """
-@inline function get_v_c(Tev, nn, ne, m) #classical momentum transfer collision frequency, v_ei + v_en, nn neutral number density, ne electron number density, m ion mass
+@inline function electron_collision_freq(Tev, nn, ne, m) #classical momentum transfer collision frequency, v_ei + v_en, nn neutral number density, ne electron number density, m ion mass
     #v_en = σ_en(Tev) * nn * sqrt(8 * e * Tev / pi / m) # intro to EP, 3.6-12
     #v_ei = 2.9e-12 * ne * ln_λ(ne, Tev) / Tev^1.5 #intro to EP, 3.6-14
     #return v_en + v_ei #2.5e-13*nn #from Hara paper, is similar to formula for v_ei from intro to EP
@@ -45,10 +45,10 @@ defines model for anomalous collision frequency.
 @inline function get_v_an(z, B, L_ch) #anomalous momentum transfer collision frequency
     ωce = e * B / mₑ
     #νan = ωce/16
-    νan = if z < L_ch*0.8
+    νan = if z < L_ch
         ωce / 160 + 1e7 # +1e7 anomalous wall from Landmark inside channel
-    elseif L_ch*0.8 < z < L_ch*1.2
-        ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
+    #elseif L_ch*0.8 < z < L_ch*1.2
+    #    ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
     else
         ωce / 16
     end
@@ -78,9 +78,9 @@ end
 
 calculates electron transport according to the generalized Ohm's law
 as a function of the classical and anomalous collision frequencies
-and the magnetic field. 
+and the magnetic field.
 """
-@inline function cf_electron_transport(v_an, v_c, B)
+@inline function electron_mobility(v_an, v_c, B)
     vₑ = v_an + v_c
     Ω = e * B / (mₑ * vₑ)
     return e / (mₑ * vₑ * (1 + Ω^2))

@@ -33,7 +33,7 @@ of cell centers (plus ghost cells face coordinates), interface/edges and volume 
 """
 function generate_grid(geometry, ncells)
     # generate cell interface coordinates
-    z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells + 1)
+    z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells+1)
 
     # generate cell center coordinates
     z_cell = [0.5 * (z_edge[i + 1] + z_edge[i]) for i in 1:ncells]

@@ -36,8 +36,12 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
     right_state = [ρ1, ρ1, ρ1*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
+    left_state_elec = 0.0
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
-        boundary_conditions = BCs,
+        boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
@@ -103,6 +107,10 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
     right_state = [ρ1, ρ2, ρ2*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Neumann())
 
+    left_state_elec = 0.0
+    right_state_elec = left_state_elec
+    BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+
     condition(u,t,integrator) = t < 1
     function affect!(integrator)
         U, params = integrator.u, integrator.p
@@ -145,7 +153,7 @@ function test_ionization_source(fluxfn, reconstruct, end_time, dt)
 
 
     sim = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, 100),
-        boundary_conditions = BCs,
+        boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
         scheme = HallThruster.HyperbolicScheme(fluxfn, HallThruster.minmod, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
