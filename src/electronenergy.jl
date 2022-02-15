@@ -1,9 +1,13 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
     index = params.index
-    @views grad_ϕ = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-    @views grad_nϵ = first_deriv_central_diff_pot(U[index.nϵ, :], params.z_cell, i)
-    uₑ = -params.cache.μ[i]*(-grad_ϕ + grad_nϵ/U[index.ne, i])
+    if i == 1
+        inew = 1
+    else
+        inew = i
+    end
+    @views grad_nϵ = first_deriv_central_diff(U[index.nϵ, :], params.z_cell, i)
+    uₑ = params.cache.μ[i]*(U[index.grad_ϕ, inew] - grad_nϵ/U[index.ne, i])
     return uₑ
 end
 
@@ -93,25 +97,27 @@ returns left one sided second order approx.
 
 function first_deriv_central_diff(u, z_cell, i) #central second order approx of first derivative
     if i == 1
-        #grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i]-z_cell[i+2])) #second order one sided for boundary, or adapt for non constant stencil
-        grad = (-u[i]+u[i+1])/abs(z_cell[i] - z_cell[i+1]) #first order to not switch sign
+        grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i+1]-z_cell[i+3])) #second order one sided for boundary, or adapt for non constant stencil
+        #grad = (-u[i]+u[i+1])/abs(z_cell[i] - z_cell[i+1]) #first order to not switch sign
     elseif i == length(u)
-        #grad = (u[i-2] - 4*u[i-1] + 3*u[i])/(abs(z_cell[i-2]-z_cell[i])) #second order one sided for boundary
-        grad = (-u[i-1]+u[i])/abs(z_cell[i] - z_cell[i-1]) #first order to not switch sign
+        grad = (u[i-2] - 4*u[i-1] + 3*u[i])/(abs(z_cell[i-3]-z_cell[i-1])) #second order one sided for boundary
+        #grad = (-u[i-1]+u[i])/abs(z_cell[i] - z_cell[i-1]) #first order to not switch sign
     else
-        grad = (u[i+1] - u[i-1])/(abs(z_cell[i+1]-z_cell[i-1])) #centered difference
+        grad = (u[i+1] - u[i-1])/(abs(z_cell[4]-z_cell[2])) #centered difference
     end
 
     return grad
 end
 
-function first_deriv_central_diff_pot(u, z_cell, i) #central second order approx of first derivative
+function first_deriv_central_diff_pot(u, z_cell, i) #central difference of first deriv
     if i == 1
-        i = 2
+        #grad = (-3*(u[i] + 4*(u[i]+u[i+1])/2 - (u[i+1]+u[i+2])/2))/(abs(z_cell[4]-z_cell[2]))
+        grad = (u[2] - u[1])/(z_cell[3] - z_cell[2])
     elseif i == length(u)
-        i = length(u) - 1
+        grad = (u[i-1] - u[i-2])/(z_cell[3] - z_cell[2])
+    else 
+        grad = (u[i] - u[i-1])/(z_cell[3] - z_cell[2])
     end
-    grad = (u[i+1] - u[i-1])/(abs(z_cell[i+1]-z_cell[i-1])) #centered difference
     return grad
 end
 

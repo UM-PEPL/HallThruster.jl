@@ -57,8 +57,8 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
     Q = zeros(nvariables + 1)
-    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for potential
-    b = zeros(ncells) #for potential equation
+    A = Tridiagonal(ones(ncells), ones(ncells+1), ones(ncells)) #for potential
+    b = zeros(ncells + 1) #for potential equation
     B = zeros(ncells + 2)
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
@@ -110,7 +110,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         left = left_edge(i)
         right = right_edge(i)
 
-        Δz = z_edge[right] - z_edge[left]
+        #Δz = z_edge[right] - z_edge[left]
+        Δz = z_edge[3] - z_edge[2]
 
         # Ion and neutral fluxes
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
@@ -151,7 +152,8 @@ function update_electron_energy!(dU, U, params, t)
         left = left_edge(i)
         right = right_edge(i)
 
-        Δz = z_edge[right] - z_edge[left]
+        #Δz = z_edge[right] - z_edge[left]
+        Δz = z_edge[3] - z_edge[2]
 
         # Upwinded first derivatives
         ue = U[index.ue, i]
@@ -230,15 +232,21 @@ function affect!(integrator)
         @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / fluid.m)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]
-        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = electron_velocity(U, params, i)
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i])
     end
 
     # update electrostatic potential
-    solve_potential!(U, params)
+    solve_potential_edge!(U, params)
+
+    @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
+        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
+        U[index.ue, i] = electron_velocity(U, params, i)
+    end
+
+    U[index.ue, 1] = U[index.ue, 2]
+    U[index.ue, end] = U[index.ue, end-1]
 end
 
 function run_simulation(sim) #put source and Bcs potential in params
@@ -260,6 +268,7 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     reactions = load_ionization_reactions(species)
     landmark = load_landmark()
+    ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
 
@@ -282,14 +291,16 @@ function run_simulation(sim) #put source and Bcs potential in params
         @views U[index.ne, i] = max(1e-10, electron_density(U[:, i], fluid_ranges) / fluid.m)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]/3*2
-        @views U[index.grad_ϕ, i] = first_deriv_central_diff(U[index.ϕ, :], params.z_cell, i)
+        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
+        #U[index.ϕ, i] = ϕ_hallis(params.z_cell[i])
+        #U[index.grad_ϕ, i] = grad_ϕ_hallis(params.z_cell[i])
         params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
         params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
         U[index.ue, i] = electron_velocity(U, params, i)
     end
 
-    solve_potential!(U, params)
+    solve_potential_edge!(U, params)
     cb = DiscreteCallback(condition, affect!, save_positions=(false,false))
 
     implicit_energy = sim.solve_energy
@@ -322,3 +333,25 @@ function initial_condition!(U, z_cell, IC!, fluids)
         @views IC!(U[:, i], z, fluids, z_cell[end])
     end
 end
+
+############################################################################################
+using DelimitedFiles
+
+function load_hallis_output(output_path)
+    output_headers = [
+        :z, :ne, :ϕ, :Te, :Ez, :Br, :nn, :ndot, :μe, :μen, :μbohm, :μwall, :μei,
+    ]
+    output = DataFrame(readdlm(output_path, Float64), output_headers)
+    output.ωce = output.Br * 1.6e-19 / 9.1e-31
+    replace!(output.nn, 0.0 => 1e12)
+    return output[1:end-1, :]
+end
+
+
+function load_hallis_for_input()
+    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_01.out")
+    ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, hallis.ϕ)
+    grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
+    return ϕ_hallis, grad_ϕ_hallis
+end
+

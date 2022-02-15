@@ -47,13 +47,13 @@ function apply_bc!(U, bc::Dirichlet_ionbohm, left_or_right::Symbol, ϵ0::Float64
     u_bohm = sqrt(2/3*e*ϵ0/mᵢ)
 
     if left_or_right == :left
-        U[1, begin] = bc.state[1] + U[2, begin + 1]
+        U[1, begin] = bc.state[1] - U[3, begin + 1]/150.0
 
         # Ion bohm condition, ui ≤ -u_bohm
         boundary_flux = U[3, begin+1]
         boundary_velocity = min(-u_bohm, boundary_flux / U[2, begin+1])
         boundary_density = boundary_flux / boundary_velocity
-        U[2, begin] = boundary_density
+        U[2, begin] = boundary_density #3*10e17*HallThruster.Xenon.m #boundary_density #U[2, begin+1]
         U[3, begin] = U[3, begin+1]
 
     elseif left_or_right == :right
