@@ -1,4 +1,4 @@
-function flux(U, fluid)
+function flux(U, fluid, pe)
     if fluid.conservation_laws.type == :ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
@@ -7,7 +7,7 @@ function flux(U, fluid)
         ρ, ρu = U
         u = velocity(U, fluid)
         p = pressure(U, fluid)
-        F = (ρu, ρu * u + p, 0.0)
+        F = (ρu, ρu * u + p + pe, 0.0)
     elseif fluid.conservation_laws.type == :EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
@@ -18,7 +18,7 @@ function flux(U, fluid)
     return F
 end
 
-function flux!(F, U, fluid)
+function flux!(F, U, fluid, pe)
     if fluid.conservation_laws.type == :ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
@@ -28,7 +28,7 @@ function flux!(F, U, fluid)
         u = velocity(U, fluid)
         p = pressure(U, fluid)
         F[1] = ρu
-        F[2] = ρu * u + p
+        F[2] = ρu * u + p + pe
     elseif fluid.conservation_laws.type == :EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
@@ -58,23 +58,41 @@ end
 # we're losing a lot of time (~1/4 of the run time) on the conditionals in the thermodynamics, better to do one conditional
 # and then go from there. however, that would lead to about 2x more code in this section and a loss of generality. probably
 # better to wait to overhaul this until the main features are in and we can think about a refactor
-function HLLE!(F, UL, UR, fluid)
+function HLLE!(F, UL, UR, fluid, pe)
     γ = fluid.species.element.γ
 
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
 
-    aL = sound_speed(UL, fluid)
-    aR = sound_speed(UR, fluid)
+    #aL = sound_speed(UL, fluid)
+    #aR = sound_speed(UR, fluid)
 
+    # electron pressure coupling, use cs instead of a
+    mi = m(fluid)
+
+    #@show pe
+    Te_L = 2/3 * pe / UL[1] * mi
+    Te_R = 2/3 * pe / UR[1] * mi
+    #@show Te_L
+    #@show Te_R
+
+    if Te_L < 0
+        aL = NaN
+        aR = NaN
+    else
+        aL = sqrt(e * Te_L / mi)
+        aR = sqrt(e * Te_R / mi)
+    end
+
+    #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
 
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid)
-    FR = flux(UR, fluid)
+    FL = flux(UL, fluid, 2/3 * e * pe )
+    FR = flux(UR, fluid, 2/3 * e * pe)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -84,15 +102,14 @@ function HLLE!(F, UL, UR, fluid)
     return F
 end
 
-function upwind!(F, UL, UR, fluid::Fluid)
+function upwind!(F, UL, UR, fluid::Fluid, pe)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
-
     if avg_velocity ≥ 0
-        flux!(F, UL, fluid)
+        flux!(F, UL, fluid, pe)
     else
-        flux!(F, UR, fluid)
+        flux!(F, UR, fluid, pe)
     end
     return F
 end
@@ -134,35 +151,49 @@ function reconstruct!(UL, UR, U, scheme)
 end
 
 function compute_edge_states!(UL, UR, U, scheme)
-    nconservative, ncells = size(U)
+    if length(U) == size(U)[1]
+        ncells = length(U)
+        nconservative = 1
+    else
+        nconservative, ncells = size(U)
+    end
 
     if scheme.reconstruct
         reconstruct!(UL, UR, U, scheme)
     else
         for i in 2:(ncells - 1)
-            for j in 1:nconservative
-                #println("j: ", j)
-                UL[j, right_edge(i)] = U[j, i]
-                UR[j, left_edge(i)] = U[j, i]
+            if nconservative == 1
+                UL[right_edge(i)] = U[i]
+                UR[left_edge(i)] = U[i]
+            else
+                for j in 1:nconservative
+                    #println("j: ", j)
+                    UL[j, right_edge(i)] = U[j, i]
+                    UR[j, left_edge(i)] = U[j, i]
+                end
             end
         end
     end
 
-    for j in 1:nconservative
-        UL[j, 1] = U[j, 1] #2 this would be more consistent
-        UR[j, end] = U[j, end] #end - 1 
+    if nconservative == 1
+        UL[1] = U[1]
+        UR[end] = U[end]
+    else
+        for j in 1:nconservative
+            UL[j, 1] = U[j, 1]
+            UR[j, end] = U[j, end]
+        end
     end
-
     return UL, UR
 end
 
-function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme)
+function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe)
     _, nedges = size(F)
 
     for i in 1:nedges
         for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
-                                        UR[fluid_range, i], fluid)
+                                        UR[fluid_range, i], fluid, pe[i])
         end
     end
     return F

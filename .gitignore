@@ -1,2 +1,4 @@
 docs/build
 .vscode
+*.png
+*.jld2
