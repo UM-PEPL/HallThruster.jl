@@ -64,8 +64,6 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
     νc = zeros(ncells + 2)
     μ = zeros(ncells + 2)
 
-    L_ch = 0.025
-
     cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ)
     return U, cache
 end
@@ -136,14 +134,14 @@ function update_electron_energy!(dU, U, params, t)
     index = params.index
     Q = params.cache.Q
     μ = params.cache.μ
-    z_edge = params.z_edge
+    z_cell = params.z_cell
     ncells = size(U, 2) - 2
     F = params.cache.F
 
     apply_bc_electron!(U, params.BCs[3], :left, index)
     apply_bc_electron!(U, params.BCs[4], :right, index)
 
-    for i in 2:ncells+1
+    @inbounds for i in 2:ncells+1
 
         source_electron_energy_landmark!(Q, U, params, i)
 
@@ -152,8 +150,7 @@ function update_electron_energy!(dU, U, params, t)
         left = left_edge(i)
         right = right_edge(i)
 
-        #Δz = z_edge[right] - z_edge[left]
-        Δz = z_edge[3] - z_edge[2]
+        Δz = z_cell[i+1] - z_cell[i]
 
         # Upwinded first derivatives
         ue = U[index.ue, i]
@@ -179,7 +176,7 @@ function update_electron_energy!(dU, U, params, t)
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
         )
 
-        # Central second derivatives
+        # Central second derivatives, TODO make correct on boundaries
         diffusion_term += μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
         diffusion_term /= Δz^2
 
@@ -225,15 +222,15 @@ function affect!(integrator)
     ncells = size(U, 2) - 2
 
     #update useful quantities relevant for potential, electron energy and fluid solve
-    L_ch = 0.025
-    fluid = fluids[1].species.element
+    L_ch = params.L_ch
+    mi = m(fluids[1])
 
     @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
-        @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / fluid.m)
+        @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / mi)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
-        params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
+        params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i])
     end
 
@@ -277,7 +274,10 @@ function run_simulation(sim) #put source and Bcs potential in params
     OVS = Array{Union{Nothing, Bool}}(nothing, 1)
     OVS[1] = false
 
-    params = (; OVS, index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
+    ϕ_L = 300.0
+    ϕ_R = 0.0
+    L_ch = 0.025
+    params = (; L_ch, ϕ_L, ϕ_R, OVS, index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
               boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy)
@@ -285,7 +285,6 @@ function run_simulation(sim) #put source and Bcs potential in params
     #PREPROCESS
     #make values in params available for first implicit timestep
     ncells = size(U, 2) - 2
-    L_ch = 0.025
     fluid = fluids[1].species.element
     @inbounds for i in 1:(ncells + 2)
         @views U[index.ne, i] = max(1e-10, electron_density(U[:, i], fluid_ranges) / fluid.m)

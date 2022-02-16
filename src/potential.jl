@@ -111,35 +111,24 @@ end
 function solve_potential_edge!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-    z_cell, z_edge, _ = params.z_cell, params.z_edge, params.cell_volume
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    fluid = fluids[1].species.element
-    boundary_potential! = params.boundary_potential!
-    source_potential! = params.source_potential!
+    z_cell = params.z_cell
+    fluids = params.fluids
     index = params.index
     N = length(z_cell) - 1
 
-    L_ch = 0.025 #add to params
-
     pe = @views U[index.pe, :]
     ne = @views U[index.ne, :]
-    B = params.cache.B
     A = params.cache.A
     b = params.cache.b
-    Tev = @views U[index.Tev, :] 
-    νan = params.cache.νan
     μ = params.cache.μ
 
-    Δz = z_edge[3] - z_edge[2]
-
+    #= this line allocates
     OVS = Array{Union{Nothing, Bool}}(nothing, 1)
     OVS[1] = false
+    =#
 
-    #bc_consts = (; fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index)
-    #boundary_potential!(A, b, U, bc_consts) #if OVS, this sets to true
-
-    ϕ_L = 300.0
-    ϕ_R = 0.0
+    ϕ_L = params.ϕ_L
+    ϕ_R = params.ϕ_R
 
     b[1] = ϕ_L
     b[end] = ϕ_R
@@ -149,29 +138,21 @@ function solve_potential_edge!(U, params)
     A.d[N] = 1.0
     A.dl[N-1] = 0.0
 
-    for i in 2:(N - 1) #@tturbo
+    mi = m(fluids[1])
+
+    @turbo for i in 2:(N - 1)
 
         ne⁻ = ne[i]
         ne⁺ = ne[i + 1]
+        μ⁻ = μ[i]
+        μ⁺ = μ[i+1]
 
-        nn⁻ = U[1, i] / fluid.m
-        nn⁺ = U[1, i + 1] /fluid.m
+        # commenting out for now
+        #if OVS[1] == true
+        #    ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
+        #end
 
-        B⁻ = B[i]
-        B⁺ = B[i + 1]
-        νan⁻ = νan[i]
-        νan⁺ = νan[i + 1]
-        νc⁻ = electron_collision_freq(Tev[i], nn⁻, ne⁻, fluid.m)
-        νc⁺ = electron_collision_freq(Tev[i + 1], nn⁺, ne⁺, fluid.m)
-        μ⁻ = electron_mobility(νan⁻, νc⁻, B⁻)
-        μ⁺ = electron_mobility(νan⁺, νc⁺, B⁺)
-
-        if OVS[1] == true
-            ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
-        end
-
-        #Δz = z_edge[i - 1] - z_edge[i]
-        Δz = z_edge[4] - z_edge[3]
+        Δz = z_cell[i+1] - z_cell[i]
 
         Δz² = Δz^2
 
@@ -182,16 +163,9 @@ function solve_potential_edge!(U, params)
 
         #source term, h/2 to each side
         b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
-        (U[3, i + 1] - U[3, i]) / Δz / HallThruster.Xenon.m
-
-        #s_consts = (; i, i, μ⁻, μ⁺, pe, Δz)
-        #source_potential!(b, U, s_consts)
+        (U[3, i + 1] - U[3, i]) / Δz / mi
 
     end
-
-    #make ghost cells correspond to boundary values
-
-    #make sure ghost cells not used in tridiagonal solve
     return tridiagonal_solve!(@views(U[index.ϕ, 1:end-1]), A, b)
 end
 
