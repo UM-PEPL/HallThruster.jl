@@ -73,16 +73,11 @@ function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     Te_L = pe_L / UL[1] * mi
     Te_R = pe_R / UR[1] * mi
 
-    Te_L = smooth_if(Te_L, 1.0, 1.0, Te_L)# + kB * temperature(UL, fluid)
-    Te_R = smooth_if(Te_R, 1.0, 1.0, Te_R)# + kB * temperature(UR, fluid)
+    T_L = e * smooth_if(Te_L, 1.0, 1.0, Te_L) + kB * temperature(UL, fluid)
+    T_R = e * smooth_if(Te_R, 1.0, 1.0, Te_R) + kB * temperature(UR, fluid)
 
-    #if Te_L < 0
-    #    aL = NaN
-    #    aR = NaN
-    #else
-    aL = sqrt(e * Te_L / mi)
-    aR = sqrt(e * Te_R / mi)
-    #end
+    aL = sqrt(T_L / mi)
+    aR = sqrt(T_R / mi)
 
     #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
