@@ -73,6 +73,9 @@ function HLLE!(F, UL, UR, fluid, pe)
     #@show pe
     Te_L = pe / UL[1] * mi
     Te_R = pe / UR[1] * mi
+
+    Te_L = smooth_if(Te_L, 3.0, 3.0, Te_L)
+    Te_R = smooth_if(Te_R, 3.0, 3.0, Te_R)
     #@show Te_L
     #@show Te_R
 
