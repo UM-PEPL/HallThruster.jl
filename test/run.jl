@@ -64,8 +64,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10, implic
     callback = cb #SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
     =#
 
+    mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
     sim = HallThruster.MultiFluidSimulation(
-        grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells),
+        grid = mesh,
         boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
         initial_condition = IC!,
@@ -84,7 +85,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10, implic
 
     @time sol = HallThruster.run_simulation(sim)
 
-    p = plot_solution_real(sol.u[end][:, 2:end-1])
+    p = plot_solution_real(sol.u[end], mesh.cell_centers)
     display(p)
 
     return sol

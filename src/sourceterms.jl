@@ -73,9 +73,9 @@ function source_electron_energy_landmark!(Q, U, params, i)
     #QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 - S_wall_simple(U[4, :], i) - S_coll(U, params, i) #resistive heating collisions, u has to be total u not just z, azimuthal component dominating
     #Landmark source term
     if params.z_cell[i] <= 0.025
-        νε = 0.1*1e7
+        νε = 1*1e7
     else
-        νε = 0.1*1e7
+        νε = 1*1e7
     end
     UU = 20.0
     W = νε * U[index.Tev, i] * exp(-UU / U[index.Tev, i])

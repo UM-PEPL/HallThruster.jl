@@ -37,8 +37,10 @@ end
 
 using DelimitedFiles
 
-function plot_quantity(u, zmin = 0.0, zmax = 0.05; ref_path = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
-    z = LinRange(zmin, zmax, length(u))
+function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
+    if isnothing(z)
+        z = LinRange(zmin, zmax, length(u))
+    end
     p = plot()
     plot!(
         p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, bottommargin = 7Plots.mm, topmargin = 7Plots.mm, lw = 2,
@@ -65,41 +67,40 @@ function load_hallis_output(output_path)
     return output[1:end-1, :]
 end
 
-function plot_solution(u, case = 1)
+function plot_solution(u, z = nothing, case = 1)
     mi = HallThruster.Xenon.m
-    p_nn = plot_quantity(u[1, :] / mi, title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
-    p_ne = plot_quantity(u[2, :] / mi, title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(u[4, :], yaxis = :log, title = "Energy density", ylabel = "nϵ (eV m⁻³)")
-    p_ϵ  = plot_quantity(u[5, :], title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
-    p_ue = plot_quantity(u[10, :] ./ 1000, title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
-    p_E  = plot_quantity(-u[9, :], title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
+    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
+    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
+    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
+    p_nϵ = plot_quantity(u[4, :], yaxis = :log, z; title = "Energy density", ylabel = "nϵ (eV m⁻³)")
+    p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
+    p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
+    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
+    p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
     plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
 end
 
-function plot_solution_real(u, case = 1)
+function plot_solution_real(u, z = nothing, case = 1)
     hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_0$(case).out")
     coeff = HallThruster.load_landmark()
     mi = HallThruster.Xenon.m
-    for i in 1:length(u[4, :])
-        u[4, i] = coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi
-    end
-    p_nn = plot_quantity(u[1, :] / mi, title = "Neutral density", ylabel = "nn (m⁻³)", hallis = hallis, hallisvar = hallis.nn)
-    p_ne = plot_quantity(u[2, :] / mi, title = "Plasma density", yaxis = :log, ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(u[4, :], title = "Ionization_rate", yaxis = :log, ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
-    p_ϵ  = plot_quantity(u[5, :], title = "Electron temperature (eV)", ylabel = "ϵ (eV)", hallis = hallis, hallisvar = hallis.Te)
-    p_ue = plot_quantity(u[10, :] ./ 1000, title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
-    p_E  = plot_quantity(-u[9, :], title = "Electric field", ylabel = "E (V/m)", hallis = hallis, hallisvar = hallis.Ez)
+    ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
+    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", hallis = hallis, hallisvar = hallis.nn)
+    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", yaxis = :log, ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
+    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
+    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", yaxis = :log, ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
+    p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", hallis = hallis, hallisvar = hallis.Te)
+    p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
+    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
+    p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", hallis = hallis, hallisvar = hallis.Ez)
     p = plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
     png(p, "last")
+    return p
 end
 
-function animate_solution_all(sol)
+function animate_solution_all(sol, z = nothing)
     @gif for (u, t) in zip(sol.u, sol.t)
-        plot_solution(u)
+        plot_solution(u, z)
     end
 end
 
