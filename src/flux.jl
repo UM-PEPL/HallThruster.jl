@@ -71,8 +71,8 @@ function HLLE!(F, UL, UR, fluid, pe)
     mi = m(fluid)
 
     #@show pe
-    Te_L = 2/3 * pe / UL[1] * mi
-    Te_R = 2/3 * pe / UR[1] * mi
+    Te_L = pe / UL[1] * mi
+    Te_R = pe / UR[1] * mi
     #@show Te_L
     #@show Te_R
 
@@ -91,8 +91,8 @@ function HLLE!(F, UL, UR, fluid, pe)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid, 2/3 * e * pe )
-    FR = flux(UR, fluid, 2/3 * e * pe)
+    FL = flux(UL, fluid, e * pe)
+    FR = flux(UR, fluid, e * pe)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -

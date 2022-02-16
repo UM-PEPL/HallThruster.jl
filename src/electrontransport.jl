@@ -52,6 +52,7 @@ defines model for anomalous collision frequency.
     else
         ωce / 16
     end
+    #νan = ωce * smooth_if(z, L_ch, 1/160, 1/16, 10000) + 1e7 * smooth_if(z, L_ch, 1.0, 0.0, 10000)
     return νan
 end
 

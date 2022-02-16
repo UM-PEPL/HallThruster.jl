@@ -69,10 +69,13 @@ end
 
 function plot_solution(u, z = nothing, case = 1)
     mi = HallThruster.Xenon.m
+    coeff = HallThruster.load_landmark()
+    mi = HallThruster.Xenon.m
+    ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
     p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(u[4, :], yaxis = :log, z; title = "Energy density", ylabel = "nϵ (eV m⁻³)")
+    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
     p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
     p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
     p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
@@ -86,9 +89,9 @@ function plot_solution_real(u, z = nothing, case = 1)
     mi = HallThruster.Xenon.m
     ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", hallis = hallis, hallisvar = hallis.nn)
-    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", yaxis = :log, ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
+    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", yaxis = :log, ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
+    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
     p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", hallis = hallis, hallisvar = hallis.Te)
     p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
     p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
@@ -98,9 +101,10 @@ function plot_solution_real(u, z = nothing, case = 1)
     return p
 end
 
+
 function animate_solution_all(sol, z = nothing)
     @gif for (u, t) in zip(sol.u, sol.t)
-        plot_solution(u, z)
+        plot_solution_real(u, z)
     end
 end
 

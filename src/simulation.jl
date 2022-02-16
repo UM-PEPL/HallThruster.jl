@@ -117,8 +117,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
 
         # Ion diffusion term
-        η = 0.0 * sqrt(2*e*U[index.Tev, i]/(3*mi))
-        dU[index.lf, i] += η*(U[index.lf, i-1] - 2U[index.lf, i] + U[index.lf, i+1])/(Δz)^2
+        #η = 0.0 * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        #dU[index.lf, i] += η*(U[index.lf, i-1] - 2U[index.lf, i] + U[index.lf, i+1])/(Δz)^2
 
     end
 
@@ -290,7 +290,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     @inbounds for i in 1:(ncells + 2)
         @views U[index.ne, i] = max(1e-10, electron_density(U[:, i], fluid_ranges) / fluid.m)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
-        U[index.pe, i] = U[index.nϵ, i]/3*2
+        U[index.pe, i] = U[index.nϵ, i]
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         #U[index.ϕ, i] = ϕ_hallis(params.z_cell[i])
         #U[index.grad_ϕ, i] = grad_ϕ_hallis(params.z_cell[i])

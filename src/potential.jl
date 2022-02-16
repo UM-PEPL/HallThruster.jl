@@ -34,8 +34,9 @@ function solve_potential!(U, params)
 
     Δz = z_edge[3] - z_edge[2]
 
-    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
-    OVS[1] = false
+    # This line allocates
+    #OVS = Array{Union{Nothing, Bool}}(nothing, 1)
+    #OVS[1] = false
 
     #bc_consts = (; fluid, N, pe, ne, B, Tev, νan, Δz, OVS, index)
     #boundary_potential!(A, b, U, bc_consts) #if OVS, this sets to true
