@@ -58,7 +58,7 @@ end
 # we're losing a lot of time (~1/4 of the run time) on the conditionals in the thermodynamics, better to do one conditional
 # and then go from there. however, that would lead to about 2x more code in this section and a loss of generality. probably
 # better to wait to overhaul this until the main features are in and we can think about a refactor
-function HLLE!(F, UL, UR, fluid, pe)
+function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     γ = fluid.species.element.γ
 
     uL = velocity(UL, fluid)
@@ -70,22 +70,19 @@ function HLLE!(F, UL, UR, fluid, pe)
     # electron pressure coupling, use cs instead of a
     mi = m(fluid)
 
-    #@show pe
-    Te_L = pe / UL[1] * mi
-    Te_R = pe / UR[1] * mi
+    Te_L = pe_L / UL[1] * mi
+    Te_R = pe_R / UR[1] * mi
 
-    Te_L = smooth_if(Te_L, 3.0, 3.0, Te_L)
-    Te_R = smooth_if(Te_R, 3.0, 3.0, Te_R)
-    #@show Te_L
-    #@show Te_R
+    Te_L = smooth_if(Te_L, 1.0, 1.0, Te_L)# + kB * temperature(UL, fluid)
+    Te_R = smooth_if(Te_R, 1.0, 1.0, Te_R)# + kB * temperature(UR, fluid)
 
-    if Te_L < 0
-        aL = NaN
-        aR = NaN
-    else
-        aL = sqrt(e * Te_L / mi)
-        aR = sqrt(e * Te_R / mi)
-    end
+    #if Te_L < 0
+    #    aL = NaN
+    #    aR = NaN
+    #else
+    aL = sqrt(e * Te_L / mi)
+    aR = sqrt(e * Te_R / mi)
+    #end
 
     #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
@@ -94,8 +91,8 @@ function HLLE!(F, UL, UR, fluid, pe)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid, e * pe)
-    FR = flux(UR, fluid, e * pe)
+    FL = flux(UL, fluid, e * pe_L)
+    FR = flux(UR, fluid, e * pe_R)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -105,14 +102,14 @@ function HLLE!(F, UL, UR, fluid, pe)
     return F
 end
 
-function upwind!(F, UL, UR, fluid::Fluid, pe)
+function upwind!(F, UL, UR, fluid::Fluid, pe_L, pe_R)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
     if avg_velocity ≥ 0
-        flux!(F, UL, fluid, pe)
+        flux!(F, UL, fluid, pe_L)
     else
-        flux!(F, UR, fluid, pe)
+        flux!(F, UR, fluid, pe_R)
     end
     return F
 end
@@ -195,8 +192,10 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe)
 
     for i in 1:nedges
         for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
+            pe_L = pe[i]
+            pe_R = pe[i+1]
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
-                                        UR[fluid_range, i], fluid, pe[i])
+                                        UR[fluid_range, i], fluid, pe_L, pe_R)
         end
     end
     return F
