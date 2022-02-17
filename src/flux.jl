@@ -71,10 +71,11 @@ function HLLE!(F, UL, UR, fluid, pe)
     mi = m(fluid)
 
     #@show pe
-    Te_L = pe / UL[1] * mi
-    Te_R = pe / UR[1] * mi
-    #@show Te_L
-    #@show Te_R
+    T_i_L = temperature(UL, fluid)*kB/e
+    T_i_R = temperature(UR, fluid)*kB/e
+
+    Te_L = pe / UL[1] * mi + T_i_L
+    Te_R = pe / UR[1] * mi + T_i_R
 
     if Te_L < 0
         aL = NaN
@@ -84,7 +85,6 @@ function HLLE!(F, UL, UR, fluid, pe)
         aR = sqrt(e * Te_R / mi)
     end
 
-    #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
 
@@ -118,7 +118,7 @@ end
 for fluxfn in ["HLLE", "upwind"]
     let inplace = Symbol(fluxfn * '!'), outofplace = Symbol(fluxfn)
         eval(quote
-                 $outofplace(UL, UR, fluid::Fluid) = $inplace(similar(UL), UL, UR, fluid)
+                 $outofplace(UL, UR, fluid::Fluid, pe) = $inplace(similar(UL), UL, UR, fluid, pe)
              end)
     end
 end

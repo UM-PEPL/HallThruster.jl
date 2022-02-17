@@ -24,22 +24,16 @@ function flux_electron!(F, US, fluid, params, U, i)
     nϵ = US
     uₑ = U[index.ue, i]
     ϵ = U[index.Tev, i]
-    #grad_Tev = first_deriv_facereconstr_2order(U[index.Tev, :]*3/2*HallThruster.kB, params.z_cell, i)
     @views grad_Tev = first_deriv_facereconstr_2order(U[index.nϵ, :], params.z_cell, i)
     κₑ = e_heat_conductivity(params, i)
-    #F = 5/3*nϵ*uₑ - κₑ*grad_Tev*100 #works more or less
-    F = 5/3*nϵ*uₑ #- κₑ*nϵ*ϵ/(params.z_cell[i+1] - params.z_cell[i])
-    #F = - κₑ*grad_Tev*U[index.Tev, i]*3/2*HallThruster.kB/HallThruster.e
-    #F = - κₑ*grad_Tev
-    #println("i in flux_electron!: ", i)
+    F = 5/3*nϵ*uₑ
     return F
 end
 
 function compute_fluxes_electron!(F, UL, UR, U, fluid, fluid_ranges, scheme, params)
     nedges = length(F)
 
-    for i in 1:nedges #+1
-        #println("i in compute_fluxes!: ", i)
+    for i in 1:nedges
         @views F[i] = scheme.flux_function(F[i], UL[i],
                                         UR[i], fluid, params, U, i)
     end
@@ -51,14 +45,12 @@ function upwind_electron!(F, UL, UR, fluid, params, U, i)
     uL = U[index.ue, right_edge(i+1)] 
     uR = U[index.ue, left_edge(i+1)]
     avg_velocity = 0.5 * (uL + uR)
-    #println("uL, uR velocities: ", uL, uR)
 
     if avg_velocity ≥ 0
         F = flux_electron!(F, UL, fluid, params, U, i)
     else
         F = flux_electron!(F, UR, fluid, params, U, i)
     end
-    #println("F at i in upwind func: ", F, "   ", i+1)
     return F
 end
 
@@ -98,10 +90,8 @@ returns left one sided second order approx.
 function first_deriv_central_diff(u, z_cell, i) #central second order approx of first derivative
     if i == 1
         grad = (-3*u[i] + 4*u[i+1] - u[i+2])/(abs(z_cell[i+1]-z_cell[i+3])) #second order one sided for boundary, or adapt for non constant stencil
-        #grad = (-u[i]+u[i+1])/abs(z_cell[i] - z_cell[i+1]) #first order to not switch sign
     elseif i == length(u)
         grad = (u[i-2] - 4*u[i-1] + 3*u[i])/(abs(z_cell[i-3]-z_cell[i-1])) #second order one sided for boundary
-        #grad = (-u[i-1]+u[i])/abs(z_cell[i] - z_cell[i-1]) #first order to not switch sign
     else
         grad = (u[i+1] - u[i-1])/(abs(z_cell[4]-z_cell[2])) #centered difference
     end
@@ -111,7 +101,6 @@ end
 
 function first_deriv_central_diff_pot(u, z_cell, i) #central difference of first deriv
     if i == 1
-        #grad = (-3*(u[i] + 4*(u[i]+u[i+1])/2 - (u[i+1]+u[i+2])/2))/(abs(z_cell[4]-z_cell[2]))
         grad = (u[2] - u[1])/(z_cell[3] - z_cell[2])
     elseif i == length(u)
         grad = (u[i-1] - u[i-2])/(z_cell[3] - z_cell[2])

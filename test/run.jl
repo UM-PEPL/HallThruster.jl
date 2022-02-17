@@ -10,20 +10,9 @@ include("plotting.jl")
 function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
     HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
+    #HallThruster.apply_bc_electron(Q, U, params, i)
     #HallThruster.source_electron_energy_landmark!(Q, U, params, i)
     return Q
-end
-
-function source_potential!(b, U, s_consts)
-    HallThruster.potential_source_term!(b, U, s_consts)
-    #HallThruster.OVS_potential_source_term!(b, s_consts)
-end
-
-function boundary_potential!(A, b, U, bc_consts)
-    ϕ_L = 300.0
-    ϕ_R = 0.0
-    HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
-    #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
@@ -58,11 +47,6 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10, implic
     else
         LinRange(0.0, end_time, nsave) |> collect
     end
-
-    #=
-    saved_values = SavedValues(Float64, NTuple{3, Vector{Float64}})
-    callback = cb #SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
-    =#
 
     mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
     sim = HallThruster.MultiFluidSimulation(
