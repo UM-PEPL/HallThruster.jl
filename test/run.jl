@@ -11,7 +11,7 @@ function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
     HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
     #HallThruster.apply_bc_electron(Q, U, params, i)
-    #HallThruster.source_electron_energy_landmark!(Q, U, params, i)
+    HallThruster.source_electron_energy_landmark!(Q, U, params, i)
     return Q
 end
 
@@ -56,8 +56,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, limiter, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
-        source_potential! = source_potential!,
-        boundary_potential! = boundary_potential!,
+        source_potential! = nothing,
+        boundary_potential! = nothing,
         fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(u1, 300.0))
             HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(0.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],

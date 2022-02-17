@@ -101,7 +101,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     @inbounds  for i in 2:(ncells + 1)
         @turbo Q .= 0.0
 
-        #fluid source term (includes ionization and acceleration)
+        #fluid source term (includes ionization and acceleration and energy)
         source_term!(Q, U, params, i)
 
         #Compute dU/dt
@@ -113,6 +113,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
         # Ion and neutral fluxes
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
+        dU[index.nϵ, i] = Q[index.nϵ]
 
         # Ion diffusion term
         #η = 0.0 * sqrt(2*e*U[index.Tev, i]/(3*mi))
@@ -137,15 +138,13 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
     F = params.cache.F
 
-    #apply_bc_electron!(U, params.BCs[3], :left, index)
-    #apply_bc_electron!(U, params.BCs[4], :right, index)
+    apply_bc_electron!(dU, params.BCs[3], :left, index)
+    apply_bc_electron!(dU, params.BCs[4], :right, index)
 
-    dU[index.nϵ, 1] = dU[index.ne] * 3.0
-    dU[index.nϵ, end] = dU[index.ne] * 3.0
+    #dU[index.nϵ, 1] = dU[index.ne] * 3.0
+    #dU[index.nϵ, end] = dU[index.ne] * 3.0
 
     @inbounds for i in 2:ncells+1
-
-        dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
 
         left = left_edge(i)
         right = right_edge(i)

@@ -145,26 +145,26 @@ let Xenon = HallThruster.Xenon,
 		@test flux(euler..., pe) == f_euler
 
 		# HLLE flux
-		@test HLLE(continuity_state, continuity..., pe)[1] == flux(continuity..., pe)[1]
-		@test HLLE(isothermal_state, isothermal..., pe)[1:2] == flux(isothermal..., pe)[1:2] |> collect
-		@test HLLE(euler_state, euler..., pe) == flux(euler..., pe) |> collect
+		@test HLLE(continuity_state, continuity..., pe, pe)[1] == flux(continuity..., pe)[1]
+		@test HLLE(isothermal_state, isothermal..., pe, pe)[1:2] == flux(isothermal..., pe)[1:2] |> collect
+		@test HLLE(euler_state, euler..., pe, pe) == flux(euler..., pe) |> collect
 
-		@test upwind(continuity_state, continuity_state_2, continuity_eq, pe)[1] ==
+		@test upwind(continuity_state, continuity_state_2, continuity_eq, pe, pe)[1] ==
 			flux(continuity..., pe)[1]
 
-		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq, pe) ==
+		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq, pe, pe) ==
 			flux(isothermal..., pe)[1:2]  |> collect
 
 		isothermal_state_2[2] *= -2
 
-		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq, pe)[1:2] ==
+		@test upwind(isothermal_state, isothermal_state_2, isothermal_eq, pe, pe)[1:2] ==
 			flux(isothermal_state_2, isothermal_eq, pe)[1:2]  |> collect
 
-		@test upwind(euler_state, euler_state_2, euler_eq, pe) == flux(euler..., pe) |> collect
+		@test upwind(euler_state, euler_state_2, euler_eq, pe, pe) == flux(euler..., pe) |> collect
 
 		euler_state_2[2] *= -2
 
-		@test upwind(euler_state, euler_state_2, euler_eq, pe) ==
+		@test upwind(euler_state, euler_state_2, euler_eq, pe, pe) ==
 			flux(euler_state_2, euler_eq, pe) |> collect
 	end
     U1 = [continuity_state; isothermal_state; euler_state]
@@ -185,7 +185,7 @@ scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
 
 	UL_expected = hcat(U1, U1, U2)
 	UR_expected = hcat(U1, U2, U2)
-    pe = [0.0, 0.0, 0.0]
+    pe = [0.0, 0.0, 0.0, 0.0]
 
 	fluids = [continuity_eq, isothermal_eq, euler_eq]
 	fluid_ranges = HallThruster.ranges(fluids)

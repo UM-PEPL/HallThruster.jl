@@ -112,7 +112,7 @@ end
 for fluxfn in ["HLLE", "upwind"]
     let inplace = Symbol(fluxfn * '!'), outofplace = Symbol(fluxfn)
         eval(quote
-                 $outofplace(UL, UR, fluid::Fluid, pe) = $inplace(similar(UL), UL, UR, fluid, pe)
+                 $outofplace(UL, UR, fluid::Fluid, pe_L, pe_R) = $inplace(similar(UL), UL, UR, fluid, pe_L, pe_R)
              end)
     end
 end

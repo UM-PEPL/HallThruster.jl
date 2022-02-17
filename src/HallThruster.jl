@@ -28,4 +28,5 @@ include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
 include("electronenergy.jl")
+include("utility_functions.jl")
 end # module
