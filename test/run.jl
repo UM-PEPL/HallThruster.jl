@@ -27,7 +27,8 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     return U
 end
 
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10, implicit_energy = false, adaptive = false)
+function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
+        implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher)
     fluid = HallThruster.Xenon
 
     #fluid BCs #############################
@@ -52,7 +53,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10, implic
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
         boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
-        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, identity, false),
+        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, limiter, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
         source_potential! = source_potential!,

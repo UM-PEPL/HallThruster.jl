@@ -132,20 +132,20 @@ function update_electron_energy!(dU, U, params, t)
     #ELECTRON SOLVE
 
     index = params.index
-    Q = params.cache.Q
     μ = params.cache.μ
     z_cell = params.z_cell
     ncells = size(U, 2) - 2
     F = params.cache.F
 
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
+    #apply_bc_electron!(U, params.BCs[3], :left, index)
+    #apply_bc_electron!(U, params.BCs[4], :right, index)
+
+    dU[index.nϵ, 1] = dU[index.ne] * 3.0
+    dU[index.nϵ, end] = dU[index.ne] * 3.0
 
     @inbounds for i in 2:ncells+1
 
-        source_electron_energy_landmark!(Q, U, params, i)
-
-        dU[index.nϵ, i] = Q[index.nϵ]
+        dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
 
         left = left_edge(i)
         right = right_edge(i)
@@ -156,21 +156,15 @@ function update_electron_energy!(dU, U, params, t)
         # Upwinded first derivatives
         ue = U[index.ue, i]
         ne = U[index.ne, i]
-        ue⁺ = max(ue, 0.0) / ue
-        ue⁻ = min(ue, 0.0) / ue
-
+        #ue⁺ = max(ue, 0.0) / ue
+        #ue⁻ = min(ue, 0.0) / ue
+        ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
+        ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
 
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
             ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
         ) / Δz
-
-        # this was attempting to use ∇⋅(niui) = ∇⋅(neue)
-        #=advection_term = (
-            U[index.Tev] * (F[2, right] - F[2, left]) +
-            ne * ue⁺ * ue * (U[index.Tev, i] - U[index.Tev, i-1]) -
-            ne * ue⁻ * ue * (U[index.Tev, i] - U[index.Tev, i+1])
-        ) / Δz=#
 
         diffusion_term = -(
             ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
@@ -301,16 +295,18 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     implicit_energy = sim.solve_energy
 
+    maxiters = Int(ceil(1000 * tspan[2] / timestep))
+
     if implicit_energy
         splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
-        sol = solve(splitprob, KenCarp4(autodiff=false); saveat=sim.saveat, callback=cb,
+        sol = solve(splitprob, KenCarp47(); saveat=sim.saveat, callback=cb,
         adaptive=adaptive, dt=timestep, dtmax = timestep)
     else
         #alg = SSPRK22()
         alg = AutoTsit5(Rosenbrock23())
         prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
         sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
-        adaptive=adaptive, dt=timestep, dtmax=timestep)
+        adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
 
     return sol
