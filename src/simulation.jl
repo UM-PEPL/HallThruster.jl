@@ -255,6 +255,7 @@ function affect!(integrator)
 end
 
 function run_simulation(sim) #put source and Bcs potential in params
+    
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
     grid = sim.grid
 
@@ -315,7 +316,7 @@ function run_simulation(sim) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
 
-    return sol
+    return sol #return params too
 end
 
 function inlet_neutral_density(sim)

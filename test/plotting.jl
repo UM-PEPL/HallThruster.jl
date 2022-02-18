@@ -149,7 +149,7 @@ end
 
 function calc_current(sol) #need to divide by area?
     current = zeros(2, length(sol.t))
-    area = pi*(0.05^2 - 0.025^2)
+    area = pi*(0.05^2 - 0.035^2)
     distance = 0.050 - 0.0350
     for i in 1:length(sol.t)
         current[1, i] = sol.u[i][3, end-1]*HallThruster.e/HallThruster.Xenon.m*area
