@@ -15,6 +15,7 @@ end
 function Base.getindex(sol::HallThrusterSolution, I1, field::String)
     index = sol.params.index
     mi = sol.params.fluids[1].species.element.m
+    params = sol.params
     if field == "nn"
         return sol[I1, 1] / mi
     elseif field == "ni"
@@ -35,10 +36,27 @@ function Base.getindex(sol::HallThrusterSolution, I1, field::String)
         return -sol[I1, index.grad_ϕ]
     elseif field == "ϕ"
         return sol[I1, index.ϕ]
+    elseif field == "B"
+        return params.cache.B
+    elseif field == "νan"
+        return [get_v_an(z, B, params.L_ch) for (z, B) in zip(params.z_cell, params.cache.B)]
+    elseif field == "νc"
+        return @views [
+                electron_collision_freq(Te, nn, ne, mi)
+                for (Te, nn, ne) in zip(
+                    sol.sol.u[I1][index.Tev, :],
+                    sol.sol.u[I1][1, :]/mi,
+                    sol.sol.u[I1][2, :]/mi,
+                )]
+    elseif field == "z"
+        return params.z_cell
     else
         throw(ArgumentError("Hall thruster has no field \"$(field)\""))
     end
 end
+
+Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.sol, args...)
+Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.sol, args...)
 
 #=
 function extract_data(u::Matrix{T}, config)
