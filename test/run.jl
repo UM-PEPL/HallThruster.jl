@@ -70,7 +70,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     @time sol = HallThruster.run_simulation(sim)
 
-    p = plot_solution(sol.u[end], mesh.cell_centers)
+    p = plot_solution(sol.sol.u[end], mesh.cell_centers)
     display(p)
 
     return sol
