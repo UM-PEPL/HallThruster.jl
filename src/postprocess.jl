@@ -1,6 +1,19 @@
-struct HallThrusterSolution{S, P}
-    sol::S
+struct HallThrusterSolution{T, U, P}
+    t::T
+    u::U
+    retcode::Symbol
+    destats::DiffEqBase.DEStats
     params::P
+end
+
+function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODESolution, P}
+    return HallThrusterSolution(
+        sol.t,
+        sol.u,
+        sol.retcode,
+        sol.destats,
+        params
+    )
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", s::HallThrusterSolution)
@@ -9,7 +22,7 @@ function Base.show(io::IO, mime::MIME"text/plain", s::HallThrusterSolution)
 end
 
 function Base.getindex(sol::HallThrusterSolution, I1, I2)
-    return sol.sol.u[I1][I2, :]
+    return sol.u[I1][I2, :]
 end
 
 function Base.getindex(sol::HallThrusterSolution, I1, field::String)
@@ -44,9 +57,9 @@ function Base.getindex(sol::HallThrusterSolution, I1, field::String)
         return @views [
                 electron_collision_freq(Te, nn, ne, mi)
                 for (Te, nn, ne) in zip(
-                    sol.sol.u[I1][index.Tev, :],
-                    sol.sol.u[I1][1, :]/mi,
-                    sol.sol.u[I1][2, :]/mi,
+                    sol.u[I1][index.Tev, :],
+                    sol.u[I1][1, :]/mi,
+                    sol.u[I1][2, :]/mi,
                 )]
     elseif field == "z"
         return params.z_cell
