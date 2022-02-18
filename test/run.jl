@@ -9,7 +9,8 @@ include("plotting.jl")
 
 function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
-    HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
+    HallThruster.apply_ion_acceleration!(Q, U, params, i)
+    #HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
     #HallThruster.apply_bc_electron(Q, U, params, i)
     HallThruster.source_electron_energy_landmark!(Q, U, params, i)
     return Q
