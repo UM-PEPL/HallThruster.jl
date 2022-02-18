@@ -26,6 +26,7 @@ function solve_potential_edge!(U, params)
     A = params.cache.A
     b = params.cache.b
     μ = params.cache.μ
+    OVS = params.OVS.potential
 
     #= this line allocates
     OVS = Array{Union{Nothing, Bool}}(nothing, 1)
@@ -67,8 +68,8 @@ function solve_potential_edge!(U, params)
         A.du[i] = ne⁺ * μ⁺ / Δz²
 
         #source term, h/2 to each side
-        b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
-        (U[3, i + 1] - U[3, i]) / Δz / mi
+        b[i] = (1 - OVS)*(μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
+        (U[3, i + 1] - U[3, i]) / Δz / mi + OVS*50000
 
     end
     return tridiagonal_solve!(@views(U[index.ϕ, 1:end-1]), A, b)

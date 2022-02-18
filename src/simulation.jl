@@ -108,8 +108,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         left = left_edge(i)
         right = right_edge(i)
 
-        #Δz = z_edge[right] - z_edge[left]
-        Δz = z_edge[3] - z_edge[2]
+        Δz = z_edge[right] - z_edge[left]
+        #Δz = z_edge[3] - z_edge[2]
 
         # Ion and neutral fluxes
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
@@ -138,8 +138,8 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
     F = params.cache.F
 
-    apply_bc_electron!(dU, params.BCs[3], :left, index)
-    apply_bc_electron!(dU, params.BCs[4], :right, index)
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
 
     #dU[index.nϵ, 1] = dU[index.ne] * 3.0
     #dU[index.nϵ, end] = dU[index.ne] * 3.0
@@ -155,10 +155,12 @@ function update_electron_energy!(dU, U, params, t)
         # Upwinded first derivatives
         ue = U[index.ue, i]
         ne = U[index.ne, i]
+
         #ue⁺ = max(ue, 0.0) / ue
         #ue⁻ = min(ue, 0.0) / ue
         ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
+    
 
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
@@ -217,7 +219,7 @@ function update_values!(U, params)
     L_ch = params.L_ch
     mi = m(fluids[1])
 
-    @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
+    @inbounds @views for i in 1:(ncells + 2)
         @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / mi)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]
@@ -230,7 +232,7 @@ function update_values!(U, params)
     # update electrostatic potential
     solve_potential_edge!(U, params)
 
-    @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
+    @inbounds @views for i in 1:(ncells + 2)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         U[index.ue, i] = electron_velocity(U, params, i)
         #U[index.ue, i] = -100.0
@@ -271,8 +273,7 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     precompute_bfield!(cache.B, grid.cell_centers)
 
-    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
-    OVS[1] = false
+    OVS = Verification(0, 0, 0)
 
     ϕ_L = 300.0
     ϕ_R = 0.0
@@ -287,7 +288,7 @@ function run_simulation(sim) #put source and Bcs potential in params
     update_values!(U, params)
 
     if sim.callback !== nothing
-        cb = CallbackSet(DiscreteCallback(condition, affect!, save_positions=(false,false)), sim.cb)
+        cb = CallbackSet(DiscreteCallback(condition, affect!, save_positions=(false,false)), sim.callback)
     else
         cb = DiscreteCallback(condition, affect!, save_positions=(false,false))
     end

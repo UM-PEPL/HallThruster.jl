@@ -445,13 +445,13 @@ end
 ######################################
 #computations for MMS OVS
 
-#=
+
 const MMS_CONSTS = (
     CFL = 0.1, 
     n_cells_start = 10,
     fluid = HallThruster.Xenon,
     max_end_time = 300e-5,
-    refinements = 7,
+    refinements = 3,
     n_waves = 2.0,
     u_constant = 300.0, #for continuity
     T_constant = 300.0, #for continuity and isothermal
@@ -464,6 +464,7 @@ const MMS_CONSTS = (
     Tx = 100.0
 )
 
+#=
 @variables x t
 Dt = Differential(t)
 Dx = Differential(x)
@@ -565,16 +566,18 @@ end
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
-end
+end=#
+
+include("ovs_mms.jl")
 
 @testset "Order verficication study of Potential, with analytic solution for d^2x/dy^2 = 50000, Dirichlet boundaries" begin
     results = perform_OVS_potential(; MMS_CONSTS, fluxfn = HallThruster.HLLE!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS)
     expected_slope = 2
-    @test L_1[1] ≈ expected_slope atol = expected_slope*0.1
-    println("L_1 $(L_1[1])")
-    @test L_inf[1] ≈ expected_slope atol = expected_slope*0.1
-    println("L_inf $(L_inf[1])")
+    @test mean(results[i].L_1 for i in 1:MMS_CONSTS.refinements) < 1e-10
+    println("Mean L_1 error $(mean(results[i].L_1 for i in 1:MMS_CONSTS.refinements))")
+    @test mean(results[i].L_inf for i in 1:MMS_CONSTS.refinements) < 1e-10
+    println("Mean L_inf error $(mean(results[i].L_inf for i in 1:MMS_CONSTS.refinements))")
     #=
     p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
     Plots.plot!(p1, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]), title = "L_1", label = false)
@@ -583,7 +586,6 @@ end
     p3 = Plots.plot!(p1, p2, layout = (1, 2), size = (1000, 500),  margin=5Plots.mm)
     Plots.png(p3, "alfa")=#
 end
-=#
 
 #= need no energy solve for this, works otherwise
 @testset "Test ion acceleration source term" begin
@@ -600,11 +602,11 @@ end=#
 #####################################################################################################################################
 #ELECTRON ENERGY OVS
 #redefine MMS CONSTS according to values in simulation
-#for now, need to manually set the μ and ue 
+#for now, need to manually set the μ and ue in simulation.jl, change boundary conditions to U, set pe = 0 in flux computation, comment out energy
 
-
+#=
 const MMS_CONSTS_ELEC = (
-    CFL = 0.0001, 
+    CFL = 0.01, 
     n_cells_start = 20,
     fluid = HallThruster.Xenon,
     max_end_time = 300e-5,
@@ -682,5 +684,5 @@ mms_conservative = eval(conservative_func[1])
     p9 = Plots.plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (4, 2), size = (2000, 1000),  margin=5Plots.mm)
     Plots.png(p9, "alfa")
 
-end
+end=#
 
