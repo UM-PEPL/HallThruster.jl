@@ -17,3 +17,10 @@ smooth_min(x,y,k=10) = smooth_max(x, y, -k)
 Computes an analytic approximation to x < cutoff ? v1 : v2
 """
 smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
+
+#for OVS
+mutable struct Verification
+    potential ::Int64
+    fluid ::Int64
+    energy ::Int64
+end

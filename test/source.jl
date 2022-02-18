@@ -14,13 +14,6 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
         #HallThruster.OVS_potential_source_term!(b, s_consts)
     end
     
-    function boundary_potential!(A, b, U, bc_consts)
-        ϕ_L = 400.0
-        ϕ_R = 0.0
-        HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
-        #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
-    end
-
     function IC!(U, z, fluids, L)
         ρ1 = 1e19 * fluid.m
         u1 = 300.0
@@ -61,7 +54,7 @@ function test_ion_accel_source(fluxfn, reconstruct, end_time, dt)
 
     #check if ion exit velocity corresponds to energy conservation
     println("ion exit velocity: $(sol.u[1][3, end]./sol.u[1][2, end])")
-    @test sol.u[1][3, end]./sol.u[1][2, end] ≈ sqrt(2*400*HallThruster.e/fluid.m) atol = 1000
+    @test sol.u[1][3, end]./sol.u[1][2, end] ≈ sqrt(2*300*HallThruster.e/fluid.m) atol = 1000
 
 end
 

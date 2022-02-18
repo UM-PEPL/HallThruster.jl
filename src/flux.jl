@@ -79,7 +79,6 @@ function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     aL = sqrt(T_L / mi)
     aR = sqrt(T_R / mi)
 
-    #@show aL, aR
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
 
@@ -113,7 +112,7 @@ end
 for fluxfn in ["HLLE", "upwind"]
     let inplace = Symbol(fluxfn * '!'), outofplace = Symbol(fluxfn)
         eval(quote
-                 $outofplace(UL, UR, fluid::Fluid) = $inplace(similar(UL), UL, UR, fluid)
+                 $outofplace(UL, UR, fluid::Fluid, pe_L, pe_R) = $inplace(similar(UL), UL, UR, fluid, pe_L, pe_R)
              end)
     end
 end

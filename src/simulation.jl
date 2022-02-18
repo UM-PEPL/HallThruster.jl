@@ -101,18 +101,18 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     @inbounds  for i in 2:(ncells + 1)
         @turbo Q .= 0.0
 
-        #fluid source term (includes ionization and acceleration)
+        #fluid source term (includes ionization and acceleration and energy)
         source_term!(Q, U, params, i)
 
         #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
-        #Δz = z_edge[right] - z_edge[left]
-        Δz = z_edge[3] - z_edge[2]
+        Δz = z_edge[right] - z_edge[left]
 
         # Ion and neutral fluxes
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
+        dU[index.nϵ, i] = Q[index.nϵ]
 
         # Ion diffusion term
         #η = 0.0 * sqrt(2*e*U[index.Tev, i]/(3*mi))
@@ -120,7 +120,6 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     end
 
-    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
@@ -136,45 +135,54 @@ function update_electron_energy!(dU, U, params, t)
     z_cell = params.z_cell
     ncells = size(U, 2) - 2
     F = params.cache.F
+    z_edge = params.z_edge
 
-    #apply_bc_electron!(U, params.BCs[3], :left, index)
-    #apply_bc_electron!(U, params.BCs[4], :right, index)
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
 
-    dU[index.nϵ, 1] = dU[index.ne] * 3.0
-    dU[index.nϵ, end] = dU[index.ne] * 3.0
+    #dU[index.nϵ, 1] = dU[index.ne] * 3.0
+    #dU[index.nϵ, end] = dU[index.ne] * 3.0
 
     @inbounds for i in 2:ncells+1
-
-        dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
 
         left = left_edge(i)
         right = right_edge(i)
 
-        Δz = z_cell[i+1] - z_cell[i]
-
         # Upwinded first derivatives
         ue = U[index.ue, i]
         ne = U[index.ne, i]
+
+        Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
+    
         #ue⁺ = max(ue, 0.0) / ue
         #ue⁻ = min(ue, 0.0) / ue
         ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
+    
 
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
             ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
         ) / Δz
 
-        diffusion_term = -(
+        diffusion_term_1 = -(
             ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
-        )
+        ) / Δz^2
 
-        # Central second derivatives, TODO make correct on boundaries
-        diffusion_term += μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
-        diffusion_term /= Δz^2
+        if i == 2
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
+            diffusion_term_2 /= 3*Δz^2
+        elseif i == ncells + 1
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4U[index.Tev, i-1] - 12U[index.Tev, i] + 8U[index.Tev, i+1])
+            diffusion_term_2 /= 3*Δz^2
+        else
+            # Central second derivatives
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
+            diffusion_term_2 /= Δz^2
+        end
 
-        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * diffusion_term
+        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term_1 + diffusion_term_2)
     end
 
     return nothing
@@ -203,9 +211,7 @@ function precompute_bfield!(B, zs)
     end
 end
 
-condition(u,t,integrator) = t < 1
-function affect!(integrator)
-    U, params = integrator.u, integrator.p
+function update_values!(U, params)
 
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     index = params.index
@@ -219,25 +225,33 @@ function affect!(integrator)
     L_ch = params.L_ch
     mi = m(fluids[1])
 
-    @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
+    @inbounds @views for i in 1:(ncells + 2)
         @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / mi)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i])
+        #params.cache.μ[i] = 10.0
     end
 
     # update electrostatic potential
     solve_potential_edge!(U, params)
 
-    @inbounds @views for i in 1:(ncells + 2) #pay attention as to whether J or eV in electron energy equ. 
+    @inbounds @views for i in 1:(ncells + 2)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         U[index.ue, i] = electron_velocity(U, params, i)
+        #U[index.ue, i] = -100.0
     end
 
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
+
+end
+
+condition(u,t,integrator) = t < 1
+function affect!(integrator)
+    update_values!(integrator.u, integrator.p)
 end
 
 function run_simulation(sim) #put source and Bcs potential in params
@@ -265,8 +279,7 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     precompute_bfield!(cache.B, grid.cell_centers)
 
-    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
-    OVS[1] = false
+    OVS = Verification(0, 0, 0)
 
     ϕ_L = 300.0
     ϕ_R = 0.0
@@ -277,24 +290,14 @@ function run_simulation(sim) #put source and Bcs potential in params
               boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy)
 
     #PREPROCESS
-    #make values in params available for first implicit timestep
-    ncells = size(U, 2) - 2
-    fluid = fluids[1].species.element
-    @inbounds for i in 1:(ncells + 2)
-        @views U[index.ne, i] = max(1e-10, electron_density(U[:, i], fluid_ranges) / fluid.m)
-        U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
-        U[index.pe, i] = U[index.nϵ, i]
-        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        #U[index.ϕ, i] = ϕ_hallis(params.z_cell[i])
-        #U[index.grad_ϕ, i] = grad_ϕ_hallis(params.z_cell[i])
-        params.cache.νan[i] = get_v_an(params.z_cell[i], params.cache.B[i], L_ch)
-        params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/fluid.m , U[index.ne, i], fluid.m)
-        params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], params.cache.B[i])
-        U[index.ue, i] = electron_velocity(U, params, i)
-    end
+    #make values in params available for first timestep
+    update_values!(U, params)
 
-    solve_potential_edge!(U, params)
-    cb = DiscreteCallback(condition, affect!, save_positions=(false,false))
+    if sim.callback !== nothing
+        cb = CallbackSet(DiscreteCallback(condition, affect!, save_positions=(false,false)), sim.callback)
+    else
+        cb = DiscreteCallback(condition, affect!, save_positions=(false,false))
+    end
 
     implicit_energy = sim.solve_energy
 

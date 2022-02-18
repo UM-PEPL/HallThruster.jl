@@ -10,20 +10,9 @@ include("plotting.jl")
 function source!(Q, U, params, i)
     HallThruster.apply_reactions!(Q, U, params, i)
     HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
-    #HallThruster.source_electron_energy_landmark!(Q, U, params, i)
+    #HallThruster.apply_bc_electron(Q, U, params, i)
+    HallThruster.source_electron_energy_landmark!(Q, U, params, i)
     return Q
-end
-
-function source_potential!(b, U, s_consts)
-    HallThruster.potential_source_term!(b, U, s_consts)
-    #HallThruster.OVS_potential_source_term!(b, s_consts)
-end
-
-function boundary_potential!(A, b, U, bc_consts)
-    ϕ_L = 300.0
-    ϕ_R = 0.0
-    HallThruster.boundary_conditions_potential!(A, b, U, bc_consts, ϕ_L, ϕ_R)
-    #HallThruster.OVS_boundary_conditions_potential!((A, b, U, bc_consts, ϕ_L, ϕ_R)
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
@@ -60,11 +49,6 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         LinRange(0.0, end_time, nsave) |> collect
     end
 
-    #=
-    saved_values = SavedValues(Float64, NTuple{3, Vector{Float64}})
-    callback = cb #SavingCallback((U, tspan, integrator)->(integrator.p.cache.ϕ, integrator.p.cache.Tev, integrator.p.cache.ne), saved_values, saveat = saveat)
-    =#
-
     mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
@@ -72,8 +56,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, limiter, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
-        source_potential! = source_potential!,
-        boundary_potential! = boundary_potential!,
+        source_potential! = nothing,
+        boundary_potential! = nothing,
         fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(u1, 300.0))
             HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(0.0))],
         #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
