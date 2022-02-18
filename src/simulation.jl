@@ -109,7 +109,6 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
-        #Δz = z_edge[3] - z_edge[2]
 
         # Ion and neutral fluxes
         @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
@@ -121,7 +120,6 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     end
 
-    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
@@ -137,6 +135,7 @@ function update_electron_energy!(dU, U, params, t)
     z_cell = params.z_cell
     ncells = size(U, 2) - 2
     F = params.cache.F
+    z_edge = params.z_edge
 
     apply_bc_electron!(U, params.BCs[3], :left, index)
     apply_bc_electron!(U, params.BCs[4], :right, index)
@@ -149,13 +148,12 @@ function update_electron_energy!(dU, U, params, t)
         left = left_edge(i)
         right = right_edge(i)
 
-        #Δz = z_cell[i+1] - z_cell[i]
-        Δz =  z_cell[4] - z_cell[3]
-
         # Upwinded first derivatives
         ue = U[index.ue, i]
         ne = U[index.ne, i]
 
+        Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
+    
         #ue⁺ = max(ue, 0.0) / ue
         #ue⁻ = min(ue, 0.0) / ue
         ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
@@ -167,16 +165,24 @@ function update_electron_energy!(dU, U, params, t)
             ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
         ) / Δz
 
-        diffusion_term = -(
+        diffusion_term_1 = -(
             ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
-        )
+        ) / Δz^2
 
-        # Central second derivatives, TODO make correct on boundaries
-        diffusion_term += μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
-        diffusion_term /= Δz^2
+        if i == 2
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
+            diffusion_term_2 /= 3*Δz^2
+        elseif i == ncells + 1
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4U[index.Tev, i-1] - 12U[index.Tev, i] + 8U[index.Tev, i+1])
+            diffusion_term_2 /= 3*Δz^2
+        else
+            # Central second derivatives
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
+            diffusion_term_2 /= Δz^2
+        end
 
-        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * diffusion_term
+        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term_1 + diffusion_term_2)
     end
 
     return nothing
