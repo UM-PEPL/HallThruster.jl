@@ -34,7 +34,7 @@ function configure_simulation(sim)
     return species, fluids, fluid_ranges, species_range_dict
 end
 
-function allocate_arrays(sim) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
+function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
     # Number of variables in the state vector U
     nvariables = 0
     for i in 1:length(sim.fluids)
@@ -47,8 +47,8 @@ function allocate_arrays(sim) #rewrite allocate arrays as function of set of equ
         end
     end
 
-    ncells = sim.grid.ncells
-    nedges = sim.grid.ncells + 1
+    ncells = grid.ncells
+    nedges = grid.ncells + 1
 
     #Dual = ForwardDiff.Dual
 
@@ -254,16 +254,22 @@ function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
-function run_simulation(sim) #put source and Bcs potential in params
+function run_simulation(sim, use_restart, restart_file = "") #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
-    grid = sim.grid
-
-    U, cache = allocate_arrays(sim)
 
     lf = fluid_ranges[end][end]
     index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
 
-    initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
+    if use_restart
+        U, grid, B = read_restart(restart_file)
+        _, cache = allocate_arrays(grid, fluids)
+        cache.B .= B
+    else
+        grid = sim.grid
+        U, cache = allocate_arrays(grid, fluids)
+        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
+        precompute_bfield!(cache.B, grid.cell_centers)
+    end
 
     scheme = sim.scheme
     source_term! = sim.source_term!
@@ -276,8 +282,6 @@ function run_simulation(sim) #put source and Bcs potential in params
     ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
-
-    precompute_bfield!(cache.B, grid.cell_centers)
 
     OVS = Verification(0, 0, 0)
 

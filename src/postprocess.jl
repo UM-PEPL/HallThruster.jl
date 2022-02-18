@@ -16,9 +16,32 @@ function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODE
     )
 end
 
-function Base.show(io::IO, mime::MIME"text/plain", s::HallThrusterSolution)
-    println(io, "Hall thruster solution:")
-    Base.show(io, mime, s.sol)
+function write_restart(path, sol)
+    save(path, Dict(
+        "u" =>  sol.u[end],
+        "params" => sol.params
+    ))
+end
+
+function read_restart(path)
+    dict = load(path)
+    u, params = dict["u"], dict["params"]
+    ncells = length(params.z_cell)-2
+    grid = Grid1D(
+        ncells,
+        params.z_edge,
+        params.z_cell,
+        params.cell_volume
+    )
+    B = params.cache.B
+
+    return u, grid, B
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
+    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
+    println(io, "Retcode: $(string(sol.retcode))")
+    print(io, "End time: $(sol.t[end]) seconds")
 end
 
 function Base.getindex(sol::HallThrusterSolution, I1, I2)
@@ -68,8 +91,8 @@ function Base.getindex(sol::HallThrusterSolution, I1, field::String)
     end
 end
 
-Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.sol, args...)
-Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.sol, args...)
+Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.u, args...)
+Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.u, args...)
 
 #=
 function extract_data(u::Matrix{T}, config)
