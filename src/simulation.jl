@@ -316,7 +316,7 @@ function run_simulation(sim) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
 
-    return sol #return params too
+    return HallThrusterSolution(sol, params)
 end
 
 function inlet_neutral_density(sim)

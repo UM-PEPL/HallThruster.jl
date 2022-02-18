@@ -68,8 +68,11 @@ function solve_potential_edge!(U, params)
         A.du[i] = ne⁺ * μ⁺ / Δz²
 
         #source term, h/2 to each side
-        b[i] = (1 - OVS)*(μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
-        (U[3, i + 1] - U[3, i]) / Δz / mi + OVS*50000
+        b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
+        (U[3, i + 1] - U[3, i]) / Δz / mi
+
+        #for order verification, change to simpler source term
+        b[i] = (1 - OVS) * b[i] + 50_000 * OVS
 
     end
     return tridiagonal_solve!(@views(U[index.ϕ, 1:end-1]), A, b)
