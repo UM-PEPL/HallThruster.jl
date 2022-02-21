@@ -7,13 +7,7 @@ struct HallThrusterSolution{T, U, P}
 end
 
 function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODESolution, P}
-    return HallThrusterSolution(
-        sol.t,
-        sol.u,
-        sol.retcode,
-        sol.destats,
-        params
-    )
+    return HallThrusterSolution(sol.t, sol.u, sol.retcode, sol.destats, params)
 end
 
 """

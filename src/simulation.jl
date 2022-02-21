@@ -229,7 +229,7 @@ function update_values!(U, params)
         @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / mi)
         U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
         U[index.pe, i] = U[index.nϵ, i]
-        params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
+        params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i])
         #params.cache.μ[i] = 10.0
@@ -282,6 +282,7 @@ function run_simulation(sim, restart_file = nothing) #put source and Bcs potenti
     timestep = sim.timestepcontrol[1]
     adaptive = sim.timestepcontrol[2]
     tspan = (0.0, sim.end_time)
+    anom_model = TwoZoneBohm(1/160, 1/16)
 
     reactions = load_ionization_reactions(species)
     landmark = load_landmark()
@@ -297,7 +298,9 @@ function run_simulation(sim, restart_file = nothing) #put source and Bcs potenti
     params = (; L_ch, ϕ_L, ϕ_R, OVS, index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
-              boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy)
+              boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy,
+              anom_model,
+    )
 
     #PREPROCESS
     #make values in params available for first timestep
