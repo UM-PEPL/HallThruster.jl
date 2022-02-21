@@ -3,7 +3,7 @@ abstract type ZeroEquationModel <: AnomalousTransportModel end
 
 struct TwoZoneBohm <: ZeroEquationModel
     coeffs::NTuple{2, Float64}
-    TwoZoneBohm(c1, c2) = new((c1, c2))
+    TwoZoneBohm(c1 = 1/160, c2 = 1/16) = new((c1, c2))
 end
 
 @inline function (model::TwoZoneBohm)(icell, U, params)
@@ -62,24 +62,6 @@ Electric Propulsion, Goebel and Katz, 2008.
     #v_ei = 2.9e-12 * ne * ln_λ(ne, Tev) / Tev^1.5 #intro to EP, 3.6-14
     #return v_en + v_ei #2.5e-13*nn #from Hara paper, is similar to formula for v_ei from intro to EP
     return 2.5e-13*nn #from Hara paper and standard in Landmark, is similar to formula for v_ei from intro to EP
-end
-
-"""
-    B_field(B_max::Float64, z::Float64, L_ch::Float64)
-
-defines magnetic field as a function of position. 
-"""
-function B_field(B_max, z, L_ch) #same in Landmark and in FFM model Hara
-    B = if z < L_ch
-        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
-    else
-        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
-    end
-    return B
-end
-
-function Te_func(z, L_ch) #will be gone soon
-    return 30 * exp(-(2 * (z - L_ch) / 0.033)^2)
 end
 
 """

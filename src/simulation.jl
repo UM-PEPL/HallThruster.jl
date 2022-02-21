@@ -34,7 +34,6 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
     scheme = params.scheme
-    source_term! = params.source_term!
 
     ncells = size(U, 2) - 2
 
@@ -80,11 +79,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     @inbounds  for i in 2:(ncells + 1)
         @turbo Q .= 0.0
 
-        # default fluid source terms (includes ionization and acceleration and energy)
-
-
-        # additional user-specified fluid source terms
-        params.source_term!(Q, U, params, i)
+        # source term - includes acceleration, ionization, and other user-speficied source terms
+        params.ion_source_term!(Q, U, params, i)
 
         #Compute dU/dt
         left = left_edge(i)
@@ -97,8 +93,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         dU[index.nϵ, i] = Q[index.nϵ]
 
         # Ion diffusion term
-        η = 0.001 * sqrt(2*e*U[index.Tev, i]/(3*mi))
-        dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
+        η = params.δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        @views dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
 
     end
 
@@ -125,8 +121,8 @@ function update_electron_energy!(dU, U, params, t)
     =#
 
     # Dirichlet BCs for the electrons
-    U[index.nϵ, 1] = U[index.ne, params.Te_L]
-    U[index.nϵ, end] = U[index.ne, params.Te_R]
+    U[index.nϵ, 1] = U[index.ne, 1] * params.Te_L
+    U[index.nϵ, end] = U[index.ne, end] * params.Te_R
 
     @inbounds for i in 2:ncells+1
 
@@ -295,9 +291,9 @@ end
 function run_simulation(config)
     U, params = configure_simulation(config)
 
-    tspan = (0.0, time)
-    saveat = LinRange(config.tspan[1], config.tspan[2], config.nsave)
-    maxiters = Int(ceil(1000 * tspan[2] / dtmax))
+    tspan = (0.0, config.simulation_time)
+    saveat = LinRange(tspan[1], tspan[2], config.nsave)
+    maxiters = Int(ceil(1000 * tspan[2] / config.dtmax))
 
     cb = nothing
     if cb !== nothing

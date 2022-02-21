@@ -2,7 +2,7 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     reactions, species_range_dict = params.reactions, params.species_range_dict
     _, __, cell_volume = params.z_cell, params.z_edge, params.cell_volume
-    dt = params.dt
+    #dt = params.dt
     index = params.index
 
     mi = m(fluids[1])
@@ -18,24 +18,11 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
             k = r.rate_coeff
 
             ndot = k(ϵ) * n_reactant * ne
-            #can probably use periodic callback
             Q[reactant_index] -= ndot * mi
             Q[product_index] += ndot * mi
         end
     end
 
-    # Simplify ionization for now, only single ionization
-    #=mi = m(fluids[1])
-
-    k = params.landmark.rate_coeff
-    nn = U[1, i] / mi
-    ne = U[index.ne, i]
-    Te = U[index.Tev, i]
-
-    ndot = k(Te) * nn * ne
-    Q[1] -= ndot * mi
-    Q[2] += ndot * mi
-    Q[3] += ndot * neutral_velocity * mi=#
 end
 
 function apply_ion_acceleration!(Q, U, params, i)
@@ -76,9 +63,9 @@ function source_electron_energy_landmark!(Q, U, params, i)
     else
         νε = 1*1e7
     end=#
-    νε = smooth_if(params.z_cell[i], params.L_ch, 0.4*1e7, 1e7, 100000)
+    νϵ = 1e7 * smooth_if(params.z_cell[i], params.L_ch, params.νϵ[1], params.νϵ[2], 10)
     UU = 20.0
-    W = νε * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
-    return Q[index.nϵ] = U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/HallThruster.Xenon.m * params.landmark.loss_coeff(U[index.Tev, i]) - W)
+    W = νϵ * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
+    return Q[index.nϵ] = U[index.ne, i] * (U[index.ue, i] * U[index.grad_ϕ, i] - U[index.ρn, i]/params.mi * params.loss_coeff(U[index.Tev, i]) - W)
     #@views Q[4] = U[index.ne, i]*uₑ*grad_ϕ - S_coll(U, params, i) - S_wall_simple(U[index.Tev, :], i)
 end

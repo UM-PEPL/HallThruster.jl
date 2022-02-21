@@ -11,6 +11,7 @@ function (L::FluxLimiter)(r)
     return ϕ
 end
 
+const no_limiter = FluxLimiter(identity)
 const koren = FluxLimiter(r -> max(0, min(2r, min((1 + 2r) / 3, r))))
 const minmod = FluxLimiter(r -> max(0, min(1, r)))
 const osher = FluxLimiter(r -> 1.5(r^2 + r) / (r^2 + r + 1))

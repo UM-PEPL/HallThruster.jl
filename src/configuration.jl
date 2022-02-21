@@ -6,17 +6,19 @@ Base.@kwdef mutable struct Verification
 end
 
 Base.@kwdef struct MagneticField
-    z::Float64
-    B::Float64
+    z::Vector{Float64}
+    B::Vector{Float64}
 end
 
-Base.@kwdef struct HallThrusterConfig{F, L<:FluxLimiter, A<:AnomalousTransportModel, S}
-    casename::String
+function no_source!(args...) end
+
+Base.@kwdef mutable struct HallThrusterConfig{F, L, A<:AnomalousTransportModel, S}
+    name::String
     propellant::Gas
     ncells::Int  = 50
     ncharge::Int = 1
     restart_file::Union{String, Nothing} = nothing
-    magnetic_field::Union{MagneticField, nothing} = nothing
+    magnetic_field::Union{MagneticField, Nothing} = nothing
     simulation_time::Float64
     nsave::Int                    = 100
     adaptive::Bool                = true
@@ -30,32 +32,35 @@ Base.@kwdef struct HallThrusterConfig{F, L<:FluxLimiter, A<:AnomalousTransportMo
     anode_mass_flow_rate::Float64 = 5e-3
     geometry::Geometry1D
     anom_model::A = TwoZoneBohm(1/160, 1/16)
-    radial_loss_coefficients::Tuple{Float64, Float64} = (0.1e7, 0.0)
+    radial_loss_coefficients::Tuple{Float64, Float64} = (0.1, 0.1)
     wall_collision_frequencies:: Tuple{Float64, Float64} = (1e7, 0.0)
     energy_equation::Symbol = :LANDMARK
     flux::F = HLLE!
-    limiter::L  = identity
+    limiter::L = no_limiter
     reconstruct::Bool = false
     ionization_coeffs::Symbol = :BOLSIG
     floor_Te::Float64 = 2.0
     floor_ne::Float64 = 1e12
-    solve_ion_energy::Bool
+    solve_ion_energy::Bool = false
     ion_temperature::Float64
     neutral_velocity::Float64
+    neutral_temperature::Float64
     OVS::Verification = Verification(false, false, false)
-    source_term!::S = identity
+    source_term!::S = no_source!
+    ion_diffusion_coeff::Float64 = 0.0
+    coupled_method::Bool = true
 end
 
 function configure_fluids(config)
     propellant = config.propellant
-    species = [propellant[i] for i in 0:config.ncharge]
-    neutral_fluid = Fluid(config.neutral_equations, species[1])
+    species = [propellant(i) for i in 0:config.ncharge]
+    neutral_fluid = Fluid(species[1], ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
     ion_eqns = if config.solve_ion_energy
         EulerEquations()
     else
         IsothermalEuler(T = config.ion_temperature)
     end
-    ion_fluids = [Fluid(ion_eqns, species[i]) for i in 1:config.ncharge]
+    ion_fluids = [Fluid(species[i+1], ion_eqns) for i in 1:config.ncharge]
     fluids = [neutral_fluid; ion_fluids]
     fluid_ranges = ranges(fluids)
     species_range_dict = Dict(Symbol(fluid.species) => fluid_range
@@ -139,9 +144,6 @@ function configure_index(fluid_ranges)
         )
     end
 
-    @show keys_ions
-    @show values_ions
-
     keys_fluids = (keys_neutrals..., keys_ions...)
     values_fluids = (values_neutrals..., values_ions...)
     keys_electrons = (:nϵ, :Tev, :ne, :pe, :ϕ, :grad_ϕ, :ue)
@@ -149,6 +151,7 @@ function configure_index(fluid_ranges)
     index_keys = (keys_fluids..., keys_electrons..., :lf)
     index_values = (values_fluids..., values_electrons..., lf)
     index = NamedTuple{index_keys}(index_values)
+    @show index
     return index
 end
 
@@ -162,19 +165,27 @@ end
 
 function initialize_solution!(U, index, grid, fluids, fluid_ranges, config)
     mi = config.propellant.m
-    for i in 1:length(grid)
+
+    function Te_func(z, L_ch) #will be gone soon
+        return 30 * exp(-(2 * (z - L_ch) / (0.033/0.025 * L_ch))^2)
+    end
+
+    for i in 1:length(grid.cell_centers)
         U[index.ρn, i] = inlet_neutral_density(config) * mi
-        for (f, r) in zip(fluids, fluid_ranges)
+        for (f, r) in zip(fluids[2:end], fluid_ranges[2:end])
             U[r[1]] = config.floor_ne * mi
             U[r[2]] = config.floor_ne * config.neutral_velocity * mi
             if length(r) == 3
                 U[r[3]] = mi * config.floor_ne * (0.5 * config.neutral_velocity^2 + cv(f) * config.ion_temperature)
             end
         end
+        z = grid.cell_centers[i]
+        L_ch = config.geometry.channel_length
+        domain = config.geometry.domain
         U[index.ne, i] = electron_density(U[:, i], fluid_ranges)
-        U[index.Tev, i] = config.anode_Te
-        U[index.nϵ, i] = config.anode_te * U[index.ne, i]
-        U[index.ϕ, i] = 0.0
+        U[index.Tev, i] = Te_func(z, L_ch)
+        U[index.nϵ, i] = config.anode_Te * U[index.ne, i]
+        U[index.ϕ, i] = 300 - (300 / (domain[end] - domain[1])) * (z - domain[1])
         U[index.grad_ϕ, i] = 0.0
         U[index.ue, i] = 0.0
     end
@@ -222,19 +233,31 @@ function configure_simulation(config)
         if isnothing(config.magnetic_field)
             throw(ArgumentError("Magnetic field must be provided for cold starts."))
         else
-            compute_bfield!(cache.B, config.magnetic_field, grid.cell_centers)
+            compute_bfield!(cache.B, grid.cell_centers, config.magnetic_field)
         end
     end
 
     scheme = HyperbolicScheme(config.flux, config.limiter, config.reconstruct)
 
-    #BCs = sim.boundary_conditions
+    apply_acceleration! = if config.coupled_method
+        apply_ion_acceleration_coupled!
+    else
+        apply_ion_acceleration!
+    end
+
+    function ion_source_term!(Q, U, params, i)
+        apply_acceleration!(Q, U, params, i)
+        apply_reactions!(Q, U, params, i)
+        config.source_term!(Q, U, params, i)
+    end
 
     params = (
-        mi = params.propellant.m,
-        ncharge = params.ncharge,
+        mi = config.propellant.m,
+        νw = config.wall_collision_frequencies,
+        νϵ = config.radial_loss_coefficients,
+        ncharge = config.ncharge,
         mdot_a = config.anode_mass_flow_rate,
-        L_ch = config.geometry.L_ch,
+        L_ch = config.geometry.channel_length,
         A_ch = channel_area(config.geometry.outer_radius, config.geometry.inner_radius),
         ϕ_L = config.anode_potential,
         ϕ_R = config.cathode_potential,
@@ -244,11 +267,19 @@ function configure_simulation(config)
         z_cell = grid.cell_centers,
         z_edge = grid.edges,
         cell_volume = grid.cell_volume,
-        source_term! = config.source_term!,
+        ion_source_term! = ion_source_term!,
         implicit_energy = config.implicit_energy,
         anom_model = config.anom_model,
-        index, cache, fluids, fluid_ranges, species_range_dict, reactions, scheme, loss_coeff, scheme,
+        coupled = config.coupled_method,
+        δ = config.ion_diffusion_coeff,
+        reactions = ionization_reactions,
+        index, cache, fluids, fluid_ranges, species_range_dict, scheme, loss_coeff,
     )
+
+    @show species_range_dict
+    @show fluid_ranges
+
+    println("Simulation configured.")
 
     return U, params
 end
