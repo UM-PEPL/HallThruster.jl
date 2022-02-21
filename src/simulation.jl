@@ -37,12 +37,12 @@ end
 function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
     # Number of variables in the state vector U
     nvariables = 0
-    for i in 1:length(sim.fluids)
-        if sim.fluids[i].conservation_laws.type == :ContinuityOnly
+    for i in 1:length(fluids)
+        if fluids[i].conservation_laws.type == :ContinuityOnly
             nvariables += 1
-        elseif sim.fluids[i].conservation_laws.type == :IsothermalEuler
+        elseif fluids[i].conservation_laws.type == :IsothermalEuler
             nvariables += 2
-        elseif sim.fluids[i].conservation_laws.type == :EulerEquations
+        elseif fluids[i].conservation_laws.type == :EulerEquations
             nvariables += 3
         end
     end
@@ -249,19 +249,25 @@ function update_values!(U, params)
 
 end
 
+#=Config = @NamedTuple begin
+    propellant::Gas
+end=#
+
 condition(u,t,integrator) = t < 1
 function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
-function run_simulation(sim, use_restart, restart_file = "") #put source and Bcs potential in params
+function run_simulation(sim, restart_file = nothing) #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
 
     lf = fluid_ranges[end][end]
     index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
 
+    use_restart = restart_file !== nothing
+
     if use_restart
-        U, grid, B = read_restart(restart_file)
+        U, grid, B = read_restart(restart_file) 
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
@@ -279,7 +285,7 @@ function run_simulation(sim, use_restart, restart_file = "") #put source and Bcs
 
     reactions = load_ionization_reactions(species)
     landmark = load_landmark()
-    ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
+    #ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
 
