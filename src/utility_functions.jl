@@ -1,4 +1,4 @@
-"""
+""" 
     smooth_max(x, y, k=10)
 Computes a smooth approximation to max(x, y)
 """
