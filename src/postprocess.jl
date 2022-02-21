@@ -1,15 +1,59 @@
-struct HallThrusterSolution{S, P}
-    sol::S
+struct HallThrusterSolution{T, U, P}
+    t::T
+    u::U
+    retcode::Symbol
+    destats::DiffEqBase.DEStats
     params::P
 end
 
-function Base.show(io::IO, mime::MIME"text/plain", s::HallThrusterSolution)
-    println(io, "Hall thruster solution:")
-    Base.show(io, mime, s.sol)
+function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODESolution, P}
+    return HallThrusterSolution(sol.t, sol.u, sol.retcode, sol.destats, params)
+end
+
+"""
+    write_restart(path::AbstractString, sol)
+
+Write a restart file to `path``.
+
+This can be reloaded to resume a simulation. The filetype can be anything supported by FileIO, though JLD2 is preferred.
+"""
+function write_restart(path::AbstractString, sol)
+    save(path, Dict(
+        "u" =>  sol.u[end],
+        "params" => sol.params
+    ))
+end
+
+"""
+    read_restart(path::AbstractString)
+
+Load a restart file from `path`.
+
+The filetype can be anything supported by FileIO, though JLD2 is preferred.
+"""
+function read_restart(path::AbstractString)
+    dict = load(path)
+    u, params = dict["u"], dict["params"]
+    ncells = length(params.z_cell)-2
+    grid = Grid1D(
+        ncells,
+        params.z_edge,
+        params.z_cell,
+        params.cell_volume
+    )
+    B = params.cache.B
+
+    return u, grid, B
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
+    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
+    println(io, "Retcode: $(string(sol.retcode))")
+    print(io, "End time: $(sol.t[end]) seconds")
 end
 
 function Base.getindex(sol::HallThrusterSolution, I1, I2)
-    return sol.sol.u[I1][I2, :]
+    return sol.u[I1][I2, :]
 end
 
 function Base.getindex(sol::HallThrusterSolution, I1, field::String)
@@ -44,9 +88,9 @@ function Base.getindex(sol::HallThrusterSolution, I1, field::String)
         return @views [
                 electron_collision_freq(Te, nn, ne, mi)
                 for (Te, nn, ne) in zip(
-                    sol.sol.u[I1][index.Tev, :],
-                    sol.sol.u[I1][1, :]/mi,
-                    sol.sol.u[I1][2, :]/mi,
+                    sol.u[I1][index.Tev, :],
+                    sol.u[I1][1, :]/mi,
+                    sol.u[I1][2, :]/mi,
                 )]
     elseif field == "z"
         return params.z_cell
@@ -55,8 +99,8 @@ function Base.getindex(sol::HallThrusterSolution, I1, field::String)
     end
 end
 
-Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.sol, args...)
-Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.sol, args...)
+Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.u, args...)
+Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.u, args...)
 
 #=
 function extract_data(u::Matrix{T}, config)

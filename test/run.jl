@@ -27,10 +27,13 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     return U
 end
 
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
-        implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher)
-    fluid = HallThruster.Xenon
 
+
+function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
+        implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
+        restart_file = nothing)
+
+    fluid = HallThruster.Xenon
     #fluid BCs #############################
     ρ2 = 2.1801715574645586e-7/10 #ρ1 * exp(-((z - L) / 0.033)^2)
     u1 = 150.0
@@ -72,9 +75,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         verification = Verification(0, 0, EnergyOVS(0, 0.0, 0.0, f1(z), f2(z)))
     )
 
-    @time sol = HallThruster.run_simulation(sim)
+    @time sol = HallThruster.run_simulation(sim, restart_file)
 
-    p = plot_solution(sol.sol.u[end], mesh.cell_centers)
+    p = plot(sol)
     display(p)
 
     return sol

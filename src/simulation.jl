@@ -35,21 +35,21 @@ function configure_simulation(sim)
     return species, fluids, fluid_ranges, species_range_dict
 end
 
-function allocate_arrays(sim) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
+function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
     # Number of variables in the state vector U
     nvariables = 0
-    for i in 1:length(sim.fluids)
-        if sim.fluids[i].conservation_laws.type == :ContinuityOnly
+    for i in 1:length(fluids)
+        if fluids[i].conservation_laws.type == :ContinuityOnly
             nvariables += 1
-        elseif sim.fluids[i].conservation_laws.type == :IsothermalEuler
+        elseif fluids[i].conservation_laws.type == :IsothermalEuler
             nvariables += 2
-        elseif sim.fluids[i].conservation_laws.type == :EulerEquations
+        elseif fluids[i].conservation_laws.type == :EulerEquations
             nvariables += 3
         end
     end
 
-    ncells = sim.grid.ncells
-    nedges = sim.grid.ncells + 1
+    ncells = grid.ncells
+    nedges = grid.ncells + 1
 
     #Dual = ForwardDiff.Dual
 
@@ -228,7 +228,7 @@ function update_values!(U, params)
         @views U[index.ne, i] = (1 - params.OVS.energy.active)*max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + params.OVS.energy.active*(params.OVS.energy.ne(z_cell[i]))
         U[index.Tev, i] = (1 - params.OVS.energy.active)*max(0.1, U[index.nϵ, i]/U[index.ne, i]) + params.OVS.energy.active*(params.OVS.energy.Tev(z_cell[i]))
         U[index.pe, i] = U[index.nϵ, i]
-        params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
+        params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) + params.OVS.energy.active*(params.OVS.energy.μ)
     end
@@ -246,32 +246,44 @@ function update_values!(U, params)
 
 end
 
+#=Config = @NamedTuple begin
+    propellant::Gas
+end=#
+
 condition(u,t,integrator) = t < 1
 function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
-function run_simulation(sim) #put source and Bcs potential in params
-    
+function run_simulation(sim, restart_file = nothing) #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
-    grid = sim.grid
-
-    U, cache = allocate_arrays(sim)
 
     lf = fluid_ranges[end][end]
     index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
 
-    initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
+    use_restart = restart_file !== nothing
+
+    if use_restart
+        U, grid, B = read_restart(restart_file) 
+        _, cache = allocate_arrays(grid, fluids)
+        cache.B .= B
+    else
+        grid = sim.grid
+        U, cache = allocate_arrays(grid, fluids)
+        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
+        precompute_bfield!(cache.B, grid.cell_centers)
+    end
 
     scheme = sim.scheme
     source_term! = sim.source_term!
     timestep = sim.timestepcontrol[1]
     adaptive = sim.timestepcontrol[2]
     tspan = (0.0, sim.end_time)
+    anom_model = TwoZoneBohm(1/160, 1/16)
 
     reactions = load_ionization_reactions(species)
     landmark = load_landmark()
-    ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
+    #ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
 
@@ -285,7 +297,9 @@ function run_simulation(sim) #put source and Bcs potential in params
     params = (; L_ch, ϕ_L, ϕ_R, OVS, index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
               z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
               scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
-              boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy)
+              boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy,
+              anom_model,
+    )
 
     #PREPROCESS
     #make values in params available for first timestep

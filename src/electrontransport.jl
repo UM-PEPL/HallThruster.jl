@@ -1,3 +1,30 @@
+abstract type AnomalousTransportModel end
+abstract type ZeroEquationModel <: AnomalousTransportModel end
+
+struct TwoZoneBohm <: ZeroEquationModel
+    coeffs::NTuple{2, Float64}
+    TwoZoneBohm(c1, c2) = new((c1, c2))
+end
+
+@inline function (model::TwoZoneBohm)(icell, U, params)
+    L_ch = params.L_ch
+    B = params.cache.B[icell]
+    z = params.z_cell[icell]
+    c = model.coeffs
+
+    ωce = e * B / mₑ
+
+    νan = if z < L_ch
+        c[1] * ωce + 1e7 # +1e7 anomalous wall from Landmark inside channel
+    #elseif L_ch*0.8 < z < L_ch*1.2
+    #    ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
+    else
+        c[2] * ωce
+    end
+    #νan = ωce * smooth_if(z, L_ch, c[1], c[2], 10000) + 1e7 * smooth_if(z, L_ch, 1.0, 0.0, 10000)
+    return νan
+end
+
 """
     σ_en(Tev::Float64)
 
@@ -35,25 +62,6 @@ Electric Propulsion, Goebel and Katz, 2008.
     #v_ei = 2.9e-12 * ne * ln_λ(ne, Tev) / Tev^1.5 #intro to EP, 3.6-14
     #return v_en + v_ei #2.5e-13*nn #from Hara paper, is similar to formula for v_ei from intro to EP
     return 2.5e-13*nn #from Hara paper and standard in Landmark, is similar to formula for v_ei from intro to EP
-end
-
-"""
-    get_v_an(z::Float64, B::Float64, L_ch::Float64)
-
-defines model for anomalous collision frequency.
-"""
-@inline function get_v_an(z, B, L_ch) #anomalous momentum transfer collision frequency
-    ωce = e * B / mₑ
-    #νan = ωce/16
-    νan = if z < L_ch
-        ωce / 160 + 1e7 # +1e7 anomalous wall from Landmark inside channel
-    #elseif L_ch*0.8 < z < L_ch*1.2
-    #    ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
-    else
-        ωce / 16
-    end
-    #νan = ωce * smooth_if(z, L_ch, 1/160, 1/16, 10000) + 1e7 * smooth_if(z, L_ch, 1.0, 0.0, 10000)
-    return νan
 end
 
 """

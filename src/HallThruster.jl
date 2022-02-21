@@ -7,6 +7,7 @@ using OrdinaryDiffEq
 using DiffEqBase
 using LoopVectorization
 using LinearAlgebra
+using FileIO
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)

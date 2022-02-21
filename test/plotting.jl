@@ -197,3 +197,5 @@ function load_hallis_for_input()
     grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
     return ϕ_hallis, grad_ϕ_hallis
 end
+
+Plots.plot(sol::HallThruster.HallThrusterSolution) = plot_solution(sol.u[end], sol.params.z_cell)
