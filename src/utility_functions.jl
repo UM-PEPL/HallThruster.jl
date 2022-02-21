@@ -18,7 +18,6 @@ Computes an analytic approximation to x < cutoff ? v1 : v2
 """
 smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
 
-
 struct LinearInterpolation{X<:Number,Y<:Number}
     xs::Vector{X}
     ys::Vector{Y}

@@ -147,7 +147,7 @@ function timeaveraged(sol, tstampstart)
     return avg
 end
 
-function calc_current(sol) #need to divide by area?
+function calc_current(sol)
     current = zeros(2, length(sol.t))
     area = pi*(0.05^2 - 0.035^2)
     distance = 0.050 - 0.0350

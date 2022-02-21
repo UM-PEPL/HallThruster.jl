@@ -74,7 +74,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     #fluid computations, electron in implicit
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :])
+    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, 0.0.*U[index.pe, :])
 
     # Compute heavy species source terms
     @inbounds  for i in 2:(ncells + 1)
@@ -97,8 +97,8 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         dU[index.nϵ, i] = Q[index.nϵ]
 
         # Ion diffusion term
-        #η = 0.0 * sqrt(2*e*U[index.Tev, i]/(3*mi))
-        #dU[index.lf, i] += η*(U[index.lf, i-1] - 2U[index.lf, i] + U[index.lf, i+1])/(Δz)^2
+        η = 0.001 * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
 
     end
 
