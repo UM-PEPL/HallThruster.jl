@@ -52,6 +52,13 @@ end
     SPT_100
 Geometry of the SPT_100 thruster
 """
-
 const SPT_100 = (domain=(0.0, 0.05), channel_length=0.025, inner_radius=0.0345,
                  outer_radius=0.05)
+
+function precompute_bfield!(B, zs)
+    B_max = 0.015
+    L_ch = 0.025
+    for (i, z) in enumerate(zs)
+        B[i] = B_field(B_max, z, L_ch)
+    end
+end

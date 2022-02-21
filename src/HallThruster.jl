@@ -8,6 +8,8 @@ using DiffEqBase
 using LoopVectorization
 using LinearAlgebra
 using FileIO
+using DelimitedFiles
+
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
@@ -27,8 +29,10 @@ include("geometry.jl")
 include("boundaryconditions.jl")
 include("potential.jl")
 include("postprocess.jl")
+include("restart.jl")
+include("configuration.jl")
 include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
 include("electronenergy.jl")
-end # module
+end

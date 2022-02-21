@@ -21,7 +21,6 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
             #can probably use periodic callback
             Q[reactant_index] -= ndot * mi
             Q[product_index] += ndot * mi
-            #Q[product_index + 1] += ndot * mi * neutral_velocity #momentum transfer
         end
     end
 

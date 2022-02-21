@@ -80,6 +80,8 @@ function Species(element::Gas, Z::Int)
     return Species(element, Z, Symbol(species_string(element, Z)))
 end
 
+(g::Gas)(Z::Int) = Species(g, Z)
+
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, m::MIME"text/plain", s::Species) = show(io, s)
 

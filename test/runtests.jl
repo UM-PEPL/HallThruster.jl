@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
+using Test, Documenter, HallThruster, StaticArrays
 
 doctest(HallThruster)
 
@@ -176,10 +176,7 @@ let Xenon = HallThruster.Xenon,
 	UR = zeros(nconservative, nedges)
 	F = zeros(nconservative, nedges)
 
-	function no_limiter(r)
-    r
-end
-scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
+    scheme = (reconstruct = false, flux_function = upwind!, limiter = identity)
 
 	HallThruster.compute_edge_states!(UL, UR, U, scheme)
 

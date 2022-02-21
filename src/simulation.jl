@@ -20,52 +20,7 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP} #
     timestepcontrol::Tuple{Float64,Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored.
     callback::CB
     solve_energy::Bool
-end
-
-get_species(sim) = [Species(sim.propellant, i) for i in 0:(sim.ncharge)]
-
-function configure_simulation(sim)
-    fluids = sim.fluids
-    species = [fluids[i].species for i in 1:length(fluids)]
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => fluid_range
-                              for (fluid, fluid_range) in zip(fluids, fluid_ranges))
-
-    return species, fluids, fluid_ranges, species_range_dict
-end
-
-function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
-    # Number of variables in the state vector U
-    nvariables = 0
-    for i in 1:length(fluids)
-        if fluids[i].conservation_laws.type == :ContinuityOnly
-            nvariables += 1
-        elseif fluids[i].conservation_laws.type == :IsothermalEuler
-            nvariables += 2
-        elseif fluids[i].conservation_laws.type == :EulerEquations
-            nvariables += 3
-        end
-    end
-
-    ncells = grid.ncells
-    nedges = grid.ncells + 1
-
-    #Dual = ForwardDiff.Dual
-
-    U = zeros(nvariables + 7, ncells + 2) # need to allocate room for ghost cells
-    F = zeros(nvariables + 1, nedges)
-    UL = zeros(nvariables + 1, nedges)
-    UR = zeros(nvariables + 1, nedges)
-    Q = zeros(nvariables + 1)
-    A = Tridiagonal(ones(ncells), ones(ncells+1), ones(ncells)) #for potential
-    b = zeros(ncells + 1) #for potential equation
-    B = zeros(ncells + 2)
-    νan = zeros(ncells + 2)
-    νc = zeros(ncells + 2)
-    μ = zeros(ncells + 2)
-
-    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ)
-    return U, cache
+    OVS::Verification
 end
 
 function update_heavy_species!(dU, U, params, t) #get source and BCs for potential from params
@@ -83,15 +38,39 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     ncells = size(U, 2) - 2
 
-    mi = m(fluids[1])
-    ε₀ = 3.0
+    mi = params.mi
+    un = fluids[1].conservation_laws.u
 
-    ##############################################################
-    #FLUID MODULE
-
+    #=
     #fluid BCs
-    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, ε₀, mi)
-    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, ε₀, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+    =#
+
+    # Inject anode mass flow at left boundary
+    U[index.ρn, begin] = params.mdot_a / params.A_ch / un
+
+    # Neumann BC for neutral density at right boundary
+    U[index.ρn, end] = U[index.ρn, end-1]
+
+    # Ion boundary conditions
+    for i in 1:params.ncharge
+        # Additional neutral flux at left boundary due to recombined ions
+        U[index.ρn, 1] -= U[index.ρiui[i], begin] / un
+
+        u_bohm = sqrt(2/3 * i * e * U[index.Tev] / mi)
+
+        # Make sure ions at left boundary satisfy Bohm condition
+        boundary_flux = U[index.ρiui[i], begin+1]
+        boundary_velocity = min(-u_bohm, boundary_flux / U[index.ρi[i], begin+1])
+        boundary_density = boundary_flux / boundary_velocity
+        U[index.ρi[i], begin] = boundary_density
+        U[index.ρiui[i], begin] = U[index.ρiui[i], begin+1]
+
+        # Neumann BC for ions at the right boundary
+        U[index.ρi[i], end] = U[index.ρi[i], end-1]
+        U[index.ρiui[i], end] = U[index.ρiui[i], end-1]
+    end
 
     #fluid computations, electron in implicit
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -101,8 +80,11 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     @inbounds  for i in 2:(ncells + 1)
         @turbo Q .= 0.0
 
-        #fluid source term (includes ionization and acceleration and energy)
-        source_term!(Q, U, params, i)
+        # default fluid source terms (includes ionization and acceleration and energy)
+
+
+        # additional user-specified fluid source terms
+        params.source_term!(Q, U, params, i)
 
         #Compute dU/dt
         left = left_edge(i)
@@ -137,11 +119,14 @@ function update_electron_energy!(dU, U, params, t)
     F = params.cache.F
     z_edge = params.z_edge
 
+    #=
     apply_bc_electron!(U, params.BCs[3], :left, index)
     apply_bc_electron!(U, params.BCs[4], :right, index)
+    =#
 
-    #dU[index.nϵ, 1] = dU[index.ne] * 3.0
-    #dU[index.nϵ, end] = dU[index.ne] * 3.0
+    # Dirichlet BCs for the electrons
+    U[index.nϵ, 1] = U[index.ne, params.Te_L]
+    U[index.nϵ, end] = U[index.ne, params.Te_R]
 
     @inbounds for i in 2:ncells+1
 
@@ -153,12 +138,11 @@ function update_electron_energy!(dU, U, params, t)
         ne = U[index.ne, i]
 
         Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
-    
         #ue⁺ = max(ue, 0.0) / ue
         #ue⁻ = min(ue, 0.0) / ue
         ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
-    
+
 
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
@@ -170,6 +154,7 @@ function update_electron_energy!(dU, U, params, t)
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
         ) / Δz^2
 
+        # Biased differences to account for different cell sizes
         if i == 2
             diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
             diffusion_term_2 /= 3*Δz^2
@@ -188,28 +173,6 @@ function update_electron_energy!(dU, U, params, t)
     return nothing
 end
 
-left_edge(i) = i - 1
-right_edge(i) = i
-
-function electron_density(U, fluid_ranges)
-    ne = 0.0
-    @inbounds for (i, f) in enumerate(fluid_ranges)
-        if i == 1
-            continue # neutrals do not contribute to electron density
-        end
-        charge_state = i - 1
-        ne += charge_state * U[f[1]]
-    end
-    return ne
-end
-
-function precompute_bfield!(B, zs)
-    B_max = 0.015
-    L_ch = 0.025
-    for (i, z) in enumerate(zs)
-        B[i] = B_field(B_max, z, L_ch)
-    end
-end
 
 function update_values!(U, params)
 
@@ -249,15 +212,12 @@ function update_values!(U, params)
 
 end
 
-#=Config = @NamedTuple begin
-    propellant::Gas
-end=#
-
 condition(u,t,integrator) = t < 1
 function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
+#=
 function run_simulation(sim, restart_file = nothing) #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
 
@@ -267,7 +227,7 @@ function run_simulation(sim, restart_file = nothing) #put source and Bcs potenti
     use_restart = restart_file !== nothing
 
     if use_restart
-        U, grid, B = read_restart(restart_file) 
+        U, grid, B = read_restart(restart_file)
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
@@ -330,39 +290,44 @@ function run_simulation(sim, restart_file = nothing) #put source and Bcs potenti
 
     return HallThrusterSolution(sol, params)
 end
+=#
 
-function inlet_neutral_density(sim)
-    un = sim.neutral_velocity
-    A = channel_area(sim.geometry)
-    m_atom = sim.propellant.m
-    nn = sim.inlet_mdot / un / A / m_atom
-    return nn
+function run_simulation(config)
+    U, params = configure_simulation(config)
+
+    tspan = (0.0, time)
+    saveat = LinRange(config.tspan[1], config.tspan[2], config.nsave)
+    maxiters = Int(ceil(1000 * tspan[2] / dtmax))
+
+    cb = nothing
+    if cb !== nothing
+        callback = CallbackSet(DiscreteCallback(condition, affect!, save_positions=(false,false)), sim.callback)
+    else
+        callback = DiscreteCallback(condition, affect!, save_positions=(false,false))
+    end
+
+    if config.implicit_energy
+        splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
+        sol = solve(splitprob, KenCarp47(); saveat, callback,
+        adaptive=config.adaptive, dt=config.dt, dtmax = config.dtmax)
+    else
+        alg = AutoTsit5(Rosenbrock23())
+        prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
+        sol = solve(
+            prob, alg; saveat, callback,
+            adaptive=config.adaptive,
+            dt=config.dt,
+            dtmax=config.dtmax,
+            maxiters = maxiters
+        )
+    end
+
+    return HallThrusterSolution(sol, params)
 end
+
 
 function initial_condition!(U, z_cell, IC!, fluids)
     for (i, z) in enumerate(z_cell)
         @views IC!(U[:, i], z, fluids, z_cell[end])
     end
 end
-
-############################################################################################
-using DelimitedFiles
-
-function load_hallis_output(output_path)
-    output_headers = [
-        :z, :ne, :ϕ, :Te, :Ez, :Br, :nn, :ndot, :μe, :μen, :μbohm, :μwall, :μei,
-    ]
-    output = DataFrame(readdlm(output_path, Float64), output_headers)
-    output.ωce = output.Br * 1.6e-19 / 9.1e-31
-    replace!(output.nn, 0.0 => 1e12)
-    return output[1:end-1, :]
-end
-
-
-function load_hallis_for_input()
-    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_01.out")
-    ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, hallis.ϕ)
-    grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
-    return ϕ_hallis, grad_ϕ_hallis
-end
-
