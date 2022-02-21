@@ -73,8 +73,8 @@ function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     Te_L = pe_L / UL[1] * mi
     Te_R = pe_R / UR[1] * mi
 
-    T_L = #=e * smooth_if(Te_L, 1.0, 1.0, Te_L) +=# kB * temperature(UL, fluid)
-    T_R = #=e * smooth_if(Te_R, 1.0, 1.0, Te_R) + =# kB * temperature(UR, fluid)
+    T_L = e * smooth_if(Te_L, 1.0, 1.0, Te_L) + kB * temperature(UL, fluid)
+    T_R = e * smooth_if(Te_R, 1.0, 1.0, Te_R) + kB * temperature(UR, fluid)
 
     aL = sqrt(T_L / mi)
     aR = sqrt(T_R / mi)

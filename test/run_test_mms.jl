@@ -1,17 +1,12 @@
-#solve electron issues
-#1) get rid of electron source terms, no heat conduction, and put the fluxes in explicit solve. Set electron velocity to a constant. See if this does indeed run and plot solution over time, set electron solve to false.
-#2) if above works, do MMS with that.
-
-
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase
 
 include("plotting.jl")
 
 function source!(Q, U, params, i)
-    HallThruster.apply_reactions!(Q, U, params, i)
+    #HallThruster.apply_reactions!(Q, U, params, i)
     #HallThruster.apply_ion_acceleration!(Q, U, params, i)
-    HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
-    HallThruster.source_electron_energy_landmark!(Q, U, params, i)
+    #HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
+    #HallThruster.source_electron_energy_landmark!(Q, U, params, i)
     return Q
 end
 
@@ -27,7 +22,7 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     return U
 end
 
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
+function run_sim_test_mms(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher)
     fluid = HallThruster.Xenon
 
@@ -41,16 +36,14 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     BCs = (HallThruster.Dirichlet_ionbohm(left_state), HallThruster.Neumann_ionbohm())
 
     left_internal_energy = 3.0
-    BCs_elec = (HallThruster.Dirichlet_energy_upd_ne(left_internal_energy), HallThruster.Dirichlet_energy_upd_ne(left_internal_energy))
+    ne = 2.1801715574645586e-7/10 / HallThruster.Xenon.m
+    BCs_elec = (HallThruster.Dirichlet_energy(left_internal_energy*ne), HallThruster.Dirichlet_energy(left_internal_energy*ne))
 
     saveat = if nsave == 1
         [end_time]
     else
         LinRange(0.0, end_time, nsave) |> collect
     end
-
-    f1(z) = 0.0
-    f2(z) = 0.0
 
     mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
     sim = HallThruster.MultiFluidSimulation(
@@ -69,7 +62,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         timestepcontrol = (dt, adaptive), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing,
         solve_energy = implicit_energy, 
-        verification = Verification(0, 0, EnergyOVS(0, 0.0, 0.0, f1(z), f2(z)))
+        verification = Verification(0, 1, 1)
     )
 
     @time sol = HallThruster.run_simulation(sim)

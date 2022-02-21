@@ -11,12 +11,6 @@ mutable struct Result
     L_1
 end
 
-mutable struct Verification
-    potential ::Int64
-    fluid ::Int64
-    energy ::Int64
-end
-
 """
     perform_OVS(; MMS_CONSTS::NamedTuple, fluxfn::Function, reconstruct::Bool)
 
@@ -139,7 +133,7 @@ function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
         b = zeros(n_cells + 1)
         μ = ones(n_cells + 2)
         cache = (; A, b, μ)
-        OVS = Verification(1, 0, 0)
+        OVS = Verification(1, 0, EnergyOVS(0, nothing, nothing, nothing, nothing))
         params = (; L_ch, ϕ_L, ϕ_R, OVS, index, cache, fluids, z_cell=grid.cell_centers, z_edge = grid.edges)
         HallThruster.solve_potential_edge!(U, params)
         z_cells = params.z_cell
@@ -148,10 +142,8 @@ function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
         u_exa = Array{Union{Nothing, Float64}}(nothing, length(ϕ)-3)
         for i in 1:length(ϕ)-3
             u_exa[i] = 25000.0*z_edge[i+1]^2 - 3250.0*z_edge[i+1] + 100.0
-            @show z_edge[i+1]
         end
         error = abs.(u_exa - ϕ[2:end-2])
-        @show error
         results[refinement] = Result(ϕ, 1.0, z_edge, n_cells-1, u_exa, error, maximum(error), mean(error))
         n_cells = n_cells*2
     end
@@ -192,7 +184,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
         ρ2 = MMS_CONSTS.n0 + MMS_CONSTS.nx
         u1 = MMS_CONSTS.u0
         ρ1 = MMS_CONSTS.n0 + MMS_CONSTS.nx
-        Tev = MMS_CONSTS.Tev0 + MMS_CONSTS.Tev_elec_max*sin(π * z / (MMS_CONSTS.L))
+        Tev = MMS_CONSTS.Tev0 #+ MMS_CONSTS.Tev_elec_max*sin(π * z / (MMS_CONSTS.L))
         ne = (MMS_CONSTS.n0 + MMS_CONSTS.nx) / fluids[1].species.element.m
         U .= SA[ρ1, ρ2, ρ2*u1, ne*Tev]
         return U
@@ -209,6 +201,11 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     left_state_elec = ρ1/HallThruster.Xenon.m*MMS_CONSTS.Tev0
     right_state_elec = left_state_elec
     BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
+    
+    Tev_func(z) = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * z / (MMS_CONSTS_ELEC.L))
+    ne_func(z) = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * z / MMS_CONSTS_ELEC.L)
+
+    energyovs = EnergyOVS(1, MMS_CONSTS.μ,  MMS_CONSTS.ue, Tev_func, ne_func)
 
     n_save = 100
     saveat = if n_save == 1
@@ -234,7 +231,8 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     saveat = saveat,
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
     callback = cb, 
-    solve_energy = false
+    solve_energy = false,
+    verification = Verification(0, 1, energyovs)
     )
 
     #generate different number of cells while keeping CFL number constant over refinements chosen
@@ -249,12 +247,12 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
         simulation.timestepcontrol = (MMS_CONSTS.CFL*MMS_CONSTS.L/(MMS_CONSTS.u_constant*n_cells), false)
         sol = HallThruster.run_simulation(simulation)
         z_cells = simulation.grid.cell_centers
-        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.u[1][1:lf+1, 1]), length(z_cells)) #lf+1 for the electron energy
+        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.sol.u[1][1:lf+1, 1]), length(z_cells)) #lf+1 for the electron energy
         for (i, z_cell) in enumerate(z_cells)
             u_exa[:, i] = mms_conservative([z_cell, 0])
         end
-        error = abs.(u_exa - sol.u[end][1:lf+1, :])./u_exa[:, 1]
-        results[refinement] = Result(sol, simulation.timestepcontrol[1], z_cells, simulation.grid.ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
+        error = abs.(u_exa - sol.sol.u[end][1:lf+1, :])./u_exa[:, 1]
+        results[refinement] = Result(sol.sol, simulation.timestepcontrol[1], z_cells, simulation.grid.ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
         n_cells = n_cells*2
     end
     return results

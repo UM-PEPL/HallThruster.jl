@@ -4,7 +4,7 @@ struct HyperbolicScheme{F,L}
     reconstruct::Bool
 end
 
-Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP} #could add callback, or autoselect callback when in MMS mode
+Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP,VF} #could add callback, or autoselect callback when in MMS mode
     grid::Grid1D
     fluids::Vector{Fluid}     # An array of user-defined fluids.
     # This will give us the capacity to more easily do shock tubes (and other problems)
@@ -20,6 +20,7 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP} #
     timestepcontrol::Tuple{Float64,Bool} #sets timestep (first argument) if second argument false. if second argument (adaptive) true, given dt is ignored.
     callback::CB
     solve_energy::Bool
+    verification::VF
 end
 
 get_species(sim) = [Species(sim.propellant, i) for i in 0:(sim.ncharge)]
@@ -95,7 +96,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     #fluid computations, electron in implicit
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, 0.0.*U[index.pe, :])
+    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :])
 
     # Compute heavy species source terms
     @inbounds  for i in 2:(ncells + 1)
@@ -115,11 +116,12 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         dU[index.nϵ, i] = Q[index.nϵ]
 
         # Ion diffusion term
-        η = 0.001 * sqrt(2*e*U[index.Tev, i]/(3*mi))
-        dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
+        #η = 0.001 * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        #dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
 
     end
 
+    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
@@ -167,10 +169,10 @@ function update_electron_energy!(dU, U, params, t)
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
         ) / Δz^2
 
-        if i == 2
+        if i == 2 #2
             diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
             diffusion_term_2 /= 3*Δz^2
-        elseif i == ncells + 1
+        elseif i == ncells + 1 #ncells + 1
             diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4U[index.Tev, i-1] - 12U[index.Tev, i] + 8U[index.Tev, i+1])
             diffusion_term_2 /= 3*Δz^2
         else
@@ -223,13 +225,12 @@ function update_values!(U, params)
     mi = m(fluids[1])
 
     @inbounds @views for i in 1:(ncells + 2)
-        @views U[index.ne, i] = max(1e13, electron_density(U[:, i], fluid_ranges) / mi)
-        U[index.Tev, i] = max(0.1, U[index.nϵ, i]/U[index.ne, i])
+        @views U[index.ne, i] = (1 - params.OVS.energy.active)*max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + params.OVS.energy.active*(params.OVS.energy.ne(z_cell[i]))
+        U[index.Tev, i] = (1 - params.OVS.energy.active)*max(0.1, U[index.nϵ, i]/U[index.ne, i]) + params.OVS.energy.active*(params.OVS.energy.Tev(z_cell[i]))
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = get_v_an(z_cell[i], B[i], L_ch)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
-        params.cache.μ[i] = electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i])
-        #params.cache.μ[i] = 10.0
+        params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) + params.OVS.energy.active*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential
@@ -237,8 +238,7 @@ function update_values!(U, params)
 
     @inbounds @views for i in 1:(ncells + 2)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = electron_velocity(U, params, i)
-        #U[index.ue, i] = -100.0
+        U[index.ue, i] = (1 - params.OVS.energy.active)*electron_velocity(U, params, i) + params.OVS.energy.active*(params.OVS.energy.ue)
     end
 
     U[index.ue, 1] = U[index.ue, 2]
@@ -277,7 +277,7 @@ function run_simulation(sim) #put source and Bcs potential in params
 
     precompute_bfield!(cache.B, grid.cell_centers)
 
-    OVS = Verification(0, 0, 0)
+    OVS = sim.verification
 
     ϕ_L = 300.0
     ϕ_R = 0.0
