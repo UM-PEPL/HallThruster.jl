@@ -173,10 +173,10 @@ function initialize_solution!(U, index, grid, fluids, fluid_ranges, config)
     for i in 1:length(grid.cell_centers)
         U[index.ρn, i] = inlet_neutral_density(config) * mi
         for (f, r) in zip(fluids[2:end], fluid_ranges[2:end])
-            U[r[1]] = config.floor_ne * mi
-            U[r[2]] = config.floor_ne * config.neutral_velocity * mi
+            U[r[1], i] = config.floor_ne * mi
+            U[r[2], i] = config.floor_ne * config.neutral_velocity * mi
             if length(r) == 3
-                U[r[3]] = mi * config.floor_ne * (0.5 * config.neutral_velocity^2 + cv(f) * config.ion_temperature)
+                U[r[3], i] = mi * config.floor_ne * (0.5 * config.neutral_velocity^2 + cv(f) * config.ion_temperature)
             end
         end
         z = grid.cell_centers[i]
@@ -275,9 +275,6 @@ function configure_simulation(config)
         reactions = ionization_reactions,
         index, cache, fluids, fluid_ranges, species_range_dict, scheme, loss_coeff,
     )
-
-    @show species_range_dict
-    @show fluid_ranges
 
     println("Simulation configured.")
 

@@ -290,6 +290,7 @@ end
 
 function run_simulation(config)
     U, params = configure_simulation(config)
+    update_values!(U, params)
 
     tspan = (0.0, config.simulation_time)
     saveat = LinRange(tspan[1], tspan[2], config.nsave)
