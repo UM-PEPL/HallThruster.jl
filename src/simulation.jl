@@ -90,22 +90,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     ##############################################################
     #FLUID MODULE
 
-    #fluid BCs
-    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
-    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
-
-    #fluid computations, electron in implicit
-    @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(
-        F[1:index.lf, :],
-        UL[1:index.lf, :],
-        UR[1:index.lf, :],
-        fluids,
-        fluid_ranges,
-        scheme,
-        U[index.pe, :],
-        params.config.electron_pressure_coupled
-    )
+    #fluid BCs now in update_values struct
 
     # Compute heavy species source terms
     @inbounds  for i in 2:(ncells + 1)
@@ -241,6 +226,25 @@ function update_values!(U, params)
     mi = m(fluids[1])
 
     OVS = params.OVS.energy.active
+
+    cache = params.cache
+    F, UL, UR = cache.F, cache.UL, cache.UR
+    scheme = params.scheme
+
+    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+
+    @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
+    @views compute_fluxes!(
+        F[1:index.lf, :],
+        UL[1:index.lf, :],
+        UR[1:index.lf, :],
+        fluids,
+        fluid_ranges,
+        scheme,
+        U[index.pe, :],
+        params.config.electron_pressure_coupled
+    )
 
     @inbounds @views for i in 1:(ncells + 2)
         z = z_cell[i]
