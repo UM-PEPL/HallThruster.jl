@@ -99,14 +99,15 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = :LANDMARK,
         ionization_coeffs = :LANDMARK,
+        electron_pressure_coupled = true,
     )
 
     @time sol = HallThruster.run_simulation(sim, config)
-
+ 
     p = plot(sol)
     display(p)
 
     return sol
 end
 
-sol = run_sim(5e-4; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);
+sol = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);

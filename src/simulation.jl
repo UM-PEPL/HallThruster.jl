@@ -39,11 +39,11 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     # Number of variables in the state vector U
     nvariables = 0
     for i in 1:length(fluids)
-        if fluids[i].conservation_laws.type == :ContinuityOnly
+        if fluids[i].conservation_laws.type == _ContinuityOnly
             nvariables += 1
-        elseif fluids[i].conservation_laws.type == :IsothermalEuler
+        elseif fluids[i].conservation_laws.type == _IsothermalEuler
             nvariables += 2
-        elseif fluids[i].conservation_laws.type == :EulerEquations
+        elseif fluids[i].conservation_laws.type == _EulerEquations
             nvariables += 3
         end
     end
@@ -96,7 +96,16 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
     #fluid computations, electron in implicit
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :])
+    @views compute_fluxes!(
+        F[1:index.lf, :],
+        UL[1:index.lf, :],
+        UR[1:index.lf, :],
+        fluids,
+        fluid_ranges,
+        scheme,
+        U[index.pe, :],
+        params.config.electron_pressure_coupled
+    )
 
     # Compute heavy species source terms
     @inbounds  for i in 2:(ncells + 1)
@@ -113,7 +122,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
         # Neutral fluxes and source
         dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn]
-        η = params.δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        η = params.config.ion_diffusion_coeff * sqrt(2*e*U[index.Tev, i]/(3*mi))
 
         @turbo for j in index.ρi[1]:index.lf
             # Ion fluxes and source
@@ -159,12 +168,12 @@ function update_electron_energy!(dU, U, params, t)
         ne = U[index.ne, i]
 
         Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
-    
+
         ue⁺ = max(ue, 0.0) / ue
         ue⁻ = min(ue, 0.0) / ue
         #ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         #ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
-    
+
 
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
@@ -388,6 +397,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     precompute_bfield!(cache.B, grid.cell_centers)
 
     params = (;
+        config = config,
         propellant = config.propellant,
         ϕ_L = config.anode_potential,
         ϕ_R = config.cathode_potential,

@@ -7,32 +7,78 @@
 @inline number_density(U, f::Fluid) = density(U, f) / m(f)
 @inline density(U, f::Fluid) = U[1]
 
-function velocity(U, f::Fluid)
-    if f.conservation_laws.type == :ContinuityOnly
+function compute_primitive_continuity(U, f::Fluid)
+    ρ = U[1]
+    u = f.conservation_laws.u
+    p = ρ * R(f) * f.conservation_laws.T
+    return ρ, u, p
+end
+
+function compute_primitive_isothermal(U, f::Fluid)
+    ρ = U[1]
+    u = U[2] / U[1]
+    p = U[1] * R(f) * f.conservation_laws.T
+    return ρ, u, p
+end
+
+function compute_primitive_euler(U, f::Fluid)
+    γ = fluid.species.element.γ
+    ρ, ρu, ρE = U
+    u = ρu / ρ
+    p = (γ - 1) * (ρE - 0.5 * ρu * u)
+    return ρ, u, p
+end
+
+function compute_primitive(U, f::Fluid)
+    ρ = U[1]
+    if f.conservation_laws.type == _ContinuityOnly
+        u = f.conservation_laws.u
+    else
+        u = U[2] / U[1]
+    end
+
+    if f.conservation_laws.type == _EulerEquations
+        ρu = U[2]
+        ρE = U[3]
+        p = (γ - 1) * (ρE - 0.5 * ρu * u)
+    else
+        p = U[1] * R(f) * f.conservation_laws.T
+    end
+
+    return ρ, u, p
+end
+
+function compute_conservative(ρ, u, p, γ)
+    ρE = p / (γ - 1) + 0.5 * ρ * u^2
+    return ρ, ρ * u, ρE
+end
+
+@inline function velocity(U, f::Fluid)
+    if f.conservation_laws.type == _ContinuityOnly
         return f.conservation_laws.u
     else
         return U[2] / U[1]
     end
 end
 
-function temperature(U, f::Fluid)
-    if f.conservation_laws.type == :EulerEquations
-        pressure(U, f) / density(U, f) / R(f)
+@inline function temperature(U, f::Fluid)
+    if f.conservation_laws.type == _EulerEquations
+        (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1]) / U[1] / R(f)
     else
         return f.conservation_laws.T
     end
 end
 
 @inline function pressure(U, f::Fluid)
-    if f.conservation_laws.type == :EulerEquations
+    if f.conservation_laws.type == _EulerEquations
         return (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1])
     else
-        return density(U, f) * R(f) * temperature(U, f)
+        return U[1] * R(f) * f.conservation_laws.T
     end
 end
 
 function stagnation_energy(U, f::Fluid)
-    if f.conservation_laws.type == :EulerEquations
+    if f.conservation_laws.type == _EulerEquations
         return U[3] + (0.5 * (U[2])^2 / (U[1])^2) * (1 - U[1])
     else
         return 0.5 * velocity(U, f)^2 + static_energy(U, f)
@@ -40,7 +86,7 @@ function stagnation_energy(U, f::Fluid)
 end
 
 function static_energy(U, f::Fluid)
-    if f.conservation_laws.type == :EulerEquations
+    if f.conservation_laws.type == _EulerEquations
         return U[3] / U[1] - 0.5 * (U[2] / U[1])^2
     else
         return cv(f) * temperature(U, f)
@@ -48,7 +94,7 @@ function static_energy(U, f::Fluid)
 end
 
 function static_enthalpy(U, f::Fluid)
-    if f.conservation_laws.type == :EulerEquations
+    if f.conservation_laws.type == _EulerEquations
         return U[3] / U[1] - 0.5 * (U[2] / U[1])^2 + pressure(U, f) / density(U, f)
     else
         return cp(f) * temperature(U, f)

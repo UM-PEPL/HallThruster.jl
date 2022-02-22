@@ -1,14 +1,14 @@
 function flux(U, fluid, pe)
-    if fluid.conservation_laws.type == :ContinuityOnly
+    if fluid.conservation_laws.type == _ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
         F = (ρ * u, 0.0, 0.0)
-    elseif fluid.conservation_laws.type == :IsothermalEuler
+    elseif fluid.conservation_laws.type == _IsothermalEuler
         ρ, ρu = U
         u = velocity(U, fluid)
         p = pressure(U, fluid)
         F = (ρu, ρu * u + p + pe, 0.0)
-    elseif fluid.conservation_laws.type == :EulerEquations
+    elseif fluid.conservation_laws.type == _EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
         p = pressure(U, fluid)
@@ -19,17 +19,17 @@ function flux(U, fluid, pe)
 end
 
 function flux!(F, U, fluid, pe)
-    if fluid.conservation_laws.type == :ContinuityOnly
+    if fluid.conservation_laws.type == _ContinuityOnly
         ρ = U[1]
         u = velocity(U, fluid)
         F[1] = ρ * u
-    elseif fluid.conservation_laws.type == :IsothermalEuler
+    elseif fluid.conservation_laws.type == _IsothermalEuler
         ρ, ρu = U
         u = velocity(U, fluid)
         p = pressure(U, fluid)
         F[1] = ρu
         F[2] = ρu * u + p + pe
-    elseif fluid.conservation_laws.type == :EulerEquations
+    elseif fluid.conservation_laws.type == _EulerEquations
         ρ, ρu, ρE = U
         u = U[2] / U[1]
         p = pressure(U, fluid)
@@ -42,42 +42,28 @@ function flux!(F, U, fluid, pe)
     return F
 end
 
-function compute_primitive(U, γ)
-    ρ, ρu, ρE = U
-    u = ρu / ρ
-    p = (γ - 1) * (ρE - 0.5 * ρu * u)
-    return ρ, u, p
-end
-
-function compute_conservative(ρ, u, p, γ)
-    ρE = p / (γ - 1) + 0.5 * ρ * u^2
-    return ρ, ρ * u, ρE
-end
-
 # NOTE: this can be sped up significantly if we write specialized versions for each fluid type
 # we're losing a lot of time (~1/4 of the run time) on the conditionals in the thermodynamics, better to do one conditional
 # and then go from there. however, that would lead to about 2x more code in this section and a loss of generality. probably
 # better to wait to overhaul this until the main features are in and we can think about a refactor
-function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
+function HLLE!(F, UL, UR, fluid, peL, peR, coupled)
     γ = fluid.species.element.γ
+    R = fluid.species.element.R
+    Z = fluid.species.Z
 
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
 
-    #aL = sound_speed(UL, fluid)
-    #aR = sound_speed(UR, fluid)
+    TL = temperature(UL, fluid)
+    TR = temperature(UR, fluid)
 
-    # electron pressure coupling, use cs instead of a
     mi = m(fluid)
 
-    Te_L = pe_L / UL[1] * mi
-    Te_R = pe_R / UR[1] * mi
+    TeL = max(0.0, peL / UL[1] * mi)
+    TeR = max(0.0, peR / UR[1] * mi)
 
-    T_L = e * smooth_if(Te_L, 1.0, 1.0, Te_L) + kB * temperature(UL, fluid)
-    T_R = e * smooth_if(Te_R, 1.0, 1.0, Te_R) + kB * temperature(UR, fluid)
-
-    aL = sqrt(T_L / mi)
-    aR = sqrt(T_R / mi)
+    aL = sqrt((Z * e * coupled * TeL + γ * kB * TL) / mi)
+    aR = sqrt((Z * e * coupled * TeR + γ * kB * TR) / mi)
 
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
@@ -85,8 +71,8 @@ function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid, e * pe_L)
-    FR = flux(UR, fluid, e * pe_R)
+    FL = flux(UL, fluid, Z * coupled * e * peL)
+    FR = flux(UR, fluid, Z * coupled * e * peR)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
@@ -96,14 +82,15 @@ function HLLE!(F, UL, UR, fluid, pe_L, pe_R)
     return F
 end
 
-function upwind!(F, UL, UR, fluid::Fluid, pe_L, pe_R)
+function upwind!(F, UL, UR, fluid::Fluid, pe_L, pe_R, coupled)
     uL = velocity(UL, fluid)
     uR = velocity(UR, fluid)
     avg_velocity = 0.5 * (uL + uR)
+    Z = fluid.species.Z
     if avg_velocity ≥ 0
-        flux!(F, UL, fluid, pe_L)
+        flux!(F, UL, fluid, Z * coupled * e * pe_L)
     else
-        flux!(F, UR, fluid, pe_R)
+        flux!(F, UR, fluid, Z * coupled * e * pe_R)
     end
     return F
 end
@@ -181,7 +168,7 @@ function compute_edge_states!(UL, UR, U, scheme)
     return UL, UR
 end
 
-function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe)
+function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe, coupled)
     _, nedges = size(F)
 
     for i in 1:nedges
@@ -189,7 +176,7 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe)
             pe_L = pe[i]
             pe_R = pe[i+1]
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
-                                        UR[fluid_range, i], fluid, pe_L, pe_R)
+                                        UR[fluid_range, i], fluid, pe_L, pe_R, coupled)
         end
     end
     return F

@@ -1,6 +1,11 @@
+@enum ConservationLawType begin
+    _ContinuityOnly
+    _IsothermalEuler
+    _EulerEquations
+end
 
 Base.@kwdef struct ConservationLawSystem
-    type::Symbol
+    type::ConservationLawType
     nvars::Int
     u::Union{Float64,Nothing}
     T::Union{Float64,Nothing}
@@ -37,7 +42,7 @@ ContinuityOnly(u = 300.0 m/s, T = 500.0 K)
 ```
 """
 function ContinuityOnly(; u, T)
-    return ConservationLawSystem(; type=:ContinuityOnly, nvars=1, u=Float64(u),
+    return ConservationLawSystem(; type=_ContinuityOnly, nvars=1, u=Float64(u),
                                  T=Float64(T))
 end
 ContinuityOnly(u, T) = ContinuityOnly(; u, T)
@@ -53,7 +58,7 @@ IsothermalEuler(T = 500.0 K)
 ```
 """
 function IsothermalEuler(; T)
-    return ConservationLawSystem(; type=:IsothermalEuler, nvars=2, u=nothing, T=Float64(T))
+    return ConservationLawSystem(; type=_IsothermalEuler, nvars=2, u=nothing, T=Float64(T))
 end
 IsothermalEuler(T) = IsothermalEuler(; T)
 
@@ -69,15 +74,5 @@ EulerEquations()
 ```
 """
 function EulerEquations()
-    return ConservationLawSystem(; type=:EulerEquations, nvars=3, u=nothing, T=nothing)
-end
-
-"""
-    ElectronEnergy
-Not exactly a `ConservationLawSystem`, but setup to be used for the ElectronEnergy equation.
-Values for u and T set to 0 but unused.
-"""
-
-function ElectronEnergy()
-    return ConservationLawSystem(; type=:ElectronEnergy, nvars = 1, u = 0.0, T = 0.0)
+    return ConservationLawSystem(; type=_EulerEquations, nvars=3, u=nothing, T=nothing)
 end
