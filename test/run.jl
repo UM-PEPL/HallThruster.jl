@@ -94,6 +94,11 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         propellant = HallThruster.Xenon,
         ncharge = 1,
         verification = verification,
+        solve_ion_energy = false,
+        ion_temperature = 1000.0,
+        anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
+        energy_equation = :LANDMARK,
+        ionization_coeffs = :LANDMARK,
     )
 
     @time sol = HallThruster.run_simulation(sim, config)
@@ -103,4 +108,5 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     return sol
 end
+
 sol = run_sim(5e-4; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);

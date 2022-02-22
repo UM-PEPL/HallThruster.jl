@@ -54,6 +54,9 @@ function Gas(name, short_name; γ, M)
     return Gas(name, short_name, γ, M, m, cp, cv, R)
 end
 
+# lets you do things like Xenon(1) == Species(Xenon, 1)
+(g::Gas)(Z::Int) = Species(g, Z)
+
 """
     Species
 Represents a gas with a specific charge state. In a plasma, different ionization states of the same

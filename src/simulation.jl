@@ -112,10 +112,10 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         Δz = z_edge[right] - z_edge[left]
 
         # Neutral fluxes and source
-        dU[1, i] = (F[1, left] - F[1, right]) / Δz + Q[1]
+        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn]
         η = params.δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
 
-        @turbo for j in 2:index.lf
+        @turbo for j in index.ρi[1]:index.lf
             # Ion fluxes and source
             dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j]
             # Add optional diffusion term for the ions in interior cells
@@ -270,16 +270,90 @@ function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
-function run_simulation(sim, config) #put source and Bcs potential in params
-    species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
 
+function make_keys(fluid_range, subscript)
+    len = length(fluid_range)
+    if len == 1
+        return (Symbol("ρ$(subscript)"))
+    elseif len == 2
+        return (
+            Symbol("ρ$(subscript)"),
+            Symbol("ρ$(subscript)u$(subscript)")
+        )
+    elseif len == 3
+        return (
+            Symbol("ρ$(subscript)"),
+            Symbol("ρ$(subscript)u$(subscript)"),
+            Symbol("ρ$(subscript)E$(subscript)")
+        )
+    else
+        throw(ArgumentError("Too many equations on fluid (this should be unreachable)"))
+    end
+end
+
+function configure_index(fluid_ranges)
     lf = fluid_ranges[end][end]
-    index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
+
+    ncharge = length(fluid_ranges)-1
+    solve_ion_temp = length(fluid_ranges[2]) == 3
+
+    keys_neutrals = (:ρn, )
+    values_neutrals = (1, )
+
+    if solve_ion_temp
+        keys_ions = (:ρi, :ρiui, :ρiuiEi)
+        values_ions = (
+            [f[1] for f in fluid_ranges[2:end]]...,
+            [f[2] for f in fluid_ranges[2:end]]...,
+            [f[3] for f in fluid_ranges[2:end]]...,
+        )
+    else
+        keys_ions = (:ρi, :ρiui)
+        values_ions = (
+            [f[1] for f in fluid_ranges[2:end]],
+            [f[2] for f in fluid_ranges[2:end]],
+        )
+    end
+
+    keys_fluids = (keys_neutrals..., keys_ions...)
+    values_fluids = (values_neutrals..., values_ions...)
+    keys_electrons = (:nϵ, :Tev, :ne, :pe, :ϕ, :grad_ϕ, :ue)
+    values_electrons = lf .+ collect(1:7)
+    index_keys = (keys_fluids..., keys_electrons..., :lf)
+    index_values = (values_fluids..., values_electrons..., lf)
+    index = NamedTuple{index_keys}(index_values)
+    @show index
+    return index
+end
+
+function configure_fluids(config)
+    propellant = config.propellant
+    species = [propellant(i) for i in 0:config.ncharge]
+    neutral_fluid = Fluid(species[1], ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
+    ion_eqns = if config.solve_ion_energy
+        EulerEquations()
+    else
+        IsothermalEuler(T = config.ion_temperature)
+    end
+    ion_fluids = [Fluid(species[i+1], ion_eqns) for i in 1:config.ncharge]
+    fluids = [neutral_fluid; ion_fluids]
+    fluid_ranges = ranges(fluids)
+    species_range_dict = Dict(Symbol(fluid.species) => fluid_range
+                              for (fluid, fluid_range) in zip(fluids, fluid_ranges))
+    return fluids, fluid_ranges, species, species_range_dict
+end
+
+function run_simulation(sim, config) #put source and Bcs potential in params
+
+    fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
+
+    index = configure_index(fluid_ranges)
+    landmark = load_landmark()
 
     use_restart = config.restart_file !== nothing
 
     if use_restart
-        U, grid, B = read_restart(config.restart_file) 
+        U, grid, B = read_restart(config.restart_file)
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
@@ -294,10 +368,19 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     timestep = sim.timestepcontrol[1]
     adaptive = sim.timestepcontrol[2]
     tspan = (0.0, sim.end_time)
-    anom_model = TwoZoneBohm(1/160, 1/16)
 
-    reactions = load_ionization_reactions(species)
-    landmark = load_landmark()
+    # Load ionization reactions fro file
+    if config.ionization_coeffs == :LANDMARK
+        if config.ncharge > 1
+            throw(ArgumentError("LANDMARK ionization table does not support multiply-charged ions. Please use :BOLSIG or reduce ncharge to 1."))
+        else
+            ionization_reactions = [IonizationReaction(species[1], species[2], landmark.rate_coeff)]
+        end
+    elseif config.ionization_coeffs == :BOLSIG
+        ionization_reactions = load_ionization_reactions(species)
+    else
+        throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
+    end
     #ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
@@ -305,6 +388,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     precompute_bfield!(cache.B, grid.cell_centers)
 
     params = (;
+        propellant = config.propellant,
         ϕ_L = config.anode_potential,
         ϕ_R = config.cathode_potential,
         Te_L = config.anode_Te,
@@ -318,11 +402,13 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
         OVS = config.verification,
+        anom_model = config.anom_model,
+        loss_coeff = landmark.loss_coeff,
+        reactions = ionization_reactions,
+        implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
-        z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
-        scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
-        boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy,
-        anom_model,
+        z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!,
+        scheme, BCs, dt=timestep,
     )
 
     #PREPROCESS
