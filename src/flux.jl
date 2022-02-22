@@ -48,7 +48,6 @@ end
 # better to wait to overhaul this until the main features are in and we can think about a refactor
 function HLLE!(F, UL, UR, fluid, peL, peR, coupled)
     γ = fluid.species.element.γ
-    R = fluid.species.element.R
     Z = fluid.species.Z
 
     uL = velocity(UL, fluid)
@@ -62,8 +61,10 @@ function HLLE!(F, UL, UR, fluid, peL, peR, coupled)
     TeL = max(0.0, peL / UL[1] * mi)
     TeR = max(0.0, peR / UR[1] * mi)
 
-    aL = sqrt((Z * e * coupled * TeL + γ * kB * TL) / mi)
-    aR = sqrt((Z * e * coupled * TeR + γ * kB * TR) / mi)
+    charge_factor = Z * e * coupled
+
+    aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+    aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
     sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
     sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
@@ -71,8 +72,8 @@ function HLLE!(F, UL, UR, fluid, peL, peR, coupled)
     smin = min(sL_min, sR_min)
     smax = max(sL_max, sR_max)
 
-    FL = flux(UL, fluid, Z * coupled * e * peL)
-    FR = flux(UR, fluid, Z * coupled * e * peR)
+    FL = flux(UL, fluid, charge_factor * peL)
+    FR = flux(UR, fluid, charge_factor * peR)
 
     for i in 1:length(F)
         F[i] = 0.5 * (FL[i] + FR[i]) -
