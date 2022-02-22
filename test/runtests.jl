@@ -604,9 +604,9 @@ end=#
 #redefine MMS CONSTS according to values in simulation
 #for now, need to manually set the μ and ue in simulation.jl, change boundary conditions to U, set pe = 0 in flux computation, comment out energy
 
-#=
+
 const MMS_CONSTS_ELEC = (
-    CFL = 0.01, 
+    CFL = 0.01, #calculated from neutral constant velocity, pay attention for energy equ as while solution converges to man solution can become unstable due to steep ne derivatives leading to steep Te derivatives
     n_cells_start = 20,
     fluid = HallThruster.Xenon,
     max_end_time = 300e-5,
@@ -623,7 +623,7 @@ const MMS_CONSTS_ELEC = (
     Tx = 100.0,
     Tev0 = 50.0, 
     Tev_elec_max = 20.0,
-    μ = 10.0,
+    μ = 1.0,
     ue = -100.0,
 )
 
@@ -632,11 +632,11 @@ Dt = Differential(t)
 Dx = Differential(x)
 
 uₑ_manufactured = MMS_CONSTS_ELEC.ue #set electron velocity in beginning
-Tev_manufactured = MMS_CONSTS_ELEC.Tev0 + MMS_CONSTS_ELEC.Tev_elec_max*sin(π * x / (MMS_CONSTS_ELEC.L))
+Tev_manufactured = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * x / (MMS_CONSTS_ELEC.L))
 
-n_manufactured = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #ions and neutrals
-u_manufactured = MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*sin(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #ion velocity #MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*x/MMS_CONSTS_ELEC.L 
-nϵ_manufactured = 1e18*Tev_manufactured + 1/3*Tev_manufactured*1e18*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L) #cos will be 1 at start and end of domain
+n_manufactured = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
+u_manufactured = MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*sin(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
+nϵ_manufactured = n_manufactured/MMS_CONSTS_ELEC.fluid.m*Tev_manufactured
 
 RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS_ELEC.u_constant)
 RHS_2 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
@@ -684,5 +684,5 @@ mms_conservative = eval(conservative_func[1])
     p9 = Plots.plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (4, 2), size = (2000, 1000),  margin=5Plots.mm)
     Plots.png(p9, "alfa")
 
-end=#
+end
 
