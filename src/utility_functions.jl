@@ -22,12 +22,12 @@ smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
     mutable struct EnergyOVS
 Enables setting mu, ue, Tev and ne to certain values to very electron energy equation
 """
-mutable struct EnergyOVS
+mutable struct EnergyOVS{F1, F2}
     active ::Int64
-    μ ::Union{Float64, Nothing}
-    ue ::Union{Float64, Nothing}
-    Tev ::Union{Function, Nothing}
-    ne ::Union{Function, Nothing}
+    μ::Union{Float64, Nothing}
+    ue::Union{Float64, Nothing}
+    Tev::F1
+    ne::F2
 end
 
 """
@@ -35,8 +35,8 @@ end
 is passed to params to identify if OVS is active.
 """
 
-mutable struct Verification
+mutable struct Verification{F1, F2}
     potential ::Int64
     fluid ::Int64
-    energy ::EnergyOVS
+    energy ::EnergyOVS{F1, F2}
 end
