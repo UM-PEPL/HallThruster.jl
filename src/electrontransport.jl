@@ -15,11 +15,11 @@ end
     ωce = e * B / mₑ
 
     νan = if z < L_ch
-        c[1] * ωce + 1e7 # +1e7 anomalous wall from Landmark inside channel
+        c[1] * ωce + params.νw[1] # +1e7 anomalous wall from Landmark inside channel
     #elseif L_ch*0.8 < z < L_ch*1.2
     #    ((ωce / 160 + 1e7)*(abs(L_ch*1.2 - z)) +  ωce / 16*(abs(L_ch*0.8 - z)))/L_ch/0.4
     else
-        c[2] * ωce
+        c[2] * ωce + params.νw[2]
     end
     #νan = ωce * smooth_if(z, L_ch, c[1], c[2], 10000) + 1e7 * smooth_if(z, L_ch, 1.0, 0.0, 10000)
     return νan

@@ -72,6 +72,7 @@ end
 function update_heavy_species!(dU, U, params, t) #get source and BCs for potential from params
     ####################################################################
     #extract some useful stuff from params
+
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     index = params.index
 
@@ -85,14 +86,13 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     ncells = size(U, 2) - 2
 
     mi = m(fluids[1])
-    ε₀ = 3.0
 
     ##############################################################
     #FLUID MODULE
 
     #fluid BCs
-    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, ε₀, mi)
-    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, ε₀, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
 
     #fluid computations, electron in implicit
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -111,21 +111,24 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
         Δz = z_edge[right] - z_edge[left]
 
-        # Ion and neutral fluxes
-        @turbo @views @. dU[1:index.lf, i] = (F[1:index.lf, left] - F[1:index.lf, right]) / Δz + Q[1:index.lf]
+        # Neutral fluxes and source
+        dU[1, i] = (F[1, left] - F[1, right]) / Δz + Q[1]
+        η = params.δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
+
+        @turbo for j in 2:index.lf
+            # Ion fluxes and source
+            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j]
+            # Add optional diffusion term for the ions in interior cells
+            dU[j, i] += η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/(Δz)^2
+        end
+
+        # Electron source term
         dU[index.nϵ, i] = Q[index.nϵ]
-
-        # Ion diffusion term
-        #η = 0.001 * sqrt(2*e*U[index.Tev, i]/(3*mi))
-        #dU[2:index.lf, i] += η*(U[2:index.lf, i-1] - 2U[2:index.lf, i] + U[2:index.lf, i+1])/(Δz)^2
-
     end
 
-    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
-
 end
 
 function update_electron_energy!(dU, U, params, t)
@@ -139,8 +142,12 @@ function update_electron_energy!(dU, U, params, t)
     F = params.cache.F
     z_edge = params.z_edge
 
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
+    #apply_bc_electron!(U, params.BCs[3], :left, index)
+    #apply_bc_electron!(U, params.BCs[4], :right, index)
+
+    # Dirchlet BCs for electron energy
+    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
+    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
 
     @inbounds for i in 2:ncells+1
 
@@ -224,13 +231,19 @@ function update_values!(U, params)
     L_ch = params.L_ch
     mi = m(fluids[1])
 
+    OVS = params.OVS.energy.active
+
     @inbounds @views for i in 1:(ncells + 2)
-        @views U[index.ne, i] = (1 - params.OVS.energy.active)*max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + params.OVS.energy.active*(params.OVS.energy.ne(z_cell[i]))
-        U[index.Tev, i] = (1 - params.OVS.energy.active)*max(0.1, U[index.nϵ, i]/U[index.ne, i]) + params.OVS.energy.active*(params.OVS.energy.Tev(z_cell[i]))
+        z = z_cell[i]
+        OVS_ne = OVS * (params.OVS.energy.ne(z))
+        OVS_Tev = OVS * (params.OVS.energy.Tev(z))
+
+        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + OVS_ne
+        U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
-        params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) + params.OVS.energy.active*(params.OVS.energy.μ)
+        params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential
@@ -244,6 +257,8 @@ function update_values!(U, params)
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
 
+
+
 end
 
 #=Config = @NamedTuple begin
@@ -255,16 +270,16 @@ function affect!(integrator)
     update_values!(integrator.u, integrator.p)
 end
 
-function run_simulation(sim, restart_file = nothing) #put source and Bcs potential in params
+function run_simulation(sim, config) #put source and Bcs potential in params
     species, fluids, fluid_ranges, species_range_dict = configure_simulation(sim)
 
     lf = fluid_ranges[end][end]
     index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
 
-    use_restart = restart_file !== nothing
+    use_restart = config.restart_file !== nothing
 
     if use_restart
-        U, grid, B = read_restart(restart_file) 
+        U, grid, B = read_restart(config.restart_file) 
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
@@ -289,16 +304,25 @@ function run_simulation(sim, restart_file = nothing) #put source and Bcs potenti
 
     precompute_bfield!(cache.B, grid.cell_centers)
 
-    OVS = sim.verification
-
-    ϕ_L = 300.0
-    ϕ_R = 0.0
-    L_ch = 0.025
-    params = (; L_ch, ϕ_L, ϕ_R, OVS, index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
-              z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
-              scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
-              boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy,
-              anom_model,
+    params = (;
+        ϕ_L = config.anode_potential,
+        ϕ_R = config.cathode_potential,
+        Te_L = config.anode_Te,
+        Te_R = config.cathode_Te,
+        L_ch = config.geometry.channel_length,
+        A_ch = channel_area(config.geometry.outer_radius, config.geometry.inner_radius),
+        νϵ = config.radial_loss_coefficients,
+        νw = config.wall_collision_frequencies,
+        δ = config.ion_diffusion_coeff,
+        un = config.neutral_velocity,
+        Tn = config.neutral_temperature,
+        mdot_a = config.anode_mass_flow_rate,
+        OVS = config.verification,
+        index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
+        z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!, reactions,
+        scheme, BCs, dt=timestep, source_potential! = sim.source_potential!,
+        boundary_potential! = sim.boundary_potential!, landmark, implicit_energy = sim.solve_energy,
+        anom_model,
     )
 
     #PREPROCESS

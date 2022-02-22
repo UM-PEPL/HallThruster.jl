@@ -77,9 +77,9 @@ function source_electron_energy_landmark!(Q, U, params, i)
     else
         νε = 1*1e7
     end=#
-    νε = smooth_if(params.z_cell[i], params.L_ch, 0.4*1e7, 1e7, 100000)
+    νϵ = 1e7 * smooth_if(params.z_cell[i], params.L_ch, params.νϵ[1], params.νϵ[2], 10)
     UU = 20.0
-    W = νε * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
+    W = νϵ * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
     return Q[index.nϵ] = U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/HallThruster.Xenon.m * params.landmark.loss_coeff(U[index.Tev, i]) - W)
     #@views Q[4] = U[index.ne, i]*uₑ*grad_ϕ - S_coll(U, params, i) - S_wall_simple(U[index.Tev, :], i)
 end
