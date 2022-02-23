@@ -69,31 +69,29 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function update_heavy_species!(dU, U, params, t) #get source and BCs for potential from params
+function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    index = params.index
-
-    F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
-    B = params.cache.B
-
-    z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
-    scheme = params.scheme
-    source_term! = params.source_term!
+    (; index, z_edge, propellant, fluid_ranges) = params
+    (;F, Q) = params.cache
+    δ = params.config.ion_diffusion_coeff
 
     ncells = size(U, 2) - 2
 
-    mi = m(fluids[1])
+    mi = propellant.m
 
     ##############################################################
     #FLUID MODULE
 
     #fluid BCs now in update_values struct
 
+    num_ion_equations = length(fluid_ranges[2])
+    first_ion_index = index.ρi[1]
+    last_ion_index = index.lf
+
     # Compute heavy species source terms
-    @inbounds  for i in 2:(ncells + 1)
+    @turbo for i in 2:(ncells + 1)
 
         #Compute dU/dt
         left = left_edge(i)
@@ -103,13 +101,15 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
 
         # Neutral fluxes and source
         dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
-        η = params.config.ion_diffusion_coeff * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        η = δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
 
-        @turbo for j in index.ρi[1]:index.lf
+        for j in first_ion_index:last_ion_index
             # Ion fluxes and source
             dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
+            # Compute current charge state to make sure sound speed in diffusion term is correct
+            Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/(Δz)^2
+            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/(Δz)^2
         end
 
         # Electron source term
@@ -125,17 +125,10 @@ function update_electron_energy!(dU, U, params, t)
     #########################################################
     #ELECTRON SOLVE
 
-    index = params.index
-    μ = params.cache.μ
-    z_cell = params.z_cell
     ncells = size(U, 2) - 2
-    F = params.cache.F
-    z_edge = params.z_edge
 
-    #apply_bc_electron!(U, params.BCs[3], :left, index)
-    #apply_bc_electron!(U, params.BCs[4], :right, index)
-
-
+    (;index, z_cell, z_edge) = params
+    μ = params.cache.μ
 
     @inbounds for i in 2:ncells+1
 

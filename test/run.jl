@@ -29,7 +29,6 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
 end
 
 
-
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing)
