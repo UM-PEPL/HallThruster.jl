@@ -3,11 +3,12 @@
 #2) if above works, do MMS with that.
 
 
-using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase
+using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
 
 include("plotting.jl")
 
 function source!(Q, U, params, i)
+    @turbo Q .= 0
     HallThruster.apply_reactions!(Q, U, params, i)
     #HallThruster.apply_ion_acceleration!(Q, U, params, i)
     HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
