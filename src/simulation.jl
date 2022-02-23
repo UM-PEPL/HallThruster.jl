@@ -135,9 +135,7 @@ function update_electron_energy!(dU, U, params, t)
     #apply_bc_electron!(U, params.BCs[3], :left, index)
     #apply_bc_electron!(U, params.BCs[4], :right, index)
 
-    # Dirchlet BCs for electron energy
-    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
+
 
     @inbounds for i in 2:ncells+1
 
@@ -208,10 +206,10 @@ function precompute_bfield!(B, zs)
 end
 
 function update_values!(U, params)
+    #update useful quantities relevant for potential, electron energy and fluid solve
 
     ncells = size(U, 2) - 2
 
-    #update useful quantities relevant for potential, electron energy and fluid solve
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
     (;F, UL, UR, Q, B) = params.cache
     OVS = params.OVS.energy.active
@@ -249,20 +247,27 @@ function update_values!(U, params)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
-    # update electrostatic potential
+    # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
+    @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
+    @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
-    # Compute potential gradient and electron velocity and update source terms
-    @inbounds @views for i in 1:(ncells + 2)
+    # Compute interior potential gradient and electron velocity and update source terms
+    @inbounds for i in 2:(ncells + 1)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         U[index.ue, i] = (1 - params.OVS.energy.active)*electron_velocity(U, params, i) + params.OVS.energy.active*(params.OVS.energy.ue)
-        #fluid source term (includes ionization and acceleration and energy)
+
+        #source term (includes ionization and acceleration as well as energy source temrs)
         @views source_term!(Q[:, i], U, params, i)
     end
 
+    # Neumann condition for electron velocity
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
 
+    # Dirchlet BCs for electron energy
+    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
+    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
 end
 
 #=Config = @NamedTuple begin
