@@ -208,17 +208,10 @@ function update_values!(U, params)
     mi = params.propellant.m
 
     # Edge state reconstruction and flux computation
+    #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(
-        F[1:index.lf, :],
-        UL[1:index.lf, :],
-        UR[1:index.lf, :],
-        fluids,
-        fluid_ranges,
-        scheme,
-        U[index.pe, :],
-        params.config.electron_pressure_coupled
-    )
+    coupled = params.config.electron_pressure_coupled
+    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :], coupled)
 
     # Apply boundary conditions
     @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
@@ -245,8 +238,9 @@ function update_values!(U, params)
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
+        # potential gradient
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = (1 - params.OVS.energy.active)*electron_velocity(U, params, i) + params.OVS.energy.active*(params.OVS.energy.ue)
+        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
         @views source_term!(Q[:, i], U, params, i)
