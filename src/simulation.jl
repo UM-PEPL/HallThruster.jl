@@ -98,6 +98,7 @@ function update_heavy_species!(dU, U, params, t)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
+        Δz² = Δz^2
 
         # Neutral fluxes and source
         dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
@@ -109,7 +110,7 @@ function update_heavy_species!(dU, U, params, t)
             # Compute current charge state to make sure sound speed in diffusion term is correct
             Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/(Δz)^2
+            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
         end
 
         # Electron source term
@@ -178,14 +179,11 @@ end
 left_edge(i) = i - 1
 right_edge(i) = i
 
-function electron_density(U, fluid_ranges)
+function electron_density(U, params)
     ne = 0.0
-    @inbounds for (i, f) in enumerate(fluid_ranges)
-        if i == 1
-            continue # neutrals do not contribute to electron density
-        end
-        charge_state = i - 1
-        ne += charge_state * U[f[1]]
+    index = params.index
+    @turbo for i in 1:params.config.ncharge
+        ne += i * U[index.ρi[i]]
     end
     return ne
 end
@@ -232,7 +230,7 @@ function update_values!(U, params)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + OVS_ne
+        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
