@@ -95,9 +95,6 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
     # Compute heavy species source terms
     @inbounds  for i in 2:(ncells + 1)
 
-        #fluid source term (includes ionization and acceleration and energy)
-        @views source_term!(Q[:, i], U, params, i)
-
         #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
@@ -212,24 +209,14 @@ end
 
 function update_values!(U, params)
 
-
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    index = params.index
-
-    B = params.cache.B
-
-    z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
     ncells = size(U, 2) - 2
 
     #update useful quantities relevant for potential, electron energy and fluid solve
-    L_ch = params.L_ch
-    mi = m(fluids[1])
-
+    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
+    (;F, UL, UR, Q, B) = params.cache
     OVS = params.OVS.energy.active
 
-    cache = params.cache
-    F, UL, UR = cache.F, cache.UL, cache.UR
-    scheme = params.scheme
+    mi = params.propellant.m
 
     # Edge state reconstruction and flux computation
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -269,6 +256,8 @@ function update_values!(U, params)
     @inbounds @views for i in 1:(ncells + 2)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         U[index.ue, i] = (1 - params.OVS.energy.active)*electron_velocity(U, params, i) + params.OVS.energy.active*(params.OVS.energy.ue)
+        #fluid source term (includes ionization and acceleration and energy)
+        @views source_term!(Q[:, i], U, params, i)
     end
 
     U[index.ue, 1] = U[index.ue, 2]
