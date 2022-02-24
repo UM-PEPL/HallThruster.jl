@@ -5,14 +5,6 @@ git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
 uuid = "a4c015fc-c6ff-483c-b24f-f7ea428134e9"
 version = "0.0.1"
 
-[[AbbreviatedStackTraces]]
-deps = ["Distributed", "REPL"]
-git-tree-sha1 = "50d6f6485200dd11009efaf7efe674b6ff27c7c6"
-repo-rev = "master"
-repo-url = "https://github.com/BioTurboNick/AbbreviatedStackTraces.jl"
-uuid = "ac637c84-cc71-43bf-9c33-c1b4316be3d4"
-version = "0.1.1"
-
 [[AbstractTrees]]
 git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
 uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"

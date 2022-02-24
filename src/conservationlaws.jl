@@ -38,7 +38,7 @@ velocity and temperature are held constant. Must specify a constant velocity (in
 
 ```jldoctest;setup = :(using HallThruster: ConservationLawSystem, ContinuityOnly)
 julia> equation = ContinuityOnly(u = 300, T = 500)
-ContinuityOnly(u = 300.0 m/s, T = 500.0 K)
+_ContinuityOnly(u = 300.0 m/s, T = 500.0 K)
 ```
 """
 function ContinuityOnly(; u, T)
@@ -54,7 +54,7 @@ temperature is held constant. Must specify a constant temperature (in K).
 
 ```jldoctest;setup = :(using HallThruster: ConservationLawSystem, IsothermalEuler)
 julia> equation = IsothermalEuler(T = 500)
-IsothermalEuler(T = 500.0 K)
+_IsothermalEuler(T = 500.0 K)
 ```
 """
 function IsothermalEuler(; T)
@@ -70,7 +70,7 @@ and subsequently unused.
 
 ```jldoctest;setup = :(using HallThruster: ConservationLawSystem, EulerEquations)
 julia> equation = EulerEquations()
-EulerEquations()
+_EulerEquations()
 ```
 """
 function EulerEquations()

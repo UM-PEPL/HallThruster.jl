@@ -1,7 +1,7 @@
 using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
 
 
-#doctest(HallThruster)
+doctest(HallThruster)
 
 @testset "Gas and species tests" begin
     @test repr(HallThruster.Krypton) == "Krypton"
