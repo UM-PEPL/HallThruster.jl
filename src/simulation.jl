@@ -134,7 +134,7 @@ function update_heavy_species!(dU, U, params, t) #get source and BCs for potenti
         # Electron source term
         dU[index.nϵ, i] = Q[index.nϵ]
     end
-
+    
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
@@ -151,12 +151,12 @@ function update_electron_energy!(dU, U, params, t)
     F = params.cache.F
     z_edge = params.z_edge
 
-    #apply_bc_electron!(U, params.BCs[3], :left, index)
-    #apply_bc_electron!(U, params.BCs[4], :right, index)
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
 
     # Dirchlet BCs for electron energy
-    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
+    #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
+    #U[index.nϵ, end] = params.Te_R * U[index.ne, end]
 
     @inbounds for i in 2:ncells+1
 
@@ -257,6 +257,7 @@ function update_values!(U, params)
 
     # update electrostatic potential
     solve_potential_edge!(U, params)
+    U[index.ϕ, :] .= params.OVS.energy.active.*0.0
 
     @inbounds @views for i in 1:(ncells + 2)
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)

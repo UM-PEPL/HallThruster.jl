@@ -12,6 +12,30 @@ mutable struct Result
 end
 
 """
+    mutable struct EnergyOVS
+Enables setting mu, ue, Tev and ne to certain values to very electron energy equation
+"""
+mutable struct EnergyOVS{F1, F2}
+    active ::Int64
+    μ::Union{Float64, Nothing}
+    ue::Union{Float64, Nothing}
+    Tev::F1
+    ne::F2
+end
+
+"""
+    mutable struct Verification
+is passed to params to identify if OVS is active.
+"""
+
+mutable struct Verification{F1, F2}
+    potential ::Int64
+    fluid ::Int64
+    energy ::EnergyOVS{F1, F2}
+end
+
+
+"""
     perform_OVS(; MMS_CONSTS::NamedTuple, fluxfn::Function, reconstruct::Bool)
 
 function to perform OVS for the fluid equations using definition of manufactured
@@ -205,7 +229,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     Tev_func(z) = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * z / (MMS_CONSTS_ELEC.L))
     ne_func(z) = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * z / MMS_CONSTS_ELEC.L)
 
-    energyovs = EnergyOVS(1, MMS_CONSTS.μ,  MMS_CONSTS.ue, Tev_func, ne_func)
+    verification = Verification(0, 1, EnergyOVS(1, MMS_CONSTS.μ,  MMS_CONSTS.ue, Tev_func, ne_func))
 
     n_save = 100
     saveat = if n_save == 1
@@ -232,7 +256,33 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
     callback = cb, 
     solve_energy = false,
-    verification = Verification(0, 1, energyovs)
+    verification = verification
+    )
+
+    #insert config
+    config = (
+        anode_potential = 300.0,
+        cathode_potential = 0.0,
+        anode_Te = 3.0,
+        cathode_Te = 3.0,
+        restart_file = nothing,
+        radial_loss_coefficients = (0.4, 1.0),
+        wall_collision_frequencies = (1e7, 0.0),
+        geometry = HallThruster.SPT_100,
+        anode_mass_flow_rate = 5e-6,
+        neutral_velocity = MMS_CONSTS.u_constant,
+        neutral_temperature = MMS_CONSTS.T_constant,
+        ion_diffusion_coeff = 0.0,
+        implicit_energy = false,
+        propellant = HallThruster.Xenon,
+        ncharge = 1,
+        verification = verification,
+        solve_ion_energy = false,
+        ion_temperature = 1000.0,
+        anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
+        energy_equation = :LANDMARK,
+        ionization_coeffs = :LANDMARK,
+        electron_pressure_coupled = false,
     )
 
     #generate different number of cells while keeping CFL number constant over refinements chosen
@@ -245,14 +295,14 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     for refinement in 1:refinements
         simulation.grid = HallThruster.generate_grid(HallThruster.SPT_100, n_cells)
         simulation.timestepcontrol = (MMS_CONSTS.CFL*MMS_CONSTS.L/(MMS_CONSTS.u_constant*n_cells), false)
-        sol = HallThruster.run_simulation(simulation)
+        sol = HallThruster.run_simulation(simulation, config)
         z_cells = simulation.grid.cell_centers
-        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.sol.u[1][1:lf+1, 1]), length(z_cells)) #lf+1 for the electron energy
+        u_exa = Array{Union{Nothing, Float64}}(nothing, length(sol.u[1][1:lf+1, 1]), length(z_cells)) #lf+1 for the electron energy
         for (i, z_cell) in enumerate(z_cells)
             u_exa[:, i] = mms_conservative([z_cell, 0])
         end
-        error = abs.(u_exa - sol.sol.u[end][1:lf+1, :])./u_exa[:, 1]
-        results[refinement] = Result(sol.sol, simulation.timestepcontrol[1], z_cells, simulation.grid.ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
+        error = abs.(u_exa - sol.u[end][1:lf+1, :])./u_exa[:, 1]
+        results[refinement] = Result(sol, simulation.timestepcontrol[1], z_cells, simulation.grid.ncells, u_exa, error, [maximum(error[i, :]) for i in 1:size(error)[1]], [Statistics.mean(error[i, :]) for i in 1:size(error)[1]])
         n_cells = n_cells*2
     end
     return results
