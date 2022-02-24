@@ -234,8 +234,11 @@ end
 
 @testset "Update computations" begin
     u = [1.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 0.0]
-    ranges = [1:1, 2:3, 4:5, 6:8]
-    @test HallThruster.electron_density(u, ranges) == 1 + 4 + 9.
+    ncharge = 3
+    config = (; ncharge = ncharge)
+    index = (; ρi = [2, 4, 6])
+    params = (config = config, index = index)
+    @test HallThruster.electron_density(u, params) == 1 + 4 + 9.
 end
 
 @testset "Limiter tests" begin
@@ -287,7 +290,7 @@ end
 @testset "Miscellaneous tests" begin
     @test HallThruster.left_edge(1) == 0
     @test HallThruster.right_edge(1) == 1
-    @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], [1:1, 2:3, 4:6]) == 8.0
+    @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], (config = (; ncharge = 2), index = (; ρi = [2, 4]))) == 8.0
 end
 
 @testset "Linear algebra tests" begin

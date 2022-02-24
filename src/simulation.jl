@@ -73,7 +73,7 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (; index, z_edge, propellant, fluid_ranges) = params
+    (;index, z_edge, propellant, fluid_ranges) = params
     (;F, Q) = params.cache
     δ = params.config.ion_diffusion_coeff
 
@@ -233,6 +233,7 @@ function update_values!(U, params)
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
+    U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
     @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
     @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
@@ -251,8 +252,13 @@ function update_values!(U, params)
     U[index.ue, end] = U[index.ue, end-1]
 
     # Dirchlet BCs for electron energy
-    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
+    #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
+    #U[index.nϵ, end] = params.Te_R * U[index.ne, end]
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
+
+
+
 end
 
 #=Config = @NamedTuple begin
