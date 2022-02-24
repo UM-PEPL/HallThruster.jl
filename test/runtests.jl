@@ -671,7 +671,7 @@ mms_conservative = eval(conservative_func[1])
     for i in 1:length(results)
         println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
     end
-    
+    #=
     p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
     Plots.plot!(p1, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_1[1] for i in 1:length(results)]), title = "L_1 neutral continuity", label = false)
     p2 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
@@ -690,7 +690,7 @@ mms_conservative = eval(conservative_func[1])
     Plots.plot!(p8, log.([1/length(results[i].z_cells) for i in 1:length(results)]), log.([results[i].L_inf[4] for i in 1:length(results)]), title = "L_inf electron energy", label = false)
 
     p9 = Plots.plot!(p1, p2, p3, p4, p5, p6, p7, p8, layout = (4, 2), size = (2000, 1000),  margin=5Plots.mm)
-    Plots.png(p9, "alfa")
+    Plots.png(p9, "alfa")=#
 
 end
 
