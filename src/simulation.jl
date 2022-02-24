@@ -57,7 +57,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
-    Q = zeros(nvariables + 1)
+    Q = zeros(nvariables + 1, ncells+2)
     A = Tridiagonal(ones(ncells), ones(ncells+1), ones(ncells)) #for potential
     b = zeros(ncells + 1) #for potential equation
     B = zeros(ncells + 2)
@@ -69,72 +69,54 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function update_heavy_species!(dU, U, params, t) #get source and BCs for potential from params
+function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    index = params.index
-
-    F, UL, UR, Q = params.cache.F, params.cache.UL, params.cache.UR, params.cache.Q
-    B = params.cache.B
-
-    z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
-    scheme = params.scheme
-    source_term! = params.source_term!
+    (; index, z_edge, propellant, fluid_ranges) = params
+    (;F, Q) = params.cache
+    δ = params.config.ion_diffusion_coeff
 
     ncells = size(U, 2) - 2
 
-    mi = m(fluids[1])
+    mi = propellant.m
 
     ##############################################################
     #FLUID MODULE
 
-    #fluid BCs
-    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
-    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+    #fluid BCs now in update_values struct
 
-    #fluid computations, electron in implicit
-    @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    @views compute_fluxes!(
-        F[1:index.lf, :],
-        UL[1:index.lf, :],
-        UR[1:index.lf, :],
-        fluids,
-        fluid_ranges,
-        scheme,
-        U[index.pe, :],
-        params.config.electron_pressure_coupled
-    )
+    num_ion_equations = length(fluid_ranges[2])
+    first_ion_index = index.ρi[1]
+    last_ion_index = index.lf
 
     # Compute heavy species source terms
-    @inbounds  for i in 2:(ncells + 1)
-        @turbo Q .= 0.0
-
-        #fluid source term (includes ionization and acceleration and energy)
-        source_term!(Q, U, params, i)
+    @turbo for i in 2:(ncells + 1)
 
         #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
+        Δz² = Δz^2
 
         # Neutral fluxes and source
-        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn]
-        η = params.config.ion_diffusion_coeff * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
+        η = δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
 
-        @turbo for j in index.ρi[1]:index.lf
+        for j in first_ion_index:last_ion_index
             # Ion fluxes and source
-            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j]
+            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
+            # Compute current charge state to make sure sound speed in diffusion term is correct
+            Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/(Δz)^2
+            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
         end
 
         # Electron source term
-        dU[index.nϵ, i] = Q[index.nϵ]
+        dU[index.nϵ, i] = Q[index.nϵ, i]
     end
-    
+
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
@@ -144,19 +126,10 @@ function update_electron_energy!(dU, U, params, t)
     #########################################################
     #ELECTRON SOLVE
 
-    index = params.index
-    μ = params.cache.μ
-    z_cell = params.z_cell
     ncells = size(U, 2) - 2
-    F = params.cache.F
-    z_edge = params.z_edge
 
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
-
-    # Dirchlet BCs for electron energy
-    #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    #U[index.nϵ, end] = params.Te_R * U[index.ne, end]
+    (;index, z_cell, z_edge) = params
+    μ = params.cache.μ
 
     @inbounds for i in 2:ncells+1
 
@@ -206,14 +179,11 @@ end
 left_edge(i) = i - 1
 right_edge(i) = i
 
-function electron_density(U, fluid_ranges)
+function electron_density(U, params)
     ne = 0.0
-    @inbounds for (i, f) in enumerate(fluid_ranges)
-        if i == 1
-            continue # neutrals do not contribute to electron density
-        end
-        charge_state = i - 1
-        ne += charge_state * U[f[1]]
+    index = params.index
+    @turbo for i in 1:params.config.ncharge
+        ne += i * U[index.ρi[i]]
     end
     return ne
 end
@@ -227,27 +197,33 @@ function precompute_bfield!(B, zs)
 end
 
 function update_values!(U, params)
+    #update useful quantities relevant for potential, electron energy and fluid solve
 
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    index = params.index
-
-    B = params.cache.B
-
-    z_cell, z_edge, cell_volume = params.z_cell, params.z_edge, params.cell_volume
     ncells = size(U, 2) - 2
 
-    #update useful quantities relevant for potential, electron energy and fluid solve
-    L_ch = params.L_ch
-    mi = m(fluids[1])
-
+    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
+    (;F, UL, UR, Q, B) = params.cache
     OVS = params.OVS.energy.active
 
+    mi = params.propellant.m
+
+    # Edge state reconstruction and flux computation
+    #@views compute_fluxes!(F, UL, UR, U, params)
+    @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
+    coupled = params.config.electron_pressure_coupled
+    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :], coupled)
+
+    # Apply boundary conditions
+    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
+    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+
+    # Update electron quantities
     @inbounds @views for i in 1:(ncells + 2)
         z = z_cell[i]
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], fluid_ranges) / mi) + OVS_ne
+        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
@@ -255,20 +231,28 @@ function update_values!(U, params)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
-    # update electrostatic potential
+    # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    U[index.ϕ, :] .= params.OVS.energy.active.*0.0
+    @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
+    @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
-    @inbounds @views for i in 1:(ncells + 2)
+    # Compute interior potential gradient and electron velocity and update source terms
+    @inbounds for i in 2:(ncells + 1)
+        # potential gradient
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = (1 - params.OVS.energy.active)*electron_velocity(U, params, i) + params.OVS.energy.active*(params.OVS.energy.ue)
+        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
+
+        #source term (includes ionization and acceleration as well as energy source temrs)
+        @views source_term!(Q[:, i], U, params, i)
     end
 
+    # Neumann condition for electron velocity
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
 
-
-
+    # Dirchlet BCs for electron energy
+    U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
+    U[index.nϵ, end] = params.Te_R * U[index.ne, end]
 end
 
 #=Config = @NamedTuple begin

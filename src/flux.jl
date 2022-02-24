@@ -105,6 +105,15 @@ for fluxfn in ["HLLE", "upwind"]
     end
 end
 
+function reconstruct(u₋, uᵢ, u₊, ψ)
+    Δu = u₊ - uᵢ
+    ∇u = uᵢ - u₋
+    r = Δu / ∇u
+    uL = uᵢ + 0.5 * ψ(r) * ∇u
+    uR = uᵢ - 0.5 * ψ(1 / r) * Δu
+    return uL, uR
+end
+
 """
 	reconstruct!
 Reconstruction using the MUSCL scheme. UL is the flux to the left, therefore evaluated on
@@ -113,19 +122,12 @@ the right face, UR is the flux to the right, therefore evaluated on the left fac
 """
 function reconstruct!(UL, UR, U, scheme)
     nconservative, ncells = size(U)
-    Ψ = scheme.limiter
+    ψ = scheme.limiter
 
     # compute left and right edge states
     for i in 2:(ncells - 1)
         for j in 1:nconservative
-            u₋ = U[j, i - 1]
-            uᵢ = U[j, i]
-            u₊ = U[j, i + 1]
-            Δu = u₊ - uᵢ
-            ∇u = uᵢ - u₋
-            r = Δu / ∇u
-            UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-            UR[j, left_edge(i)] = uᵢ - 0.5 * Ψ(1 / r) * Δu
+            UL[j, right_edge(i)], UR[j, left_edge(i)] = reconstruct(U[j, i-1], U[j, i], U[j, i+1], ψ)
         end
     end
 
@@ -172,8 +174,8 @@ end
 function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe, coupled)
     _, nedges = size(F)
 
-    for i in 1:nedges
-        for (j, (fluid, fluid_range)) in enumerate(zip(fluids, fluid_ranges))
+    @inbounds for i in 1:nedges
+        for (fluid, fluid_range) in zip(fluids, fluid_ranges)
             pe_L = pe[i]
             pe_R = pe[i+1]
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
@@ -182,3 +184,49 @@ function compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe, coupled)
     end
     return F
 end
+
+# This version does edge reconstruction and flux computation with only one loop over edges
+# but it makes surprisingly little difference, as the solver takes O(n^2) time and this basically
+# slightly reduces the coefficient in front. if we ran with 1000 cells or something it might matter
+# but with 100 cells it comes down to a 4 second difference in a run of 5e-4 seconds
+# (total time 105 vs 109 seconds).
+#=
+function compute_fluxes!(F, UL, UR, U, params)
+    _, nedges = size(F)
+
+    (;fluids, fluid_ranges, scheme, index) = params
+    coupled = params.config.electron_pressure_coupled
+
+    nconservative = index.lf
+
+    # reconstruct boundary states
+    @turbo for j in 1:nconservative
+        UR[j, 1] = U[j, 2]
+    end
+
+    # flux on left boundary
+    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+        pe_L = U[index.pe, 1]
+        @views scheme.flux_function(F[fluid_range, 1], U[fluid_range, 1],
+                                    UR[fluid_range, 1], fluid, pe_L, pe_L, coupled)
+    end
+
+    # flux in interior cells and right boundary
+    @inbounds for i in 2:nedges
+
+        @turbo for j in 1:nconservative
+            UL[j, i] = U[j, i]
+            UR[j, i] = U[j, i+1]
+        end
+
+        for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+            pe_L = U[index.pe, i]
+            pe_R = U[index.pe, i+1]
+
+            @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
+                                        UR[fluid_range, i], fluid, pe_L, pe_R, coupled)
+        end
+    end
+
+    return F, UL, UR
+end=#

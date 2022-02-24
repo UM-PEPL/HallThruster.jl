@@ -3,11 +3,12 @@
 #2) if above works, do MMS with that.
 
 
-using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase
+using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
 
 include("plotting.jl")
 
 function source!(Q, U, params, i)
+    @turbo Q .= 0
     HallThruster.apply_reactions!(Q, U, params, i)
     #HallThruster.apply_ion_acceleration!(Q, U, params, i)
     HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
@@ -26,7 +27,6 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     U .= SA[ρ1(z), ρ2, ρ2*u2, ne*Tev]
     return U
 end
-
 
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
@@ -83,7 +83,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anode_Te = 3.0,
         cathode_Te = 3.0,
         restart_file = restart_file,
-        radial_loss_coefficients = (0.4, 1.0),
+        radial_loss_coefficients = (1.0, 1.0),
         wall_collision_frequencies = (1e7, 0.0),
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
@@ -110,4 +110,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     return sol
 end
 
-#sol = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);
+sol = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);
