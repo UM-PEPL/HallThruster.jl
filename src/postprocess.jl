@@ -1,13 +1,14 @@
-struct HallThrusterSolution{T, U, P}
+struct HallThrusterSolution{T, U, P, S}
     t::T
     u::U
+    savevals::S
     retcode::Symbol
     destats::DiffEqBase.DEStats
     params::P
 end
 
-function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODESolution, P}
-    return HallThrusterSolution(sol.t, sol.u, sol.retcode, sol.destats, params)
+function HallThrusterSolution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
+    return HallThrusterSolution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
 end
 
 """

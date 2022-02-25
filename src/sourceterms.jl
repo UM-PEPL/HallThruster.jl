@@ -53,6 +53,10 @@ function apply_ion_acceleration_coupled!(Q, U, params, i)
 end
 
 function source_electron_energy_landmark!(Q, U, params, i)
+    Q[params.index.nϵ] = source_electron_energy_landmark(U, params, i)
+end
+
+function source_electron_energy_landmark(U, params, i)
     index = params.index
     #ν = params.cache.νan[i] + params.cache.νc[i]
     #Hara source term
@@ -71,5 +75,5 @@ function source_electron_energy_landmark!(Q, U, params, i)
     ∇ϕ = params.cache.∇ϕ[i]
     ne = params.cache.ne[i]
     W = νϵ * Tev * exp(-UU / Tev)
-    return Q[index.nϵ] = ne * (-ue * -∇ϕ - U[1, i]/mi * params.loss_coeff(Tev) - W)
+    return ne * (-ue * -∇ϕ - U[1, i]/mi * params.loss_coeff(Tev) - W)
 end

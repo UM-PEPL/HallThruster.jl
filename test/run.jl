@@ -31,7 +31,7 @@ end
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing)
+        restart_file = nothing, case = 1)
 
     fluid = HallThruster.Xenon
     #fluid BCs #############################
@@ -71,11 +71,21 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         saveat = saveat,
         timestepcontrol = (dt, adaptive), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing,
-        solve_energy = implicit_energy,
+        solve_energy = implicit_energy > 0,
         verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
     )
 
     verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
+
+    νϵ = if case == 1
+        1.0
+    elseif case == 2
+        0.5
+    elseif case == 3
+        0.4
+    else
+        1.0
+    end
 
     config = (
         anode_potential = 300.0,
@@ -83,7 +93,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anode_Te = 3.0,
         cathode_Te = 3.0,
         restart_file = restart_file,
-        radial_loss_coefficients = (1.0, 1.0),
+        radial_loss_coefficients = (νϵ, 1.0),
         wall_collision_frequencies = (1e7, 0.0),
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
@@ -102,12 +112,12 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         electron_pressure_coupled = true,
     )
 
-    @time sol, saved_values = HallThruster.run_simulation(sim, config)
+    @time sol = HallThruster.run_simulation(sim, config)
  
-    p = plot(sol, saved_values.saveval)
+    p = plot(sol; case)
     display(p)
 
-    return sol, saved_values
+    return sol
 end
 
-sol, saved_values = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);
+sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9, implicit_energy = eps(Float64));

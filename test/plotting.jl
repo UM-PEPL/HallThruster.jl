@@ -173,12 +173,14 @@ function timeaveraged(sol, tstampstart)
 end
 
 function calc_current(sol)
+    index = sol.params.index
     current = zeros(2, length(sol.t))
     area = pi*(0.05^2 - 0.035^2)
     distance = 0.050 - 0.0350
     for i in 1:length(sol.t)
-        current[1, i] = sol.u[i][3, end-1]*HallThruster.e/HallThruster.Xenon.m*area
-        current[2, i] = -sol.u[i][6, end-1]*HallThruster.e*sol.u[i][10, end-1]*area
+        (;ue, ne) = sol.savevals[i]
+        current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/HallThruster.Xenon.m*area
+        current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
     end
     return current
 end
@@ -199,4 +201,4 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution, saved_values) = plot_solution(sol.u[end], saved_values[end], sol.params.z_cell)
+Plots.plot(sol::HallThruster.HallThrusterSolution; case) = plot_solution(sol.u[end], sol.savevals[end], sol.params.z_cell, case)

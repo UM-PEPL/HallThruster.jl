@@ -58,6 +58,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Q = zeros(nvariables + 1, ncells+2)
     A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
     b = zeros(nedges) #for potential equation
+    Aϵ = Tridiagonal(ones(ncells+1), ones(ncells+2), ones(ncells+1)) #for energy
+    bϵ = zeros(ncells+2) #for energy
     B = zeros(ncells + 2)
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
@@ -69,7 +71,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     pe = zeros(ncells + 2)
     ue = zeros(ncells + 2)
 
-    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
+    cache = (; F, UL, UR, Q, A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
     return U, cache
 end
 
@@ -95,7 +97,7 @@ function update_heavy_species!(dU, U, params, t)
     last_ion_index = index.lf
 
     # Compute heavy species source terms
-    @turbo for i in 2:(ncells + 1)
+    @inbounds for i in 2:(ncells + 1)
 
         #Compute dU/dt
         left = left_edge(i)
@@ -131,6 +133,7 @@ function update_electron_energy!(dU, U, params, t)
     (;index, z_cell, z_edge) = params
     (;μ, Tev, ue, pe) = params.cache
     nϵ = @views U[index.nϵ, :]
+    implicit_energy = params.config.implicit_energy
 
     @inbounds for i in 2:ncells+1
 
@@ -156,7 +159,7 @@ function update_electron_energy!(dU, U, params, t)
 
         diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
 
-        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term)
+        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
     end
 
     return nothing
@@ -173,7 +176,7 @@ right_edge(i) = i
 function electron_density(U, params)
     ne = 0.0
     index = params.index
-    @turbo for i in 1:params.config.ncharge
+    @inbounds for i in 1:params.config.ncharge
         ne += i * U[index.ρi[i]]
     end
     return ne
@@ -188,7 +191,7 @@ function precompute_bfield!(B, zs)
 end
 
 update_values!(integrator) = update_values!(integrator.u, integrator.p)
-function update_values!(U, params)
+function update_values!(U, params, CN = true)
     #update useful quantities relevant for potential, electron energy and fluid solve
 
     ncells = size(U, 2) - 2
@@ -199,6 +202,9 @@ function update_values!(U, params)
 
     mi = params.propellant.m
 
+    if params.config.implicit_energy > 0 && CN
+        energy_crank_nicholson!(U, params)
+    end
     # Edge state reconstruction and flux computation
     #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -395,7 +401,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     #PREPROCESS
     #make values in params available for first timestep
-    update_values!(U, params)
+    update_values!(U, params, false)
 
     function save_func(u, t, integrator)
         (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue) = integrator.p.cache
@@ -417,10 +423,15 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    if implicit_energy
-        splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
+    if implicit_energy > 0
+        #alg = AutoTsit5(Rosenbrock23())
+        alg = SSPRK22()
+        prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
+        sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
+        adaptive=false, dt=timestep, dtmax=timestep, maxiters = maxiters)
+        #=splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
         sol = solve(splitprob, KenCarp47(); saveat=sim.saveat, callback=cb,
-        adaptive=adaptive, dtmin = 1e-12, dt=timestep, dtmax = timestep, maxiters = maxiters)
+        adaptive=adaptive, dtmin = 1e-12, dt=timestep, dtmax = timestep, maxiters = maxiters)=#
     else
         #alg = SSPRK22()
         alg = AutoTsit5(Rosenbrock23())
@@ -429,7 +440,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
 
-    return HallThrusterSolution(sol, params), saved_values
+    return HallThrusterSolution(sol, params, saved_values.saveval)
 end
 
 function inlet_neutral_density(sim)
