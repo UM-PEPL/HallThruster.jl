@@ -53,7 +53,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
 
     #Dual = ForwardDiff.Dual
 
-    U = zeros(nvariables + 7, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 5, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
@@ -206,7 +206,7 @@ function update_values!(U, params)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
-    (;F, UL, UR, Q, B, ue, Tev) = params.cache
+    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -239,13 +239,13 @@ function update_values!(U, params)
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
-    @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
-    @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
+    @views ∇ϕ[1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
+    @views ∇ϕ[end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
-        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
+        @views ∇ϕ[i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
