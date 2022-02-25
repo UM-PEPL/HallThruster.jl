@@ -51,9 +51,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     ncells = grid.ncells
     nedges = grid.ncells + 1
 
-    #Dual = ForwardDiff.Dual
-
-    U = zeros(nvariables + 3, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 1, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
