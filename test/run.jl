@@ -107,7 +107,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     p = plot(sol, saved_values.saveval)
     display(p)
 
-    return sol
+    return sol, saved_values
 end
 
-sol = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);
+sol, saved_values = run_sim(5e-6; ncells=50, nsave=50, dt=2e-9, adaptive=true, restart_file = nothing);

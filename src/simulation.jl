@@ -135,7 +135,7 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
-    (;μ, Tev) = params.cache
+    (;μ, Tev, ue) = params.cache
 
     @inbounds for i in 2:ncells+1
 
@@ -143,20 +143,18 @@ function update_electron_energy!(dU, U, params, t)
         right = right_edge(i)
 
         # Upwinded first derivatives
-        ue = U[index.ue, i]
-        ne = U[index.ne, i]
 
         Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
 
-        ue⁺ = max(ue, 0.0) / ue
-        ue⁻ = min(ue, 0.0) / ue
+        ue⁺ = max(ue[i], 0.0) / ue[i]
+        ue⁻ = min(ue[i], 0.0) / ue[i]
         #ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         #ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
 
 
         advection_term = (
-            ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
-            ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
+            ue⁺ * (ue[i] * U[index.nϵ, i] - ue[i-1] * U[index.nϵ, i-1]) -
+            ue⁻ * (ue[i] * U[index.nϵ, i] - ue[i+1] * U[index.nϵ, i+1])
         ) / Δz
 
         diffusion_term_1 = -(
@@ -208,7 +206,7 @@ function update_values!(U, params)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
-    (;F, UL, UR, Q, B) = params.cache
+    (;F, UL, UR, Q, B, ue, Tev) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -231,7 +229,7 @@ function update_values!(U, params)
 
         U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         #U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
-        params.cache.Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
+        Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , U[index.ne, i], mi)
@@ -248,15 +246,15 @@ function update_values!(U, params)
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
+        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
         @views source_term!(Q[:, i], U, params, i)
     end
 
     # Neumann condition for electron velocity
-    U[index.ue, 1] = U[index.ue, 2]
-    U[index.ue, end] = U[index.ue, end-1]
+    ue[1] = ue[2]
+    ue[end] = ue[end-1]
 
     # Dirchlet BCs for electron energy
     #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
@@ -425,13 +423,13 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     function save_func(u, t, integrator)
         (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue) = integrator.p.cache
-        return (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue)
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue))
     end
 
     saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue), NTuple{7, Vector{Float64}}})
 
     discrete_callback = DiscreteCallback(condition, affect!, save_positions=(false,false))
-    saving_callback = SavingCallback(save_func, saved_values)
+    saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
 
     if sim.callback !== nothing
         cb = CallbackSet(discrete_callback, saving_callback, sim.callback)

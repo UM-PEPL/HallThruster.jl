@@ -57,11 +57,12 @@ end
 function apply_ion_acceleration_coupled!(Q, U, params, i)
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     index = params.index
+    (;ue, μ) = params.cache
     for j in 1:length(fluids)
         if fluids[j].species.Z > 0
             ni = U[fluid_ranges[j][1], i]
             @views Q[fluid_ranges[j][2]] += -e / m(fluids[j]) *
-                                            ni * fluids[j].species.Z * U[index.ue, i] / params.cache.μ[i]
+                                            ni * fluids[j].species.Z * ue[i] / μ[i]
         end
     end
 end
@@ -81,6 +82,7 @@ function source_electron_energy_landmark!(Q, U, params, i)
     νϵ = 1e7 * smooth_if(params.z_cell[i], params.L_ch, params.νϵ[1], params.νϵ[2], 10)
     UU = 20.0
     Tev = params.cache.Tev[i]
+    ue = params.cache.ue[i]
     W = νϵ * Tev * exp(-UU / Tev)
-    return Q[index.nϵ] = U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/mi * params.loss_coeff(Tev) - W)
+    return Q[index.nϵ] = U[index.ne, i] * (-ue * -U[index.grad_ϕ, i] - U[1, i]/mi * params.loss_coeff(Tev) - W)
 end
