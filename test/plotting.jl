@@ -67,9 +67,10 @@ function load_hallis_output(output_path)
     return output[1:end-1, :]
 end
 
-function plot_solution(u, saved_values, z = nothing, case = 1)
+function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
+    z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
     (;Tev, ue, ϕ, ∇ϕ, ne) = saved_values
     ionization_rate = [coeff.rate_coeff(Tev[i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
@@ -78,7 +79,7 @@ function plot_solution(u, saved_values, z = nothing, case = 1)
     p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
     p_ϵ  = plot_quantity(Tev, z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
     p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(ϕ, z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
+    p_ϕ  = plot_quantity(ϕ, z_edge; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
     p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
     plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
 end

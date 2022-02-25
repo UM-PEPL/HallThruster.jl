@@ -40,3 +40,31 @@ mutable struct Verification{F1, F2}
     fluid ::Int64
     energy ::EnergyOVS{F1, F2}
 end
+
+@inline function uneven_forward_diff(f0, f1, f2, z0, z1, z2)
+    h1 = z1 - z0
+    h2 = z2 - z1
+    return -(2h1 + h2)/h1/(h1 + h2)*f0 + (h1 + h2)/(h1*h2)*f1 - h1/h2/(h1 + h2)*f2
+end
+
+@inline function uneven_central_diff(f0, f1, f2, z0, z1, z2)
+    h1 = z1 - z0
+    h2 = z2 - z1
+    return -h2/h1/(h1+h2)*f0 - (h1-h2)/(h1*h2)*f1 + h1/h2/(h1+h2)*f2
+end
+
+@inline function uneven_backward_diff(f0, f1, f2, z0, z1, z2)
+    h1 = z1 - z0
+    h2 = z2 - z1
+    return h2/h1/(h1 + h2)*f0 - (h1 + h2)/(h1*h2)*f1 + (h1 + 2h2)/h2/(h1 + h2)*f2
+end
+
+@inline function uneven_second_deriv(f0, f1, f2, z0, z1, z2)
+    h1 = z1 - z0
+    h2 = z2 - z1
+    return 2 * (h2 * f0 - (h1 + h2) * f1 + h1 * f2) / (h1 * h2 * (h1 + h2))
+end
+
+@inline function diff(f0, f1, z0, z1)
+    return (f1 - f0) / (z1 - z0)
+end

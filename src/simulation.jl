@@ -56,13 +56,13 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
     Q = zeros(nvariables + 1, ncells+2)
-    A = Tridiagonal(ones(ncells), ones(ncells+1), ones(ncells)) #for potential
-    b = zeros(ncells + 1) #for potential equation
+    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
+    b = zeros(nedges) #for potential equation
     B = zeros(ncells + 2)
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
     μ = zeros(ncells + 2)
-    ϕ = zeros(ncells + 2)
+    ϕ = zeros(nedges)
     ∇ϕ = zeros(ncells + 2)
     ne = zeros(ncells + 2)
     Tev = zeros(ncells + 2)
@@ -120,10 +120,6 @@ function update_heavy_species!(dU, U, params, t)
         # Electron source term
         dU[index.nϵ, i] = Q[index.nϵ, i]
     end
-
-    if !params.implicit_energy
-        update_electron_energy!(dU, U, params, t)
-    end
 end
 
 function update_electron_energy!(dU, U, params, t)
@@ -133,49 +129,42 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
-    (;μ, Tev, ue) = params.cache
+    (;μ, Tev, ue, pe) = params.cache
+    nϵ = @views U[index.nϵ, :]
 
     @inbounds for i in 2:ncells+1
 
-        left = left_edge(i)
-        right = right_edge(i)
-
         # Upwinded first derivatives
+        z0 = z_cell[i-1]
+        z1 = z_cell[i]
+        z2 = z_cell[i+1]
 
-        Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
-
-        ue⁺ = max(ue[i], 0.0) / ue[i]
-        ue⁻ = min(ue[i], 0.0) / ue[i]
-        #ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
-        #ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
-
+        #ue⁺ = max(ue[i], 0.0) / ue[i]
+        #ue⁻ = min(ue[i], 0.0) / ue[i]
+        ue⁺ = smooth_if(ue[i], 0.0, 0.0, ue[i], 0.01) / ue[i]
+        ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
 
         advection_term = (
-            ue⁺ * (ue[i] * U[index.nϵ, i] - ue[i-1] * U[index.nϵ, i-1]) -
-            ue⁻ * (ue[i] * U[index.nϵ, i] - ue[i+1] * U[index.nϵ, i+1])
-        ) / Δz
+            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], z0, z1) +
+            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z1, z2)
+        )
 
-        diffusion_term_1 = -(
-            ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (Tev[i-1] - Tev[i])) -
-            ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (Tev[i+1] - Tev[i])
-        ) / Δz^2
+        diffusion_term = (
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(Tev[i-1], Tev[i], z0, z1) +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(Tev[i], Tev[i+1], z1, z2)
+        )
 
-        if i == 2 #2
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8Tev[i-1] - 12Tev[i] + 4Tev[i+1])
-            diffusion_term_2 /= 3*Δz^2
-        elseif i == ncells + 1 #ncells + 1
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4Tev[i-1]- 12Tev[i] + 8Tev[i+1])
-            diffusion_term_2 /= 3*Δz^2
-        else
-            # Central second derivatives
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (Tev[i-1] - 2Tev[i] + Tev[i+1])
-            diffusion_term_2 /= Δz^2
-        end
+        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
 
-        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term_1 + diffusion_term_2)
+        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term)
     end
 
     return nothing
+end
+
+function update!(dU, U, p, t)
+    update_heavy_species!(dU, U, p, t)
+    update_electron_energy!(dU, U, p, t)
 end
 
 left_edge(i) = i - 1
@@ -198,12 +187,13 @@ function precompute_bfield!(B, zs)
     end
 end
 
+update_values!(integrator) = update_values!(integrator.u, integrator.p)
 function update_values!(U, params)
     #update useful quantities relevant for potential, electron energy and fluid solve
 
     ncells = size(U, 2) - 2
 
-    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
+    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
     (;F, UL, UR, Q, B, ue, Tev, ∇ϕ, ϕ, pe, ne) = params.cache
     OVS = params.OVS.energy.active
 
@@ -236,13 +226,16 @@ function update_values!(U, params)
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
-    ∇ϕ[1] = first_deriv_central_diff_pot(ϕ, params.z_cell, 1)
-    ∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+2)
+    #∇ϕ[1] = first_deriv_central_diff_pot(ϕ, params.z_cell, 1)
+    #∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+2)
+    ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    ∇ϕ[end] = uneven_backward_diff(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
-        @views ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
+        ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
+        #∇ϕ[i] = uneven_central_diff(ϕ[i-1], ϕ[i], ϕ[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
@@ -258,16 +251,6 @@ function update_values!(U, params)
     apply_bc_electron!(U, params.BCs[4], :right, index)
 
 end
-
-#=Config = @NamedTuple begin
-    propellant::Gas
-end=#
-
-condition(u,t,integrator) = t < 1
-function affect!(integrator)
-    update_values!(integrator.u, integrator.p)
-end
-
 
 function make_keys(fluid_range, subscript)
     len = length(fluid_range)
@@ -421,7 +404,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue), NTuple{7, Vector{Float64}}})
 
-    discrete_callback = DiscreteCallback(condition, affect!, save_positions=(false,false))
+    discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
     saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
 
     if sim.callback !== nothing
@@ -430,18 +413,18 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         cb = CallbackSet(discrete_callback, saving_callback)
     end
 
-    implicit_energy = sim.solve_energy
+    implicit_energy = config.implicit_energy
 
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
     if implicit_energy
         splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
         sol = solve(splitprob, KenCarp47(); saveat=sim.saveat, callback=cb,
-        adaptive=adaptive, dt=timestep, dtmax = timestep)
+        adaptive=adaptive, dtmin = 1e-12, dt=timestep, dtmax = timestep, maxiters = maxiters)
     else
         #alg = SSPRK22()
         alg = AutoTsit5(Rosenbrock23())
-        prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
+        prob = ODEProblem{true}(update!, U, tspan, params)
         sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
