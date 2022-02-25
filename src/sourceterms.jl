@@ -6,9 +6,8 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
     index = params.index
 
     mi = m(fluids[1])
-    ne = U[index.ne, i]
+    ne = params.cache.ne[i]
     ϵ = params.cache.Tev[i]
-    neutral_velocity = fluids[1].conservation_laws.u
 
     for r in reactions
         reactant_index = species_range_dict[r.reactant.symbol][1]
@@ -18,25 +17,10 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
             k = r.rate_coeff
 
             ndot = k(ϵ) * n_reactant * ne
-            #can probably use periodic callback
             Q[reactant_index] -= ndot * mi
             Q[product_index] += ndot * mi
-            #Q[product_index + 1] += ndot * mi * neutral_velocity #momentum transfer
         end
     end
-
-    # Simplify ionization for now, only single ionization
-    #=mi = m(fluids[1])
-
-    k = params.landmark.rate_coeff
-    nn = U[1, i] / mi
-    ne = U[index.ne, i]
-    Te = U[index.Tev, i]
-
-    ndot = k(Te) * nn * ne
-    Q[1] -= ndot * mi
-    Q[2] += ndot * mi
-    Q[3] += ndot * neutral_velocity * mi=#
 end
 
 function apply_ion_acceleration!(Q, U, params, i)
@@ -85,6 +69,7 @@ function source_electron_energy_landmark!(Q, U, params, i)
     Tev = params.cache.Tev[i]
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
+    ne = params.cache.ne[i]
     W = νϵ * Tev * exp(-UU / Tev)
-    return Q[index.nϵ] = U[index.ne, i] * (-ue * -∇ϕ - U[1, i]/mi * params.loss_coeff(Tev) - W)
+    return Q[index.nϵ] = ne * (-ue * -∇ϕ - U[1, i]/mi * params.loss_coeff(Tev) - W)
 end

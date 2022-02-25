@@ -21,8 +21,7 @@ function solve_potential_edge!(U, params)
     index = params.index
     N = length(z_cell) - 1
 
-    ne = @views U[index.ne, :]
-    (;A, b, μ, ϕ, pe) = params.cache
+    (;A, b, μ, ϕ, pe, ne) = params.cache
     OVS = params.OVS.potential
 
     #= this line allocates

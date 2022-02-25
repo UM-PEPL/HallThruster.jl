@@ -70,10 +70,10 @@ end
 function plot_solution(u, saved_values, z = nothing, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
-    (;Tev, ue, ϕ, ∇ϕ) = saved_values
+    (;Tev, ue, ϕ, ∇ϕ, ne) = saved_values
     ionization_rate = [coeff.rate_coeff(Tev[i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
-    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
+    p_ne = plot_quantity(ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
     p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
     p_ϵ  = plot_quantity(Tev, z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")

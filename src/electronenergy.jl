@@ -1,14 +1,14 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
     index = params.index
-    (;μ, ∇ϕ) = params.cache
+    (;μ, ∇ϕ, ne) = params.cache
     if i == 1
         inew = 1
     else
         inew = i
     end
     @views grad_nϵ = first_deriv_central_diff(U[index.nϵ, :], params.z_cell, i)
-    uₑ = params.cache.μ[i]*(∇ϕ[inew]- grad_nϵ/U[index.ne, i])
+    uₑ = μ[i]*(∇ϕ[inew]- grad_nϵ/ne[i])
     return uₑ
 end
 
@@ -122,7 +122,8 @@ end
 function S_coll(U, params, i) #landmark table
     index = params.index
     fluid = params.fluids[1].species.element
+    (; ne, Tev) = params.cache.Tev
     neutral_density = U[1, i]/fluid.m
-    W = params.landmark.loss_coeff(U[index.Tev, i])
-    return neutral_density*U[index.ne, i]*W
+    W = params.loss_coeff(Tev[i])
+    return neutral_density*ne[i]*W
 end

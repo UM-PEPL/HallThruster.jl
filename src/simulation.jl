@@ -206,7 +206,7 @@ function update_values!(U, params)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
-    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ, ϕ, pe) = params.cache
+    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ, ϕ, pe, ne) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -227,12 +227,11 @@ function update_values!(U, params)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
-        #U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
-        Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
+        @views ne[i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
+        Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/ne[i]) + OVS_Tev
         pe[i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
-        params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , U[index.ne, i], mi)
+        params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
@@ -257,12 +256,8 @@ function update_values!(U, params)
     ue[end] = ue[end-1]
 
     # Dirchlet BCs for electron energy
-    #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    #U[index.nϵ, end] = params.Te_R * U[index.ne, end]
     apply_bc_electron!(U, params.BCs[3], :left, index)
     apply_bc_electron!(U, params.BCs[4], :right, index)
-
-
 
 end
 
