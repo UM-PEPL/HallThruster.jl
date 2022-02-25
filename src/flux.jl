@@ -195,6 +195,7 @@ function compute_fluxes!(F, UL, UR, U, params)
     _, nedges = size(F)
 
     (;fluids, fluid_ranges, scheme, index) = params
+    pe = params.cache.pe``
     coupled = params.config.electron_pressure_coupled
 
     nconservative = index.lf
@@ -206,7 +207,7 @@ function compute_fluxes!(F, UL, UR, U, params)
 
     # flux on left boundary
     for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-        pe_L = U[index.pe, 1]
+        pe_L = pe[1]
         @views scheme.flux_function(F[fluid_range, 1], U[fluid_range, 1],
                                     UR[fluid_range, 1], fluid, pe_L, pe_L, coupled)
     end
@@ -220,8 +221,8 @@ function compute_fluxes!(F, UL, UR, U, params)
         end
 
         for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-            pe_L = U[index.pe, i]
-            pe_R = U[index.pe, i+1]
+            pe_L = pe[i]
+            pe_R = pe[i+1]
 
             @views scheme.flux_function(F[fluid_range, i], UL[fluid_range, i],
                                         UR[fluid_range, i], fluid, pe_L, pe_R, coupled)

@@ -21,11 +21,8 @@ function solve_potential_edge!(U, params)
     index = params.index
     N = length(z_cell) - 1
 
-    pe = @views U[index.pe, :]
     ne = @views U[index.ne, :]
-    A = params.cache.A
-    b = params.cache.b
-    μ = params.cache.μ
+    (;A, b, μ, ϕ, pe) = params.cache
     OVS = params.OVS.potential
 
     #= this line allocates
@@ -75,7 +72,7 @@ function solve_potential_edge!(U, params)
         b[i] = (1 - OVS) * b[i] + 50_000 * OVS
 
     end
-    return tridiagonal_solve!(@views(U[index.ϕ, 1:end-1]), A, b)
+    return tridiagonal_solve!(ϕ, A, b)
 end
 
 

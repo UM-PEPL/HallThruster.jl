@@ -53,7 +53,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
 
     #Dual = ForwardDiff.Dual
 
-    U = zeros(nvariables + 5, ncells + 2) # need to allocate room for ghost cells
+    U = zeros(nvariables + 3, ncells + 2) # need to allocate room for ghost cells
     F = zeros(nvariables + 1, nedges)
     UL = zeros(nvariables + 1, nedges)
     UR = zeros(nvariables + 1, nedges)
@@ -206,7 +206,7 @@ function update_values!(U, params)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
-    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ) = params.cache
+    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ, ϕ, pe) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -215,7 +215,7 @@ function update_values!(U, params)
     #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
     coupled = params.config.electron_pressure_coupled
-    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, U[index.pe, :], coupled)
+    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, pe, coupled)
 
     # Apply boundary conditions
     @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
@@ -230,7 +230,7 @@ function update_values!(U, params)
         U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         #U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
-        U[index.pe, i] = U[index.nϵ, i]
+        pe[i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
@@ -239,13 +239,13 @@ function update_values!(U, params)
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
-    @views ∇ϕ[1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
-    @views ∇ϕ[end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
+    ∇ϕ[1] = first_deriv_central_diff_pot(ϕ, params.z_cell, 1)
+    ∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+2)
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
-        @views ∇ϕ[i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
+        @views ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
