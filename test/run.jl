@@ -102,9 +102,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         electron_pressure_coupled = true,
     )
 
-    @time sol = HallThruster.run_simulation(sim, config)
+    @time sol, saved_values = HallThruster.run_simulation(sim, config)
  
-    p = plot(sol)
+    p = plot(sol, saved_values.saveval)
     display(p)
 
     return sol

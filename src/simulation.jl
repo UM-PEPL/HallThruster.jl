@@ -69,8 +69,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     ne = zeros(ncells + 2)
     Tev = zeros(ncells + 2)
     pe = zeros(ncells + 2)
+    ue = zeros(ncells + 2)
 
-    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe)
+    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
     return U, cache
 end
 
@@ -422,10 +423,20 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     #make values in params available for first timestep
     update_values!(U, params)
 
+    function save_func(u, t, integrator)
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue) = integrator.p.cache
+        return (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue)
+    end
+
+    saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue), NTuple{7, Vector{Float64}}})
+
+    discrete_callback = DiscreteCallback(condition, affect!, save_positions=(false,false))
+    saving_callback = SavingCallback(save_func, saved_values)
+
     if sim.callback !== nothing
-        cb = CallbackSet(DiscreteCallback(condition, affect!, save_positions=(false,false)), sim.callback)
+        cb = CallbackSet(discrete_callback, saving_callback, sim.callback)
     else
-        cb = DiscreteCallback(condition, affect!, save_positions=(false,false))
+        cb = CallbackSet(discrete_callback, saving_callback)
     end
 
     implicit_energy = sim.solve_energy
@@ -444,7 +455,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end
 
-    return HallThrusterSolution(sol, params)
+    return HallThrusterSolution(sol, params), saved_values
 end
 
 function inlet_neutral_density(sim)
