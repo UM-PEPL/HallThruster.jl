@@ -64,8 +64,13 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
     μ = zeros(ncells + 2)
+    ϕ = zeros(ncells + 2)
+    ∇ϕ = zeros(ncells + 2)
+    ne = zeros(ncells + 2)
+    Tev = zeros(ncells + 2)
+    pe = zeros(ncells + 2)
 
-    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ)
+    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe)
     return U, cache
 end
 
@@ -74,7 +79,7 @@ function update_heavy_species!(dU, U, params, t)
     #extract some useful stuff from params
 
     (;index, z_edge, propellant, fluid_ranges) = params
-    (;F, Q) = params.cache
+    (;F, Q, Tev) = params.cache
     δ = params.config.ion_diffusion_coeff
 
     ncells = size(U, 2) - 2
@@ -102,7 +107,7 @@ function update_heavy_species!(dU, U, params, t)
 
         # Neutral fluxes and source
         dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
-        η = δ * sqrt(2*e*U[index.Tev, i]/(3*mi))
+        η = δ * sqrt(2*e*Tev[i]/(3*mi))
 
         for j in first_ion_index:last_ion_index
             # Ion fluxes and source
@@ -129,7 +134,7 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
-    μ = params.cache.μ
+    (;μ, Tev) = params.cache
 
     @inbounds for i in 2:ncells+1
 
@@ -154,19 +159,19 @@ function update_electron_energy!(dU, U, params, t)
         ) / Δz
 
         diffusion_term_1 = -(
-            ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
-            ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
+            ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (Tev[i-1] - Tev[i])) -
+            ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (Tev[i+1] - Tev[i])
         ) / Δz^2
 
         if i == 2 #2
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8Tev[i-1] - 12Tev[i] + 4Tev[i+1])
             diffusion_term_2 /= 3*Δz^2
         elseif i == ncells + 1 #ncells + 1
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4U[index.Tev, i-1] - 12U[index.Tev, i] + 8U[index.Tev, i+1])
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4Tev[i-1]- 12Tev[i] + 8Tev[i+1])
             diffusion_term_2 /= 3*Δz^2
         else
             # Central second derivatives
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
+            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (Tev[i-1] - 2Tev[i] + Tev[i+1])
             diffusion_term_2 /= Δz^2
         end
 
@@ -224,16 +229,17 @@ function update_values!(U, params)
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
         U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
-        U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
+        #U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
+        params.cache.Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
-        params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
+        params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , U[index.ne, i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
+    #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
     @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
     @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 

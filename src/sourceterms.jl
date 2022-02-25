@@ -7,7 +7,7 @@ function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
 
     mi = m(fluids[1])
     ne = U[index.ne, i]
-    ϵ = U[index.Tev, i]
+    ϵ = params.cache.Tev[i]
     neutral_velocity = fluids[1].conservation_laws.u
 
     for r in reactions
@@ -80,7 +80,7 @@ function source_electron_energy_landmark!(Q, U, params, i)
     mi = params.propellant.m
     νϵ = 1e7 * smooth_if(params.z_cell[i], params.L_ch, params.νϵ[1], params.νϵ[2], 10)
     UU = 20.0
-    W = νϵ * U[index.Tev, i] * exp(-UU / U[index.Tev, i])
-    return Q[index.nϵ] = U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/mi * params.loss_coeff(U[index.Tev, i]) - W)
-    #@views Q[4] = U[index.ne, i]*uₑ*grad_ϕ - S_coll(U, params, i) - S_wall_simple(U[index.Tev, :], i)
+    Tev = params.cache.Tev[i]
+    W = νϵ * Tev * exp(-UU / Tev)
+    return Q[index.nϵ] = U[index.ne, i] * (-U[index.ue, i] * -U[index.grad_ϕ, i] - U[1, i]/mi * params.loss_coeff(Tev) - W)
 end
