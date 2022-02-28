@@ -168,6 +168,8 @@ end
 function update!(dU, U, p, t)
     update_heavy_species!(dU, U, p, t)
     update_electron_energy!(dU, U, p, t)
+
+	# update DAE components
 end
 
 left_edge(i) = i - 1
@@ -423,7 +425,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    if implicit_energy > 0
+    #=if implicit_energy > 0
         #alg = AutoTsit5(Rosenbrock23())
         alg = SSPRK22()
         prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
@@ -438,7 +440,15 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         prob = ODEProblem{true}(update!, U, tspan, params)
         sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
-    end
+    end=#
+	alg = AutoTsit5(Rosenbrock23())
+	M = Diagonal([i ≤ index.nϵ for i in 1:size(U, 1)])
+	f = ODEFunction(update!, mass_matrix = M)
+	prob = ODEProblem{true}(f, U, tspan, params)
+	sol = solve(
+		prob, alg; saveat=sim.saveat, callback=cb,
+		adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters
+	)
 
     return HallThrusterSolution(sol, params, saved_values.saveval)
 end
