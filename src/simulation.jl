@@ -233,7 +233,7 @@ function update_values!(U, params)
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
+    #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
     @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
     @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
