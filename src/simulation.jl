@@ -132,42 +132,37 @@ function update_electron_energy!(dU, U, params, t)
     μ = params.cache.μ
     Tev = @views U[index.Tev, :]
     nϵ = @views U[index.nϵ, :]
+	ue = @views U[index.ue, :]
+
+    implicit_energy = params.config.implicit_energy
 
     @inbounds for i in 2:ncells+1
 
-        left = left_edge(i)
-        right = right_edge(i)
-
+        # Upwinded first derivatives
         z0 = z_cell[i-1]
         z1 = z_cell[i]
         z2 = z_cell[i+1]
 
-        # Upwinded first derivatives
-        ue = U[index.ue, i]
-        ne = U[index.ne, i]
-
-        Δz = z_edge[right] - z_edge[left] #boundary cells same size with upwind
-
-        ue⁺ = max(ue, 0.0) / ue
-        ue⁻ = min(ue, 0.0) / ue
-        #ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
-        #ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
-
+        #ue⁺ = max(ue[i], 0.0) / ue[i]
+        #ue⁻ = min(ue[i], 0.0) / ue[i]
+        ue⁺ = smooth_if(ue[i], 0.0, 0.0, ue[i], 0.01) / ue[i]
+        ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
 
         advection_term = (
-            ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
-            ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
-        ) / Δz
+            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], z0, z1) +
+            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z1, z2)
+        )
 
-        diffusion_term_1 = -(
-            ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
-            ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
-        ) / Δz^2
+        diffusion_term = (
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(Tev[i-1], Tev[i], z0, z1) +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(Tev[i], Tev[i+1], z1, z2)
+        )
 
-        diffusion_term_2 = μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
+        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
 
-        dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term_1 + diffusion_term_2)
+        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
     end
+
 
     return nothing
 end
@@ -200,6 +195,10 @@ function update_values!(U, params)
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
     (;F, UL, UR, Q, B) = params.cache
     OVS = params.OVS.energy.active
+	z_edge = params.z_edge
+	∇ϕ = @views U[index.grad_ϕ, :]
+	ue = @views U[index.ue, :]
+	ϕ = @views U[index.ϕ, :]
 
     mi = params.propellant.m
 
@@ -230,14 +229,15 @@ function update_values!(U, params)
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
-    @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
-    @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
+    ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    ∇ϕ[end] = uneven_backward_diff(ϕ[end-3], ϕ[end-2], ϕ[end-1], z_edge[end-2], z_edge[end-1], z_edge[end])
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
-        @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
+        ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
+        #∇ϕ[i] = uneven_central_diff(ϕ[i-1], ϕ[i], ϕ[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
         @views source_term!(Q[:, i], U, params, i)

@@ -1,15 +1,18 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
-    index = params.index
-    if i == 1
-        inew = 1
-    else
-        inew = i
-    end
-    @views grad_nϵ = first_deriv_central_diff(U[index.nϵ, :], params.z_cell, i)
-    uₑ = params.cache.μ[i]*(U[index.grad_ϕ, inew] - grad_nϵ/U[index.ne, i])
+    (;z_cell, index) = params
+    μ = params.cache.μ
+
+    ∇ϕ = U[index.grad_ϕ, i]
+    ne = U[index.ne, i]
+    pe = @views U[index.pe, :]
+
+    ∇pe = first_deriv_central_diff(pe, z_cell, i)
+    #∇pe = uneven_central_diff(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+    uₑ = μ[i] * (∇ϕ - ∇pe/ne)
     return uₑ
 end
+
 
 function e_heat_conductivity(params, i) #without nϵ term, that is in state vector
     ν = params.cache.νan[i] + params.cache.νc[i]
