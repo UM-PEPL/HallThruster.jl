@@ -130,11 +130,17 @@ function update_electron_energy!(dU, U, params, t)
 
     (;index, z_cell, z_edge) = params
     μ = params.cache.μ
+    Tev = @views U[index.Tev, :]
+    nϵ = @views U[index.nϵ, :]
 
     @inbounds for i in 2:ncells+1
 
         left = left_edge(i)
         right = right_edge(i)
+
+        z0 = z_cell[i-1]
+        z1 = z_cell[i]
+        z2 = z_cell[i+1]
 
         # Upwinded first derivatives
         ue = U[index.ue, i]
@@ -164,17 +170,7 @@ function update_electron_energy!(dU, U, params, t)
             ue⁻ * (μ[i] * U[index.nϵ, i] - μ[i+1] * U[index.nϵ, i+1]) * (U[index.Tev, i] - U[index.Tev, i+1])
         ) / Δz^2
 
-        if i == 2 #2
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (8U[index.Tev, i-1] - 12U[index.Tev, i] + 4U[index.Tev, i+1])
-            diffusion_term_2 /= 3*Δz^2
-        elseif i == ncells + 1 #ncells + 1
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (4U[index.Tev, i-1] - 12U[index.Tev, i] + 8U[index.Tev, i+1])
-            diffusion_term_2 /= 3*Δz^2
-        else
-            # Central second derivatives
-            diffusion_term_2 = μ[i] * U[index.nϵ, i] * (U[index.Tev, i-1] - 2U[index.Tev, i] + U[index.Tev, i+1])
-            diffusion_term_2 /= Δz^2
-        end
+        diffusion_term_2 = μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
 
         dU[index.nϵ, i] += -5/3 * advection_term + 10/9 * (diffusion_term_1 + diffusion_term_2)
     end
@@ -239,7 +235,7 @@ function update_values!(U, params)
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    @views U[index.ϕ, :] .= (1 - params.OVS.energy.active).*U[index.ϕ, :] #0.0 #for OVS
+    #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
     @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
     @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
