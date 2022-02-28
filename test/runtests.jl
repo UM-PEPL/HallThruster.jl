@@ -631,7 +631,7 @@ const MMS_CONSTS_ELEC = (
     Tx = 100.0,
     Tev0 = 50.0, 
     Tev_elec_max = 20.0,
-    μ = 0.0,
+    μ = 1.0,
     ue = -100.0,
 )
 
@@ -640,7 +640,7 @@ Dt = Differential(t)
 Dx = Differential(x)
 
 uₑ_manufactured = MMS_CONSTS_ELEC.ue #set electron velocity in beginning
-Tev_manufactured = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * x / (MMS_CONSTS_ELEC.L))
+Tev_manufactured = MMS_CONSTS_ELEC.Tev0 + MMS_CONSTS_ELEC.Tev_elec_max*(MMS_CONSTS_ELEC.L - x)/MMS_CONSTS_ELEC.L #*sin(2 * π * x / (MMS_CONSTS_ELEC.L))
 
 n_manufactured = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
 u_manufactured = MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*sin(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
@@ -649,7 +649,8 @@ nϵ_manufactured = n_manufactured/MMS_CONSTS_ELEC.fluid.m*Tev_manufactured
 RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS_ELEC.u_constant)
 RHS_2 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
 RHS_3 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.Xenon.R*MMS_CONSTS_ELEC.T_constant) 
-RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Tev_manufactured))
+#RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Tev_manufactured))
+RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured) - 10/9*Dx(MMS_CONSTS_ELEC.μ*nϵ_manufactured)*Dx(Tev_manufactured) - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Dx(Tev_manufactured))
 
 derivs = expand_derivatives.([RHS_1, RHS_2, RHS_3, RHS_4])
 conservative_func = build_function([n_manufactured, n_manufactured, n_manufactured*u_manufactured, nϵ_manufactured], [x, t])

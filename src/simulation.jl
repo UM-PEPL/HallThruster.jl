@@ -147,15 +147,21 @@ function update_electron_energy!(dU, U, params, t)
         #ue⁺ = smooth_if(ue, 0.0, 0.0, ue, 0.01) / ue
         #ue⁻ = smooth_if(ue, 0.0, ue, 0.0, 0.01) / ue
 
-
         advection_term = (
             ue⁺ * (ue * U[index.nϵ, i] - U[index.ue, i-1] * U[index.nϵ, i-1]) -
             ue⁻ * (ue * U[index.nϵ, i] - U[index.ue, i+1] * U[index.nϵ, i+1])
         ) / Δz
 
+        #=
         diffusion_term_1 = -(
-            ue⁺ * (-(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i])) -
+            ue⁺ * -(μ[i-1] * U[index.nϵ, i-1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i-1] - U[index.Tev, i]) -
             ue⁻ * (μ[i+1] * U[index.nϵ, i+1] - μ[i] * U[index.nϵ, i]) * (U[index.Tev, i+1] - U[index.Tev, i])
+        ) / Δz^2=#
+
+        #diffusion term 1 rewritten
+        diffusion_term_1 = -(
+            ue⁺ * (μ[i] * U[index.nϵ, i] - μ[i-1] * U[index.nϵ, i-1]) * (U[index.Tev, i] - U[index.Tev, i-1]) -
+            ue⁻ * (μ[i] * U[index.nϵ, i] - μ[i+1] * U[index.nϵ, i+1]) * (U[index.Tev, i] - U[index.Tev, i+1])
         ) / Δz^2
 
         if i == 2 #2
@@ -233,7 +239,7 @@ function update_values!(U, params)
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
+    @views U[index.ϕ, :] .= (1 - params.OVS.energy.active).*U[index.ϕ, :] #0.0 #for OVS
     @views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
     @views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
 
