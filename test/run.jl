@@ -99,7 +99,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,
         neutral_temperature = 300.0,
-        ion_diffusion_coeff = 0.5e-3,
+        ion_diffusion_coeff = 0.0e-3,
         implicit_energy = implicit_energy,
         propellant = HallThruster.Xenon,
         ncharge = 1,
@@ -120,4 +120,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     return sol
 end
 
-sol = run_sim(5e-8; ncells=50, nsave=50, dt = 1.1e-9, implicit_energy = false);
+sol = run_sim(5e-6; ncells=50, nsave=50, dt = 0.5e-9, implicit_energy = false);

@@ -80,7 +80,7 @@ function update_heavy_species!(dU, U, params, t)
     #extract some useful stuff from params
 
     (;index, z_edge, propellant, fluid_ranges) = params
-    (;F, Q, Tev) = params.cache
+    (;F, UL, UR, Q, Tev) = params.cache
     δ = params.config.ion_diffusion_coeff
 
     ncells = size(U, 2) - 2
@@ -114,9 +114,17 @@ function update_heavy_species!(dU, U, params, t)
             # Ion fluxes and source
             dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
             # Compute current charge state to make sure sound speed in diffusion term is correct
-            Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
+        end
+
+        for Z in 1:params.config.ncharge
+            ρL = UR[index.ρi[Z], left]
+            ρ0 = U[index.ρi[Z], i]
+            ρR = UL[index.ρi[Z], right]
+            uL = UR[index.ρiui[Z], left] / ρL
+            u0 = U[index.ρiui[Z], i] / ρ0
+            uR = UL[index.ρiui[Z], right] / ρR
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+            dU[index.ρiui[Z], i] += sqrt(Z) * η * ρ0 * (uL - 2u0 + uR)/(Δz²/4)
         end
 
         # Electron source term
@@ -131,16 +139,26 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
-    (;μ, Tev, ue, pe) = params.cache
+    (;μ, Tev, ue, ne) = params.cache
     nϵ = @views U[index.nϵ, :]
     implicit_energy = params.config.implicit_energy
 
+    Tev[1] = params.Te_L
+    Tev[end] = params.Te_R
+
     @inbounds for i in 2:ncells+1
+
+        #Tev[i] = nϵ[i] / ne[i]
+        #Tev[i+1] = nϵ[i+1] / ne[i+1]
 
         # Upwinded first derivatives
         z0 = z_cell[i-1]
         z1 = z_cell[i]
         z2 = z_cell[i+1]
+
+        ϵ0 = nϵ[i-1] / ne[i-1]
+        ϵ1 = nϵ[i] / ne[i]
+        ϵ2 = nϵ[i+1] / ne[i+1]
 
         #ue⁺ = max(ue[i], 0.0) / ue[i]
         #ue⁻ = min(ue[i], 0.0) / ue[i]
@@ -153,13 +171,14 @@ function update_electron_energy!(dU, U, params, t)
         )
 
         diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(Tev[i-1], Tev[i], z0, z1) +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(Tev[i], Tev[i+1], z1, z2)
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(ϵ0, ϵ1, z0, z1) +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(ϵ1, ϵ2, z1, z2)
         )
 
-        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
+        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(ϵ0, ϵ1, ϵ2, z0, z1, z2)
 
-        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
+        Q = source_electron_energy_landmark(U, params, i)
+        dU[index.nϵ, i] = - 5/3 * advection_term + 10/9 * (diffusion_term) + Q
     end
 
     return nothing
@@ -168,6 +187,7 @@ end
 function update!(dU, U, p, t)
     update_heavy_species!(dU, U, p, t)
     update_electron_energy!(dU, U, p, t)
+    return nothing
 end
 
 left_edge(i) = i - 1
@@ -202,9 +222,9 @@ function update_values!(U, params, CN = true)
 
     mi = params.propellant.m
 
-    if params.config.implicit_energy > 0 && CN
-        energy_crank_nicholson!(U, params)
-    end
+    #if params.config.implicit_energy > 0 && CN
+    #    energy_crank_nicholson!(U, params)
+    #end
     # Edge state reconstruction and flux computation
     #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -221,13 +241,19 @@ function update_values!(U, params, CN = true)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
+        @views ne[i] = (1 - OVS) * max(1e6, electron_density(U[:, i], params) / mi) + OVS_ne
         Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/ne[i]) + OVS_Tev
         pe[i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
+
+    # Dirchlet BCs for electron energy
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
+    pe[1] = U[index.nϵ, 1]
+    pe[end] = U[index.nϵ, end]
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
@@ -251,10 +277,6 @@ function update_values!(U, params, CN = true)
     # Neumann condition for electron velocity
     ue[1] = ue[2]
     ue[end] = ue[end-1]
-
-    # Dirchlet BCs for electron energy
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
 
 end
 
@@ -456,7 +478,8 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     callback = update_values!
     Δt = timestep
     saveat = sim.saveat
-    ts, Us, savevals = simulate!(U, params, update!, rk_coeffs, Δt, tspan, saveat, saved_values, save_func, callback)
+    RHS! = config.implicit_energy == 0 ? update! : update_heavy_species!
+    ts, Us, savevals = simulate!(U, params, RHS!, rk_coeffs, Δt, tspan, saveat, saved_values, save_func, callback)
 
     return HallThrusterSolution(ts, Us, params, savevals)
 end
