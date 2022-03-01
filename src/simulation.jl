@@ -168,8 +168,6 @@ end
 function update!(dU, U, p, t)
     update_heavy_species!(dU, U, p, t)
     update_electron_energy!(dU, U, p, t)
-
-	# update DAE components
 end
 
 left_edge(i) = i - 1
@@ -442,8 +440,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end=#
 	alg = AutoTsit5(Rosenbrock23())
-	M = Diagonal([i ≤ index.nϵ for i in 1:size(U, 1)])
-	f = ODEFunction(update!, mass_matrix = M)
+	f = ODEFunction(update!)
 	prob = ODEProblem{true}(f, U, tspan, params)
 	sol = solve(
 		prob, alg; saveat=sim.saveat, callback=cb,
