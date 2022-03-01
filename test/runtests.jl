@@ -659,7 +659,7 @@ RHS_func = build_function(derivs, [x])
 mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 mms_conservative = eval(conservative_func[1])
 
-@testset "Order verification studies with MMS electron energy, upwind and no reconstruct" begin
+@testset "Order verification studies with MMS electron energy, HLLE and no reconstruct" begin
     results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
     expected_slope = 1
@@ -670,7 +670,7 @@ mms_conservative = eval(conservative_func[1])
         println("Row $(i), L_inf $(L_inf[i])")
     end 
     for i in 1:length(results)
-        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[end]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
     end
     #=
     p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
@@ -695,3 +695,17 @@ mms_conservative = eval(conservative_func[1])
 
 end
 
+@testset "Order verification studies with MMS electron energy, HLLE and minmod reconstruct" begin
+    results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = true)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
+    expected_slope = 1
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*10
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*10
+        println("Row $(i), L_inf $(L_inf[i])")
+    end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[end]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
+    end
+end
