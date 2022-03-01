@@ -11,6 +11,10 @@ function HallThrusterSolution(sol::S, params::P, savevals::SV) where {S<:SciMLBa
     return HallThrusterSolution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
 end
 
+function HallThrusterSolution(t, U, params, savevals)
+    return HallThrusterSolution(t, U, savevals, :no_retcode, DiffEqBase.DEStats(), params)
+end
+
 """
     write_restart(path::AbstractString, sol)
 

@@ -32,4 +32,5 @@ include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
 include("electronenergy.jl")
+include("timestepping.jl")
 end # module

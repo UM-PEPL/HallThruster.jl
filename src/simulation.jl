@@ -439,15 +439,26 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end=#
-	alg = AutoTsit5(Rosenbrock23())
+	#=alg = AutoTsit5(Rosenbrock23())
 	f = ODEFunction(update!)
 	prob = ODEProblem{true}(f, U, tspan, params)
 	sol = solve(
 		prob, alg; saveat=sim.saveat, callback=cb,
 		adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters
-	)
+	)=#
 
-    return HallThrusterSolution(sol, params, saved_values.saveval)
+    # RK coeffs for SSPRK42
+    a = LowerTriangular(1/3 * ones(4,4))
+    b = 1/4 * ones(4)
+    c = [1/3, 2/3, 1.0]
+    rk_coeffs = (;a, b, c)
+
+    callback = update_values!
+    Δt = timestep
+    saveat = sim.saveat
+    ts, Us, savevals = simulate!(U, params, update!, rk_coeffs, Δt, tspan, saveat, saved_values, save_func, callback)
+
+    return HallThrusterSolution(ts, Us, params, savevals)
 end
 
 function inlet_neutral_density(sim)
