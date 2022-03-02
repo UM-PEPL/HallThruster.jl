@@ -130,7 +130,7 @@ function energy_crank_nicholson!(U, params)
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
-    ncells = length(z_cell)
+    ncells = size(U, 2)
 
     nϵ = @views U[index.nϵ, :]
     Aϵ.d[1] = 1.0
@@ -138,9 +138,13 @@ function energy_crank_nicholson!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end-1] = 0.0
 
-    bϵ[1] = params.Te_L * ne[1]
-    bϵ[end] = params.Te_R * ne[end]
+    bϵ[1] = nϵ[1] = params.Te_L * ne[1]
+    bϵ[end] = nϵ[end] = params.Te_R * ne[end]
+    Tev[1] = params.Te_L
+    Tev[end] = params.Te_R
 
+    #@show bϵ[end], nϵ[end]
+    for _ in 1:2
     for i in 2:ncells-1
         Q = source_electron_energy_landmark(U, params, i)
 
@@ -154,10 +158,14 @@ function energy_crank_nicholson!(U, params)
         ue⁺ = smooth_if(ue[i], 0.0, 0.0, ue[i], 0.01) / ue[i]
         ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
 
-        dϵ_dz⁺ = diff(Tev[i-1], Tev[i], z0, z1)
-        dϵ_dz⁻ = diff(Tev[i], Tev[i+1], z1, z2)
+        ϵ0 = nϵ[i-1] / ne[i-1]
+        ϵ1 = nϵ[i] / ne[i]
+        ϵ2 = nϵ[i+1] / ne[i+1]
 
-        d²ϵ_dz² = uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
+        dϵ_dz⁺ = diff(ϵ0, ϵ1, z0, z1)
+        dϵ_dz⁻ = diff(ϵ1, ϵ2, z1, z2)
+
+        d²ϵ_dz² = uneven_second_deriv(ϵ0, ϵ1, ϵ2, z0, z1, z2)
 
         advection_term = (
             ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], z0, z1) +
@@ -174,7 +182,7 @@ function energy_crank_nicholson!(U, params)
         F = 5/3 * advection_term - 10/9 * (diffusion_term)
 
         # Explicit part
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F)
+        bϵ[i] = nϵ[i] + dt * (implicit * Q - explicit * F)
 
         # Implicit contribution of advection term
         Aϵ.d[i] = 5/3 * ue[i] * (ue⁺ / Δz⁻ - ue⁻ / Δz⁺)
@@ -194,6 +202,7 @@ function energy_crank_nicholson!(U, params)
         Aϵ.dl[i-1] *= implicit * dt
         Aϵ.du[i] *= implicit * dt
     end
-
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
+    end
+    #@show bϵ[end], nϵ[end]
 end

@@ -1,14 +1,15 @@
-function rk_step!(U, RHS!, params, rk_coeffs, cache, t, Δt)
+@inline function rk_step!(U, RHS!, params, rk_coeffs, cache, t, Δt)
     (;a, b, c) = rk_coeffs
     (;k, dU′, U′) = cache
 
     s = length(k)
+    ℓ = length(U)
 
     RHS!(k[1], U, params, t)
 
-    for i in 2:s
+    @inbounds for i in 2:s
         t′ = t + c[i-1]*Δt
-        for j in eachindex(U)
+        for j in 1:ℓ
             dU′[j] = 0.0
             for m in 1:i-1
                 dU′[j] += a[i, m] * k[i][j]
@@ -18,7 +19,7 @@ function rk_step!(U, RHS!, params, rk_coeffs, cache, t, Δt)
         RHS!(k[i], U′, params, t′)
     end
 
-    for j in eachindex(U)
+    @inbounds for j in 1:ℓ
         dU′[j] = 0.0
         for i in 1:s
             dU′[j] += b[i] * k[i][j]
@@ -26,20 +27,20 @@ function rk_step!(U, RHS!, params, rk_coeffs, cache, t, Δt)
         U[j] += Δt * dU′[j]
     end
 
-    return U
+    return nothing
 end
 
 function simulate!(U, params, RHS!, rk_coeffs, Δt, tspan, saveat, ::SavedValues{T1, T2}, save_func, callback) where {T1, T2}
     s = size(rk_coeffs.a, 1)
     k = [zeros(size(U)) for i in 1:s]
+    dU′ = zeros(size(U))
+    U′ = zeros(size(U))
+    cache = (;k, dU′, U′)
+
     nsave = length(saveat)
     saved_U = [zeros(size(U)) for i in 1:nsave]
     ts = zeros(length(saveat))
-    dU′ = zeros(size(U))
-    U′ = zeros(size(U))
     savevals = Vector{T2}(undef, nsave)
-
-    cache = (;k, dU′, U′)
 
     integrator = (cache = cache, p = params)
 
@@ -56,6 +57,9 @@ function simulate!(U, params, RHS!, rk_coeffs, Δt, tspan, saveat, ::SavedValues
         iter += 1
         rk_step!(U, RHS!, params, rk_coeffs, cache, t, Δt)
         callback(U, params)
+        if params.implicit_energy > 0
+            energy_crank_nicholson!(U, params)
+        end
         t += Δt
     end
 
