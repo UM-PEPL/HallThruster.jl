@@ -80,7 +80,7 @@ function update_heavy_species!(dU, U, params, t)
     #extract some useful stuff from params
 
     (;index, z_edge, propellant, fluid_ranges) = params
-    (;F, Q, Tev) = params.cache
+    (;F, UL, UR, Q, Tev) = params.cache
     δ = params.config.ion_diffusion_coeff
 
     ncells = size(U, 2) - 2
@@ -114,9 +114,17 @@ function update_heavy_species!(dU, U, params, t)
             # Ion fluxes and source
             dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
             # Compute current charge state to make sure sound speed in diffusion term is correct
-            Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
+        end
+
+        for Z in 1:params.config.ncharge
+            ρL = UR[index.ρi[Z], left]
+            ρ0 = U[index.ρi[Z], i]
+            ρR = UL[index.ρi[Z], right]
+            uL = UR[index.ρiui[Z], left] / ρL
+            u0 = U[index.ρiui[Z], i] / ρ0
+            uR = UL[index.ρiui[Z], right] / ρR
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+            dU[index.ρiui[Z], i] += sqrt(Z) * η * ρ0 * (uL - 2u0 + uR)/(Δz²/4)
         end
 
         # Electron source term
@@ -135,6 +143,9 @@ function update_electron_energy!(dnϵ, nϵ, params, t)
     implicit_energy = params.config.implicit_energy
 
     @inbounds for i in 2:ncells-1
+
+        #Tev[i] = nϵ[i] / ne[i]
+        #Tev[i+1] = nϵ[i+1] / ne[i+1]
 
         # Upwinded first derivatives
         z0 = z_cell[i-1]
@@ -211,9 +222,9 @@ function update_values!(U, params, CN = true)
 
     mi = params.propellant.m
 
-    if params.config.implicit_energy > 0 && CN
-        energy_crank_nicholson!(U, params)
-    end
+    #if params.config.implicit_energy > 0 && CN
+    #    energy_crank_nicholson!(U, params)
+    #end
     # Edge state reconstruction and flux computation
     #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -230,7 +241,7 @@ function update_values!(U, params, CN = true)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
+        @views ne[i] = (1 - OVS) * max(1e6, electron_density(U[:, i], params) / mi) + OVS_ne
         Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/ne[i]) + OVS_Tev
         pe[i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)

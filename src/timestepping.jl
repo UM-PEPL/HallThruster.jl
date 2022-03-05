@@ -126,6 +126,9 @@ function simulate!(U, params, RHS!, RHS_impl!, rk_coeffs, Δt, tspan, saveat, ::
             crank_nicholson_step!(nϵ, RHS_impl!, jac!, params, cache_impl, t, Δt)
         end
         callback(U, params)
+        if params.implicit_energy > 0
+            energy_crank_nicholson!(U, params)
+        end
         t += Δt
     end
 
