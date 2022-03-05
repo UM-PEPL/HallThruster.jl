@@ -70,10 +70,10 @@ function source_electron_energy_landmark(U, params, i)
     mi = params.propellant.m
     νϵ = 1e7 * smooth_if(params.z_cell[i], params.L_ch, params.νϵ[1], params.νϵ[2], 10)
     UU = 20.0
-    Tev = params.cache.Tev[i]
+    ne = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
+    Tev = U[index.nϵ, i] / ne
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
-    ne = params.cache.ne[i]
     W = νϵ * Tev * exp(-UU / Tev)
     return ne * (-ue * -∇ϕ - U[1, i]/mi * params.loss_coeff(Tev) - W)
 end
