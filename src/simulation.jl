@@ -124,23 +124,31 @@ function update_heavy_species!(dU, U, params, t)
     end
 end
 
-function update_electron_energy!(dU, U, params, t)
+function update_electron_energy!(dnϵ, nϵ, params, t)
     #########################################################
     #ELECTRON SOLVE
 
-    ncells = size(U, 2) - 2
+    ncells = length(nϵ)
 
     (;index, z_cell, z_edge) = params
-    (;μ, Tev, ue, pe) = params.cache
-    nϵ = @views U[index.nϵ, :]
+    (;μ, Tev, ue, ne) = params.cache
     implicit_energy = params.config.implicit_energy
 
-    @inbounds for i in 2:ncells+1
+    @inbounds for i in 2:ncells-1
 
         # Upwinded first derivatives
         z0 = z_cell[i-1]
         z1 = z_cell[i]
         z2 = z_cell[i+1]
+
+        ϵ0 = nϵ[i-1] / ne[i-1]
+        ϵ1 = nϵ[i] / ne[i]
+        ϵ2 = nϵ[i+1] / ne[i+1]
+
+        dϵ_dz⁺ = diff(ϵ0, ϵ1, z0, z1)
+        dϵ_dz⁻ = diff(ϵ1, ϵ2, z1, z2)
+
+        d²ϵ_dz² = uneven_second_deriv(ϵ0, ϵ1, ϵ2, z0, z1, z2)
 
         #ue⁺ = max(ue[i], 0.0) / ue[i]
         #ue⁻ = min(ue[i], 0.0) / ue[i]
@@ -153,21 +161,22 @@ function update_electron_energy!(dU, U, params, t)
         )
 
         diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(Tev[i-1], Tev[i], z0, z1) +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(Tev[i], Tev[i+1], z1, z2)
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * dϵ_dz⁺ +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * dϵ_dz⁻
         )
 
-        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
+        diffusion_term += μ[i] * nϵ[i] * d²ϵ_dz²
 
-        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
+        dnϵ[i] = (1 - implicit_energy) * dnϵ[i] - 5/3 * advection_term + 10/9 * diffusion_term
     end
 
     return nothing
 end
 
 function update!(dU, U, p, t)
+    index = p.index
     update_heavy_species!(dU, U, p, t)
-    update_electron_energy!(dU, U, p, t)
+    @views update_electron_energy!(dU[index.nϵ, :], U[index.nϵ, :], p, t)
 end
 
 left_edge(i) = i - 1
@@ -229,6 +238,10 @@ function update_values!(U, params, CN = true)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
+    # Dirchlet BCs for electron energy
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
+
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
@@ -251,10 +264,6 @@ function update_values!(U, params, CN = true)
     # Neumann condition for electron velocity
     ue[1] = ue[2]
     ue[end] = ue[end-1]
-
-    # Dirchlet BCs for electron energy
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
 
 end
 
@@ -394,6 +403,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         loss_coeff = landmark.loss_coeff,
         reactions = ionization_reactions,
         implicit_energy = config.implicit_energy,
+        num_newton_iterations = config.num_newton_iterations,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
         z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!,
         scheme, BCs, dt=timestep,
@@ -453,10 +463,17 @@ function run_simulation(sim, config) #put source and Bcs potential in params
     c = [1/3, 2/3, 1.0]
     rk_coeffs = (;a, b, c)
 
+    RHS!, RHS_impl! = if implicit_energy > 0
+        update_heavy_species!,
+        update_electron_energy!
+    else
+        update!, nothing
+    end
+
     callback = update_values!
     Δt = timestep
     saveat = sim.saveat
-    ts, Us, savevals = simulate!(U, params, update!, rk_coeffs, Δt, tspan, saveat, saved_values, save_func, callback)
+    ts, Us, savevals = simulate!(U, params, RHS!, RHS_impl!, rk_coeffs, Δt, tspan, saveat, saved_values, save_func, callback)
 
     return HallThrusterSolution(ts, Us, params, savevals)
 end

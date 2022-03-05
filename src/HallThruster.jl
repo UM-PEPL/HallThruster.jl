@@ -9,6 +9,8 @@ using LoopVectorization
 using LinearAlgebra
 using FileIO
 using DiffEqCallbacks
+using FastClosures
+using ForwardDiff
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)

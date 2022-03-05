@@ -144,7 +144,7 @@ function energy_crank_nicholson!(U, params)
     Tev[end] = params.Te_R
 
     #@show bϵ[end], nϵ[end]
-    for _ in 1:2
+    for _ in 1:1
     for i in 2:ncells-1
         Q = source_electron_energy_landmark(U, params, i)
 
