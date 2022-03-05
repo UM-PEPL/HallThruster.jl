@@ -127,9 +127,9 @@ function animate_solution_OVS(sol, z = nothing)
 end
 
 
-function animate_solution_all(sol, z = nothing)
-    @gif for (u, t) in zip(sol.u, sol.t)
-        plot_solution_real(u, z)
+function animate_solution_all(sol, case, z = nothing)
+    @gif for i in 1:length(sol.u)
+        plot_solution(sol.u[i], sol.savevals[i], sol.params.z_cell, case)
     end
 end
 

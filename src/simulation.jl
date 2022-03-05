@@ -131,9 +131,11 @@ function update_electron_energy!(dU, U, params, t)
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
-    (;μ, Tev, ue, pe) = params.cache
+    (;μ, Tev, ue, ne) = params.cache
     nϵ = @views U[index.nϵ, :]
     implicit_energy = params.config.implicit_energy
+
+    mi = params.propellant.m
 
     @inbounds for i in 2:ncells+1
 
@@ -141,6 +143,18 @@ function update_electron_energy!(dU, U, params, t)
         z0 = z_cell[i-1]
         z1 = z_cell[i]
         z2 = z_cell[i+1]
+
+        ne0 = sum(U[index.ρi[Z], i-1] for Z in 1:params.config.ncharge) / mi
+        ne1 = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
+        ne2 = sum(U[index.ρi[Z], i+1] for Z in 1:params.config.ncharge) / mi
+
+        ϵ0 = nϵ[i-1] / ne0
+        ϵ1 = nϵ[i] / ne1
+        ϵ2 = nϵ[i+1] / ne2
+
+        dϵ_dz⁺ = diff(ϵ0, ϵ1, z0, z1)
+        dϵ_dz⁻ = diff(ϵ1, ϵ2, z0, z1)
+        d²ϵ_dz² = uneven_second_deriv(ϵ0, ϵ1, ϵ2, z0, z1, z2)
 
         #ue⁺ = max(ue[i], 0.0) / ue[i]
         #ue⁻ = min(ue[i], 0.0) / ue[i]
@@ -153,13 +167,13 @@ function update_electron_energy!(dU, U, params, t)
         )
 
         diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * diff(Tev[i-1], Tev[i], z0, z1) +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * diff(Tev[i], Tev[i+1], z1, z2)
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * dϵ_dz⁺ +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * dϵ_dz⁻
         )
 
-        diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
+        diffusion_term += μ[i] * nϵ[i] * d²ϵ_dz²
 
-        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
+        dU[index.nϵ, i] += - 5/3 * advection_term + 10/9 * (diffusion_term)
     end
 
     return nothing
@@ -202,9 +216,6 @@ function update_values!(U, params, CN = true)
 
     mi = params.propellant.m
 
-    if params.config.implicit_energy > 0 && CN
-        energy_crank_nicholson!(U, params)
-    end
     # Edge state reconstruction and flux computation
     #@views compute_fluxes!(F, UL, UR, U, params)
     @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
@@ -401,7 +412,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 
     #PREPROCESS
     #make values in params available for first timestep
-    update_values!(U, params, false)
+    update_values!(U, params)
 
     function save_func(u, t, integrator)
         (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue) = integrator.p.cache

@@ -120,4 +120,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     return sol
 end
 
-sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9, implicit_energy = eps(Float64));
+sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9);
