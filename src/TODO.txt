@@ -1,9 +1,17 @@
-- Try central differences on electron energy
-- Compute mu within update_electron_energy!
-- compute electron velocity within update_electron_energy!
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - Factor out fluxes into functions which return SVectors
 - Reimplement reconstruction
 - See if we can try out DiffEqOperators or otherwise avoid recomputing stencil on each iteration
 - move to edge-centered discretization for simplicity
 - try merging update_electron_energy into update_heavy_species to avoid recomputing stuff
+
+DONE
+- Try central differences on electron energy
+- Compute mu within update_electron_energy!
+- compute electron velocity within update_electron_energy!
+- test breathing mode and larger timesteps
+    - 2e-9 works for all cases with SSPRK22 and 50 cells but there begin to be wiggles on left boundary
+    - 3e-9 breaks
+    - at 2e-9 timestep, SSPRK22 takes 15-20 seconds to integrate 1ms
+    - case 2 and 3 are still off for some reason
+    - Oscillations still damped out

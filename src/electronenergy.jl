@@ -174,24 +174,6 @@ function update_electron_energy!(dU, U, params, t)
         μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
         ueL, ue0, ueR = ue0, ueR, electron_velocity(U, params, i+1)
 
-        #=
-        dϵ_dz⁺ = diff(ϵL, ϵ0, zL, z0)
-        dϵ_dz⁻ = diff(ϵ0, ϵR, zL, z0)
-
-        #ue⁺ = max(ue[i], 0.0) / ue[i]
-        #ue⁻ = min(ue[i], 0.0) / ue[i]
-        ue⁺ = smooth_if(ue[i], 0.0, 0.0, ue[i], 0.01) / ue[i]
-        ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
-
-        advection_term = (
-            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], zL, z0) +
-            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z0, zR)
-        )
-        diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], zL, z0) * dϵ_dz⁺ +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z0, zR) * dϵ_dz⁻
-        )=#
-
         advection_term = uneven_central_diff(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
         diffusion_term = uneven_central_diff(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR)
 
