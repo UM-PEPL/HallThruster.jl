@@ -1,3 +1,10 @@
+function flux(U::SVector{2, T}, fluid, pe) where T
+    ρ, ρu = U
+    u = velocity(U, fluid)
+    p = pressure(U, fluid)
+    return @SVector[ρu, ρu * u + p + pe]
+end
+
 function flux(U, fluid, pe)
     if fluid.conservation_laws.type == _ContinuityOnly
         ρ = U[1]

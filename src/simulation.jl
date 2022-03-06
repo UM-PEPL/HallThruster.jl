@@ -99,6 +99,8 @@ function update_heavy_species!(dU, U, params, t)
     @views ρn = U[index.ρn, :]
     @views nϵ = U[index.nϵ, :]
 
+    coupled = params.config.electron_pressure_coupled
+
     # Compute heavy species source terms
     @inbounds for i in 2:(ncells + 1)
 
@@ -111,29 +113,15 @@ function update_heavy_species!(dU, U, params, t)
         ## OLD:
         #dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
         ## NEW:
-        fL = ρn[i-1] * un
-        fR = ρn[i+1] * un
+        fn_L = ρn[i-1] * un
+        fn_R = ρn[i+1] * un
         a = sqrt(γn*Rn*Tn)
         sn = max(un + a, un - a)
 
-        Fn = (fR - fL - sn * (ρn[i-1] - 2ρn[i] + ρn[i+1])) / 2 / Δz
+        Fn = (fn_R - fn_L - sn * (ρn[i-1] - 2ρn[i] + ρn[i+1])) / 2 / Δz
         ## Currently don't worry about source term, that comes next
         #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
         dU[index.ρn, i] = -Fn# + Q[index.ρn, i]
-
-        ## Remove diffusion term for now
-        #η = δ * sqrt(2*e*Tev[i]/(3*mi))
-
-        ## OLD
-        #=for j in first_ion_index:last_ion_index
-            # Ion fluxes and source
-            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
-            # Compute current charge state to make sure sound speed in diffusion term is correct
-            Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
-            # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
-        end=#
-
         ## NEW
         neL = 0.0
         neR = 0.0
@@ -151,8 +139,21 @@ function update_heavy_species!(dU, U, params, t)
 
         for Z in 1:ncharge
 
-            aL = sqrt((γn * kB * Ti + Z * e * ϵL)/mi)
-            aR = sqrt((γn * kB * Ti + Z * e * ϵR)/mi)
+            UL = @SVector[U[index.ρi[Z], i-1], U[index.ρiui[Z], i-1]]
+            U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
+            UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
+
+            charge_factor = Z * e
+            pe0 = ne0 * ϵ0
+            peL = neL * ϵL
+            peR = neR * ϵR
+
+            f_0 = flux(U0, fluids[Z+1], charge_factor * pe0)
+            f_L = flux(UL, fluids[Z+1], charge_factor * peL)
+            f_R = flux(UR, fluids[Z+1], charge_factor * peR)
+
+            aL = sqrt((γn * kB * Ti + charge_factor * ϵL)/mi)
+            aR = sqrt((γn * kB * Ti + charge_factor * ϵR)/mi)
 
             uL = U[index.ρiui[Z], i-1] / U[index.ρi[Z], i-1]
             uR = U[index.ρiui[Z], i+1] / U[index.ρi[Z], i+1]
@@ -160,25 +161,20 @@ function update_heavy_species!(dU, U, params, t)
             sL = max(abs(uL + aL), abs(uL - aL))
             sR = max(abs(uR + aR), abs(uR - aR))
 
-            f_mass_L = U[index.ρiui[Z], i-1]
-            f_mass_R = U[index.ρiui[Z], i+1]
+            #=F = @SVector[
+                (
+                    f_R[j] - f_L[j] -
+                    sL * UL[j] + (sL + sR) * U0[j]  - sR * UR[j]
+                ) / 2
+                for j in 1:2
+            ]
+        
+            F_mass, F_momentum = F
+            =#
 
-            F_mass = (
-                f_mass_R - f_mass_L -
-                sL * U[index.ρi[Z], i-1] +
-                (sL + sR) * U[index.ρi[Z], i] -
-                sR * U[index.ρi[Z], i+1]
-            ) / 2
-
-            f_momentum_L = U[index.ρiui[Z], i-1]^2 / U[index.ρi[Z], i-1] + Z * e * nϵ[i-1] + U[index.ρi[Z], i-1] * Rn * Ti
-            f_momentum_R = U[index.ρiui[Z], i+1]^2 / U[index.ρi[Z], i+1] + Z * e * nϵ[i+1] + U[index.ρi[Z], i+1] * Rn * Ti
-
-            F_momentum = (
-                f_momentum_R - f_momentum_L -
-                sL * U[index.ρiui[Z], i-1] +
-                (sL + sR) * U[index.ρiui[Z], i] -
-                sR * U[index.ρiui[Z], i+1]
-            ) / 2
+            FL = @SVector[0.5 * (f_0[j] + f_L[j] - sL * (U0[j] - UL[j])) for j in 1:2]
+            FR = @SVector[0.5 * (f_R[j] + f_0[j] - sR * (UR[j] - U0[j])) for j in 1:2]
+            F_mass, F_momentum = (FR[1] - FL[1]), FR[2] - FL[2]
 
             Q_accel = -Z * e * U[index.ρi[Z], i] * ue[i] / μ[i] / mi
 
