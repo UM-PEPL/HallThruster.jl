@@ -1,8 +1,22 @@
+function flux(U::SVector{1, T}, fluid, _) where T
+    ρ = U[1]
+    u = velocity(U, fluid)
+    return @SVector[ρ * u]
+end
+
 function flux(U::SVector{2, T}, fluid, pe) where T
     ρ, ρu = U
     u = velocity(U, fluid)
     p = pressure(U, fluid)
     return @SVector[ρu, ρu * u + p + pe]
+end
+
+function flux(U::SVector{3, T}, fluid, pe) where T
+    ρ, ρu, ρE = U
+    u = U[2] / U[1]
+    p = pressure(U, fluid)
+    ρH = ρE + p
+    return @SVector[ρu, ρu * u + p + pe, ρH * u]
 end
 
 function flux(U, fluid, pe)
