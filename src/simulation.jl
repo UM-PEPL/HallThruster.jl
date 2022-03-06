@@ -202,63 +202,6 @@ function update_heavy_species!(dU, U, params, t)
     end
 end
 
-function update_electron_energy!(dU, U, params, t)
-    #########################################################
-    #ELECTRON SOLVE
-
-    ncells = size(U, 2) - 2
-
-    (;index, z_cell, z_edge) = params
-    (;μ, Tev, ue, ne) = params.cache
-    nϵ = @views U[index.nϵ, :]
-    implicit_energy = params.config.implicit_energy
-
-    mi = params.propellant.m
-
-    @inbounds for i in 2:ncells+1
-
-        # Upwinded first derivatives
-        zL = z_cell[i-1]
-        z0 = z_cell[i]
-        zR = z_cell[i+1]
-
-        neL = sum(U[index.ρi[Z], i-1] for Z in 1:params.config.ncharge) / mi
-        ne0 = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
-        neR = sum(U[index.ρi[Z], i+1] for Z in 1:params.config.ncharge) / mi
-
-        ϵL = nϵ[i-1] / neL
-        ϵ0 = nϵ[i] / ne0
-        ϵR = nϵ[i+1] / neR
-
-        dϵ_dz⁺ = diff(ϵL, ϵ0, zL, z0)
-        dϵ_dz⁻ = diff(ϵ0, ϵR, zL, z0)
-        d²ϵ_dz² = uneven_second_deriv(ϵL, ϵ0, ϵR, zL, z0, zR)
-
-        #ue⁺ = max(ue[i], 0.0) / ue[i]
-        #ue⁻ = min(ue[i], 0.0) / ue[i]
-        ue⁺ = smooth_if(ue[i], 0.0, 0.0, ue[i], 0.01) / ue[i]
-        ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
-
-        advection_term = (
-            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], zL, z0) +
-            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z0, zR)
-        )
-
-        diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], zL, z0) * dϵ_dz⁺ +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z0, zR) * dϵ_dz⁻
-        )
-
-        diffusion_term += μ[i] * nϵ[i] * d²ϵ_dz²
-
-        source_term = source_electron_energy_landmark(U, params, i)
-
-        dU[index.nϵ, i] = - 5/3 * advection_term + 10/9 * diffusion_term + source_term
-    end
-
-    return nothing
-end
-
 function update!(dU, U, p, t)
     update_heavy_species!(dU, U, p, t)
     update_electron_energy!(dU, U, p, t)
