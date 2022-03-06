@@ -5,3 +5,5 @@
 - Factor out fluxes into functions which return SVectors
 - Reimplement reconstruction
 - See if we can try out DiffEqOperators or otherwise avoid recomputing stencil on each iteration
+- move to edge-centered discretization for simplicity
+- try merging update_electron_energy into update_heavy_species to avoid recomputing stuff
