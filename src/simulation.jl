@@ -124,6 +124,104 @@ function update_heavy_species!(dU, U, params, t)
     end
 end
 
+#=
+function update_heavy_species!(dU, U, params, t)
+    ####################################################################
+    #extract some useful stuff from params
+
+    (;index, z_edge, propellant, fluids, fluid_ranges, reactions) = params
+    (;F, Q, ue, μ) = params.cache
+    δ = params.config.ion_diffusion_coeff
+
+    ncells = size(U, 2) - 2
+
+    mi = propellant.m
+
+    ##############################################################
+    #FLUID MODULE
+
+    #fluid BCs now in update_values struct
+
+    num_ion_equations = length(fluid_ranges[2])
+    first_ion_index = index.ρi[1]
+    last_ion_index = index.lf
+
+    un, Tn, γn, Rn = fluids[1].conservation_laws.u, fluids[1].conservation_laws.T, γ(fluids[1]), R(fluids[1])
+    Ti = fluids[2].conservation_laws.T
+
+    @views ρn = U[index.ρn, :]
+    @views nϵ = U[index.nϵ, :]
+
+    # Compute heavy species source terms
+    @inbounds for i in 2:(ncells + 1)
+
+        #Compute dU/dt
+        left = left_edge(i)
+        right = right_edge(i)
+
+        Δz = z_edge[right] - z_edge[left]
+        Δz² = Δz^2
+
+        ne = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
+        ϵ = nϵ[i] / ne
+
+        # Rusanov flux: when wave speeds are constant,
+        # net flux reduces to second order central difference of fluxes minus a diffusive term
+        fL = ρn[i-1] * un
+        fR = ρn[i+1] * un
+        a = sqrt(γn*Rn*Tn)
+        sn = max(un + a, un - a)
+
+        Fn = (fR - fL - sn * (ρn[i-1] - 2ρn[i] + ρn[i-1])) / 2 / Δz
+        #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
+        dU[index.ρn, i] = -Fn + Q[index.ρn, i]
+
+        for j in first_ion_index:last_ion_index
+            # Ion fluxes and source
+            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
+            # Compute current charge state to make sure sound speed in diffusion term is correct
+            #Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
+            # Add optional diffusion term for the ions in interior cells
+            #dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+        end
+
+        #η = δ * sqrt(2*e*Tev[i]/(3*mi))
+        #=for Z in 1:params.config.ncharge
+            #=peL = nϵ[i-1]
+            peR = nϵ[i+1]
+            aL = sqrt((γn * kB * Ti + Z * peL) / mi)
+            aR = sqrt((γn * kB * Ti + Z * peR) / mi)
+            uL = U[index.ρiui[Z], i-1] / U[index.ρi[Z], i-1]
+            uR = U[index.ρiui[Z], i+1] / U[index.ρi[Z], i+1]
+            sL = max(abs(uL + aL), abs(uL - aL))
+            sR = max(abs(uR + aR), abs(uR - aR))
+            f1L = U[index.ρiui[Z], i-1]
+            f1R = U[index.ρiui[Z], i+1]
+            f2L = U[index.ρiui[Z], i-1]^2 / U[index.ρi[Z], i-1] + U[index.ρi[Z]] * Rn * Ti + peL
+            f2R = U[index.ρiui[Z], i+1]^2 / U[index.ρi[Z], i+1] + U[index.ρi[Z]] * Rn * Ti + peR
+            F1 = (f1R - f1L - sL * U[index.ρi[Z], i-1] + (sL + sR) * U[index.ρi[Z], i] - sR * U[index.ρi[Z], i+1])/2Δz
+            F2 = (f2R - f2L - sL * U[index.ρiui[Z], i-1] + (sL + sR) * U[index.ρiui[Z], i] - sR * U[index.ρiui[Z], i+1])/2Δz
+            =#
+            Q1 = 0.0
+            for rxn in reactions
+                if rxn.reactant.Z == Z
+                    Q1 -= ne * U[index.ρi[Z], i] * rxn.rate_coeff(ϵ)
+                elseif rxn.product.Z == Z
+                    Q1 += ne * U[index.ρi[rxn.reactant.Z], i] * rxn.rate_coeff(ϵ)
+                end
+            end
+
+            Q2 = -Z * e / mi * U[index.ρi[Z], i] * ue[i] / μ[i]
+            dU[index.ρi[Z], i] += Q1
+            dU[index.ρiui[Z], i] +=  Q2
+        end=#
+
+        # Electron source term
+        dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
+    end
+end
+=#
+
 function update_electron_energy!(dU, U, params, t)
     #########################################################
     #ELECTRON SOLVE
@@ -451,11 +549,12 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end=#
 	alg = AutoTsit5(Rosenbrock23())
+    #alg = Rosenbrock23()
 	f = ODEFunction(update!)
 	prob = ODEProblem{true}(f, U, tspan, params)
 	sol = solve(
 		prob, alg; saveat=sim.saveat, callback=cb,
-		adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters
+		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters, jac = true
 	)
 
     return HallThrusterSolution(sol, params, saved_values.saveval)
