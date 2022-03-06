@@ -1,14 +1,14 @@
 function flux(U::SVector{1, T}, fluid, _) where T
     ρ = U[1]
     u = velocity(U, fluid)
-    return @SVector[ρ * u]
+    return SA[ρ * u]
 end
 
 function flux(U::SVector{2, T}, fluid, pe) where T
     ρ, ρu = U
     u = velocity(U, fluid)
     p = pressure(U, fluid)
-    return @SVector[ρu, ρu * u + p + pe]
+    return SA[ρu, ρu * u + p + pe]
 end
 
 function flux(U::SVector{3, T}, fluid, pe) where T
@@ -16,7 +16,47 @@ function flux(U::SVector{3, T}, fluid, pe) where T
     u = U[2] / U[1]
     p = pressure(U, fluid)
     ρH = ρE + p
-    return @SVector[ρu, ρu * u + p + pe, ρH * u]
+    return SA[ρu, ρu * u + p + pe, ρH * u]
+end
+
+# create specialized flux versions for each type of fluid
+for NUM_CONSERVATIVE in 1:3
+eval(
+quote
+
+function rusanov(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
+    γ = fluid.species.element.γ
+    Z = fluid.species.Z
+
+    uL = velocity(UL, fluid)
+    uR = velocity(UR, fluid)
+
+    TL = temperature(UL, fluid)
+    TR = temperature(UR, fluid)
+
+    mi = m(fluid)
+
+    peL = neL * TeL
+    peR = neR * TeR
+
+    charge_factor = Z * e * coupled
+
+    aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+    aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+
+    sL_max = max(abs(uL - aL), abs(uL + aL))
+    sR_max = max(abs(uR - aR), abs(uR + aR))
+
+    smax = max(sL_max, sR_max)
+
+    FL = flux(UL, fluid, charge_factor * peL)
+    FR = flux(UR, fluid, charge_factor * peR)
+
+    return @SVector [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
+end
+
+end
+)
 end
 
 function flux(U, fluid, pe)

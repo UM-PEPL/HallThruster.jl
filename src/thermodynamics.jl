@@ -53,6 +53,10 @@ function compute_conservative(ρ, u, p, γ)
     return ρ, ρ * u, ρE
 end
 
+@inline velocity(U::SVector{1, T}, f::Fluid) where T = f.conservation_laws.u
+@inline velocity(U::SVector{2, T}, f::Fluid) where T = U[2] / U[1]
+@inline velocity(U::SVector{3, T}, f::Fluid) where T = U[2] / U[1]
+
 @inline function velocity(U, f::Fluid)
     if f.conservation_laws.type == _ContinuityOnly
         return f.conservation_laws.u

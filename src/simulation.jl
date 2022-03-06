@@ -143,23 +143,31 @@ function update_heavy_species!(dU, U, params, t)
             U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
             UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
+            #=
             charge_factor = Z * e
             pe0 = ne0 * ϵ0
             peL = neL * ϵL
             peR = neR * ϵR
 
-            f_0 = flux(U0, fluids[Z+1], charge_factor * pe0)
-            f_L = flux(UL, fluids[Z+1], charge_factor * peL)
-            f_R = flux(UR, fluids[Z+1], charge_factor * peR)
+            fluid = fluids[Z+1]
+
+            f_L = flux(UL, fluid, charge_factor * peL)
+            f_0 = flux(U0, fluid, charge_factor * pe0)
+            f_R = flux(UR, fluid, charge_factor * peR)
 
             aL = sqrt((γn * kB * Ti + charge_factor * ϵL)/mi)
+            a0 = sqrt((γn * kB * Ti + charge_factor * ϵ0)/mi)
             aR = sqrt((γn * kB * Ti + charge_factor * ϵR)/mi)
 
-            uL = U[index.ρiui[Z], i-1] / U[index.ρi[Z], i-1]
-            uR = U[index.ρiui[Z], i+1] / U[index.ρi[Z], i+1]
+            uL = velocity(UL, fluid)
+            u0 = velocity(U0, fluid)
+            uR = velocity(UR, fluid)
 
             sL = max(abs(uL + aL), abs(uL - aL))
+            s0 = max(abs(u0 + a0), abs(u0 - a0))
             sR = max(abs(uR + aR), abs(uR - aR))
+            sL_max = max(s0, sL)
+            sR_max = max(s0, sR)
 
             #=F = @SVector[
                 (
@@ -171,10 +179,16 @@ function update_heavy_species!(dU, U, params, t)
         
             F_mass, F_momentum = F
             =#
+            =#
 
-            FL = @SVector[0.5 * (f_0[j] + f_L[j] - sL * (U0[j] - UL[j])) for j in 1:2]
-            FR = @SVector[0.5 * (f_R[j] + f_0[j] - sR * (UR[j] - U0[j])) for j in 1:2]
-            F_mass, F_momentum = (FR[1] - FL[1]), FR[2] - FL[2]
+            fluid = fluids[Z+1]
+
+            #FL = @SVector[0.5 * (f_0[j] + f_L[j] - sL_max * (U0[j] - UL[j])) for j in 1:2]
+            #FR = @SVector[0.5 * (f_R[j] + f_0[j] - sR_max * (UR[j] - U0[j])) for j in 1:2]
+            FL = rusanov(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
+            FR = rusanov(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
+
+            F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
             Q_accel = -Z * e * U[index.ρi[Z], i] * ue[i] / μ[i] / mi
 
