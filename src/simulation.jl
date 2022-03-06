@@ -198,7 +198,7 @@ function update_heavy_species!(dU, U, params, t)
         end
 
         # Electron source term
-        dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
+        #dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
     end
 end
 
@@ -251,7 +251,9 @@ function update_electron_energy!(dU, U, params, t)
 
         diffusion_term += μ[i] * nϵ[i] * d²ϵ_dz²
 
-        dU[index.nϵ, i] += - 5/3 * advection_term + 10/9 * diffusion_term
+        source_term = source_electron_energy_landmark(U, params, i)
+
+        dU[index.nϵ, i] = - 5/3 * advection_term + 10/9 * diffusion_term + source_term
     end
 
     return nothing
@@ -283,9 +285,9 @@ function precompute_bfield!(B, zs)
 end
 
 update_values!(integrator) = update_values!(integrator.u, integrator.p)
-function update_values!(U, params, CN = true)
-    #update useful quantities relevant for potential, electron energy and fluid solve
+function update_values!(U, params)
 
+    #update useful quantities relevant for potential, electron energy and fluid solve
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
@@ -419,7 +421,7 @@ function configure_fluids(config)
     return fluids, fluid_ranges, species, species_range_dict
 end
 
-function run_simulation(sim, config) #put source and Bcs potential in params
+function run_simulation(sim, config, alg) #put source and Bcs potential in params
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
@@ -528,19 +530,18 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end=#
-	alg = AutoTsit5(Rosenbrock23())
-    #alg = Rosenbrock23()
+	#AutoTsit5(Rosenbrock23())
 	f = ODEFunction(update!)
     dU = copy(U)
     j_func = (dU, U) -> f(dU, U, params, 0.0)
     J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
     #jac_sparsity = Symbolics.jacobian_sparsity((dU, u) -> f(dU0, U, params, 0.0), dU0, U)
-    prob = ODEProblem{true}(f, U, tspan, params, jac_prototype=J)
+    prob = ODEProblem{true}(f, U, tspan, params)
+    #splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params, jac_prototype=J)
 	#modelingtoolkitize(prob)
 	sol = solve(
 		prob, alg; saveat=sim.saveat, callback=cb,
 		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
-
 	)
 
     return HallThrusterSolution(sol, params, saved_values.saveval)

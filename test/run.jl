@@ -4,6 +4,7 @@
 
 
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
+using OrdinaryDiffEq
 
 include("plotting.jl")
 
@@ -45,7 +46,7 @@ end
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing, case = 1)
+        restart_file = nothing, case = 1, alg = Tsit5())
 
     fluid = HallThruster.Xenon
     #fluid BCs #############################
@@ -126,7 +127,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         electron_pressure_coupled = true,
     )
 
-    @time sol = HallThruster.run_simulation(sim, config)
+    @time sol = HallThruster.run_simulation(sim, config, alg)
  
     p = plot(sol; case)
     display(p)
@@ -134,4 +135,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     return sol
 end
 
-sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9);
+sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9, alg = SSPRK22());
