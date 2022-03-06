@@ -46,7 +46,7 @@ end
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing, case = 1, alg = Tsit5())
+        restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE)
 
     fluid = HallThruster.Xenon
     #fluid BCs #############################
@@ -74,7 +74,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
         boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
-        scheme = HallThruster.HyperbolicScheme(HallThruster.HLLE!, limiter, reconstruct),
+        scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct),
         initial_condition = IC!,
         source_term! = source!,
         source_potential! = nothing,

@@ -79,7 +79,7 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, propellant, fluid_ranges, fluids, species_range_dict, reactions) = params
+    (;index, z_edge, propellant, scheme, fluids, species_range_dict, reactions) = params
     (;Q, ue, μ) = params.cache
 
     ncells = size(U, 2) - 2
@@ -127,12 +127,11 @@ function update_heavy_species!(dU, U, params, t)
         neR = 0.0
         ne0 = 0.0
         for Z in 1:ncharge
-            neL += Z * U[index.ρi[Z], i-1]
-            neR += Z * U[index.ρi[Z], i+1]
-            ne0 += Z * U[index.ρi[Z], i]
+            neL += Z * U[index.ρi[Z], i-1] / mi
+            neR += Z * U[index.ρi[Z], i+1] / mi
+            ne0 += Z * U[index.ρi[Z], i] / mi
         end
 
-        neL, neR, ne0 = neL/mi, neR/mi, ne0/mi
         ϵL = max(0.0, nϵ[i-1]/neL)
         ϵ0 = max(0.0, nϵ[i]/ne0)
         ϵR = max(0.0, nϵ[i+1]/neR)
@@ -143,50 +142,10 @@ function update_heavy_species!(dU, U, params, t)
             U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
             UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
-            #=
-            charge_factor = Z * e
-            pe0 = ne0 * ϵ0
-            peL = neL * ϵL
-            peR = neR * ϵR
-
             fluid = fluids[Z+1]
 
-            f_L = flux(UL, fluid, charge_factor * peL)
-            f_0 = flux(U0, fluid, charge_factor * pe0)
-            f_R = flux(UR, fluid, charge_factor * peR)
-
-            aL = sqrt((γn * kB * Ti + charge_factor * ϵL)/mi)
-            a0 = sqrt((γn * kB * Ti + charge_factor * ϵ0)/mi)
-            aR = sqrt((γn * kB * Ti + charge_factor * ϵR)/mi)
-
-            uL = velocity(UL, fluid)
-            u0 = velocity(U0, fluid)
-            uR = velocity(UR, fluid)
-
-            sL = max(abs(uL + aL), abs(uL - aL))
-            s0 = max(abs(u0 + a0), abs(u0 - a0))
-            sR = max(abs(uR + aR), abs(uR - aR))
-            sL_max = max(s0, sL)
-            sR_max = max(s0, sR)
-
-            #=F = @SVector[
-                (
-                    f_R[j] - f_L[j] -
-                    sL * UL[j] + (sL + sR) * U0[j]  - sR * UR[j]
-                ) / 2
-                for j in 1:2
-            ]
-        
-            F_mass, F_momentum = F
-            =#
-            =#
-
-            fluid = fluids[Z+1]
-
-            #FL = @SVector[0.5 * (f_0[j] + f_L[j] - sL_max * (U0[j] - UL[j])) for j in 1:2]
-            #FR = @SVector[0.5 * (f_R[j] + f_0[j] - sR_max * (UR[j] - U0[j])) for j in 1:2]
-            FL = rusanov(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
-            FR = rusanov(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
+            FL = scheme.flux_function(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
+            FR = scheme.flux_function(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
 
             F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
