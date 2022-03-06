@@ -6,7 +6,7 @@ struct TwoZoneBohm <: ZeroEquationModel
     TwoZoneBohm(c1, c2) = new((c1, c2))
 end
 
-@inline function (model::TwoZoneBohm)(icell, U, params)
+@inline function (model::TwoZoneBohm)(U, params, icell)
     L_ch = params.L_ch
     B = params.cache.B[icell]
     z = params.z_cell[icell]

@@ -17,14 +17,28 @@ function source!(Q, U, params, i)
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
-    ρ2 = 2.1801715574645586e-7/10 #/10 #ρ1 * exp(-((z - L) / 0.033)^2)
-    u1 = 150.0
-    ρ1(z) = if z < 0.0125 5e-6/0.004/abs(u1) -0.000666*z else 5e-6/0.004/abs(u1)/1000 end
-    #ρ1 = 5e-6/0.004/abs(u1)
-    u2 = -1000.0 + 80000*z
-    Tev = 40 * exp(-(2 * (z - L/2) / 0.033)^2)
-    ne = 2.1801715574645586e-7/10 / fluids[1].species.element.m
-    U .= SA[ρ1(z), ρ2, ρ2*u2, ne*Tev]
+    mi = fluids[1].species.element.m
+    un = 150.0
+    #ρn = 5e-6/0.004/abs(un) - z / L * 5e-6/0.004/abs(un)
+    ρn0 = 5e-6/0.004/abs(un)
+    z1 = L/7
+    z2 = L/2.5
+    ρn = if z < z1
+        ρn0
+    elseif z < z2
+        ρn0 - (z - z1) * (0.999 * ρn0) / (z2 - z1)
+    else
+        ρn0 / 1000
+    end
+    ui = if z < L/2
+        -1000 + 80000(z/L)^2
+    else
+        15000 + 10000z/L
+    end
+    ρi = mi * (2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
+    Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
+    ne = ρi / fluids[1].species.element.m
+    U .= SA[ρn, ρi, ρi*ui, ne*Tev]
     return U
 end
 

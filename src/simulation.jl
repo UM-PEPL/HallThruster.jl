@@ -79,9 +79,8 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, propellant, fluid_ranges, fluids) = params
-    (;F, Q, Tev) = params.cache
-    δ = params.config.ion_diffusion_coeff
+    (;index, z_edge, propellant, fluid_ranges, fluids, species_range_dict, reactions) = params
+    (;Q, ue, μ) = params.cache
 
     ncells = size(U, 2) - 2
 
@@ -91,10 +90,6 @@ function update_heavy_species!(dU, U, params, t)
     #FLUID MODULE
 
     #fluid BCs now in update_values struct
-
-    num_ion_equations = length(fluid_ranges[2])
-    first_ion_index = index.ρi[1]
-    last_ion_index = index.lf
 
     ncharge = params.config.ncharge
 
@@ -112,8 +107,6 @@ function update_heavy_species!(dU, U, params, t)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
-        Δz² = Δz^2
-
         # Neutral fluxes and source
         ## OLD:
         #dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
@@ -126,7 +119,7 @@ function update_heavy_species!(dU, U, params, t)
         Fn = (fR - fL - sn * (ρn[i-1] - 2ρn[i] + ρn[i+1])) / 2 / Δz
         ## Currently don't worry about source term, that comes next
         #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
-        dU[index.ρn, i] = -Fn + Q[index.ρn, i]
+        dU[index.ρn, i] = -Fn# + Q[index.ρn, i]
 
         ## Remove diffusion term for now
         #η = δ * sqrt(2*e*Tev[i]/(3*mi))
@@ -153,6 +146,7 @@ function update_heavy_species!(dU, U, params, t)
 
         neL, neR, ne0 = neL/mi, neR/mi, ne0/mi
         ϵL = max(0.0, nϵ[i-1]/neL)
+        ϵ0 = max(0.0, nϵ[i]/ne0)
         ϵR = max(0.0, nϵ[i+1]/neR)
 
         for Z in 1:ncharge
@@ -186,112 +180,27 @@ function update_heavy_species!(dU, U, params, t)
                 sR * U[index.ρiui[Z], i+1]
             ) / 2
 
-            dU[index.ρi[Z], i] = -F_mass / Δz + Q[index.ρi[Z], i]
-            dU[index.ρiui[Z], i] = -F_momentum / Δz + Q[index.ρiui[Z], i]
+            Q_accel = -Z * e * U[index.ρi[Z], i] * ue[i] / μ[i] / mi
+
+            dU[index.ρi[Z], i] = -F_mass / Δz
+            dU[index.ρiui[Z], i] = -F_momentum / Δz + Q_accel
         end
 
-        # Electron source term
-        dU[index.nϵ, i] = Q[index.nϵ, i]
-    end
-end
-
-#=
-function update_heavy_species!(dU, U, params, t)
-    ####################################################################
-    #extract some useful stuff from params
-
-    (;index, z_edge, propellant, fluids, fluid_ranges, reactions) = params
-    (;F, Q, ue, μ) = params.cache
-    δ = params.config.ion_diffusion_coeff
-
-    ncells = size(U, 2) - 2
-
-    mi = propellant.m
-
-    ##############################################################
-    #FLUID MODULE
-
-    #fluid BCs now in update_values struct
-
-    num_ion_equations = length(fluid_ranges[2])
-    first_ion_index = index.ρi[1]
-    last_ion_index = index.lf
-
-    un, Tn, γn, Rn = fluids[1].conservation_laws.u, fluids[1].conservation_laws.T, γ(fluids[1]), R(fluids[1])
-    Ti = fluids[2].conservation_laws.T
-
-    @views ρn = U[index.ρn, :]
-    @views nϵ = U[index.nϵ, :]
-
-    # Compute heavy species source terms
-    @inbounds for i in 2:(ncells + 1)
-
-        #Compute dU/dt
-        left = left_edge(i)
-        right = right_edge(i)
-
-        Δz = z_edge[right] - z_edge[left]
-        Δz² = Δz^2
-
-        ne = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
-        ϵ = nϵ[i] / ne
-
-        # Rusanov flux: when wave speeds are constant,
-        # net flux reduces to second order central difference of fluxes minus a diffusive term
-        fL = ρn[i-1] * un
-        fR = ρn[i+1] * un
-        a = sqrt(γn*Rn*Tn)
-        sn = max(un + a, un - a)
-
-        Fn = (fR - fL - sn * (ρn[i-1] - 2ρn[i] + ρn[i-1])) / 2 / Δz
-        #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
-        dU[index.ρn, i] = -Fn + Q[index.ρn, i]
-
-        for j in first_ion_index:last_ion_index
-            # Ion fluxes and source
-            dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
-            # Compute current charge state to make sure sound speed in diffusion term is correct
-            #Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
-            # Add optional diffusion term for the ions in interior cells
-            #dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+        # ionization reactions
+        for r in reactions
+            reactant_index = species_range_dict[r.reactant.symbol][1]
+            product_index = species_range_dict[r.product.symbol][1]
+            ρ_reactant = U[reactant_index, i]
+            k = r.rate_coeff
+            ρdot = k(ϵ0) * ρ_reactant * ne0
+            dU[reactant_index, i] -= ρdot
+            dU[product_index, i] += ρdot
         end
-
-        #η = δ * sqrt(2*e*Tev[i]/(3*mi))
-        #=for Z in 1:params.config.ncharge
-            #=peL = nϵ[i-1]
-            peR = nϵ[i+1]
-            aL = sqrt((γn * kB * Ti + Z * peL) / mi)
-            aR = sqrt((γn * kB * Ti + Z * peR) / mi)
-            uL = U[index.ρiui[Z], i-1] / U[index.ρi[Z], i-1]
-            uR = U[index.ρiui[Z], i+1] / U[index.ρi[Z], i+1]
-            sL = max(abs(uL + aL), abs(uL - aL))
-            sR = max(abs(uR + aR), abs(uR - aR))
-            f1L = U[index.ρiui[Z], i-1]
-            f1R = U[index.ρiui[Z], i+1]
-            f2L = U[index.ρiui[Z], i-1]^2 / U[index.ρi[Z], i-1] + U[index.ρi[Z]] * Rn * Ti + peL
-            f2R = U[index.ρiui[Z], i+1]^2 / U[index.ρi[Z], i+1] + U[index.ρi[Z]] * Rn * Ti + peR
-            F1 = (f1R - f1L - sL * U[index.ρi[Z], i-1] + (sL + sR) * U[index.ρi[Z], i] - sR * U[index.ρi[Z], i+1])/2Δz
-            F2 = (f2R - f2L - sL * U[index.ρiui[Z], i-1] + (sL + sR) * U[index.ρiui[Z], i] - sR * U[index.ρiui[Z], i+1])/2Δz
-            =#
-            Q1 = 0.0
-            for rxn in reactions
-                if rxn.reactant.Z == Z
-                    Q1 -= ne * U[index.ρi[Z], i] * rxn.rate_coeff(ϵ)
-                elseif rxn.product.Z == Z
-                    Q1 += ne * U[index.ρi[rxn.reactant.Z], i] * rxn.rate_coeff(ϵ)
-                end
-            end
-
-            Q2 = -Z * e / mi * U[index.ρi[Z], i] * ue[i] / μ[i]
-            dU[index.ρi[Z], i] += Q1
-            dU[index.ρiui[Z], i] +=  Q2
-        end=#
 
         # Electron source term
         dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
     end
 end
-=#
 
 function update_electron_energy!(dU, U, params, t)
     #########################################################
@@ -309,21 +218,21 @@ function update_electron_energy!(dU, U, params, t)
     @inbounds for i in 2:ncells+1
 
         # Upwinded first derivatives
-        z0 = z_cell[i-1]
-        z1 = z_cell[i]
-        z2 = z_cell[i+1]
+        zL = z_cell[i-1]
+        z0 = z_cell[i]
+        zR = z_cell[i+1]
 
-        ne0 = sum(U[index.ρi[Z], i-1] for Z in 1:params.config.ncharge) / mi
-        ne1 = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
-        ne2 = sum(U[index.ρi[Z], i+1] for Z in 1:params.config.ncharge) / mi
+        neL = sum(U[index.ρi[Z], i-1] for Z in 1:params.config.ncharge) / mi
+        ne0 = sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge) / mi
+        neR = sum(U[index.ρi[Z], i+1] for Z in 1:params.config.ncharge) / mi
 
-        ϵ0 = nϵ[i-1] / ne0
-        ϵ1 = nϵ[i] / ne1
-        ϵ2 = nϵ[i+1] / ne2
+        ϵL = nϵ[i-1] / neL
+        ϵ0 = nϵ[i] / ne0
+        ϵR = nϵ[i+1] / neR
 
-        dϵ_dz⁺ = diff(ϵ0, ϵ1, z0, z1)
-        dϵ_dz⁻ = diff(ϵ1, ϵ2, z0, z1)
-        d²ϵ_dz² = uneven_second_deriv(ϵ0, ϵ1, ϵ2, z0, z1, z2)
+        dϵ_dz⁺ = diff(ϵL, ϵ0, zL, z0)
+        dϵ_dz⁻ = diff(ϵ0, ϵR, zL, z0)
+        d²ϵ_dz² = uneven_second_deriv(ϵL, ϵ0, ϵR, zL, z0, zR)
 
         #ue⁺ = max(ue[i], 0.0) / ue[i]
         #ue⁻ = min(ue[i], 0.0) / ue[i]
@@ -331,18 +240,18 @@ function update_electron_energy!(dU, U, params, t)
         ue⁻ = smooth_if(ue[i], 0.0, ue[i], 0.0, 0.01) / ue[i]
 
         advection_term = (
-            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], z0, z1) +
-            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z1, z2)
+            ue⁺ * diff(ue[i-1]*nϵ[i-1], ue[i]*nϵ[i], zL, z0) +
+            ue⁻ * diff(ue[i]*nϵ[i], ue[i+1]*nϵ[i+1], z0, zR)
         )
 
         diffusion_term = (
-            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], z0, z1) * dϵ_dz⁺ +
-            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z1, z2) * dϵ_dz⁻
+            ue⁺ * diff(μ[i-1]*nϵ[i-1], μ[i]*nϵ[i], zL, z0) * dϵ_dz⁺ +
+            ue⁻ * diff(μ[i]*nϵ[i], μ[i+1]*nϵ[i+1], z0, zR) * dϵ_dz⁻
         )
 
         diffusion_term += μ[i] * nϵ[i] * d²ϵ_dz²
 
-        dU[index.nϵ, i] += - 5/3 * advection_term + 10/9 * (diffusion_term)
+        dU[index.nϵ, i] += - 5/3 * advection_term + 10/9 * diffusion_term
     end
 
     return nothing
@@ -387,9 +296,9 @@ function update_values!(U, params, CN = true)
 
     # Edge state reconstruction and flux computation
     #@views compute_fluxes!(F, UL, UR, U, params)
-    @views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
+    #@views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
     coupled = params.config.electron_pressure_coupled
-    @views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, pe, coupled)
+    #@views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, pe, coupled)
 
     # Apply boundary conditions
     @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
@@ -404,7 +313,7 @@ function update_values!(U, params, CN = true)
         @views ne[i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/ne[i]) + OVS_Tev
         pe[i] = U[index.nϵ, i]
-        params.cache.νan[i] = params.anom_model(i, U, params)
+        params.cache.νan[i] = params.anom_model(U, params, i)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
@@ -425,7 +334,7 @@ function update_values!(U, params, CN = true)
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
-        @views source_term!(Q[:, i], U, params, i)
+        #@views source_term!(Q[:, i], U, params, i)
     end
 
     # Neumann condition for electron velocity
@@ -622,10 +531,16 @@ function run_simulation(sim, config) #put source and Bcs potential in params
 	alg = AutoTsit5(Rosenbrock23())
     #alg = Rosenbrock23()
 	f = ODEFunction(update!)
-	prob = ODEProblem{true}(f, U, tspan, params)
+    dU = copy(U)
+    j_func = (dU, U) -> f(dU, U, params, 0.0)
+    J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
+    #jac_sparsity = Symbolics.jacobian_sparsity((dU, u) -> f(dU0, U, params, 0.0), dU0, U)
+    prob = ODEProblem{true}(f, U, tspan, params, jac_prototype=J)
+	#modelingtoolkitize(prob)
 	sol = solve(
 		prob, alg; saveat=sim.saveat, callback=cb,
-		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters, jac = true
+		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
+
 	)
 
     return HallThrusterSolution(sol, params, saved_values.saveval)

@@ -11,6 +11,9 @@ using FileIO
 using DiffEqCallbacks
 using ModelingToolkit
 using Sundials
+using Symbolics
+using SparseArrays
+using ForwardDiff
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
