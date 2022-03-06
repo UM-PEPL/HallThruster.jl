@@ -96,6 +96,8 @@ function update_heavy_species!(dU, U, params, t)
     first_ion_index = index.ρi[1]
     last_ion_index = index.lf
 
+    ncharge = params.config.ncharge
+
     un, Tn, γn, Rn = fluids[1].conservation_laws.u, fluids[1].conservation_laws.T, γ(fluids[1]), R(fluids[1])
     Ti = fluids[2].conservation_laws.T
 
@@ -129,13 +131,63 @@ function update_heavy_species!(dU, U, params, t)
         ## Remove diffusion term for now
         #η = δ * sqrt(2*e*Tev[i]/(3*mi))
 
-        for j in first_ion_index:last_ion_index
+        ## OLD
+        #=for j in first_ion_index:last_ion_index
             # Ion fluxes and source
             dU[j, i] = (F[j, left] - F[j, right]) / Δz + Q[j, i]
             # Compute current charge state to make sure sound speed in diffusion term is correct
             Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            #dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+        end=#
+
+        ## NEW
+        neL = 0.0
+        neR = 0.0
+        ne0 = 0.0
+        for Z in 1:ncharge
+            neL += Z * U[index.ρi[Z], i-1]
+            neR += Z * U[index.ρi[Z], i+1]
+            ne0 += Z * U[index.ρi[Z], i]
+        end
+
+        neL, neR, ne0 = neL/mi, neR/mi, ne0/mi
+        ϵL = max(0.0, nϵ[i-1]/neL)
+        ϵR = max(0.0, nϵ[i+1]/neR)
+
+        for Z in 1:ncharge
+
+            aL = sqrt((γn * kB * Ti + Z * e * ϵL)/mi)
+            aR = sqrt((γn * kB * Ti + Z * e * ϵR)/mi)
+
+            uL = U[index.ρiui[Z], i-1] / U[index.ρi[Z], i-1]
+            uR = U[index.ρiui[Z], i+1] / U[index.ρi[Z], i+1]
+
+            sL = max(abs(uL + aL), abs(uL - aL))
+            sR = max(abs(uR + aR), abs(uR - aR))
+
+            f_mass_L = U[index.ρiui[Z], i-1]
+            f_mass_R = U[index.ρiui[Z], i+1]
+
+            F_mass = (
+                f_mass_R - f_mass_L -
+                sL * U[index.ρi[Z], i-1] +
+                (sL + sR) * U[index.ρi[Z], i] -
+                sR * U[index.ρi[Z], i+1]
+            ) / 2
+
+            f_momentum_L = U[index.ρiui[Z], i-1]^2 / U[index.ρi[Z], i-1] + Z * e * nϵ[i-1] + U[index.ρi[Z], i-1] * Rn * Ti
+            f_momentum_R = U[index.ρiui[Z], i+1]^2 / U[index.ρi[Z], i+1] + Z * e * nϵ[i+1] + U[index.ρi[Z], i+1] * Rn * Ti
+
+            F_momentum = (
+                f_momentum_R - f_momentum_L -
+                sL * U[index.ρiui[Z], i-1] +
+                (sL + sR) * U[index.ρiui[Z], i] -
+                sR * U[index.ρiui[Z], i+1]
+            ) / 2
+
+            dU[index.ρi[Z], i] = -F_mass / Δz + Q[index.ρi[Z], i]
+            dU[index.ρiui[Z], i] = -F_momentum / Δz + Q[index.ρiui[Z], i]
         end
 
         # Electron source term
