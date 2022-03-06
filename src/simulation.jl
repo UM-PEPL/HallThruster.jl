@@ -79,7 +79,7 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, propellant, fluid_ranges) = params
+    (;index, z_edge, propellant, fluid_ranges, fluids) = params
     (;F, Q, Tev) = params.cache
     δ = params.config.ion_diffusion_coeff
 
@@ -96,6 +96,12 @@ function update_heavy_species!(dU, U, params, t)
     first_ion_index = index.ρi[1]
     last_ion_index = index.lf
 
+    un, Tn, γn, Rn = fluids[1].conservation_laws.u, fluids[1].conservation_laws.T, γ(fluids[1]), R(fluids[1])
+    Ti = fluids[2].conservation_laws.T
+
+    @views ρn = U[index.ρn, :]
+    @views nϵ = U[index.nϵ, :]
+
     # Compute heavy species source terms
     @inbounds for i in 2:(ncells + 1)
 
@@ -107,8 +113,21 @@ function update_heavy_species!(dU, U, params, t)
         Δz² = Δz^2
 
         # Neutral fluxes and source
-        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
-        η = δ * sqrt(2*e*Tev[i]/(3*mi))
+        ## OLD:
+        #dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
+        ## NEW:
+        fL = ρn[i-1] * un
+        fR = ρn[i+1] * un
+        a = sqrt(γn*Rn*Tn)
+        sn = max(un + a, un - a)
+
+        Fn = (fR - fL - sn * (ρn[i-1] - 2ρn[i] + ρn[i+1])) / 2 / Δz
+        ## Currently don't worry about source term, that comes next
+        #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
+        dU[index.ρn, i] = -Fn + Q[index.ρn, i]
+
+        ## Remove diffusion term for now
+        #η = δ * sqrt(2*e*Tev[i]/(3*mi))
 
         for j in first_ion_index:last_ion_index
             # Ion fluxes and source
@@ -116,7 +135,7 @@ function update_heavy_species!(dU, U, params, t)
             # Compute current charge state to make sure sound speed in diffusion term is correct
             Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+            #dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
         end
 
         # Electron source term
