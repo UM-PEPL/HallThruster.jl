@@ -84,24 +84,6 @@ function plot_solution(u, saved_values, z, case = 1)
     plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
 end
 
-function plot_solution_real(u, z = nothing, case = 1)
-    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_0$(case).out")
-    coeff = HallThruster.load_landmark()
-    mi = HallThruster.Xenon.m
-    ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
-    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", hallis = hallis, hallisvar = hallis.nn)
-    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
-    p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", hallis = hallis, hallisvar = hallis.Te)
-    p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
-    p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", hallis = hallis, hallisvar = hallis.Ez)
-    p = plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
-    png(p, "last")
-    return p
-end
-
 function plot_solution_OVS(u, z = nothing, case = 1)
     hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_0$(case).out")
     coeff = HallThruster.load_landmark()
@@ -164,12 +146,25 @@ return to implicit and other general framework, see what happens
 
 function timeaveraged(sol, tstampstart)
     avg = zeros(size(sol.u[1]))
+    avg_savevals = deepcopy(sol.savevals[end])
+    (;Tev, ue, ϕ, ∇ϕ, ne) = avg_savevals
+    Tev .= 0.0
+    ue .= 0.0
+    ϕ .= 0.0
+    ∇ϕ .= 0.0
+    ne .= 0.0
+
     tstamps = length(sol.t)
+    Δt = (tstamps - tstampstart + 1)
     for i in tstampstart:length(sol.t)
-        avg .+= sol.u[i]
+        avg .+= sol.u[i] / Δt
+        Tev .+= sol.savevals[i].Tev / Δt
+        ue .+= sol.savevals[i].ue  / Δt
+        ϕ .+= sol.savevals[i].ϕ / Δt
+        ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
+        ne .+= sol.savevals[i].ne / Δt
     end
-    avg /= (tstamps - tstampstart + 1)
-    return avg
+    return avg, avg_savevals
 end
 
 function calc_current(sol)
@@ -202,3 +197,8 @@ function load_hallis_for_input()
 end
 
 Plots.plot(sol::HallThruster.HallThrusterSolution; case) = plot_solution(sol.u[end], sol.savevals[end], sol.params.z_cell, case)
+
+function plot_timeaveraged(sol, case, start_ind)
+    avg, avg_savevals = timeaveraged(sol, start_ind)
+    plot_solution(avg, avg_savevals, sol.params.z_cell, case)
+end

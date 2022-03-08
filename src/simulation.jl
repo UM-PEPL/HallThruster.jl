@@ -143,6 +143,7 @@ function update_heavy_species!(dU, U, params, t)
             UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
             if scheme.reconstruct
+                # This needs optimization to avoid recomputing reconstructed states
                 if i == 1
                     U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
                     U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
