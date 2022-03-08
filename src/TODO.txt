@@ -1,10 +1,16 @@
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
-- Factor out fluxes into functions which return SVectors
-- Reimplement reconstruction
 - See if we can try out DiffEqOperators or otherwise avoid recomputing stencil on each iteration
 - move to edge-centered discretization for simplicity
 - try merging update_electron_energy into update_heavy_species to avoid recomputing stuff
+- make tests pass / make new tests
+- local coverage
+- end-to-end MMS
+- interpolated rate coefficients
+- remove unused parts
 
+IN PROGRESS
+
+(ALL BENCHMARKS WITH 50 CELLS)
 DONE
 - Try central differences on electron energy
 - Compute mu within update_electron_energy!
@@ -12,6 +18,20 @@ DONE
 - test breathing mode and larger timesteps
     - 2e-9 works for all cases with SSPRK22 and 50 cells but there begin to be wiggles on left boundary
     - 3e-9 breaks
-    - at 2e-9 timestep, SSPRK22 takes 15-20 seconds to integrate 1ms
+    - at 2e-9 timestep, SSPRK22 takes 15-20 seconds to integrate 1ms (integrated rusanov)
     - case 2 and 3 are still off for some reason
     - Oscillations still damped out
+- Factor out fluxes into functions which return SVectors
+    - 3e-9 and 4e-9 work now
+    - at 2e-9 timestep, 1ms with SSPRK22 now takes 18 seconds with HLLE, 17.5 seconds with rusanov
+    - case 3 still off, case 2 not tried yet
+    - case 1 now has strong transit time oscillations with HLLE and SSPRK43
+- Reimplement reconstruction
+    - rusanov seems off, but accuracy of HLLE improved
+    - need to find a way to avoid duplicate computations and speed up
+    - with reconstruction, 1ms with SSPRK22 takes 23 seconds
+    - some wiggles in solution, need to investigate
+    - transit time oscillations persist in ca
+- Muladd macro
+    - no change, tested and removed
+

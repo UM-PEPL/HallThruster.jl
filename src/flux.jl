@@ -19,9 +19,19 @@ function flux(U::SVector{3, T}, fluid, pe) where T
     return SA[ρu, ρu * u + p + pe, ρH * u]
 end
 
-# create specialized flux versions for each type of fluid
+# use fun metaprogramming create specialized flux versions for each type of fluid
 for NUM_CONSERVATIVE in 1:3
     eval(quote
+
+    function reconstruct(u₋::SVector{$NUM_CONSERVATIVE, T}, uᵢ::SVector{$NUM_CONSERVATIVE, T}, u₊::SVector{$NUM_CONSERVATIVE, T}, ψ) where T
+        Δu = u₊ - uᵢ
+        ∇u = uᵢ - u₋
+        r = Δu ./ ∇u
+        uL = @SVector[uᵢ[i] + 0.5 * ψ(r[i]) * ∇u[i] for i in 1:$NUM_CONSERVATIVE]
+        uR = @SVector[uᵢ[i] - 0.5 * ψ(1/r[i]) * Δu[i]  for i in 1:$NUM_CONSERVATIVE]
+        return uL, uR
+    end
+
     function rusanov(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
