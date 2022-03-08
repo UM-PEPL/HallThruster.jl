@@ -1,5 +1,4 @@
 #try new potential solver, ie having extra cells on boundary
-
 """
     solve_potential!(; U::Matrix{Float64}, params::NamedTuple)
 function to solve the potential equation derived from the generalized Ohm's law
@@ -74,14 +73,13 @@ function solve_potential_edge!(U, params)
     return tridiagonal_solve!(ϕ, A, b)
 end
 
-
 function tridiagonal_forward_sweep!(A::Tridiagonal, b)
     n = length(A.d)
 
     @inbounds for i in 2:n
         w = A.dl[i - 1] / A.d[i - 1]
-        A.d[i] -= w * A.du[i - 1]
-        b[i] -= w * b[i - 1]
+        A.d[i] = A.d[i] - w * A.du[i - 1]
+        b[i] = b[i] - w * b[i - 1]
     end
 end
 

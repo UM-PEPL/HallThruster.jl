@@ -52,10 +52,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     nedges = grid.ncells + 1
 
     U = zeros(nvariables + 1, ncells + 2) # need to allocate room for ghost cells
-    F = zeros(nvariables + 1, nedges)
-    UL = zeros(nvariables + 1, nedges)
-    UR = zeros(nvariables + 1, nedges)
-    Q = zeros(nvariables + 1, ncells+2)
     A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
     b = zeros(nedges) #for potential equation
     Aϵ = Tridiagonal(ones(ncells+1), ones(ncells+2), ones(ncells+1)) #for energy
@@ -70,8 +66,10 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Tev = zeros(ncells + 2)
     pe = zeros(ncells + 2)
     ue = zeros(ncells + 2)
+    BC_L = zeros(nvariables+1)
+    BC_R = zeros(nvariables+1)
 
-    cache = (; F, UL, UR, Q, A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
+    cache = (; BC_L, BC_R,  A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
     return U, cache
 end
 
@@ -80,7 +78,7 @@ function update_heavy_species!(dU, U, params, t)
     #extract some useful stuff from params
 
     (;index, z_edge, propellant, scheme, fluids, species_range_dict, reactions) = params
-    (;Q, ue, μ) = params.cache
+    (;ue, μ, BC_L, BC_R) = params.cache
 
     ncells = size(U, 2) - 2
 
@@ -101,28 +99,45 @@ function update_heavy_species!(dU, U, params, t)
 
     coupled = params.config.electron_pressure_coupled
 
+
+    first_ind = 2
+    last_ind = ncells+1
+
     # Compute heavy species source terms
-    @inbounds for i in 2:(ncells + 1)
+    @inbounds for i in first_ind:last_ind
 
         #Compute dU/dt
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = z_edge[right] - z_edge[left]
-        # Neutral fluxes and source
-        ## OLD:
-        #dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz + Q[index.ρn, i]
-        ## NEW:
-        fn_L = ρn[i-1] * un
-        fn_R = ρn[i+1] * un
-        a = sqrt(γn*Rn*Tn)
-        sn = max(un + a, un - a)
 
-        Fn = (fn_R - fn_L - sn * (ρn[i-1] - 2ρn[i] + ρn[i+1])) / 2 / Δz
-        ## Currently don't worry about source term, that comes next
-        #Qn = -ne * ρn[i] * sum(rxn.rate_coeff(ϵ) for rxn in reactions if rxn.reactant.Z == 0)
-        dU[index.ρn, i] = -Fn# + Q[index.ρn, i]
-        ## NEW
+        ρn_L = i == first_ind ? SA[BC_L[index.ρn]] : SA[U[index.ρn, i-1]]
+        ρn_R = i == last_ind ? SA[BC_R[index.ρn]] : SA[U[index.ρn, i+1]]
+        ρn_0 = SA[U[index.ρn, i]]
+
+        if scheme.reconstruct
+            ρn_0L, ρn_0R = reconstruct(ρn_L, ρn_0, ρn_R, scheme.limiter)
+            if i == first_ind
+                ρn_2R = SA[U[index.ρn, i+2]]
+                ρn_R, _ = reconstruct(ρn_0, ρn_R, ρn_2R, scheme.limiter)
+            elseif i == last_ind
+                ρn_2L = SA[U[index.ρn, i-2]]
+                _ , ρn_L = reconstruct(ρn_2L, ρn_L, ρn_0, scheme.limiter)
+            else
+                ρn_2L = SA[U[index.ρn, i-2]]
+                ρn_2R = SA[U[index.ρn, i+2]]
+                _ , ρn_L = reconstruct(ρn_2L, ρn_L, ρn_0, scheme.limiter)
+                ρn_R, _ = reconstruct(ρn_0, ρn_R, ρn_2R, scheme.limiter)
+            end
+        else
+            ρn_0L = ρn_0R = ρn_0
+        end
+
+        Fn_L = scheme.flux_function(ρn_L, ρn_0L, fluids[1], coupled)
+        Fn_R = scheme.flux_function(ρn_0R, ρn_R, fluids[1], coupled)
+
+        dU[index.ρn, i] = -(Fn_R[1] - Fn_L[1])/Δz
         neL = 0.0
         neR = 0.0
         ne0 = 0.0
@@ -142,10 +157,32 @@ function update_heavy_species!(dU, U, params, t)
             U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
             UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
+            if scheme.reconstruct
+                # This needs optimization to avoid recomputing reconstructed states
+                if i == 1
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
+                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
+                elseif i == size(U, 2)
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
+                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
+                else
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
+                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
+                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
+                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
+                end
+            else
+                U0L = U0
+                U0R = U0
+            end
+
             fluid = fluids[Z+1]
 
-            FL = scheme.flux_function(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
-            FR = scheme.flux_function(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
+            FL = scheme.flux_function(UL, U0L, fluid, coupled, ϵL, ϵ0, neL, ne0)
+            FR = scheme.flux_function(U0R, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
 
             F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
@@ -203,7 +240,7 @@ function update_values!(U, params)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
-    (;F, UL, UR, Q, B, ue, Tev, ∇ϕ, ϕ, pe, ne) = params.cache
+    (;BC_L, BC_R, B, ue, Tev, ∇ϕ, ϕ, pe, ne) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -217,6 +254,9 @@ function update_values!(U, params)
     # Apply boundary conditions
     @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
     @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+
+    @views left_boundary_state!(BC_L, U[:, 1], params)
+    @views right_boundary_state!(BC_R, U[:, end], params)
 
     # Update electron quantities
     @inbounds @views for i in 1:(ncells + 2)
@@ -444,9 +484,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     end=#
 	#AutoTsit5(Rosenbrock23())
 	f = ODEFunction(update!)
-    dU = copy(U)
-    j_func = (dU, U) -> f(dU, U, params, 0.0)
-    J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
+    #dU = copy(U)
+    #j_func = (dU, U) -> f(dU, U, params, 0.0)
+    #J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
     #jac_sparsity = Symbolics.jacobian_sparsity((dU, u) -> f(dU0, U, params, 0.0), dU0, U)
     prob = ODEProblem{true}(f, U, tspan, params)
     #splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params, jac_prototype=J)
