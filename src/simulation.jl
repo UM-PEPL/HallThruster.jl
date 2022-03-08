@@ -142,10 +142,31 @@ function update_heavy_species!(dU, U, params, t)
             U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
             UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
+            if scheme.reconstruct
+                if i == 1
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
+                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
+                elseif i == size(U, 2)
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
+                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
+                else
+                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
+                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
+                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
+                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
+                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
+                end
+            else
+                U0L = U0
+                U0R = U0
+            end
+
             fluid = fluids[Z+1]
 
-            FL = scheme.flux_function(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
-            FR = scheme.flux_function(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
+            FL = scheme.flux_function(UL, U0L, fluid, coupled, ϵL, ϵ0, neL, ne0)
+            FR = scheme.flux_function(U0R, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
 
             F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
@@ -444,9 +465,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     end=#
 	#AutoTsit5(Rosenbrock23())
 	f = ODEFunction(update!)
-    dU = copy(U)
-    j_func = (dU, U) -> f(dU, U, params, 0.0)
-    J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
+    #dU = copy(U)
+    #j_func = (dU, U) -> f(dU, U, params, 0.0)
+    #J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
     #jac_sparsity = Symbolics.jacobian_sparsity((dU, u) -> f(dU0, U, params, 0.0), dU0, U)
     prob = ODEProblem{true}(f, U, tspan, params)
     #splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params, jac_prototype=J)

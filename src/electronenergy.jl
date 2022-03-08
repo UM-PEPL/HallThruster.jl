@@ -40,63 +40,6 @@ function first_deriv_central_diff_pot(u, z_cell, i) #central difference of first
     return grad
 end
 
-function second_deriv_central_diff_energy(U, z_cell, params, i)
-    index = params.index
-    #do once with 1/2 e^2 and once with e only
-    μ⁺ = 10.0 #*3/2*HallThruster.kB/HallThruster.e*(U[index.Tev, i] + U[index.Tev, i+1])/2
-    μ⁻ = 10.0 #*3/2*HallThruster.kB/HallThruster.e*(U[index.Tev, i] + U[index.Tev, i-1])/2
-    nϵ⁺ = 1.0
-    nϵ⁻ = 1.0
-
-    BC_left = 3/2*4/3*1e18*50000*HallThruster.kB
-    BC_right = 3/2*4/3*1e18*50000*HallThruster.kB
-    u = zeros(length(z_cell))
-    u = U[index.Tev, :]*3/2*HallThruster.kB/HallThruster.e
-
-    #μ⁺ = (params.cache.μ[i] + params.cache.μ[i+1])/2
-    #μ⁻ = (params.cache.μ[i] + params.cache.μ[i-1])/2
-    #nϵ⁺ = (u[i] + u[i+1])/2
-    #nϵ⁻ = (u[i] + u[i-1])/2
-    #grad = 10/9/(z_cell[3]-z_cell[2])^2*(μ⁻*nϵ⁻*u[i-1] - (μ⁻*nϵ⁻ + μ⁺*nϵ⁺)*u[i] + μ⁺*nϵ⁺*u[i+1])
-    #grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/(z_cell[i]-z_cell[i-1])^2) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/(z_cell[i+1]-z_cell[i])^2))
-    #grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i+1]-z_cell[i])))) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i]-z_cell[i-1]))))
-    if i == 2
-        grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i]-z_cell[i-1])))) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i]-z_cell[i-1]))))
-    elseif i == length(z_cell)-1
-        grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i+1]-z_cell[i])))) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i+1]-z_cell[i]))))
-    else
-        grad = 10/9*((μ⁻*nϵ⁻ * (-u[i] + u[i-1])/(z_cell[i]-z_cell[i-1])^2) + (μ⁺*nϵ⁺ * (-u[i] + u[i+1])/(z_cell[i+1]-z_cell[i])^2))
-    end
-    return grad
-end
-
-function second_deriv_central_diff_gen(u, z_cell, i)
-    if i == 2
-        grad = (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i]-z_cell[i-1]))) + (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i]-z_cell[i-1]))
-    elseif i == length(z_cell)-1
-        grad = (-u[i] + u[i-1])/((z_cell[i]-z_cell[i-1])*((z_cell[i+1]-z_cell[i]))) + (-u[i] + u[i+1])/((z_cell[i+1]-z_cell[i])*(z_cell[i+1]-z_cell[i]))
-    else
-        grad = (-u[i] + u[i-1])/(z_cell[i]-z_cell[i-1])^2 + (-u[i] + u[i+1])/(z_cell[i+1]-z_cell[i])^2
-    end
-    return grad
-end
-
-
-"""
-    first_deriv_facereconstr_2order(u::Vector{Float64}, z_cell::Vector{Float64}, i::Int64)
-
-returns the first derivative second order face reconstruction at i. stencil limits, l = -1/2,
-r = 1/2
-if i == 1, returns right one sided second order approx, elseif i == length(array),
-returns left one sided second order approx.
-"""
-
-function first_deriv_facereconstr_2order(u, z_cell, i)
-    grad = (u[i+1]-u[i])/abs(z_cell[i+1] - z_cell[i]) #centered difference
-    #grad = (-u[i] + u[i-1])/abs(z_cell[i] - z_cell[i-1])
-    return grad
-end
-
 """
     S_wall(params)
 
