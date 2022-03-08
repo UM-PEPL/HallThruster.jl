@@ -116,73 +116,53 @@ function update_heavy_species!(dU, U, params, t)
         ρn_R = i == last_ind ? SA[BC_R[index.ρn]] : SA[U[index.ρn, i+1]]
         ρn_0 = SA[U[index.ρn, i]]
 
-        if scheme.reconstruct
-            ρn_0L, ρn_0R = reconstruct(ρn_L, ρn_0, ρn_R, scheme.limiter)
-            if i == first_ind
-                ρn_2R = SA[U[index.ρn, i+2]]
-                ρn_R, _ = reconstruct(ρn_0, ρn_R, ρn_2R, scheme.limiter)
-            elseif i == last_ind
-                ρn_2L = SA[U[index.ρn, i-2]]
-                _ , ρn_L = reconstruct(ρn_2L, ρn_L, ρn_0, scheme.limiter)
-            else
-                ρn_2L = SA[U[index.ρn, i-2]]
-                ρn_2R = SA[U[index.ρn, i+2]]
-                _ , ρn_L = reconstruct(ρn_2L, ρn_L, ρn_0, scheme.limiter)
-                ρn_R, _ = reconstruct(ρn_0, ρn_R, ρn_2R, scheme.limiter)
-            end
-        else
-            ρn_0L = ρn_0R = ρn_0
-        end
-
-        Fn_L = scheme.flux_function(ρn_L, ρn_0L, fluids[1], coupled)
-        Fn_R = scheme.flux_function(ρn_0R, ρn_R, fluids[1], coupled)
+        Fn_L = scheme.flux_function(ρn_L, ρn_0, fluids[1], coupled)
+        Fn_R = scheme.flux_function(ρn_0, ρn_R, fluids[1], coupled)
 
         dU[index.ρn, i] = -(Fn_R[1] - Fn_L[1])/Δz
         neL = 0.0
         neR = 0.0
         ne0 = 0.0
         for Z in 1:ncharge
-            neL += Z * U[index.ρi[Z], i-1] / mi
-            neR += Z * U[index.ρi[Z], i+1] / mi
+            if i == first_ind
+                neL += Z * BC_L[index.ρi[Z]]/mi
+            else
+                neL += Z * U[index.ρi[Z], i-1] / mi
+            end
+
             ne0 += Z * U[index.ρi[Z], i] / mi
+
+            if i == last_ind
+                neR += Z * BC_R[index.ρi[Z]]/mi
+            else
+                neR += Z * U[index.ρi[Z], i+1] / mi
+            end
         end
 
-        ϵL = max(0.0, nϵ[i-1]/neL)
+        ϵL = i == first_ind ? params.Te_L : max(0.0, nϵ[i-1]/neL)
         ϵ0 = max(0.0, nϵ[i]/ne0)
-        ϵR = max(0.0, nϵ[i+1]/neR)
+        ϵR = i == last_ind ? params.Te_R : max(0.0, nϵ[i+1]/neR)
 
         for Z in 1:ncharge
 
-            UL = @SVector[U[index.ρi[Z], i-1], U[index.ρiui[Z], i-1]]
-            U0 = @SVector[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
-            UR = @SVector[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
-
-            if scheme.reconstruct
-                # This needs optimization to avoid recomputing reconstructed states
-                if i == 1
-                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
-                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
-                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
-                elseif i == size(U, 2)
-                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
-                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
-                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
-                else
-                    U0L, U0R = reconstruct(UL, U0, UR, scheme.limiter)
-                    U2L = @SVector[U[index.ρi[Z], i-2], U[index.ρiui[Z], i-2]]
-                    U2R = @SVector[U[index.ρi[Z], i+2], U[index.ρiui[Z], i+2]]
-                    _, UL = reconstruct(U2L, UL, U0, scheme.limiter)
-                    UR, _ = reconstruct(U0, UR, U2R, scheme.limiter)
-                end
+            UL = if i == first_ind
+                SA[BC_L[index.ρi[Z]], BC_L[index.ρiui[Z]]]
             else
-                U0L = U0
-                U0R = U0
+                SA[U[index.ρi[Z], i-1], U[index.ρiui[Z], i-1]]
+            end
+
+            U0 = SA[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
+
+            UR = if i == last_ind
+                SA[BC_R[index.ρi[Z]], BC_R[index.ρiui[Z]]]
+            else
+                SA[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
             end
 
             fluid = fluids[Z+1]
 
-            FL = scheme.flux_function(UL, U0L, fluid, coupled, ϵL, ϵ0, neL, ne0)
-            FR = scheme.flux_function(U0R, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
+            FL = scheme.flux_function(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
+            FR = scheme.flux_function(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
 
             F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
@@ -202,9 +182,6 @@ function update_heavy_species!(dU, U, params, t)
             dU[reactant_index, i] -= ρdot
             dU[product_index, i] += ρdot
         end
-
-        # Electron source term
-        #dU[index.nϵ, i] = source_electron_energy_landmark(U, params, i)
     end
 end
 

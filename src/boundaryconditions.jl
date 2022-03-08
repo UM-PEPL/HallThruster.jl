@@ -55,13 +55,9 @@ function right_boundary_state!(bc_state, U, params)
     bc_state[index.ρn] = U[index.ρn, end]
 
     ne = 0.0
-    bohm_velocity = sqrt(e * 2/3 * Te_R / mi)
     for Z in 1:params.config.ncharge
         boundary_density = U[index.ρi[Z], 1]
         boundary_flux = U[index.ρiui[Z]]
-        boundary_velocity = max(sqrt(Z) * bohm_velocity, boundary_flux / boundary_density)
-        boundary_density = boundary_flux / boundary_velocity
-
         bc_state[index.ρi[Z]] = boundary_density
         bc_state[index.ρiui[Z]] = boundary_flux
 
