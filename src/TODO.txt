@@ -1,4 +1,3 @@
-- Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - See if we can try out DiffEqOperators or otherwise avoid recomputing stencil on each iteration
 - move to edge-centered discretization for simplicity
 - try merging update_electron_energy into update_heavy_species to avoid recomputing stuff
@@ -7,8 +6,13 @@
 - end-to-end MMS
 - interpolated rate coefficients
 - remove unused parts
+- try out no time derivative of Te
 
 IN PROGRESS
+- Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
+- Compute nabla pe and nabla phi in electronenergy
+- make potential work with BC cache
+- make electorn energy work with BC cache
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
@@ -26,13 +30,8 @@ DONE
     - at 2e-9 timestep, 1ms with SSPRK22 now takes 18 seconds with HLLE, 17.5 seconds with rusanov
     - case 3 still off, case 2 not tried yet
     - case 1 now has strong transit time oscillations with HLLE and SSPRK43
-- Reimplement reconstruction
-    - rusanov seems off, but accuracy of HLLE improved
-    - need to find a way to avoid duplicate computations and speed up
-    - with reconstruction, 1ms with SSPRK22 takes 23 seconds
-    - some wiggles in solution, need to investigate
-    - transit time oscillations persist in ca
 - Muladd macro
     - no change, tested and removed
-- 
+- try actually computing electron velocity within update_electron_energy!
+    - ruins timestep, no change in solution
 

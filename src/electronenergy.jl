@@ -102,10 +102,6 @@ function update_electron_energy!(dU, U, params, t)
     μ0 = electron_mobility(νan_0, νc_0, params.cache.B[1])
     μR = electron_mobility(νan_R, νc_R, params.cache.B[2])
 
-    ueL = 0.0
-    ue0 = electron_velocity(U, params, 1)
-    ueR = electron_velocity(U, params, 2)
-
     @inbounds for i in 2:ncells+1
 
         zL, z0, zR = z_cell[i-1], z_cell[i], z_cell[i+1]
@@ -115,7 +111,6 @@ function update_electron_energy!(dU, U, params, t)
         νc_L, νc_0, νc_R = νc_0, νc_R, electron_collision_freq(ϵR, U[index.ρn, i+1] / mi, neR, mi)
         νan_L, νan_0, νan_R = νan_0, νan_R, params.anom_model(U, params, i+1)
         μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
-        ueL, ue0, ueR = ue0, ueR, electron_velocity(U, params, i+1)
 
         advection_term = uneven_central_diff(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
         diffusion_term = uneven_central_diff(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR)

@@ -107,3 +107,7 @@ function load_ionization_reactions(species)
 
     return reactions
 end
+
+function ionization_reactions_interp()
+    
+end
