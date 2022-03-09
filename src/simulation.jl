@@ -279,7 +279,7 @@ function update_values!(U, params)
     ue[1] = ue[2] = ue[3]#electron_velocity(U, params, 1)
     ue[end] = ue[end-1] = ue[end-2] #electron_velocity(U, params, ncells+2)
 
-    if params.implicit_energy
+    if params.implicit_energy > 0
         energy_implicit!(U, params)
     else
         # Dirchlet BCs for electron energy
@@ -458,7 +458,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    if implicit_energy
+    if implicit_energy > 0
         f = ODEFunction(update_heavy_species!)
     else
 	    f = ODEFunction(update!)

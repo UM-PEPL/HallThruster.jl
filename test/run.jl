@@ -47,7 +47,7 @@ end
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE,
-        coeffs = :LANDMARK
+        coeffs = :LANDMARK, implicit_iters = 1,
     )
 
     fluid = HallThruster.Xenon
@@ -129,6 +129,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         electron_pressure_coupled = true,
         min_electron_temperature = 1.0,
         min_number_density = 1.0e6,
+        implicit_iters = implicit_iters
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)

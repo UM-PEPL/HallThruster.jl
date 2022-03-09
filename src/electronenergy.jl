@@ -155,24 +155,48 @@ function energy_implicit!(U, params)
     Tev[end] = params.Te_R
 
     #@show bϵ[end], nϵ[end]
-    for _ in 1:1
+    @inbounds for _ in 1:params.config.implicit_iters
     for i in 2:ncells-1
         Q = source_electron_energy_landmark(U, params, i)
         Δz = 0.5 * (z_cell[i+1] - z_cell[i-1])
 
-        μnϵ = μ[i] * nϵ[i]
-        dμnϵ_dz = uneven_central_diff(μ[i-1] * nϵ[i-1], μnϵ, μ[i+1] * nϵ[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+        zL = z_cell[i-1]
+        z0 = z_cell[i]
+        zR = z_cell[i+1]
 
-        Aϵ.d[i] = 1 + dt * 2 * 10/9 * μnϵ / ne[i] / Δz^2
-        Aϵ.dl[i-1] = dt * (-5/3 * ue[i-1]/2/Δz - 10/9 * (μnϵ / ne[i-1] / Δz^2 - dμnϵ_dz /ne[i-1]/2/Δz))
-        Aϵ.du[i] = dt * (5/3 * ue[i+1]/2/Δz - 10/9 * (μnϵ / ne[i+1] / Δz^2 + dμnϵ_dz /ne[i+1]/2/Δz))
-        bϵ[i] = nϵ[i] + dt * Q
+        neL = ne[i-1]
+        ne0 = ne[i]
+        neR = ne[i+1]
+
+        nϵL = nϵ[i-1]
+        nϵ0 = nϵ[i]
+        nϵR = nϵ[i+1]
+
+        ϵL = nϵL / neL
+        ϵ0 = nϵ0 / ne0
+        ϵR = nϵR / neR
+
+        ueL = ue[i-1]
+        ue0 = ue[i]
+        ueR = ue[i+1]
+
+        μnϵ = μ[i] * nϵ[i]
+        dμnϵ_dz = uneven_central_diff(μ[i-1] * nϵL, μnϵ, μ[i+1] * nϵR, zL, z0, zR)
+        d²ϵ_dz² = uneven_second_deriv(ϵL, ϵ0, ϵR, zL, z0, zR)
+        dϵ_dz = uneven_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
+        dneue_dz = uneven_central_diff(ueL * nϵL, ue0 * nϵ0, ueR * nϵR, zL, z0, zR)
+        F_explicit = -5/3 * dneue_dz + 10/9 * (μnϵ * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
+
+        Aϵ.d[i] = 1 + implicit * dt * 2 * 10/9 * μnϵ / ne[i] / Δz^2
+        Aϵ.dl[i-1] = implicit * dt * (-5/3 * ueL/2/Δz - 10/9 * (μnϵ / neL / Δz^2 - dμnϵ_dz / neL/2/Δz))
+        Aϵ.du[i] = implicit * dt * (5/3 * ueR/2/Δz - 10/9 * (μnϵ / neR / Δz^2 + dμnϵ_dz / neR/2/Δz))
+        bϵ[i] = nϵ[i] + dt * (Q + explicit * F_explicit)
     end
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
-    end
-
     # Make sure Tev is positive
     for i in 2:ncells-1
-        nϵ[i] = max(1.0 * ne[i], nϵ[i])
+        nϵ[i] = max(params.config.min_electron_temperature * ne[i], nϵ[i])
     end
+    end
+
 end
