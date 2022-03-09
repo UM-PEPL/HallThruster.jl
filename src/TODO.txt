@@ -4,7 +4,6 @@
 - make tests pass / make new tests
 - local coverage
 - end-to-end MMS
-- interpolated rate coefficients
 - remove unused parts
 - try out no time derivative of Te
 
@@ -12,13 +11,13 @@ IN PROGRESS
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - Compute nabla pe and nabla phi in electronenergy
 - make potential work with BC cache
-- make electorn energy work with BC cache
+- make electron energy work with BC cache
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
 - Try central differences on electron energy
 - Compute mu within update_electron_energy!
-- compute electron velocity within update_electron_energy!
+- compute electron velocity within update_electron_energy! (this was not actually done, lmao)
 - test breathing mode and larger timesteps
     - 2e-9 works for all cases with SSPRK22 and 50 cells but there begin to be wiggles on left boundary
     - 3e-9 breaks
@@ -26,7 +25,7 @@ DONE
     - case 2 and 3 are still off for some reason
     - Oscillations still damped out
 - Factor out fluxes into functions which return SVectors
-    - 3e-9 and 4e-9 work now
+    - 3e-9 and 4e-9 work now (no longer for some reason)
     - at 2e-9 timestep, 1ms with SSPRK22 now takes 18 seconds with HLLE, 17.5 seconds with rusanov
     - case 3 still off, case 2 not tried yet
     - case 1 now has strong transit time oscillations with HLLE and SSPRK43
@@ -34,4 +33,5 @@ DONE
     - no change, tested and removed
 - try actually computing electron velocity within update_electron_energy!
     - ruins timestep, no change in solution
-
+- rate coefficient fit function
+    - saves like 1/4 of the computation time, minor diffs from LANDMARK tho

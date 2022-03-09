@@ -385,6 +385,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         end
     elseif config.ionization_coeffs == :BOLSIG
         ionization_reactions = load_ionization_reactions(species)
+    elseif config.ionization_coeffs == :BOLSIG_FIT
+		ionization_reactions = ionization_fits_Xe(config.ncharge)
+		loss_coeff = loss_coeff_fit
     else
         throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
     end
@@ -393,6 +396,8 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     BCs = sim.boundary_conditions
 
     precompute_bfield!(cache.B, grid.cell_centers)
+
+    loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 
     params = (;
         config = config,
@@ -411,7 +416,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         mdot_a = config.anode_mass_flow_rate,
         OVS = config.verification,
         anom_model = config.anom_model,
-        loss_coeff = landmark.loss_coeff,
+        loss_coeff = loss_coeff,
         reactions = ionization_reactions,
         implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,

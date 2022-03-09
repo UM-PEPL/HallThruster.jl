@@ -108,14 +108,12 @@ function load_ionization_reactions(species)
     return reactions
 end
 
-
-@inline biexponential(x, c1, c2, c3, c4, c5) = c1 * (exp(c2 / (x - c5)) - c4 * exp(c2 * c3 / (x - c5)))
-
+@inline biexponential(x, c1, c2, c3, c4, c5) = c1 * (exp(-c2 / (x + c5)) - c4 * exp(-c2 * c3 / (x + c5)))
 
 function ionization_fits_Xe(ncharge::Int)
 
     Xe0_Xe1 = IonizationReaction(
-        Xenon(0), Xenon(1), ϵ -> biexponential(ϵ, 3.9e-13, 48.0, 0.0, 0.0, 6.0)
+        Xenon(0), Xenon(1), ϵ -> biexponential(ϵ, 3.6e-13, 40.0, 0.0, 0.0, 3.0)
     )
 
     Xe0_Xe2 = IonizationReaction(

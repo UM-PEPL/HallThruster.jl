@@ -46,7 +46,9 @@ end
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE)
+        restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE,
+        coeffs = :LANDMARK
+    )
 
     fluid = HallThruster.Xenon
     #fluid BCs #############################
@@ -123,7 +125,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         ion_temperature = 1000.0,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = :LANDMARK,
-        ionization_coeffs = :LANDMARK,
+        ionization_coeffs = coeffs,
         electron_pressure_coupled = true,
     )
 
