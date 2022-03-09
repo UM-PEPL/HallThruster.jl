@@ -6,12 +6,12 @@
 - end-to-end MMS
 - remove unused parts
 - try out no time derivative of Te
-
-IN PROGRESS
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - Compute nabla pe and nabla phi in electronenergy
 - make potential work with BC cache
 - make electron energy work with BC cache
+
+IN PROGRESS
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
@@ -35,3 +35,6 @@ DONE
     - ruins timestep, no change in solution
 - rate coefficient fit function
     - saves like 1/4 of the computation time, minor diffs from LANDMARK tho
+- try implicit energy in callback again but with conduction term implicit (hall2de-like formulation)
+    - this works really well
+

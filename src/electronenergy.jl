@@ -3,8 +3,16 @@ function electron_velocity(U, params, i)
     (;z_cell) = params
     (;μ, ∇ϕ, ne, pe) = params.cache
 
-    ∇pe = first_deriv_central_diff(pe, z_cell, i)
-    #∇pe = uneven_central_diff(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+    pe = @views U[params.index.nϵ, :]
+
+    #∇pe = first_deriv_central_diff(pe, z_cell, i)
+    if i == 1
+        ∇pe = uneven_forward_diff(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
+    elseif i == size(U, 2)
+        ∇pe = uneven_backward_diff(pe[i-2], pe[i-1], pe[i], z_cell[i-2], z_cell[i-1], z_cell[i])
+    else
+        ∇pe = uneven_central_diff(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+    end
     uₑ = μ[i] * (∇ϕ[i] - ∇pe/ne[i])
     return uₑ
 end
@@ -125,4 +133,46 @@ function update_electron_energy!(dU, U, params, t)
     end
 
     return nothing
+end
+
+
+function energy_implicit!(U, params)
+    (;Aϵ, bϵ, μ, ue, ne, Tev) = params.cache
+    (;z_cell, dt, index) = params
+    implicit = params.config.implicit_energy
+    explicit = 1 - implicit
+    ncells = size(U, 2)
+
+    nϵ = @views U[index.nϵ, :]
+    Aϵ.d[1] = 1.0
+    Aϵ.du[1] = 0.0
+    Aϵ.d[end] = 1.0
+    Aϵ.dl[end-1] = 0.0
+
+    bϵ[1] = nϵ[1] = params.Te_L * ne[1]
+    bϵ[end] = nϵ[end] = params.Te_R * ne[end]
+    Tev[1] = params.Te_L
+    Tev[end] = params.Te_R
+
+    #@show bϵ[end], nϵ[end]
+    for _ in 1:1
+    for i in 2:ncells-1
+        Q = source_electron_energy_landmark(U, params, i)
+        Δz = 0.5 * (z_cell[i+1] - z_cell[i-1])
+
+        μnϵ = μ[i] * nϵ[i]
+        dμnϵ_dz = uneven_central_diff(μ[i-1] * nϵ[i-1], μnϵ, μ[i+1] * nϵ[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+
+        Aϵ.d[i] = 1 + dt * 2 * 10/9 * μnϵ / ne[i] / Δz^2
+        Aϵ.dl[i-1] = dt * (-5/3 * ue[i-1]/2/Δz - 10/9 * (μnϵ / ne[i-1] / Δz^2 - dμnϵ_dz /ne[i-1]/2/Δz))
+        Aϵ.du[i] = dt * (5/3 * ue[i+1]/2/Δz - 10/9 * (μnϵ / ne[i+1] / Δz^2 + dμnϵ_dz /ne[i+1]/2/Δz))
+        bϵ[i] = nϵ[i] + dt * Q
+    end
+    tridiagonal_solve!(nϵ, Aϵ, bϵ)
+    end
+
+    # Make sure Tev is positive
+    for i in 2:ncells-1
+        nϵ[i] = max(1.0 * ne[i], nϵ[i])
+    end
 end

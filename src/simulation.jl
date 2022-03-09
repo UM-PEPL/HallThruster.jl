@@ -210,8 +210,8 @@ function precompute_bfield!(B, zs)
     end
 end
 
-update_values!(integrator) = update_values!(integrator.u, integrator.p)
-function update_values!(U, params)
+update_values!(integrator) = update_values!(integrator.u, integrator.p, integrator.t)
+function update_values!(U, params, t = 0)
 
     #update useful quantities relevant for potential, electron energy and fluid solve
     ncells = size(U, 2) - 2
@@ -236,7 +236,11 @@ function update_values!(U, params)
     @views right_boundary_state!(BC_R, U[:, end], params)
 
     # Update electron quantities
-    @inbounds @views for i in 1:(ncells + 2)
+    @inbounds for i in 1:(ncells + 2)
+
+        #if any(isnan, U)
+        #    println("NaN detected at time $(t)")
+        #end
         z = z_cell[i]
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
@@ -253,7 +257,7 @@ function update_values!(U, params)
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
     #∇ϕ[1] = first_deriv_central_diff_pot(ϕ, params.z_cell, 1)
-    #∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+2)
+    #∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+1)
     ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
     ∇ϕ[end] = uneven_backward_diff(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
 
@@ -261,16 +265,19 @@ function update_values!(U, params)
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
         ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
-        #∇ϕ[i] = uneven_central_diff(ϕ[i-1], ϕ[i], ϕ[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+        #∇ϕ[i] = (ϕ[i] - ϕ[i-1]) / (z_edge[i] - z_edge[i-1])
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
         #@views source_term!(Q[:, i], U, params, i)
     end
 
-    # Neumann condition for electron velocity
-    ue[1] = ue[2]
-    ue[end] = ue[end-1]
+    ue[1] = ue[2] = ue[3] = ue[4]#electron_velocity(U, params, 1)
+    ue[end] = ue[end-1] = ue[end-2] = ue[end-3] #electron_velocity(U, params, ncells+2)
+
+    if params.implicit_energy
+        energy_implicit!(U, params)
+    end
 
     # Dirchlet BCs for electron energy
     apply_bc_electron!(U, params.BCs[3], :left, index)
@@ -465,7 +472,11 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
     end=#
 	#AutoTsit5(Rosenbrock23())
-	f = ODEFunction(update!)
+    if implicit_energy
+        f = ODEFunction(update_heavy_species!)
+    else
+	    f = ODEFunction(update!)
+    end
     #dU = copy(U)
     #j_func = (dU, U) -> f(dU, U, params, 0.0)
     #J = ForwardDiff.jacobian(j_func, dU, U) |> sparse
