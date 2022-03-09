@@ -108,6 +108,45 @@ function load_ionization_reactions(species)
     return reactions
 end
 
-function ionization_reactions_interp()
-    
+
+@inline biexponential(x, c1, c2, c3, c4, c5) = c1 * (exp(c2 / (x - c5)) - c4 * exp(c2 * c3 / (x - c5)))
+
+
+function ionization_fits_Xe(ncharge::Int)
+
+    Xe0_Xe1 = IonizationReaction(
+        Xenon(0), Xenon(1), ϵ -> biexponential(ϵ, 3.9e-13, 48.0, 0.0, 0.0, 6.0)
+    )
+
+    Xe0_Xe2 = IonizationReaction(
+        Xenon(0), Xenon(2), ϵ -> biexponential(ϵ, 3.8e-14, 57.0, 10.0, 0.7, 0.0)
+    )
+
+    Xe0_Xe3 = IonizationReaction(
+        Xenon(0), Xenon(3), ϵ -> biexponential(ϵ, 1.7e-14, 120, 6.0, 0.5, 0.0)
+    )
+
+    Xe1_Xe2 = IonizationReaction(
+        Xenon(1), Xenon(2), ϵ -> biexponential(ϵ, 1.48e-13, 35.0, 11.0, 0.45, 0.0)
+    )
+
+    Xe1_Xe3 = IonizationReaction(
+        Xenon(1), Xenon(3), ϵ -> biexponential(ϵ, 4e-14, 100, 4.0, 0.8, 0.0)
+    )
+
+    Xe2_Xe3 = IonizationReaction(
+        Xenon(2), Xenon(3), ϵ -> biexponential(ϵ, 1.11e-13, 43.0, 7.0, 0.68, 0.0)
+    )
+
+    if ncharge == 1
+        return [Xe0_Xe1]
+    elseif ncharge == 2
+        return [Xe0_Xe1, Xe0_Xe2, Xe1_Xe2]
+    elseif ncharge == 3
+        return [Xe0_Xe1, Xe0_Xe2, Xe0_Xe3, Xe1_Xe2, Xe1_Xe3, Xe2_Xe3]
+    else
+        throw(ArgumentError("ncharge must be 1, 2, or 3"))
+    end
 end
+
+loss_coeff_fit(ϵ) = 6e-12 * exp(-39.0 / (ϵ + 3.0))
