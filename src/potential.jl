@@ -62,9 +62,13 @@ function solve_potential_edge!(U, params)
         A.d[i] = -(ne⁻ * μ⁻ + ne⁺ * μ⁺) / Δz²
         A.du[i] = ne⁺ * μ⁺ / Δz²
 
+        ∇_neue = 0.0
+        for Z in 1:params.config.ncharge
+            ∇_neue += Z * (U[index.ρiui[Z], i + 1] - U[index.ρiui[Z], i]) / Δz / mi
+        end
+
         #source term, h/2 to each side
-        b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + 
-        (U[3, i + 1] - U[3, i]) / Δz / mi
+        b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + ∇_neue
 
         #for order verification, change to simpler source term
         b[i] = (1 - OVS) * b[i] + 50_000 * OVS

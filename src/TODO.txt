@@ -5,13 +5,15 @@
 - local coverage
 - end-to-end MMS
 - remove unused parts
-- try out no time derivative of Te
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - Compute nabla pe and nabla phi in electronenergy
 - make potential work with BC cache
 - make electron energy work with BC cache
+- ion positivity-preserving limiter
+- figure out why electron velocity is weird in second and second-to-last cells
 
 IN PROGRESS
+- crank nicholson instead of backward euler
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
@@ -37,4 +39,9 @@ DONE
     - saves like 1/4 of the computation time, minor diffs from LANDMARK tho
 - try implicit energy in callback again but with conduction term implicit (hall2de-like formulation)
     - this works really well
-
+    - can get timesteps of 2e-8 now with 50 cells, 0.9e-8 with 100 cells, 0.3e-8 with 160 cells (all with SSPRK22)
+    - 1ms now takes 8-10 seconds at timestep of 1e-8, 4-5 seconds with timestep of 2e-8 (with 50 cells)
+    - larger cell numbers actually finish
+- basic stage limiter
+    - the zhang-shu limiter is too advanced, works on polynomial approximations of the cell state. this is more than we need
+    - the current limiter just floors the values without too much fuss. nothing breaks and the time requirements are not very noticable

@@ -210,54 +210,60 @@ function precompute_bfield!(B, zs)
     end
 end
 
-update_values!(integrator) = update_values!(integrator.u, integrator.p, integrator.t)
-function update_values!(U, params, t = 0)
+update_values!(integrator) = update_values!(integrator.u, integrator.p)
+function update_values!(U, params)
 
     #update useful quantities relevant for potential, electron energy and fluid solve
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
-    (;BC_L, BC_R, B, ue, Tev, ∇ϕ, ϕ, pe, ne) = params.cache
+    (;BC_L, BC_R, B, ue, Tev, ∇ϕ, ϕ, pe, ne, νan, νc, μ) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
 
-    # Edge state reconstruction and flux computation
-    #@views compute_fluxes!(F, UL, UR, U, params)
-    #@views compute_edge_states!(UL[1:index.lf, :], UR[1:index.lf, :], U[1:index.lf, :], scheme)
-    coupled = params.config.electron_pressure_coupled
-    #@views compute_fluxes!(F[1:index.lf, :], UL[1:index.lf, :], UR[1:index.lf, :], fluids, fluid_ranges, scheme, pe, coupled)
+    # Apply fluid boundary conditions
+    #@views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
+    #@views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
 
-    # Apply boundary conditions
-    @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
-    @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
+    @views left_boundary_state!(BC_L, U[:, 2], params)
+    @views right_boundary_state!(BC_R, U[:, end-1], params)
 
-    @views left_boundary_state!(BC_L, U[:, 1], params)
-    @views right_boundary_state!(BC_R, U[:, end], params)
+    @views U[:, 1] .= BC_L
+    @views U[:, end] .= BC_R
 
     # Update electron quantities
-    @inbounds for i in 1:(ncells + 2)
 
-        #if any(isnan, U)
-        #    println("NaN detected at time $(t)")
-        #end
+    ne[1] = (1 - OVS) * max(params.config.min_number_density, electron_density(BC_L, params) / mi) + params.OVS.energy.ne(z_cell[1])
+    ne[end] = (1 - OVS) * max(params.config.min_number_density, electron_density(BC_R, params) / mi) + params.OVS.energy.ne(z_cell[end])
+    Tev[1] = (1 - OVS) * BC_L[index.nϵ]/ne[1] + params.OVS.energy.Tev(z_cell[1])
+    Tev[end] = (1 - OVS) * BC_R[index.nϵ]/ne[end] + params.OVS.energy.Tev(z_cell[end])
+    pe[1] = BC_L[index.nϵ]
+    pe[end] = BC_R[index.nϵ]
+    νan[1] = params.anom_model(BC_L, params, 1)
+    νan[end] = params.anom_model(BC_R, params, length(z_cell))
+    νc[1] = electron_collision_freq(Tev[1], BC_L[index.ρn]/mi , ne[1], mi)
+    νc[end] = electron_collision_freq(Tev[end], BC_R[index.ρn]/mi , ne[end], mi)
+    μ[1] = (1 - OVS)*electron_mobility(νan[1], νc[1], B[1])
+    μ[end] = (1 - OVS)*electron_mobility(νan[end], νc[end], B[end])
+
+    @inbounds for i in 2:(ncells + 1)
+
         z = z_cell[i]
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
-        Tev[i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/ne[i]) + OVS_Tev
+        @views ne[i] = (1 - OVS) * max(params.config.min_number_density, electron_density(U[:, i], params) / mi) + OVS_ne
+        Tev[i] = (1 - OVS) * U[index.nϵ, i]/ne[i] + OVS_Tev
         pe[i] = U[index.nϵ, i]
-        params.cache.νan[i] = params.anom_model(U, params, i)
+        @views params.cache.νan[i] = params.anom_model(U[:, i], params, i)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
-    #∇ϕ[1] = first_deriv_central_diff_pot(ϕ, params.z_cell, 1)
-    #∇ϕ[end] = first_deriv_central_diff_pot(ϕ, params.z_cell, ncells+1)
+
     ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
     ∇ϕ[end] = uneven_backward_diff(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
 
@@ -265,24 +271,21 @@ function update_values!(U, params, t = 0)
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
         ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
-        #∇ϕ[i] = (ϕ[i] - ϕ[i-1]) / (z_edge[i] - z_edge[i-1])
-        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
 
-        #source term (includes ionization and acceleration as well as energy source temrs)
-        #@views source_term!(Q[:, i], U, params, i)
+        # electron velocity
+        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
     end
 
-    ue[1] = ue[2] = ue[3] = ue[4]#electron_velocity(U, params, 1)
-    ue[end] = ue[end-1] = ue[end-2] = ue[end-3] #electron_velocity(U, params, ncells+2)
+    ue[1] = ue[2] = ue[3]#electron_velocity(U, params, 1)
+    ue[end] = ue[end-1] = ue[end-2] #electron_velocity(U, params, ncells+2)
 
     if params.implicit_energy
         energy_implicit!(U, params)
+    else
+        # Dirchlet BCs for electron energy
+        apply_bc_electron!(U, params.BCs[3], :left, index)
+        apply_bc_electron!(U, params.BCs[4], :right, index)
     end
-
-    # Dirchlet BCs for electron energy
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
-
 end
 
 function make_keys(fluid_range, subscript)
@@ -455,23 +458,6 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    #=if implicit_energy > 0
-        #alg = AutoTsit5(Rosenbrock23())
-        alg = SSPRK22()
-        prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
-        sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
-        adaptive=false, dt=timestep, dtmax=timestep, maxiters = maxiters)
-        #=splitprob = SplitODEProblem{true}(update_electron_energy!, update_heavy_species!, U, tspan, params)
-        sol = solve(splitprob, KenCarp47(); saveat=sim.saveat, callback=cb,
-        adaptive=adaptive, dtmin = 1e-12, dt=timestep, dtmax = timestep, maxiters = maxiters)=#
-    else
-        #alg = SSPRK22()
-        alg = AutoTsit5(Rosenbrock23())
-        prob = ODEProblem{true}(update!, U, tspan, params)
-        sol = solve(prob, alg; saveat=sim.saveat, callback=cb,
-        adaptive=adaptive, dt=timestep, dtmax=timestep, maxiters = maxiters)
-    end=#
-	#AutoTsit5(Rosenbrock23())
     if implicit_energy
         f = ODEFunction(update_heavy_species!)
     else

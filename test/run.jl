@@ -127,6 +127,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         energy_equation = :LANDMARK,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = true,
+        min_electron_temperature = 1.0,
+        min_number_density = 1.0e6,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
