@@ -154,49 +154,79 @@ function energy_implicit!(U, params)
     Tev[1] = params.Te_L
     Tev[end] = params.Te_R
 
-    #@show bϵ[end], nϵ[end]
+    # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
-    for i in 2:ncells-1
-        Q = source_electron_energy_landmark(U, params, i)
-        Δz = 0.5 * (z_cell[i+1] - z_cell[i-1])
+        for i in 2:ncells-1
+            Q = source_electron_energy_landmark(U, params, i)
 
-        zL = z_cell[i-1]
-        z0 = z_cell[i]
-        zR = z_cell[i+1]
+            zL = z_cell[i-1]
+            z0 = z_cell[i]
+            zR = z_cell[i+1]
 
-        neL = ne[i-1]
-        ne0 = ne[i]
-        neR = ne[i+1]
+            neL = ne[i-1]
+            ne0 = ne[i]
+            neR = ne[i+1]
 
-        nϵL = nϵ[i-1]
-        nϵ0 = nϵ[i]
-        nϵR = nϵ[i+1]
+            nϵL = nϵ[i-1]
+            nϵ0 = nϵ[i]
+            nϵR = nϵ[i+1]
 
-        ϵL = nϵL / neL
-        ϵ0 = nϵ0 / ne0
-        ϵR = nϵR / neR
+            ϵL = nϵL / neL
+            ϵ0 = nϵ0 / ne0
+            ϵR = nϵR / neR
 
-        ueL = ue[i-1]
-        ue0 = ue[i]
-        ueR = ue[i+1]
+            ueL = ue[i-1]
+            ue0 = ue[i]
+            ueR = ue[i+1]
 
-        μnϵ = μ[i] * nϵ[i]
-        dμnϵ_dz = uneven_central_diff(μ[i-1] * nϵL, μnϵ, μ[i+1] * nϵR, zL, z0, zR)
-        d²ϵ_dz² = uneven_second_deriv(ϵL, ϵ0, ϵR, zL, z0, zR)
-        dϵ_dz = uneven_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
-        dneue_dz = uneven_central_diff(ueL * nϵL, ue0 * nϵ0, ueR * nϵR, zL, z0, zR)
-        F_explicit = -5/3 * dneue_dz + 10/9 * (μnϵ * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
+            μnϵL = μ[i-1] * nϵL
+            μnϵ0 = μ[i] * nϵ0
+            μnϵR = μ[i+1] * nϵR
 
-        Aϵ.d[i] = 1 + implicit * dt * 2 * 10/9 * μnϵ / ne[i] / Δz^2
-        Aϵ.dl[i-1] = implicit * dt * (-5/3 * ueL/2/Δz - 10/9 * (μnϵ / neL / Δz^2 - dμnϵ_dz / neL/2/Δz))
-        Aϵ.du[i] = implicit * dt * (5/3 * ueR/2/Δz - 10/9 * (μnϵ / neR / Δz^2 + dμnϵ_dz / neR/2/Δz))
-        bϵ[i] = nϵ[i] + dt * (Q + explicit * F_explicit)
-    end
-    tridiagonal_solve!(nϵ, Aϵ, bϵ)
-    # Make sure Tev is positive
-    for i in 2:ncells-1
-        nϵ[i] = max(params.config.min_electron_temperature * ne[i], nϵ[i])
-    end
+            # coefficients for centered three-point finite difference stencils
+            d_cL, d_c0, d_cR = uneven_central_coeffs(zL, z0, zR)
+            d2_cL, d2_c0, d2_cR = uneven_second_deriv_coeffs(zL, z0, zR)
+
+            # finite difference centered derivatives
+            dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR
+            dneue_dz = d_cL * ueL * neL + d_c0 * ue0 * ne0 + d_cR * ueR * neR
+            dϵ_dz    = d_cL * ϵL        + d_c0 * ϵ0        + d_cR * ϵR
+            d²ϵ_dz²  = d2_cL * ϵL       + d2_c0 * ϵ0       + d2_cR * ϵR
+
+            # Explicit flux term
+            F_explicit = -5/3 * dneue_dz + 10/9 * (μnϵ0 * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
+
+            # Contribution to implicit part from μnϵ * d²ϵ/dz² term
+            Aϵ.d[i] = -10/9 * μnϵ0 / ne0 * d2_c0
+            Aϵ.dl[i-1] = -10/9 * μnϵ0 / neL * d2_cL
+            Aϵ.du[i] = -10/9 * μnϵ0 / neR * d2_cR
+
+            # Contribution to implicit part from dμnϵ/dz * dϵ_dz term
+            Aϵ.d[i] -= 10/9 * dμnϵ_dz / ne0 * d_c0
+            Aϵ.dl[i-1] -= 10/9 * dμnϵ_dz / neL * d_cL
+            Aϵ.du[i] -= 10/9 * dμnϵ_dz / neR * d_cR
+
+            # Contribution to implicit part from advection term
+            Aϵ.d[i] += 5/3 * ueR * d_c0
+            Aϵ.dl[i-1] += 5/3 * ueL * d_cL
+            Aϵ.du[i] += 5/3 * ueR * d_cR
+
+            # Contribution to implicit part from timestepping
+            Aϵ.d[i] = 1.0 + implicit * dt * Aϵ.d[i]
+            Aϵ.dl[i-1] = implicit * dt * Aϵ.dl[i-1]
+            Aϵ.du[i] = implicit * dt * Aϵ.du[i]
+
+            # Explicit right-hand-side
+            bϵ[i] = nϵ[i] + dt * (Q + explicit * F_explicit)
+        end
+
+        # Solve equation system using Thomas algorithm
+        tridiagonal_solve!(nϵ, Aϵ, bϵ)
+
+        # Make sure Tev is positive, limit if below user-configured minumum electron temperature
+        for i in 2:ncells-1
+            nϵ[i] = max(params.config.min_electron_temperature * ne[i], nϵ[i])
+        end
     end
 
 end

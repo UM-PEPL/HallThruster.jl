@@ -1,16 +1,14 @@
 - See if we can try out DiffEqOperators or otherwise avoid recomputing stencil on each iteration
 - move to edge-centered discretization for simplicity
-- try merging update_electron_energy into update_heavy_species to avoid recomputing stuff
-- make tests pass / make new tests
-- local coverage
 - end-to-end MMS
 - remove unused parts
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - make electron energy work with BC cache
 - figure out why electron velocity is weird in second and second-to-last cells
-- separate out finite difference coeffs from finite difference functions
 
 IN PROGRESS
+- local coverage
+- make tests pass / make new tests
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
@@ -48,3 +46,5 @@ DONE
     - the zhang-shu limiter is too advanced, works on polynomial approximations of the cell state. this is more than we need
     - the current limiter just floors the values without too much fuss. nothing breaks and the time requirements are not very noticable
     - minor effect, without it, 1.3e-8 isn't stable for 160 cells
+- separate out finite difference coeffs from finite difference functions
+- uneven finite differences in boundary of energy equation
