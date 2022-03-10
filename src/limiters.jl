@@ -18,3 +18,11 @@ const superbee = FluxLimiter(r -> max(0, min(2r, 1), min(r, 2)))
 const van_albada = FluxLimiter(r -> (r^2 + r) / (r^2 + 1))
 const van_albada_2 = FluxLimiter(r -> 2r / (1 + r^2))
 const van_leer = FluxLimiter(r -> (r + abs(r)) / (1 + abs(r)))
+
+function stage_limiter!(U, integrator, p, t)
+    @inbounds for j in 1:size(U, 2)
+        for Z in p.config.ncharge
+            U[p.index.ρi[Z], j] = max(U[p.index.ρi[Z], j], p.config.min_number_density * p.propellant.m)
+        end
+    end
+end

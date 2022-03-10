@@ -8,12 +8,9 @@
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - make electron energy work with BC cache
 - figure out why electron velocity is weird in second and second-to-last cells
-- basic stage limiter (REIMPLEMENT, removed when changes reverted)
-    - the zhang-shu limiter is too advanced, works on polynomial approximations of the cell state. this is more than we need
-    - the current limiter just floors the values without too much fuss. nothing breaks and the time requirements are not very noticable
+- separate out finite difference coeffs from finite difference functions
 
 IN PROGRESS
-
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE
@@ -45,4 +42,9 @@ DONE
 - crank nicholson instead of backward euler
     - even larger timesteps work now, 4e-8 for 50 cells (1ms in 2 seconds), 2e-8 for 100 cells (8.5 seconds), 1e-8 for 160 cells (26 seconds) (all with SSPRK22)
     - switching from implicit_energy = 0.5 to implicit_energy = 1 makes little difference
-    
+    - SSPRK43 can do even bigger timesteps, but takes a lot longer
+        - 8e-8 for 50 cells (1.9 seconds), 3.5e-8 for 100 cells (9-10 seconds), 1.3e-8 for 160 cells (33.7 seconds)
+- basic stage limiter
+    - the zhang-shu limiter is too advanced, works on polynomial approximations of the cell state. this is more than we need
+    - the current limiter just floors the values without too much fuss. nothing breaks and the time requirements are not very noticable
+    - minor effect, without it, 1.3e-8 isn't stable for 160 cells

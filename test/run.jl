@@ -133,11 +133,11 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
- 
+
     p = plot(sol; case)
     display(p)
 
     return sol
 end
 
-sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-9, alg = SSPRK22());
+sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-8, alg = SSPRK22(), implicit_energy = 0.5);
