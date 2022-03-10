@@ -41,9 +41,22 @@ mutable struct Verification{F1, F2}
     energy ::EnergyOVS{F1, F2}
 end
 
-@inline function uneven_forward_coeffs(z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
+
+"""
+    forward_diff_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a forward first derivative approximation  at the point x0
+on a three-point stencil at points x0, x1, and x2
+
+```jldoctest;setup = :(using HallThruster: forward_diff_coeffs)
+julia> forward_diff_coeffs(1.0, 2.0, 3.0)
+(-1.5, 2.0, -0.5)
+julia> forward_diff_coeffs(0//1, 1//2, 3//2)
+(-8//3, 3//1, -1//3)
+```
+"""
+@inline function forward_diff_coeffs(x0, x1, x2)
+    h1 = x1 - x0
+    h2 = x2 - x1
     return (
         -(2h1 + h2)/h1/(h1 + h2),
         (h1 + h2)/(h1*h2),
@@ -51,9 +64,21 @@ end
     )
 end
 
-@inline function uneven_central_coeffs(z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
+"""
+    central_diff_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a central first derivative approximation at the point x1
+on a three-point stencil at points x0, x1, and x2
+
+```jldoctest;setup = :(using HallThruster: central_diff_coeffs)
+julia> central_diff_coeffs(-1//1, 0//1, 1//1)
+(-1//2, 0//1, 1//2)
+julia> central_diff_coeffs(-1//2, 0//1, 1//1)
+(-4//3, 1//1, 1//3)
+```
+"""
+@inline function central_diff_coeffs(x0, x1, x2)
+    h1 = x1 - x0
+    h2 = x2 - x1
     return (
         -h2/h1/(h1+h2),
         -(h1-h2)/(h1*h2),
@@ -61,9 +86,21 @@ end
     )
 end
 
-@inline function uneven_backward_coeffs(z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
+"""
+    backward_diff_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a backward first derivative approximation at the point x2
+on a three-point stencil at points x0, x1, and x2
+
+```jldoctest;setup = :(using HallThruster: backward_diff_coeffs)
+julia> backward_diff_coeffs(-2//1, -1//1, 0//1)
+(1//2, -2//1, 3//2)
+julia> backward_diff_coeffs(-3//2, -1//1, 0//1)
+(4//3, -3//1, 5//3)
+```
+"""
+@inline function backward_diff_coeffs(x0, x1, x2)
+    h1 = x1 - x0
+    h2 = x2 - x1
     return (
         h2/h1/(h1 + h2),
         -(h1 + h2)/(h1*h2),
@@ -71,9 +108,21 @@ end
     )
 end
 
-@inline function uneven_second_deriv_coeffs(z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
+"""
+    second_deriv_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a central second derivative approximation at the point x1
+on a three-point stencil at points x0, x1, and x2
+
+```jldoctest;setup = :(using HallThruster: second_deriv_coeffs)
+julia> second_deriv_coeffs(-2//1, 0//1, 2//1)
+(1//4, -1//2, 1//4)
+julia> second_deriv_coeffs(-1//2, 0//1, 1//1)
+(8//3, -12//3, 4//3)
+```
+"""
+@inline function second_deriv_coeffs(x0, x1, x2)
+    h1 = x1 - x0
+    h2 = x2 - x1
     common = 2 / (h1 * h2 * (h1 + h2))
     return (
         h2 * common,
@@ -82,26 +131,35 @@ end
     )
 end
 
-@inline function uneven_forward_diff(f0, f1, f2, z0, z1, z2)
-    c0, c1, c2 = uneven_forward_coeffs(z0, z1, z2)
+"""
+    forward_difference(f0, f1, f2, x0, x1, x2)
+Given three points x0, x1, and x2, and the function values at those points, f0, f1, f2,
+compute the second-order approximation of the derivative at x0
+
+```jldoctest;setup = :(using HallThruster: forward_difference)
+julia> f(x) = x^4; forward_difference(f(2), f(2 + 2*eps(Float64)), f(2 + 2*eps(Float64));
+```
+"""
+@inline function forward_difference(f0, f1, f2, x0, x1, x2)
+    c0, c1, c2 = forward_diff_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
 end
 
-@inline function uneven_central_diff(f0, f1, f2, z0, z1, z2)
-    c0, c1, c2 = uneven_central_coeffs(z0, z1, z2)
+@inline function central_difference(f0, f1, f2, x0, x1, x2)
+    c0, c1, c2 = central_diff_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
 end
 
-@inline function uneven_backward_diff(f0, f1, f2, z0, z1, z2)
-    c0, c1, c2 = uneven_backward_coeffs(z0, z1, z2)
+@inline function backward_difference(f0, f1, f2, x0, x1, x2)
+    c0, c1, c2 = backward_diff_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
 end
 
-@inline function uneven_second_deriv(f0, f1, f2, z0, z1, z2)
-    c0, c1, c2 = uneven_second_deriv_coeffs(z0, z1, z2)
+@inline function second_deriv_central_diff(f0, f1, f2, x0, x1, x2)
+    c0, c1, c2 = second_deriv_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
 end
 
-@inline function diff(f0, f1, z0, z1)
-    return (f1 - f0) / (z1 - z0)
+@inline function diff(f0, f1, x0, x1)
+    return (f1 - f0) / (x1 - x0)
 end

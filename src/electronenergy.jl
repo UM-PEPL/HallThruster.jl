@@ -7,11 +7,11 @@ function electron_velocity(U, params, i)
 
     #∇pe = first_deriv_central_diff(pe, z_cell, i)
     if i == 1
-        ∇pe = uneven_forward_diff(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
+        ∇pe = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
     elseif i == size(U, 2)
-        ∇pe = uneven_backward_diff(pe[i-2], pe[i-1], pe[i], z_cell[i-2], z_cell[i-1], z_cell[i])
+        ∇pe = backward_difference(pe[i-2], pe[i-1], pe[i], z_cell[i-2], z_cell[i-1], z_cell[i])
     else
-        ∇pe = uneven_central_diff(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
+        ∇pe = central_difference(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
     end
     uₑ = μ[i] * (∇ϕ[i] - ∇pe/ne[i])
     return uₑ
@@ -120,10 +120,10 @@ function update_electron_energy!(dU, U, params, t)
         νan_L, νan_0, νan_R = νan_0, νan_R, params.anom_model(U, params, i+1)
         μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
 
-        advection_term = uneven_central_diff(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
-        diffusion_term = uneven_central_diff(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR)
+        advection_term = central_difference(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
+        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR)
 
-        d²ϵ_dz² = uneven_second_deriv(ϵL, ϵ0, ϵR, zL, z0, zR)
+        d²ϵ_dz² = second_deriv_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
 
         diffusion_term += μ0 * nϵ[i] * d²ϵ_dz²
 
@@ -184,8 +184,8 @@ function energy_implicit!(U, params)
             μnϵR = μ[i+1] * nϵR
 
             # coefficients for centered three-point finite difference stencils
-            d_cL, d_c0, d_cR = uneven_central_coeffs(zL, z0, zR)
-            d2_cL, d2_c0, d2_cR = uneven_second_deriv_coeffs(zL, z0, zR)
+            d_cL, d_c0, d_cR = central_diff_coeffs(zL, z0, zR)
+            d2_cL, d2_c0, d2_cR = second_deriv_coeffs(zL, z0, zR)
 
             # finite difference centered derivatives
             dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR

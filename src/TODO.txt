@@ -5,6 +5,7 @@
 - Figure out if there's a way we can implement BCs which doesn't leave the Jacobian singular
 - make electron energy work with BC cache
 - figure out why electron velocity is weird in second and second-to-last cells
+- think about reimplementing reconstruction more intelligently
 
 IN PROGRESS
 - local coverage

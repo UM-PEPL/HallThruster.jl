@@ -1,8 +1,8 @@
 using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
 
-
 doctest(HallThruster)
 
+#=
 @testset "Gas and species tests" begin
     @test repr(HallThruster.Krypton) == "Krypton"
     @test repr(HallThruster.Electron) == "e-"
@@ -694,3 +694,4 @@ mms_conservative = eval(conservative_func[1])
 
 end
 
+=#

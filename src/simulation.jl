@@ -264,8 +264,8 @@ function update_values!(U, params)
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
 
-    ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[end] = uneven_backward_diff(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
