@@ -7,11 +7,6 @@
 @inline number_density(U, f::Fluid) = density(U, f) / m(f)
 @inline density(U, f::Fluid) = U[1]
 
-function compute_conservative(ρ, u, p, γ)
-    ρE = p / (γ - 1) + 0.5 * ρ * u^2
-    return ρ, ρ * u, ρE
-end
-
 @inline velocity(U::SVector{1, T}, f::Fluid) where T = f.conservation_laws.u
 @inline velocity(U::SVector{2, T}, f::Fluid) where T = U[2] / U[1]
 @inline velocity(U::SVector{3, T}, f::Fluid) where T = U[2] / U[1]

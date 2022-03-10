@@ -9,9 +9,6 @@ using LoopVectorization
 using LinearAlgebra
 using FileIO
 using DiffEqCallbacks
-using ModelingToolkit
-using Sundials
-using Symbolics
 using SparseArrays
 using ForwardDiff
 
@@ -33,8 +30,11 @@ include("geometry.jl")
 include("boundaryconditions.jl")
 include("potential.jl")
 include("postprocess.jl")
-include("simulation.jl")
+include("types.jl")
+include("electronenergy.jl")
+include("update_values.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
-include("electronenergy.jl")
+include("simulation.jl")
+
 end # module

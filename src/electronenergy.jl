@@ -77,7 +77,7 @@ function S_coll(U, params, i) #landmark table
 end
 
 
-function update_electron_energy!(dU, U, params, t)
+function update_electron_energy_explicit!(dU, U, params, t)
     #########################################################
     #ELECTRON SOLVE
 
@@ -121,10 +121,10 @@ function update_electron_energy!(dU, U, params, t)
         μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
 
         advection_term = central_difference(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
-        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR)
-
+        dϵ_dz = central_difference(ϵL, ϵ0, ϵR, zL, z0, zR)
         d²ϵ_dz² = second_deriv_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
 
+        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR) * dϵ_dz
         diffusion_term += μ0 * nϵ[i] * d²ϵ_dz²
 
         source_term = source_electron_energy_landmark(U, params, i)
@@ -135,8 +135,7 @@ function update_electron_energy!(dU, U, params, t)
     return nothing
 end
 
-
-function energy_implicit!(U, params)
+function update_electron_energy_implicit!(U, params)
     (;Aϵ, bϵ, μ, ue, ne, Tev) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy

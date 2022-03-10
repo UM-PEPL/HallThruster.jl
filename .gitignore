@@ -3,3 +3,4 @@ docs/build
 *.png
 *.jld2
 *.gif
+*.cov
