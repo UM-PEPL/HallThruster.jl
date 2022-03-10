@@ -222,11 +222,11 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     right_state = [ρ1, ρ1, ρ1*(u1+0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet(left_state), HallThruster.Dirichlet(right_state))
 
-    left_state_elec = ρ1/HallThruster.Xenon.m*MMS_CONSTS.Tev0
-    right_state_elec = left_state_elec
+    left_state_elec = ρ1/HallThruster.Xenon.m*(MMS_CONSTS.Tev0+MMS_CONSTS.Tev_elec_max)
+    right_state_elec = ρ1/HallThruster.Xenon.m*MMS_CONSTS.Tev0 
     BCs_elec = (HallThruster.Dirichlet_energy(left_state_elec), HallThruster.Dirichlet_energy(right_state_elec))
     
-    Tev_func(z) = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * z / (MMS_CONSTS_ELEC.L))
+    Tev_func(z) = MMS_CONSTS_ELEC.Tev0 + MMS_CONSTS_ELEC.Tev_elec_max*(MMS_CONSTS_ELEC.L - z)/MMS_CONSTS_ELEC.L #*sin(2 * π * z / (MMS_CONSTS_ELEC.L))
     ne_func(z) = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * z / MMS_CONSTS_ELEC.L)
 
     verification = Verification(0, 1, EnergyOVS(1, MMS_CONSTS.μ,  MMS_CONSTS.ue, Tev_func, ne_func))

@@ -631,7 +631,7 @@ const MMS_CONSTS_ELEC = (
     Tx = 100.0,
     Tev0 = 50.0, 
     Tev_elec_max = 20.0,
-    μ = 0.0,
+    μ = 1.0,
     ue = -100.0,
 )
 
@@ -640,7 +640,7 @@ Dt = Differential(t)
 Dx = Differential(x)
 
 uₑ_manufactured = MMS_CONSTS_ELEC.ue #set electron velocity in beginning
-Tev_manufactured = MMS_CONSTS_ELEC.Tev0 #+ MMS_CONSTS_ELEC.Tev_elec_max*sin(2 * π * x / (MMS_CONSTS_ELEC.L))
+Tev_manufactured = MMS_CONSTS_ELEC.Tev0 + MMS_CONSTS_ELEC.Tev_elec_max*(MMS_CONSTS_ELEC.L - x)/MMS_CONSTS_ELEC.L #*sin(2 * π * x / (MMS_CONSTS_ELEC.L))
 
 n_manufactured = MMS_CONSTS_ELEC.n0 + MMS_CONSTS_ELEC.nx*cos(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
 u_manufactured = MMS_CONSTS_ELEC.u0 + MMS_CONSTS_ELEC.ux*sin(2 * π * MMS_CONSTS_ELEC.n_waves * x / MMS_CONSTS_ELEC.L)
@@ -649,7 +649,8 @@ nϵ_manufactured = n_manufactured/MMS_CONSTS_ELEC.fluid.m*Tev_manufactured
 RHS_1 = Dt(n_manufactured) + Dx(n_manufactured * MMS_CONSTS_ELEC.u_constant)
 RHS_2 = Dt(n_manufactured) + Dx(n_manufactured * u_manufactured)
 RHS_3 = Dt(n_manufactured * u_manufactured) + Dx(n_manufactured * u_manufactured^2 + n_manufactured*HallThruster.Xenon.R*MMS_CONSTS_ELEC.T_constant) 
-RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Tev_manufactured))
+#RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Tev_manufactured))
+RHS_4 = Dt(nϵ_manufactured) + Dx(5/3*nϵ_manufactured*uₑ_manufactured) - 10/9*Dx(MMS_CONSTS_ELEC.μ*nϵ_manufactured)*Dx(Tev_manufactured) - 10/9*MMS_CONSTS_ELEC.μ*nϵ_manufactured*Dx(Dx(Tev_manufactured))
 
 derivs = expand_derivatives.([RHS_1, RHS_2, RHS_3, RHS_4])
 conservative_func = build_function([n_manufactured, n_manufactured, n_manufactured*u_manufactured, nϵ_manufactured], [x, t])
@@ -658,7 +659,7 @@ RHS_func = build_function(derivs, [x])
 mms! = eval(RHS_func[2]) #return [1] as RHS_1 and [2] as RHS_2, mms([3 3])
 mms_conservative = eval(conservative_func[1])
 
-@testset "Order verification studies with MMS electron energy, upwind and no reconstruct" begin
+@testset "Order verification studies with MMS electron energy, HLLE and no reconstruct" begin
     results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = false)
     L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
     expected_slope = 1
@@ -669,7 +670,7 @@ mms_conservative = eval(conservative_func[1])
         println("Row $(i), L_inf $(L_inf[i])")
     end 
     for i in 1:length(results)
-        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[1]/results[i].timestep[1])) timesteps at time $(results[i].solution.t[1])")
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[end]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
     end
     #=
     p1 = Plots.plot(xlabel = "log_h", ylabel = "log_E")
@@ -694,3 +695,17 @@ mms_conservative = eval(conservative_func[1])
 
 end
 
+@testset "Order verification studies with MMS electron energy, HLLE and minmod reconstruct" begin
+    results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = true)
+    L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
+    expected_slope = 1
+    for i in 1:size(results[1].u_exa)[1]
+        @test L_1[i] ≈ expected_slope atol = expected_slope*10
+        println("Row $(i), L_1 $(L_1[i])")
+        @test L_inf[i] ≈ expected_slope atol = expected_slope*10
+        println("Row $(i), L_inf $(L_inf[i])")
+    end 
+    for i in 1:length(results)
+        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[end]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
+    end
+end
