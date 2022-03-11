@@ -188,12 +188,12 @@ function update_electron_energy_implicit!(U, params)
 
             # finite difference centered derivatives
             dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR
-            dneue_dz = d_cL * ueL * neL + d_c0 * ue0 * ne0 + d_cR * ueR * neR
+            dnϵue_dz = d_cL * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
             dϵ_dz    = d_cL * ϵL        + d_c0 * ϵ0        + d_cR * ϵR
             d²ϵ_dz²  = d2_cL * ϵL       + d2_c0 * ϵ0       + d2_cR * ϵR
 
             # Explicit flux term
-            F_explicit = -5/3 * dneue_dz + 10/9 * (μnϵ0 * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
+            F_explicit = 5/3 * dnϵue_dz - 10/9 * (μnϵ0 * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
 
             # Contribution to implicit part from μnϵ * d²ϵ/dz² term
             Aϵ.d[i] = -10/9 * μnϵ0 / ne0 * d2_c0
@@ -216,7 +216,7 @@ function update_electron_energy_implicit!(U, params)
             Aϵ.du[i] = implicit * dt * Aϵ.du[i]
 
             # Explicit right-hand-side
-            bϵ[i] = nϵ[i] + dt * (Q + explicit * F_explicit)
+            bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
         end
 
         # Solve equation system using Thomas algorithm

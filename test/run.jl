@@ -134,7 +134,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
 
-    p = plot(sol; case)
+    p = plot_timeaveraged(sol, case, 1)
     display(p)
 
     return sol
