@@ -26,7 +26,7 @@ function solve_potential_edge!(U, params)
     A = params.cache.A
     b = params.cache.b
     μ = params.cache.μ
-    OVS = params.OVS.potential
+    OVS = 0 #params.OVS.potential
 
     #= this line allocates
     OVS = Array{Union{Nothing, Bool}}(nothing, 1)

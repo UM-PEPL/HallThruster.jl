@@ -1,3 +1,5 @@
+using JLD2
+
 struct HallThrusterSolution{T, U, P}
     t::T
     u::U

@@ -31,4 +31,5 @@ include("simulation.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
 include("electronenergy.jl")
+include("energysteadystate.jl")
 end # module

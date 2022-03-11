@@ -61,11 +61,13 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     A = Tridiagonal(ones(ncells), ones(ncells+1), ones(ncells)) #for potential
     b = zeros(ncells + 1) #for potential equation
     B = zeros(ncells + 2)
+    A₁ = Tridiagonal(ones(ncells+1), ones(ncells+2), ones(ncells+1)) #for energy steady state
+    b₁ = Vector{Union{Nothing, Float64}}(nothing, ncells+2) #for energy steady state
     νan = zeros(ncells + 2)
     νc = zeros(ncells + 2)
     μ = zeros(ncells + 2)
 
-    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ)
+    cache = (; F, UL, UR, Q, A, b, B, νan, νc, μ, A₁, b₁)
     return U, cache
 end
 
@@ -110,16 +112,18 @@ function update_heavy_species!(dU, U, params, t)
             # Compute current charge state to make sure sound speed in diffusion term is correct
             Z = ((j - first_ion_index) ÷ num_ion_equations) + 1
             # Add optional diffusion term for the ions in interior cells
-            dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
+            #dU[j, i] += sqrt(Z) * η*(U[j, i-1] - 2U[j, i] + U[j, i+1])/Δz²
         end
 
-        # Electron source term
-        dU[index.nϵ, i] = Q[index.nϵ, i]
-    end
+        dU[3, i] += 1 * η*U[2, i]*(U[3, i-1]/U[2, i-1] - 2U[3, i]/U[2, i] + U[3, i+1]/U[2, i+1])/Δz²
 
+        # Electron source term
+        #dU[index.nϵ, i] = Q[index.nϵ, i]
+    end
+    #=
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
-    end
+    end=#
 
     return nothing
 end
@@ -199,7 +203,7 @@ function update_values!(U, params)
 
     (;z_cell, z_edge, fluids, fluid_ranges, index, scheme, source_term!) = params
     (;F, UL, UR, Q, B) = params.cache
-    OVS = params.OVS.energy.active
+    OVS = 0 #params.energy.OVS.active
 
     mi = params.propellant.m
 
@@ -213,18 +217,22 @@ function update_values!(U, params)
     @views apply_bc!(U[1:index.lf, :], params.BCs[1], :left, params.Te_L, mi)
     @views apply_bc!(U[1:index.lf, :], params.BCs[2], :right, params.Te_R, mi)
 
+    @inbounds @views for i in 1:(ncells + 2)
+        z = z_cell[i]
+        #OVS_ne = OVS * (params.OVS.energy.ne(z))
+        @views U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) #+ OVS_ne
+    end
+
     # Update electron quantities
     @inbounds @views for i in 1:(ncells + 2)
         z = z_cell[i]
-        OVS_ne = OVS * (params.OVS.energy.ne(z))
-        OVS_Tev = OVS * (params.OVS.energy.Tev(z))
+        #OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
-        U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
+        U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) #+ OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
         params.cache.νc[i] = electron_collision_freq(U[index.Tev, i], U[1, i]/mi , U[index.ne, i], mi)
-        params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
+        params.cache.μ[i] = (1 - OVS)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     apply_bc_electron!(U, params.BCs[3], :left, index)
@@ -239,27 +247,30 @@ function update_values!(U, params)
     #@views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
     @views ∇ϕ = U[index.grad_ϕ, :]
     @views ϕ = U[index.ϕ, :]
-    ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[end] = uneven_backward_diff(ϕ[end-3], ϕ[end-2], ϕ[end-1], z_edge[end-2], z_edge[end-1], z_edge[end])
+    #∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    #∇ϕ[end] = uneven_backward_diff(ϕ[end-3], ϕ[end-2], ϕ[end-1], z_edge[end-2], z_edge[end-1], z_edge[end])
 
     # Compute interior potential gradient and electron velocity and update source terms
     @inbounds for i in 2:(ncells + 1)
         # potential gradient
         @views U[index.grad_ϕ, i] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, i)
-        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
+        U[index.ue, i] = (1 - OVS) * electron_velocity(U, params, i) #+ OVS * (params.OVS.energy.ue)
 
         #source term (includes ionization and acceleration as well as energy source temrs)
         @views source_term!(Q[:, i], U, params, i)
     end
 
+    
+    #solve energy steady state if applicable
+    solve_energyss!(U, params)
+
     # Neumann condition for electron velocity
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
+    U[index.grad_ϕ, 1] = U[index.grad_ϕ, 2]
+    U[index.grad_ϕ, end] = U[index.grad_ϕ, end-1]
 end
 
-#=Config = @NamedTuple begin
-    propellant::Gas
-end=#
 
 condition(u,t,integrator) = t < 1
 function affect!(integrator)
@@ -398,7 +409,7 @@ function run_simulation(sim, config) #put source and Bcs potential in params
         un = config.neutral_velocity,
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
-        OVS = config.verification,
+        OVS = 0 #=config.verification=#,
         anom_model = config.anom_model,
         loss_coeff = landmark.loss_coeff,
         reactions = ionization_reactions,

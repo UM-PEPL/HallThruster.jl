@@ -3,14 +3,15 @@ using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, D
 
 function animate_solution_individual(sol)
     mi = HallThruster.Xenon.m
+    z = sol.params.z_cell
     @gif for (u, t) in zip(sol.u, sol.t)
         p = plot(ylims = (1e13, 1e20))
         plot!(p, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
         plot!(p, u[2, :] / mi, label = ["nᵢ" ""])
     end
     @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (0, 3e4))
-        plot!(p, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
+        p = plot(ylims = (-2000, 2.2e4))
+        plot!(p, z, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", xlabel = "z (m)", label = ["vᵢ" ""])
     end
     @gif for (u, t) in zip(sol.u, sol.t) #nϵ
         p = plot(ylims = (0, 20))
@@ -43,7 +44,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothi
     end
     p = plot()
     plot!(
-        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, bottommargin = 7Plots.mm, topmargin = 7Plots.mm, lw = 2,
+        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, leftmargin = 7Plots.mm, bottommargin = 7Plots.mm, topmargin = 7Plots.mm, lw = 2,
         kwargs...
     )
     if !isnothing(ref_path)
@@ -67,7 +68,8 @@ function load_hallis_output(output_path)
     return output[1:end-1, :]
 end
 
-function plot_solution(u, z = nothing, case = 1)
+function plot_solution(sol, z = nothing, case = 1)
+    u = sol.u[end]
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
     mi = HallThruster.Xenon.m
@@ -78,9 +80,12 @@ function plot_solution(u, z = nothing, case = 1)
     p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
     p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
     p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
+    #p_ϕ  = plot_quantity(sol.params.cache.νan .+ sol.params.cache.νc, z; title = "Collision frequency", ylabel = "1/s")
+    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential, Magnetic field", ylabel = "ϕ (V), B(G)", ref_path = "landmark/landmark_potential_$(case).csv")
+    #plot!(p_ϕ, z, sol[end, "B"].*10000, axis = :right, label = "Magnetic field (exact)")
     p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
     plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
+    #plot(p_ϕ, layout = (1, 1), size = (1000, 500))
 end
 
 function plot_solution_real(u, z = nothing, case = 1)
@@ -183,8 +188,8 @@ function calc_current(sol)
 end
 
 function plot_current(current, sol)
-    p1 = plot(ylims = (0, 30))
-    plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
+    p1 = plot(ylims = (0, 15), size = (2000, 1000))
+    plot!(p1, sol.t, current[1, :], xlabel = "t (s)", ylabel = "I (A)", title = "Currents at right boundary", label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, sol.t, current[2, :] + current[1, :], label = ["I total" ""])
     png(p1, "currents")
@@ -198,4 +203,4 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution) = plot_solution(sol.u[end], sol.params.z_cell)
+Plots.plot(sol::HallThruster.HallThrusterSolution) = plot_solution(sol, sol.params.z_cell)

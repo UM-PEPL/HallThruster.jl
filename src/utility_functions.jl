@@ -18,6 +18,7 @@ Computes an analytic approximation to x < cutoff ? v1 : v2
 """
 smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
 
+#=
 """
     mutable struct EnergyOVS
 Enables setting mu, ue, Tev and ne to certain values to very electron energy equation
@@ -39,7 +40,7 @@ mutable struct Verification{F1, F2}
     potential ::Int64
     fluid ::Int64
     energy ::EnergyOVS{F1, F2}
-end
+end=#
 
 
 @inline function uneven_forward_diff(f0, f1, f2, z0, z1, z2)
