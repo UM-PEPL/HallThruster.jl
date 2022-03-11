@@ -7,7 +7,7 @@
 - finish transition of bc stuff so i can remove most of the content of boundary_conditions.jl\
 - make tests pass / make new tests
 - think about reimplementing reconstruction more intelligently
-- figure out why other cases are weird between impicit_energy = 0.5 and implicit_energy = 1.0
+- ssprk repeatability problems
 
 IN PROGRESS
 
@@ -53,3 +53,4 @@ DONE
 - other cases work better now (damn smooth if) but their behavior is consistent between implicit_energy = 0.5 and implicit_energy = 1
     - and the oscillations are still not what they're supposed to be
     - and the density is off at the boundaries
+- implicit energy now works the same as crank-nicholson
