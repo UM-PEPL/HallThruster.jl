@@ -94,7 +94,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
 
-    νϵ = if case == 1
+    νϵ_in = if case == 1
         1.0
     elseif case == 2
         0.5
@@ -104,14 +104,17 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         1.0
     end
 
+    νϵ_out = 1.0
+    νw = 1e7
+
     config = (
         anode_potential = 300.0,
         cathode_potential = 0.0,
         anode_Te = 3.0,
         cathode_Te = 3.0,
         restart_file = restart_file,
-        radial_loss_coefficients = (νϵ, 1.0),
-        wall_collision_frequencies = (1e7, 0.0),
+        radial_loss_coefficients = (νϵ_in, νϵ_out),
+        wall_collision_frequencies = (νw, 0.0),
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,
@@ -129,7 +132,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         electron_pressure_coupled = true,
         min_electron_temperature = 1.0,
         min_number_density = 1.0e6,
-        implicit_iters = implicit_iters
+        implicit_iters = implicit_iters,
+        smoothing_length = 0.00
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)

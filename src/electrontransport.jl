@@ -11,13 +11,16 @@ end
     B = params.cache.B[icell]
     z = params.z_cell[icell]
     c = model.coeffs
+    smoothing_length = params.config.smoothing_length
 
     ωce = e * B / mₑ
 
     νan = if z < L_ch
         c[1] * ωce + params.νw[1] # +1e7 anomalous wall from Landmark inside channel
     else
-        c[2] * ωce + params.νw[2]
+        α = smooth_transition(z, L_ch, smoothing_length, params.νw[1]/1e7, params.νw[2]/1e7)
+        β = smooth_transition(z, L_ch, smoothing_length, c[1], c[2])
+        β * ωce + α * 1e7
     end
     return νan
 end

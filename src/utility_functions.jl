@@ -16,6 +16,10 @@ true
 """
 smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
 
+function smooth_transition(x, x_exh, L_trans, a_in, a_out)
+    return a_in + (a_out - a_in) * (x - x_exh)^2 / ((x - x_exh)^2 + L_trans^2)
+end
+
 """
     forward_diff_coeffs(x0, x1, x2)
 Generate finite difference coefficients for a forward first derivative approximation  at the point x0

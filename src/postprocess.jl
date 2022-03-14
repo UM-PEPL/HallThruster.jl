@@ -52,3 +52,52 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
     println(io, "Retcode: $(string(sol.retcode))")
     print(io, "End time: $(sol.t[end]) seconds")
 end
+
+
+function timeaveraged(sol, tstampstart)
+    avg = zeros(size(sol.u[1]))
+    avg_savevals = deepcopy(sol.savevals[end])
+    (;Tev, ue, ϕ, ∇ϕ, ne) = avg_savevals
+    Tev .= 0.0
+    ue .= 0.0
+    ϕ .= 0.0
+    ∇ϕ .= 0.0
+    ne .= 0.0
+
+    tstamps = length(sol.t)
+    Δt = (tstamps - tstampstart + 1)
+    for i in tstampstart:length(sol.t)
+        avg .+= sol.u[i] / Δt
+        Tev .+= sol.savevals[i].Tev / Δt
+        ue .+= sol.savevals[i].ue  / Δt
+        ϕ .+= sol.savevals[i].ϕ / Δt
+        ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
+        ne .+= sol.savevals[i].ne / Δt
+    end
+    return avg, avg_savevals
+end
+
+function compute_current(sol)
+    index = sol.params.index
+    current = zeros(2, length(sol.t))
+    area = sol.params.A_ch
+    mi = sol.params.propellant.m
+    for i in 1:length(sol.t)
+        (;ue, ne) = sol.savevals[i]
+        current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/mi*area
+        current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
+    end
+    return current
+end
+
+function compute_thrust(sol)
+    index = sol.params.index
+    thrust = zeros(length(sol.t))
+    area = sol.params.A_ch
+    for i in 1:length(sol.t)
+        for Z in 1:sol.params.config.ncharge
+            thrust[i] += area * sol.u[i][index.ρiui[Z], end]^2 / sol.u[i][index.ρi[Z], end]
+        end
+    end
+    return thrust
+end

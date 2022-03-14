@@ -144,42 +144,6 @@ run simulation under three test cases
 return to implicit and other general framework, see what happens
 =#
 
-function timeaveraged(sol, tstampstart)
-    avg = zeros(size(sol.u[1]))
-    avg_savevals = deepcopy(sol.savevals[end])
-    (;Tev, ue, ϕ, ∇ϕ, ne) = avg_savevals
-    Tev .= 0.0
-    ue .= 0.0
-    ϕ .= 0.0
-    ∇ϕ .= 0.0
-    ne .= 0.0
-
-    tstamps = length(sol.t)
-    Δt = (tstamps - tstampstart + 1)
-    for i in tstampstart:length(sol.t)
-        avg .+= sol.u[i] / Δt
-        Tev .+= sol.savevals[i].Tev / Δt
-        ue .+= sol.savevals[i].ue  / Δt
-        ϕ .+= sol.savevals[i].ϕ / Δt
-        ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
-        ne .+= sol.savevals[i].ne / Δt
-    end
-    return avg, avg_savevals
-end
-
-function calc_current(sol)
-    index = sol.params.index
-    current = zeros(2, length(sol.t))
-    area = pi*(0.05^2 - 0.035^2)
-    distance = 0.050 - 0.0350
-    for i in 1:length(sol.t)
-        (;ue, ne) = sol.savevals[i]
-        current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/HallThruster.Xenon.m*area
-        current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
-    end
-    return current
-end
-
 function plot_current(current, sol)
     p1 = plot(ylims = (0, 30))
     plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
@@ -199,6 +163,6 @@ end
 Plots.plot(sol::HallThruster.HallThrusterSolution; case) = plot_solution(sol.u[end], sol.savevals[end], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, case, start_ind)
-    avg, avg_savevals = timeaveraged(sol, start_ind)
+    avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
     plot_solution(avg, avg_savevals, sol.params.z_cell, case)
 end

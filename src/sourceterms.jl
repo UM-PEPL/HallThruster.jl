@@ -65,7 +65,9 @@ function source_electron_energy_landmark(U, params, i)
     if params.z_cell[i] <= params.L_ch
         νϵ = params.νϵ[1]
     else
-        νϵ = params.νϵ[2]
+        νϵ = smooth_transition(
+            params.z_cell[i], params.L_ch, params.config.smoothing_length, params.νϵ[1], params.νϵ[2]
+        )
     end
     mi = params.propellant.m
     UU = 20.0

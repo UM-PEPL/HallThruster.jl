@@ -8,6 +8,7 @@
 - make tests pass / make new tests
 - think about reimplementing reconstruction more intelligently
 - ssprk repeatability problems
+- performance computation
 
 IN PROGRESS
 
