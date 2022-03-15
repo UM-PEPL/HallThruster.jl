@@ -56,5 +56,5 @@ Geometry of the SPT_100 thruster
 const SPT_100 = (domain=(0.0, 0.05), channel_length=0.025, inner_radius=0.0345,
                  outer_radius=0.05)
 
-const SPT_100_2 = (domain=(0.0, 1.0), channel_length=0.025, inner_radius=0.0345,
+const SPT_100_1 = (domain=(0.0, 0.08), channel_length=0.025, inner_radius=0.0345,
                  outer_radius=0.05)

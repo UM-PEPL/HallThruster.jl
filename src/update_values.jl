@@ -19,7 +19,7 @@ function update_values!(U, params, t = 0)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
-    (;BC_L, BC_R, B, ue, Tev, ∇ϕ, ϕ, pe, ne, νan, νc, μ) = params.cache
+    (;BC_L, BC_R, B, ue, Tev, ∇ϕ, ϕ, pe, ne, νan, νc, μ, ∇pe) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -60,23 +60,12 @@ function update_values!(U, params, t = 0)
     end
 
     # update electrostatic potential and potential gradient on edges
-    solve_potential_edge!(U, params)
+    solve_potential!(ϕ, U, params)
 
-    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+    # Compute potential gradient, pressure gradient, and electron velocity
+    compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
-    # Compute interior potential gradient and electron velocity and update source terms
-    @inbounds for i in 2:(ncells + 1)
-        # potential gradient
-        ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
-
-        # electron velocity
-        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
-    end
-
-    ue[1] = ue[2] = ue[3]#electron_velocity(U, params, 1)
-    ue[end] = ue[end-1] = ue[end-2] #electron_velocity(U, params, ncells+2)
-
+    # Update electron energy if implicit, or if not then set electron boundary conditions for explicit solve
     if params.implicit_energy > 0
         update_electron_energy_implicit!(U, params)
     else
@@ -84,4 +73,43 @@ function update_values!(U, params, t = 0)
         apply_bc_electron!(U, params.BCs[3], :left, index)
         apply_bc_electron!(U, params.BCs[4], :right, index)
     end
+end
+
+function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
+    (; ϕ, μ, ne, pe) = params.cache
+    (;z_cell) = params
+
+    ncells = length(z_cell)
+
+    functions = (ϕ, pe)
+    gradients = (∇ϕ, ∇pe)
+
+    # Forward difference at left boundary
+    cL, c0, cR = forward_diff_coeffs(z_cell[1], z_cell[2], z_cell[3])
+    @inbounds for (f, g) in zip(functions, gradients)
+        g[1] = cL * f[1] + c0 * f[2] + cR * f[3]
+    end
+    # Compute electron velocity
+    ue[1] = μ[1] * (∇ϕ[1] - ∇pe[1]/ne[1])
+
+    # Centered difference in interior cells
+    @inbounds for j in 2:ncells-1
+        cL, c0, cR = central_diff_coeffs(z_cell[j-1], z_cell[j], z_cell[j+1])
+        for (f, g) in zip(functions, gradients)
+            g[j] = cL * f[j-1] + c0 * f[j] + cR * f[j+1]
+        end
+
+        # Compute electron velocity
+        ue[j] = μ[j] * (∇ϕ[j] - ∇pe[j]/ne[j])
+    end
+
+    # Backward difference at right boundary
+    cL, c0, cR = backward_diff_coeffs(z_cell[end-2], z_cell[end-1], z_cell[end])
+    @inbounds for (f, g) in zip(functions, gradients)
+        g[end] = cL * f[end-2] + c0 * f[end-1] + cR * f[end]
+    end
+    # Compute electron velocity
+    ue[end] = μ[end] * (∇ϕ[end] - ∇pe[end]/ne[end])
+
+    return nothing
 end

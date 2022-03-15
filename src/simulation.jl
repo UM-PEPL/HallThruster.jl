@@ -23,24 +23,25 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
         end
     end
 
-    ncells = grid.ncells
+    ncells = grid.ncells + 2
     nedges = grid.ncells + 1
 
-    U = zeros(nvariables + 1, ncells + 2) # need to allocate room for ghost cells
-    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
+    U = zeros(nvariables + 1, ncells)
+    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for potential
     b = zeros(nedges) #for potential equation
-    Aϵ = Tridiagonal(ones(ncells+1), ones(ncells+2), ones(ncells+1)) #for energy
-    bϵ = zeros(ncells+2) #for energy
-    B = zeros(ncells + 2)
-    νan = zeros(ncells + 2)
-    νc = zeros(ncells + 2)
-    μ = zeros(ncells + 2)
-    ϕ = zeros(nedges)
-    ∇ϕ = zeros(ncells + 2)
-    ne = zeros(ncells + 2)
-    Tev = zeros(ncells + 2)
-    pe = zeros(ncells + 2)
-    ue = zeros(ncells + 2)
+    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
+    bϵ = zeros(ncells) #for energy
+    B = zeros(ncells)
+    νan = zeros(ncells)
+    νc = zeros(ncells)
+    μ = zeros(ncells)
+    ϕ = zeros(ncells)
+    ∇ϕ = zeros(ncells)
+    ne = zeros(ncells)
+    Tev = zeros(ncells)
+    pe = zeros(ncells)
+    ∇pe = zeros(ncells)
+    ue = zeros(ncells)
     BC_L = zeros(nvariables+1)
     BC_R = zeros(nvariables+1)
 

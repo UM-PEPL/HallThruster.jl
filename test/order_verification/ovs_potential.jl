@@ -1,6 +1,6 @@
 module OVS_Potential
 
-using Symbolics, HallThruster, Plots
+using Symbolics, HallThruster, Plots, LinearAlgebra
 
 @variables x t
 
@@ -29,47 +29,98 @@ pe_func = eval(build_function(pe, [x]))
 potential_eq = Dx(μ * ne * Dx(ϕ) - ne * ui - μ * Dx(pe))
 source_potential = eval(build_function(expand_derivatives(potential_eq), [x]))
 
-function verify_potential(ncells, plot = false)
+function verify_potential(ncells, plot_results = false)
 
     index = (;ρiui = [1])
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
 
     z_cell = grid.cell_centers
-    z_edge = grid.edges
-    nedges = length(z_edge)
+    ncells = length(z_cell)
 
     μ = μ_func.(z_cell)
     ne = ne_func.(z_cell)
     pe = pe_func.(z_cell)
     U = ρiui_func.(z_cell)' |> collect
-    ϕ = zeros(nedges)
+    ϕ = zeros(ncells)
 
-    ϕ_exact = ϕ_func.(z_edge)
+    ϕ_exact = ϕ_func.(z_cell)
 
-    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1))
-    b = zeros(nedges) #for potential equation
+    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    b = zeros(ncells) #for potential equation
 
     ϕ_L = ϕ_exact[1]
     ϕ_R = ϕ_exact[end]
 
-    source_func = (U, params, i) -> source_potential(params.z_edge[i])
+    source_func = (U, params, i) -> source_potential(params.z_cell[i])
 
     config = (propellant = HallThruster.Xenon, ncharge = 1, source_potential = source_func)
     cache = (;A, b, μ, ϕ, pe, ne)
-    params = (;z_cell, z_edge, index, ϕ_L, ϕ_R, cache, config)
+    params = (;z_cell, index, ϕ_L, ϕ_R, cache, config)
 
-    @time HallThruster.solve_potential_edge!(U, params)
+    @time HallThruster.solve_potential!(ϕ, U, params)
 
-    results = (;z_edge, exact = ϕ_exact, sim = params.cache.ϕ)
+    results = (;z = z_cell, exact = ϕ_exact, sim = ϕ)
 
-    if plot
-        p = plot(z_edge, results.exact, label = "exact")
-        plot!(p, z_edge, results.sim, label = "sim")
+    if plot_results
+        p = plot(z_cell, results.exact, label = "exact")
+        plot!(p, z_cell, results.sim, label = "sim")
         display(p)
     end
 
-    return results
+    return (results,)
 end
+
+∇pe = Dx(pe)
+∇ϕ = Dx(ϕ)
+ue = μ * (∇ϕ - ∇pe / ne)
+
+∇pe_func = eval(build_function(expand_derivatives(∇pe), [x]))
+∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
+ue_func = eval(build_function(expand_derivatives(ue), [x]))
+
+function verify_gradients(ncells, plot_results = false)
+
+    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+
+    z_cell = grid.cell_centers
+    ncells = length(z_cell)
+
+    μ   = μ_func.(z_cell)
+    ne  = ne_func.(z_cell)
+    pe  = pe_func.(z_cell)
+    ϕ   = ϕ_func.(z_cell)
+    ∇ϕ  = zeros(ncells)
+    ∇pe = zeros(ncells)
+    ue  = zeros(ncells)
+
+    ∇ϕ_exact  = ∇ϕ_func.(z_cell)
+    ∇pe_exact = ∇pe_func.(z_cell)
+    ue_exact  = ue_func.(z_cell)
+
+    cache = (;μ, ne, pe, ϕ, ∇ϕ, ∇pe, ue)
+    params = (;z_cell, cache)
+    U = nothing
+
+    HallThruster.compute_gradients!(∇ϕ, ∇pe, ue, U, params)
+
+    result_∇ϕ = (;z = z_cell, exact = ∇ϕ_exact, sim = ∇ϕ)
+    result_∇pe = (;z = z_cell, exact = ∇pe_exact, sim = ∇pe)
+    result_ue = (;z = z_cell, exact = ue_exact, sim = ue)
+
+    if plot_results
+        p1 = plot(result_∇ϕ.z, result_∇ϕ.exact, label = "exact",   title = "Potential gradient")
+        plot!(p1, result_∇ϕ.z, result_∇ϕ.sim, label = "sim")
+        p2 = plot(result_∇pe.z, result_∇pe.exact, label = "", title = "Pressure gradient")
+        plot!(p2, result_∇pe.z, result_∇pe.sim, label = "")
+        p3 = plot(result_ue.z, result_ue.exact, label = "",   title = "Electron velocity")
+        plot!(p3, result_ue.z, result_ue.sim, label = "")
+
+        plot(p1, p2, p3, layout = (3, 1)) |> display
+    end
+
+    return (result_∇ϕ, result_∇pe, result_ue)
+end
+
 
 end

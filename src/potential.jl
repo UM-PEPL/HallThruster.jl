@@ -3,76 +3,69 @@
     solve_potential!(; U::Matrix{Float64}, params::NamedTuple)
 function to solve the potential equation derived from the generalized Ohm's law
 and employing charge conservation using quasineutrality. Second derivatives approximated
-with 2nd order central difference scheme, first derivatives with central difference. 
-Centers of computational mesh placed on edges of fluid mesh, therefore edges correspond to boundaries for fluid. 
+with 2nd order central difference scheme, first derivatives with central difference.
+Centers of computational mesh placed on edges of fluid mesh, therefore edges correspond to boundaries for fluid.
 If required, interpolation is used to infer properties at mesh boundaries. Potential is a function of magnetic
 field, anomalous and classical collision frequency, neutral and ion density as well as ion velocity, and electron density
 and temperature leading to electron pressure. Solved by applying Thomas algorithm, which is of complexity O(n) and valid
 if matrix tridiagonal and diagonally dominant. The latter assumption almost always holds unless there is a huge discontinuity
-in either electron mobility or electron density. 
+in either electron mobility or electron density.
 """
 
-function solve_potential_edge!(U, params)
+function solve_potential!(ϕ, U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-    z_cell = params.z_cell
-    fluids = params.fluids
-    index = params.index
-    N = length(z_cell) - 1
+    (;z_cell, index, ϕ_L, ϕ_R, cache) = params
+    (;A, b, μ, pe, ne) = cache
+    source_potential = params.config.source_potential
+    mi = params.config.propellant.m
+    ncharge = params.config.ncharge
 
-    (;A, b, μ, ϕ, pe, ne) = params.cache
-    OVS = params.OVS.potential
+    ncells = length(z_cell)
 
-    #= this line allocates
-    OVS = Array{Union{Nothing, Bool}}(nothing, 1)
-    OVS[1] = false
-    =#
-
-    ϕ_L = params.ϕ_L
-    ϕ_R = params.ϕ_R
-
-    b[1] = ϕ_L
+    b[1]   = ϕ_L
     b[end] = ϕ_R
 
-    A.d[1] = 1.0
+    A.d[1]  = 1.0
     A.du[1] = 0.0
-    A.d[N] = 1.0
-    A.dl[N-1] = 0.0
+    A.d[ncells]    = 1.0
+    A.dl[ncells-1] = 0.0
 
-    mi = m(fluids[1])
+    @inbounds for i in 2:ncells-1
 
-    @turbo for i in 2:(N - 1)
+        # Compute coefficients for central derivatives
+        d_cL,  d_c0,  d_cR  = central_diff_coeffs(z_cell[i-1], z_cell[i], z_cell[i+1])
+        d2_cL, d2_c0, d2_cR = second_deriv_coeffs(z_cell[i-1], z_cell[i], z_cell[i+1])
 
-        ne⁻ = ne[i]
-        ne⁺ = ne[i + 1]
-        μ⁻ = μ[i]
-        μ⁺ = μ[i+1]
+        peL, pe0, peR = pe[i-1], pe[i], pe[i+1]
+        neL, ne0, neR = ne[i-1], ne[i], ne[i+1]
+        μL,  μ0,  μR  = μ[i-1],  μ[i],  μ[i+1]
 
-        # commenting out for now
-        #if OVS[1] == true
-        #    ne⁻ = ne⁺ = nn⁻ = nn⁺ = B⁻ = B⁺ = νan⁻ = νan⁺ = μ⁻ = μ⁺ = 1.0
-        #end
-
-        Δz = z_cell[i+1] - z_cell[i]
-
-        Δz² = Δz^2
-
-        #direct discretization, h/2 to each side
-        A.dl[i - 1] = ne⁻ * μ⁻ / Δz²
-        A.d[i] = -(ne⁻ * μ⁻ + ne⁺ * μ⁺) / Δz²
-        A.du[i] = ne⁺ * μ⁺ / Δz²
-
+        # For a quasineutral plasma, ∇⋅(nₑu⃗ₑ) = ∑ Z ∇⋅(nᵢuᵢ) by charge conservation, where Z is the charge state
         ∇_neue = 0.0
-        for Z in 1:params.config.ncharge
-            ∇_neue += Z * (U[index.ρiui[Z], i + 1] - U[index.ρiui[Z], i]) / Δz / mi
+        for Z in 1:ncharge
+            ρiui_L = U[index.ρiui[Z], i-1]
+            ρiui_0 = U[index.ρiui[Z], i]
+            ρiui_R = U[index.ρiui[Z], i+1]
+            ∇_neue += Z/mi * (d_cL * ρiui_L + d_c0 * ρiui_0 + d_cR * ρiui_R)
         end
 
-        #source term, h/2 to each side
-        b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + ∇_neue
+        # Compute relevant derivatives
+        dμ_dz    = d_cL * μL   + d_c0 * μ0   + d_cR * μR
+        dμne_dz  = d_cL * μL * neL + d_c0 * μ0 * ne0 + d_cR * μR * neR
+        dpe_dz   = d_cL  * peL + d_c0  * pe0 + d_cR  * peR
+        d²pe_dz² = d2_cL * peL + d2_c0 * pe0 + d2_cR * peR
 
-        #for order verification, change to simpler source term
-        b[i] = (1 - OVS) * b[i] + 50_000 * OVS
+        # Fill matrix
+        A.dl[i-1] = d_cL * dμne_dz + μ0 * ne0 * d2_cL
+        A.d[i]    = d_c0 * dμne_dz + μ0 * ne0 * d2_c0
+        A.du[i]   = d_cR * dμne_dz + μ0 * ne0 * d2_cR
 
+        # Fill right-hand side
+        b[i] = dμ_dz * dpe_dz + μ0 * d²pe_dz² + ∇_neue
+
+        # Add user-provided source term
+        b[i] += source_potential(U, params, i)
     end
     return tridiagonal_solve!(ϕ, A, b)
 end

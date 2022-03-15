@@ -72,7 +72,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     OVS_Tev = z -> 0.0
     OVS_ne = z -> 0.0
 
-    mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    mesh = HallThruster.generate_grid(HallThruster.SPT_100_1, ncells)
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
         boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
@@ -115,7 +115,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         restart_file = restart_file,
         radial_loss_coefficients = (νϵ_in, νϵ_out),
         wall_collision_frequencies = (νw, 0.0),
-        geometry = HallThruster.SPT_100,
+        geometry = HallThruster.SPT_100_1,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,
         neutral_temperature = 300.0,
