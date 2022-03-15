@@ -110,6 +110,36 @@ julia> second_deriv_coeffs(-1//2, 0//1, 1//1)
 end
 
 """
+    upwind_diff_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a upwind first derivative approximation at the point x2
+on a three-point stencil at points x0, x1, and x2 (uses only points x0 and x1)
+
+```jldoctest;setup = :(using HallThruster: upwind_diff_coeffs)
+julia> upwind_diff_coeffs(-3//1, 0//1, 2//1)
+(-1//3, 1//3, 0//1)
+```
+"""
+@inline function upwind_diff_coeffs(x0, x1, x2)
+    h1 = x1 - x0
+    return (-1/h1, 1/h1, 0/h1)
+end
+
+"""
+    downwind_diff_coeffs(x0, x1, x2)
+Generate finite difference coefficients for a downwind first derivative approximation at the point x2
+on a three-point stencil at points x0, x1, and x2 (uses only points x1 and x2)
+
+```jldoctest;setup = :(using HallThruster: downwind_diff_coeffs)
+julia> downwind_diff_coeffs(-1//1, 0//1, 2//1)
+(0//1, -1//2, 1//2)
+```
+"""
+@inline function downwind_diff_coeffs(x0, x1, x2)
+    h2 = x2 - x1
+    return (0/h2, -1/h2, 1/h2)
+end
+
+"""
     forward_difference(f0, f1, f2, x0, x1, x2)
 Given three points x0, x1, and x2, and the function values at those points, f0, f1, f2,
 compute the second-order approximation of the derivative at x0

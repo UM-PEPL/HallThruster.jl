@@ -1,7 +1,12 @@
+function Lp_norm(v, p)
+    N = length(v)
+    return N^(-1/p) * norm(v, p)
+end
+
 function test_refinements(verification_func, refinements, norm_order)
     norms = [
         let results = verification_func(ncells)
-            [norm(res.sim .- res.exact, norm_order) for res in results]
+            [Lp_norm(res.sim .- res.exact, norm_order) for res in results]
         end
         for ncells in refinements
     ] |> unzip

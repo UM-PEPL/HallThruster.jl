@@ -15,13 +15,9 @@ end
 
     ωce = e * B / mₑ
 
-    νan = if z < L_ch
-        c[1] * ωce + params.νw[1] # +1e7 anomalous wall from Landmark inside channel
-    else
-        α = smooth_transition(z, L_ch, smoothing_length, params.νw[1]/1e7, params.νw[2]/1e7)
-        β = smooth_transition(z, L_ch, smoothing_length, c[1], c[2])
-        β * ωce + α * 1e7
-    end
+    α = smooth_if(z/L_ch, 1, params.νw[1]/1e7, params.νw[2]/1e7)
+    β = smooth_if(z/L_ch, 1, c[1], c[2], 1/smoothing_length)
+    νan = β * ωce + α * 1e7
     return νan
 end
 

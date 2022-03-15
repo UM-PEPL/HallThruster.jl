@@ -58,7 +58,7 @@ function verify_potential(ncells, plot_results = false)
     cache = (;A, b, μ, ϕ, pe, ne)
     params = (;z_cell, index, ϕ_L, ϕ_R, cache, config)
 
-    @time HallThruster.solve_potential!(ϕ, U, params)
+    HallThruster.solve_potential!(ϕ, U, params)
 
     results = (;z = z_cell, exact = ϕ_exact, sim = ϕ)
 

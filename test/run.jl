@@ -36,10 +36,11 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     else
         15000 + 10000z/L
     end
-    ρi = mi * (2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
-    Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
+    
+    ρi = mi * 1e16#(2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
+    Tev = 3# + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
     ne = ρi / fluids[1].species.element.m
-    U .= SA[ρn, ρi, ρi*ui, ne*Tev]
+    U .= SA[ρn0, ρi, ρi*ui, ne*Tev]
     return U
 end
 
@@ -72,7 +73,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     OVS_Tev = z -> 0.0
     OVS_ne = z -> 0.0
 
-    mesh = HallThruster.generate_grid(HallThruster.SPT_100_1, ncells)
+    domain = (0.0, 0.05)
+
+    mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
         boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
@@ -115,7 +118,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         restart_file = restart_file,
         radial_loss_coefficients = (νϵ_in, νϵ_out),
         wall_collision_frequencies = (νw, 0.0),
-        geometry = HallThruster.SPT_100_1,
+        geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,
         neutral_temperature = 300.0,
@@ -133,8 +136,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.001,
-        source_potential = Returns(0.0)
+        smoothing_length = 0.01,
+        source_potential = Returns(0.0),
+        domain = domain,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)

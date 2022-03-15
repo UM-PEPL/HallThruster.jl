@@ -103,13 +103,3 @@ function tridiagonal_solve(A, b)
     tridiagonal_solve!(y, A′, b′)
     return y
 end
-
-"""
-    OVS_potential_source_term!(b, s_consts)
-Applies a scalar as source term for potential OVS.
-"""
-
-function OVS_potential_source_term!(b, s_consts) #for OVS
-    i, i, μ⁻, μ⁺, pe, Δz = s_consts
-    b[i] = 50000.0
-end

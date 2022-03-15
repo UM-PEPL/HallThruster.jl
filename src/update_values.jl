@@ -51,12 +51,12 @@ function update_values!(U, params, t = 0)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * max(params.config.min_number_density, electron_density(U[:, i], params) / mi) + OVS_ne
+        @views ne[i] = (1 - OVS) * electron_density(U[:, i], params) / mi + OVS_ne
         Tev[i] = (1 - OVS) * U[index.nϵ, i]/ne[i] + OVS_Tev
         pe[i] = U[index.nϵ, i]
         @views params.cache.νan[i] = params.anom_model(U[:, i], params, i)
         params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
-        params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
+        params.cache.μ[i] = (1 - OVS) *electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential and potential gradient on edges
@@ -92,6 +92,8 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     # Compute electron velocity
     ue[1] = μ[1] * (∇ϕ[1] - ∇pe[1]/ne[1])
 
+    limiter(f) = sin(π*f)
+
     # Centered difference in interior cells
     @inbounds for j in 2:ncells-1
         cL, c0, cR = central_diff_coeffs(z_cell[j-1], z_cell[j], z_cell[j+1])
@@ -99,7 +101,12 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
             g[j] = cL * f[j-1] + c0 * f[j] + cR * f[j+1]
         end
 
-        # Compute electron velocity
+        # Compute electron velocity (with limited gradients)
+        f_ϕ = max(0.0, min(1.0, (ϕ[j] - ϕ[j-1])/(ϕ[j+1] - ϕ[j-1])))
+        f_pe = max(0.0, min(1.0, (pe[j] - pe[j-1])/(pe[j+1] - pe[j-1])))
+        ψ_ϕ = limiter(f_ϕ)
+        ψ_pe = limiter(f_pe)
+
         ue[j] = μ[j] * (∇ϕ[j] - ∇pe[j]/ne[j])
     end
 

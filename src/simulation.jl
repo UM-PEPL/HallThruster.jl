@@ -28,7 +28,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
 
     U = zeros(nvariables + 1, ncells)
     A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for potential
-    b = zeros(nedges) #for potential equation
+    b = zeros(ncells) #for potential equation
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
     B = zeros(ncells)
@@ -45,7 +45,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     BC_L = zeros(nvariables+1)
     BC_R = zeros(nvariables+1)
 
-    cache = (; BC_L, BC_R,  A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue)
+    cache = (; BC_L, BC_R,  A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe)
     return U, cache
 end
 
@@ -299,7 +299,6 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     else
         throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
     end
-    #ϕ_hallis, grad_ϕ_hallis = load_hallis_for_input()
 
     BCs = sim.boundary_conditions
 
@@ -340,11 +339,11 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     update_values!(U, params)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue))
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc))
     end
 
-    saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue), NTuple{7, Vector{Float64}}})
+    saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc), NTuple{10, Vector{Float64}}})
 
     discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
     saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)

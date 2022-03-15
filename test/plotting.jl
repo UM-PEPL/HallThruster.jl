@@ -71,17 +71,19 @@ function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
     z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
-    (;Tev, ue, ϕ, ∇ϕ, ne) = saved_values
+    (;Tev, ue, ϕ, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [coeff.rate_coeff(Tev[i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
     p_ne = plot_quantity(ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
+    p_iz = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
     p_ϵ  = plot_quantity(Tev, z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
     p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(ϕ, z_edge; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
+    p_ϕ  = plot_quantity(ϕ, z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
     p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
-    plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
+    p_pe  = plot_quantity(pe, z; title = "Electron pressure", ylabel = "∇pe (eV/m^3)")
+    p_∇pe  = plot_quantity(∇pe, z; title = "Pressure gradient", ylabel = "∇pe (eV/m^3)")
+    plot(p_nn, p_ne, p_ui, p_ϕ, p_pe, p_iz, p_ϵ, p_ue, p_E, p_∇pe, layout = (2, 5), size = (2500, 1000))
 end
 
 function plot_solution_OVS(u, z = nothing, case = 1)
@@ -160,7 +162,7 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution; case) = plot_solution(sol.u[end], sol.savevals[end], sol.params.z_cell, case)
+Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.u); case) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, case, start_ind)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
