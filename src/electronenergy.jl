@@ -136,7 +136,7 @@ function update_electron_energy_explicit!(dU, U, params, t)
 end
 
 function update_electron_energy_implicit!(U, params)
-    (;Aϵ, bϵ, μ, ue, ne, Tev) = params.cache
+    (;Aϵ, bϵ, μ, ue, ne) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -146,17 +146,17 @@ function update_electron_energy_implicit!(U, params)
     Aϵ.d[1] = 1.0
     Aϵ.du[1] = 0.0
     Aϵ.d[end] = 1.0
-    Aϵ.dl[end-1] = 0.0
+    Aϵ.dl[end] = 0.0
 
-    bϵ[1] = nϵ[1] = params.Te_L * ne[1]
-    bϵ[end] = nϵ[end] = params.Te_R * ne[end]
-    Tev[1] = params.Te_L
-    Tev[end] = params.Te_R
+    bϵ[1] = params.Te_L * ne[1]
+    bϵ[end] = params.Te_R * ne[end]
 
     # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
         for i in 2:ncells-1
             Q = source_electron_energy_landmark(U, params, i)
+            # User-provided source term
+            Q += params.config.source_energy(U, params, i)
 
             zL = z_cell[i-1]
             z0 = z_cell[i]
@@ -224,10 +224,9 @@ function update_electron_energy_implicit!(U, params)
 
         # Make sure Tev is positive, limit if below user-configured minumum electron temperature
         for i in 2:ncells-1
-            if isnan(nϵ[i]) || nϵ[i] < params.config.min_electron_temperature
+            if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] < params.config.min_electron_temperature
                 nϵ[i] = params.config.min_electron_temperature * ne[i]
             end
         end
     end
-
 end

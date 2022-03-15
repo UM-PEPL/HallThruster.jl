@@ -3,10 +3,11 @@ function Lp_norm(v, p)
     return N^(-1/p) * norm(v, p)
 end
 
-function test_refinements(verification_func, refinements, norm_order)
+function test_refinements(verification_func, refinements, norm_orders)
+    @show norm_orders
     norms = [
         let results = verification_func(ncells)
-            [Lp_norm(res.sim .- res.exact, norm_order) for res in results]
+            [Lp_norm(res.sim .- res.exact, p) for res in results, p in norm_orders]
         end
         for ncells in refinements
     ] |> unzip

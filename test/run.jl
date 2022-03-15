@@ -38,7 +38,7 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     end
     
     ρi = mi * 1e16#(2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
-    Tev = 3# + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
+    Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
     ne = ρi / fluids[1].species.element.m
     U .= SA[ρn0, ρi, ρi*ui, ne*Tev]
     return U
@@ -138,6 +138,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_iters = implicit_iters,
         smoothing_length = 0.01,
         source_potential = Returns(0.0),
+        source_energy = Returns(0.0),
         domain = domain,
     )
 

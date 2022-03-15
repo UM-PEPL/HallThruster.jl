@@ -29,7 +29,7 @@ end
 @testset "Order verification (potential and gradients)" begin
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_potential.jl")
-    refinements = refines(10, 10, 2)
+    refinements = refines(5, 20, 2)
 
     # check that second-order convergence is maintained for L1, L2, and L∞ norms
     for p in (1, 2, Inf)
@@ -40,6 +40,26 @@ end
         @test abs(slope_∇ϕ - 2.0) < 0.1
         @test abs(slope_∇pe - 2.0) < 0.1
         @test abs(slope_ue - 2.0) < 0.1
+    end
+end
+
+@testset "Order verification (electron energy)" begin
+    include("order_verification/ovs_funcs.jl")
+    include("order_verification/ovs_energy.jl")
+    refinements = refines(5, 20, 2)
+
+    # Test spatial order of accuracy of explicit solver
+
+    # Test temporal order of accuracy of explicit solver
+
+    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
+    slopes_nϵ, norms_nϵ = test_refinements(OVS_Energy.verify_energy, refinements, [1, 2, Inf])
+
+    # Test temporal accuracy of implicit solver
+
+    # Check that electron energy is solved to second order
+    for slope in slopes_nϵ
+        @test abs(slope - 2.0) < 0.1
     end
 end
 
