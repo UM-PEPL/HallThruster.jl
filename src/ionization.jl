@@ -29,7 +29,7 @@ function (itp::LinearInterpolation)(x::T) where {T}
         return ys[end] / oneunit(T)
     end
     i = find_left_index(x, xs)
-    return ys[i] + (ys[i + 1] - ys[i]) * (x - xs[i]) / (xs[i + 1] - xs[i])
+    return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
 end
 
 function find_left_index(value, array)

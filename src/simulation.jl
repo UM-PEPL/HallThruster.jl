@@ -331,6 +331,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         scheme, BCs, dt=timestep,
     )
 
+    U = deepcopy(U)
+    params = deepcopy(params)
+
     #PREPROCESS
     #make values in params available for first timestep
     update_values!(U, params)
@@ -366,6 +369,12 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 		prob, alg; saveat=sim.saveat, callback=cb,
 		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
 	)
+
+    if sol.retcode == :NaNDetected
+        println("Simulation failed with NaN detected at t = $(sol.t[end])")
+    elseif sol.retcode == :InfDetected
+        println("Simulation failed with Inf detected at t = $(sol.t[end])")
+    end
 
     return HallThrusterSolution(sol, params, saved_values.saveval)
 end

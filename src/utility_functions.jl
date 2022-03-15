@@ -188,3 +188,28 @@ second_deriv_central_diff(f(x0), f(x1), f(x2), x0, x1, x2)
     c0, c1, c2 = second_deriv_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
 end
+
+"""
+    lerp(x, x0, x1, y0, y1)
+Interpolate between two points (x0, y0) and (x1, y1)
+```jldoctest;setup = :(using HallThruster: lerp)
+julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
+1.0
+"""
+@inline function lerp(x, x0, x1, y0, y1)
+    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+end
+
+"""
+    interpolation_coeffs(x, x0, x1, y0, y1)
+Compute the coefficients for interpolation between two points (x0, y0) and (x1, y1)
+such that y = c0 * y0 + c1 * y1
+```jldoctest;setup = :(using HallThruster: itp_coeffs, lerp)
+julia> c0, c1 = interpolation_coeffs(0.5, 0.0, 1.0, 0.0, 2.0)
+(0.5, 0.5)
+julia> c0 * 0.0 + c1 * 2.0 == lerp(0.5, 0.0, 1.0, 0.0, 2.0)
+true
+"""
+@inline function interpolation_coeffs(x, x0, x1)
+    return (x - x0) / (x1 - x0), (1 - (x - x0)/ (x1 - x0))
+end

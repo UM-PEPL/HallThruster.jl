@@ -11,6 +11,7 @@
 - performance computation
 
 IN PROGRESS
+- Potential order verification
 
 (ALL BENCHMARKS WITH 50 CELLS)
 DONE

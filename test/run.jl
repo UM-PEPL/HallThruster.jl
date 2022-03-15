@@ -130,10 +130,11 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         energy_equation = :LANDMARK,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = true,
-        min_electron_temperature = 1.0,
+        min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.00
+        smoothing_length = 0.001,
+        source_potential = Returns(0.0)
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
@@ -144,4 +145,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     return sol
 end
 
-sol = run_sim(5e-5; ncells=50, nsave=50, dt = 1e-8, alg = SSPRK22(), implicit_energy = 0.5);
+sol = run_sim(1e-3; ncells=150, nsave=1000, dt = 0.9e-8, alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!), implicit_energy = 1.0);
