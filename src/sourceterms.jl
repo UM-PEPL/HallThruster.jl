@@ -62,12 +62,10 @@ function source_electron_energy_landmark(U, params, i)
     #Hara source term
     #QE = grad_pe*uₑ + mₑ*params.cache.ne[i]*ν*uₑ^2 - S_wall_simple(U[4, :], i) - S_coll(U, params, i) #resistive heating collisions, u has to be total u not just z, azimuthal component dominating
     #Landmark source term
-    if params.z_cell[i] <= params.L_ch
+    if params.z_cell[i] < params.L_ch
         νϵ = params.νϵ[1]
     else
-        νϵ = smooth_transition(
-            params.z_cell[i], params.L_ch, params.config.smoothing_length, params.νϵ[1], params.νϵ[2]
-        )
+        νϵ = params.νϵ[2]
     end
     mi = params.propellant.m
     UU = 20.0

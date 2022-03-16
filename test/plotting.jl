@@ -70,7 +70,6 @@ end
 function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
-    z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
     (;Tev, ue, ϕ, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [coeff.rate_coeff(Tev[i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
@@ -147,7 +146,12 @@ return to implicit and other general framework, see what happens
 =#
 
 function plot_current(current, sol)
-    p1 = plot(ylims = (0, 30))
+
+    min_I, max_I = extrema(current)
+    mid_I = (min_I + max_I)/2
+    range = min(30, 5 + max_I - min_I)
+    ylims = (mid_I - range/2, mid_I + range/2)
+    p1 = plot(;ylims)
     plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, sol.t, current[2, :] + current[1, :], label = ["I total" ""])

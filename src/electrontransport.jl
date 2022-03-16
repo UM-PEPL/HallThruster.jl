@@ -7,17 +7,41 @@ struct TwoZoneBohm <: ZeroEquationModel
 end
 
 @inline function (model::TwoZoneBohm)(U, params, icell)
-    L_ch = params.L_ch
+    (;L_ch, νw) = params
     B = params.cache.B[icell]
     z = params.z_cell[icell]
     c = model.coeffs
-    smoothing_length = params.config.smoothing_length
 
     ωce = e * B / mₑ
 
-    α = smooth_if(z/L_ch, 1, params.νw[1]/1e7, params.νw[2]/1e7)
-    β = smooth_if(z/L_ch, 1, c[1], c[2], 1/smoothing_length)
+    if z < L_ch
+        α = νw[1]
+        β = c[1]
+    else
+        α = νw[2]
+        β = c[2]
+    end
+
     νan = β * ωce + α * 1e7
+    return νan
+end
+
+struct DataDriven <: ZeroEquationModel
+    coeffs::NTuple{1, Float64}
+    DataDriven(c1) = new((c1,))
+end
+
+
+@inline function (model::DataDriven)(U, params, icell)
+    (;index) = params
+    (;∇ϕ, B) = params.cache
+    c = model.coeffs
+
+    ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
+    ωce = e * B[icell] / mₑ
+    vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
+    νan = max(1e-4 * ωce, c[1] * ωce * ui / vde)
+
     return νan
 end
 

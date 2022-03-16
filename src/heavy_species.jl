@@ -4,7 +4,7 @@ function update_heavy_species!(dU, U, params, t)
     #extract some useful stuff from params
 
     (;index, z_edge, propellant, scheme, fluids, species_range_dict, reactions) = params
-    (;ue, μ) = params.cache
+    (;ue, μ, ∇ϕ, ∇pe) = params.cache
 
     ncells = size(U, 2) - 2
 
@@ -58,9 +58,9 @@ function update_heavy_species!(dU, U, params, t)
         end
 
         # Compute electron energy
-        ϵL = nϵ[i-1] / neL
-        ϵ0 = nϵ[i] / ne0
-        ϵR = nϵ[i+1] / neR
+        ϵL = max(params.config.min_electron_temperature, nϵ[i-1] / neL)
+        ϵ0 = max(params.config.min_electron_temperature, nϵ[i] / ne0)
+        ϵR = max(params.config.min_electron_temperature, nϵ[i+1] / neR)
 
         # Compute ion fluxes and source terms
         for Z in 1:ncharge
@@ -75,7 +75,7 @@ function update_heavy_species!(dU, U, params, t)
 
             F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
 
-            Q_accel = -Z * e * U[index.ρi[Z], i] * ue[i] / μ[i] / mi
+            Q_accel = -Z * e * U[index.ρi[Z], i] / mi * ue[i] / μ[i]
 
             dU[index.ρi[Z], i] = -F_mass / Δz
             dU[index.ρiui[Z], i] = -F_momentum / Δz + Q_accel

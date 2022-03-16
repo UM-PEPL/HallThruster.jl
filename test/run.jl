@@ -36,11 +36,11 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     else
         15000 + 10000z/L
     end
-    
-    ρi = mi * 1e16#(2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
+
+    ρi = mi * (2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
     Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
     ne = ρi / fluids[1].species.element.m
-    U .= SA[ρn0, ρi, ρi*ui, ne*Tev]
+    U .= SA[ρn, ρi, ρi*ui, ne*Tev]
     return U
 end
 
@@ -108,7 +108,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     end
 
     νϵ_out = 1.0
-    νw = 1e7
+    νw = 1.0
 
     config = (
         anode_potential = 300.0,
@@ -136,17 +136,24 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.5,
+        smoothing_length = 0.001,
         source_potential = Returns(0.0),
         source_energy = Returns(0.0),
         domain = domain,
+        smooth_mobility = true,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
 
-    #p = plot_timeaveraged(sol, case, 1)
     p = plot(sol; case)
     display(p)
+
+    #=
+    params = HallThruster.run_simulation(sim, config, alg)
+    plot(params.z_cell, params.cache.ϕ) |> display
+
+    return (;params)
+    =#
 
     return sol
 end

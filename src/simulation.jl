@@ -27,8 +27,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     nedges = grid.ncells + 1
 
     U = zeros(nvariables + 1, ncells)
-    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for potential
-    b = zeros(ncells) #for potential equation
+    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
+    b = zeros(nedges) #for potential equation
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
     B = zeros(ncells)
@@ -49,7 +49,7 @@ end
 
 function update!(dU, U, p, t)
     update_heavy_species!(dU, U, p, t)
-    update_electron_energy_explicit!(dU, U, p, t)
+    #update_electron_energy_explicit!(dU, U, p, t)
 end
 
 left_edge(i) = i - 1
@@ -223,6 +223,8 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     #PREPROCESS
     #make values in params available for first timestep
     update_values!(U, params)
+
+    #return params
 
     function save_func(u, t, integrator)
         (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc) = integrator.p.cache

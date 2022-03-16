@@ -43,10 +43,22 @@ function update_values!(U, params, t = 0)
     end
 
     # update electrostatic potential and potential gradient on edges
-    solve_potential!(ϕ, U, params)
+    solve_potential_edge!(U, params)
 
-    # Compute potential gradient, pressure gradient, and electron velocity
-    compute_gradients!(∇ϕ, ∇pe, ue, U, params)
+    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+
+    # Compute interior potential gradient and electron velocity and update source terms
+    @inbounds for i in 2:(ncells + 1)
+        # potential gradient
+        ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
+
+        # electron velocity
+        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
+    end
+
+    ue[1] = ue[2] = ue[3]#electron_velocity(U, params, 1)
+    ue[end] = ue[end-1] = ue[end-2] #electron_velocity(U, params, ncells+2)
 
     # Update electron energy if implicit, or if not then set electron boundary conditions for explicit solve
     if params.implicit_energy > 0
@@ -72,6 +84,7 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     @inbounds for (f, g) in zip(functions, gradients)
         g[1] = cL * f[1] + c0 * f[2] + cR * f[3]
     end
+
     # Compute electron velocity
     ue[1] = μ[1] * (∇ϕ[1] - ∇pe[1]/ne[1])
 
@@ -91,6 +104,7 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     @inbounds for (f, g) in zip(functions, gradients)
         g[end] = cL * f[end-2] + c0 * f[end-1] + cR * f[end]
     end
+
     # Compute electron velocity
     ue[end] = μ[end] * (∇ϕ[end] - ∇pe[end]/ne[end])
 

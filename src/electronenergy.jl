@@ -186,9 +186,9 @@ function update_electron_energy_implicit!(U, params)
             d_cL, d_c0, d_cR = central_diff_coeffs(zL, z0, zR)
             d2_cL, d2_c0, d2_cR = second_deriv_coeffs(zL, z0, zR)
 
-            # finite difference centered derivatives
-            dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR
+            # finite difference derivatives
             dnϵue_dz = d_cL * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
+            dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR
             dϵ_dz    = d_cL * ϵL        + d_c0 * ϵ0        + d_cR * ϵR
             d²ϵ_dz²  = d2_cL * ϵL       + d2_c0 * ϵ0       + d2_cR * ϵR
 
