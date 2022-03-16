@@ -43,7 +43,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothi
     end
     p = plot()
     plot!(
-        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, bottommargin = 7Plots.mm, topmargin = 7Plots.mm, lw = 2,
+        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, margin = 7Plots.mm, lw = 2,
         kwargs...
     )
     if !isnothing(ref_path)
@@ -81,8 +81,8 @@ function plot_solution(u, saved_values, z, case = 1)
     p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
     p_ϕ  = plot_quantity(ϕ, z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
     p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
-    p_pe  = plot_quantity(pe, z; title = "Electron pressure", ylabel = "∇pe (eV/m^3)")
-    p_∇pe  = plot_quantity(∇pe, z; title = "Pressure gradient", ylabel = "∇pe (eV/m^3)")
+    p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
+    p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
     plot(p_nn, p_ne, p_ui, p_ϕ, p_pe, p_iz, p_ϵ, p_ue, p_E, p_∇pe, layout = (2, 5), size = (2500, 1000))
 end
 

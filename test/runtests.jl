@@ -63,8 +63,6 @@ end
     end
 end
 
-include("run.jl")
-
 #=
 @testset "Update computations" begin
     u = [1.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 0.0]

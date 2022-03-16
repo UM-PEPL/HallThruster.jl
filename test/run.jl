@@ -136,7 +136,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.01,
+        smoothing_length = 0.5,
         source_potential = Returns(0.0),
         source_energy = Returns(0.0),
         domain = domain,
@@ -144,7 +144,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
 
-    p = plot_timeaveraged(sol, case, 1)
+    #p = plot_timeaveraged(sol, case, 1)
+    p = plot(sol; case)
     display(p)
 
     return sol

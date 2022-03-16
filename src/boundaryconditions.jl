@@ -52,7 +52,7 @@ function right_boundary_state!(bc_state, U, params)
     (;propellant, Te_R, index) = params
     mi = propellant.m
 
-    bc_state[index.ρn] = U[index.ρn, end]
+    bc_state[index.ρn] = U[index.ρn]
 
     ne = 0.0
     for Z in 1:params.config.ncharge
