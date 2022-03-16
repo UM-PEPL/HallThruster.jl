@@ -108,7 +108,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
     end
 
     νϵ_out = 1.0
-    νw = 1.0
+    νw = 0.5
 
     config = (
         anode_potential = 300.0,
@@ -129,14 +129,14 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         verification = verification,
         solve_ion_energy = false,
         ion_temperature = 1000.0,
-        anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
+        anom_model = HallThruster.TwoZoneBohm(0.02/16, 5/16),
         energy_equation = :LANDMARK,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = true,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.001,
+        smoothing_length = 0.02,
         source_potential = Returns(0.0),
         source_energy = Returns(0.0),
         domain = domain,

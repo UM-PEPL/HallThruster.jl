@@ -11,9 +11,11 @@ end
     B = params.cache.B[icell]
     z = params.z_cell[icell]
     c = model.coeffs
+    smoothing_length = params.config.smoothing_length
 
     ωce = e * B / mₑ
 
+    #=
     if z < L_ch
         α = νw[1]
         β = c[1]
@@ -21,6 +23,10 @@ end
         α = νw[2]
         β = c[2]
     end
+    =#
+
+    α = smooth_transition(z, L_ch, smoothing_length, νw[1], νw[2])
+    β = smooth_transition(z, L_ch, smoothing_length, c[1], c[2])
 
     νan = β * ωce + α * 1e7
     return νan
@@ -34,15 +40,18 @@ end
 
 @inline function (model::DataDriven)(U, params, icell)
     (;index) = params
-    (;∇ϕ, B) = params.cache
+    (;∇ϕ, B, νan) = params.cache
     c = model.coeffs
 
     ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
     ωce = e * B[icell] / mₑ
     vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
-    νan = max(1e-4 * ωce, c[1] * ωce * ui / vde)
-
-    return νan
+    if νan[icell] == 0.0
+        α = 1.0
+    else
+        α = 0.5
+    end
+    return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
 end
 
 """
