@@ -79,13 +79,14 @@ end
 
 function compute_current(sol)
     index = sol.params.index
-    current = zeros(2, length(sol.t))
+    current = zeros(3, length(sol.t))
     area = sol.params.A_ch
     mi = sol.params.propellant.m
     for i in 1:length(sol.t)
         (;ue, ne) = sol.savevals[i]
         current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/mi*area
         current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
+        current[3, i] = current[1, i] + current[2, i]
     end
     return current
 end

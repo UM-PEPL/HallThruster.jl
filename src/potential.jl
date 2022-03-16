@@ -14,17 +14,10 @@ in either electron mobility or electron density.
 function solve_potential_edge!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-    z_cell = params.z_cell
-    fluids = params.fluids
-    index = params.index
+    (;z_cell, index, ϕ_L, ϕ_R) = params
     N = length(z_cell) - 1
 
     (;pe, ne, μ, A, b, ϕ) = params.cache
-
-    OVS = params.OVS.potential
-
-    ϕ_L = params.ϕ_L
-    ϕ_R = params.ϕ_R
 
     b[1] = ϕ_L
     b[end] = ϕ_R
@@ -34,7 +27,7 @@ function solve_potential_edge!(U, params)
     A.d[end] = 1.0
     A.dl[end] = 0.0
 
-    mi = params.propellant.m
+    mi = params.config.propellant.m
 
     @inbounds for i in 2:(N - 1)
 

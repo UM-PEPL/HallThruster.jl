@@ -36,29 +36,31 @@ function verify_potential(ncells, plot_results = false)
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
 
     z_cell = grid.cell_centers
+    z_edge = grid.edges
     ncells = length(z_cell)
+    nedges = length(z_edge)
 
     μ = μ_func.(z_cell)
     ne = ne_func.(z_cell)
     pe = pe_func.(z_cell)
     U = ρiui_func.(z_cell)' |> collect
-    ϕ = zeros(ncells)
+    ϕ = zeros(nedges)
 
-    ϕ_exact = ϕ_func.(z_cell)
+    ϕ_exact = ϕ_func.(z_edge)
 
-    A = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    A = Tridiagonal(ones(ncells-2), ones(ncells-1), ones(ncells-2))
     b = zeros(ncells) #for potential equation
 
     ϕ_L = ϕ_exact[1]
     ϕ_R = ϕ_exact[end]
 
-    source_func = (U, params, i) -> source_potential(params.z_cell[i])
+    source_func = (U, params, i) -> source_potential(params.z_edge[i])
 
     config = (propellant = HallThruster.Xenon, ncharge = 1, source_potential = source_func)
     cache = (;A, b, μ, ϕ, pe, ne)
-    params = (;z_cell, index, ϕ_L, ϕ_R, cache, config)
+    params = (;z_cell, z_edge, index, ϕ_L, ϕ_R, cache, config)
 
-    HallThruster.solve_potential!(U, params)
+    HallThruster.solve_potential_edge!(U, params)
 
     results = (;z = z_cell, exact = ϕ_exact, sim = ϕ)
 
