@@ -69,8 +69,8 @@ for NUM_CONSERVATIVE in 1:3
         aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
         aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
-        sL_max = max(abs(uL - aL), abs(uL + aL))
-        sR_max = max(abs(uR - aR), abs(uR + aR))
+        sL_max = max(abs(uL - aL), abs(uL + aL), abs(uL))
+        sR_max = max(abs(uR - aR), abs(uR + aR), abs(uR))
 
         smax = max(sL_max, sR_max)
 
@@ -116,5 +116,52 @@ for NUM_CONSERVATIVE in 1:3
             for j in 1:$(NUM_CONSERVATIVE)
         ]
     end
+
+    function steger_warming(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
+        γ = fluid.species.element.γ
+        Z = fluid.species.Z
+
+        uL = velocity(UL, fluid)
+        uR = velocity(UR, fluid)
+
+        peL = TeL * neL
+        peR = TeR * neR
+
+        TL = temperature(UL, fluid)
+        TR = temperature(UR, fluid)
+
+        mi = m(fluid)
+
+        charge_factor = Z * e * coupled
+
+        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+
+
+        λ₁⁺ = max(uL, 0.0)
+        λ₂⁺ = max(uL + aL, 0.0)
+        λ₃⁺ = max(uL - aL, 0.0)
+
+        λ₁⁻ = min(uR, 0.0)
+        λ₂⁻ = min(uR + aR, 0.0)
+        λ₃⁻ = min(uR - aR, 0.0)
+
+        ρ⁺ = UL[1]
+        ρ⁻ = UR[1]
+
+        # This doesn't work yet for full Euler equations, would
+        # need to specialize on SVector{3, T} specifically
+        F⁺ = @SVector [
+            ρ⁺ * (2 * (γ-1) * λ₁⁺^j + λ₂⁺^j + λ₃⁺^j) / 2 / γ for j in 1:$(NUM_CONSERVATIVE)
+        ]
+
+        F⁻ = @SVector [
+            ρ⁻ * (2 * (γ-1) * λ₁⁻^j + λ₂⁻^j + λ₃⁻^j) / 2 / γ for j in 1:$(NUM_CONSERVATIVE)
+        ]
+
+        return F⁺ + F⁻
+    end
+
+
     end)
 end

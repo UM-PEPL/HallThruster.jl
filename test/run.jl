@@ -45,11 +45,13 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
 end
 
 
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
-        implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE,
+function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
+        implicit_energy = 1.0, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
+        restart_file = nothing, case = 1,
+        alg = SSPRK22(stage_limiter = HallThruster.stage_limiter!, step_limiter = HallThruster.step_limiter!),
+        flux = HallThruster.HLLE,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.StepFunction(),
-        collision_model = :simple,
+        collision_model = :simple, coupled = true
     )
 
     fluid = HallThruster.Xenon
@@ -98,17 +100,16 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
 
-    αϵ_in = if case == 1
-        1.0
+    αϵ = if case == 1
+        (1.0, 1.0)
     elseif case == 2
-        0.5
+        (0.5, 1.0)
     elseif case == 3
-        0.4
-    else
-        1.0
+        (0.4, 1.0)
+    elseif case == 4
+        (0.1, 0.1)
     end
 
-    αϵ_out = 1.0
     αw = 1.0
 
     config = (
@@ -117,7 +118,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anode_Te = 2.0,
         cathode_Te = 2.0,
         restart_file = restart_file,
-        radial_loss_coeffs = (αϵ_in, αϵ_out),
+        radial_loss_coeffs = αϵ,
         wall_collision_coeff = αw,
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
@@ -133,7 +134,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = :LANDMARK,
         ionization_coeffs = coeffs,
-        electron_pressure_coupled = true,
+        electron_pressure_coupled = coupled,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
