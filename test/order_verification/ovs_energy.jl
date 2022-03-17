@@ -85,8 +85,8 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     bϵ = zeros(ncells)
 
-    Te_L = nϵ_exact[1] / ne[1]
-    Te_R = nϵ_exact[end] / ne[end]
+    Te_L = 2/3 * nϵ_exact[1] / ne[1]
+    Te_R = 2/3 * nϵ_exact[end] / ne[end]
 
     min_electron_temperature = min(Te_L, Te_R)
 
@@ -97,15 +97,20 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     # Test backward difference implicit solve
     dt = 1e-6
 
+    transition_function = HallThruster.StepFunction()
+    αϵ = (1.0, 1.0)
+    loss_coeff = HallThruster.loss_coeff_fit
+    L_ch = 0.025
+    propellant = HallThruster.Xenon
+
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0, implicit_iters,
-        smoothing_length = 0.001, min_electron_temperature,
+        min_electron_temperature, transition_function
     )
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ)
     params = (;
-        z_cell, index, Te_L, Te_R, cache, config, min_electron_temperature,
-        νϵ = (1.0, 1.0), dt = dt, L_ch = 0.025, propellant = HallThruster.Xenon,
-        loss_coeff = HallThruster.loss_coeff_fit
+        z_cell, index, Te_L, Te_R, cache, config,
+        αϵ, dt, L_ch, propellant, loss_coeff,
     )
 
     solve_energy!(U, params, niters, dt)
@@ -118,15 +123,13 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5, implicit_iters,
-        smoothing_length = 0.001, min_electron_temperature,
+        min_electron_temperature, transition_function
     )
 
-    dt = 10 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
-
+    dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
     params = (;
-        z_cell, index, Te_L, Te_R, cache, config, min_electron_temperature,
-        νϵ = (1.0, 1.0), dt = dt, L_ch = 0.025, propellant = HallThruster.Xenon,
-        loss_coeff = HallThruster.loss_coeff_fit
+        z_cell, index, Te_L, Te_R, cache, config,
+        αϵ, dt, L_ch, propellant, loss_coeff,
     )
 
     solve_energy!(U, params, niters, dt)

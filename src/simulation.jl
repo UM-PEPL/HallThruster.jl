@@ -55,11 +55,11 @@ end
 left_edge(i) = i - 1
 right_edge(i) = i
 
-function electron_density(U, params)
+function electron_density(U, params, i)
     ne = 0.0
     index = params.index
-    @inbounds for i in 1:params.config.ncharge
-        ne += i * U[index.ρi[i]]
+    @inbounds for Z in 1:params.config.ncharge
+        ne += Z * U[index.ρi[Z], i] / params.config.propellant.m
     end
     return ne
 end
@@ -201,8 +201,8 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         Te_R = config.cathode_Te,
         L_ch = config.geometry.channel_length,
         A_ch = channel_area(config.geometry.outer_radius, config.geometry.inner_radius),
-        νϵ = config.radial_loss_coefficients,
-        νw = config.wall_collision_frequencies,
+        αϵ = config.radial_loss_coeffs,
+        αw = config.wall_collision_coeff,
         δ = config.ion_diffusion_coeff,
         un = config.neutral_velocity,
         Tn = config.neutral_temperature,

@@ -1,40 +1,5 @@
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2
 
-
-function animate_solution_individual(sol)
-    mi = HallThruster.Xenon.m
-    @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (1e13, 1e20))
-        plot!(p, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
-        plot!(p, u[2, :] / mi, label = ["nᵢ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (0, 3e4))
-        plot!(p, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #nϵ
-        p = plot(ylims = (0, 20))
-        plot!(p, u[4, :], title = "Internal electron energy [eV*n/m^3]", label = ["nϵ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #Tev
-        p = plot(ylims = (0, 120000))
-        plot!(p, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #ne
-        p = plot(ylims = (1e16, 1e20))
-        plot!(p, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
-        plot!(p, u[7, :] ./ HallThruster.e, label = ["pₑ [n*eV/m^3]" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #pe
-        p = plot(ylims = (1e13, 1e22))
-        plot!(p, u[7, :] ./ HallThruster.e, yaxis = :log, title = "Electron pressure", label = ["pₑ [n*eV/m^3]" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #ϕ
-        p = plot(ylims = (-100, 400))
-        plot!(p, u[8, :], title = "Potential", label = ["ϕ [V]" ""])
-    end
-end
-
 using DelimitedFiles
 
 function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
@@ -71,12 +36,12 @@ function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
     (;Tev, ue, ϕ, ∇ϕ, ne, pe, ∇pe) = saved_values
-    ionization_rate = [coeff.rate_coeff(Tev[i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
+    ionization_rate = [coeff.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
     p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
     p_ne = plot_quantity(ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
     p_iz = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
-    p_ϵ  = plot_quantity(Tev, z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
+    p_ϵ  = plot_quantity(u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
     p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
     p_ϕ  = plot_quantity(ϕ, z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
     p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")

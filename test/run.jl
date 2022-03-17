@@ -48,7 +48,8 @@ end
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         implicit_energy = false, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1, alg = SSPRK43(), flux = HallThruster.HLLE,
-        coeffs = :LANDMARK, implicit_iters = 1,
+        coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.StepFunction(),
+        collision_model = :simple,
     )
 
     fluid = HallThruster.Xenon
@@ -97,7 +98,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
 
     verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
 
-    νϵ_in = if case == 1
+    αϵ_in = if case == 1
         1.0
     elseif case == 2
         0.5
@@ -107,17 +108,17 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         1.0
     end
 
-    νϵ_out = 1.0
-    νw = 0.5
+    αϵ_out = 1.0
+    αw = 1.0
 
     config = (
         anode_potential = 300.0,
         cathode_potential = 0.0,
-        anode_Te = 3.0,
-        cathode_Te = 3.0,
+        anode_Te = 2.0,
+        cathode_Te = 2.0,
         restart_file = restart_file,
-        radial_loss_coefficients = (νϵ_in, νϵ_out),
-        wall_collision_frequencies = (νw, 0.0),
+        radial_loss_coeffs = (αϵ_in, αϵ_out),
+        wall_collision_coeff = αw,
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,
@@ -129,31 +130,26 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 0.5e-10,
         verification = verification,
         solve_ion_energy = false,
         ion_temperature = 1000.0,
-        anom_model = HallThruster.TwoZoneBohm(0.02/16, 5/16),
+        anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = :LANDMARK,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = true,
         min_electron_temperature = 3.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
-        smoothing_length = 0.02,
         source_potential = Returns(0.0),
         source_energy = Returns(0.0),
         domain = domain,
-        smooth_mobility = true,
+        transition_function = transition,
+        collision_model = collision_model,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
 
-    p = plot(sol; case)
-    display(p)
-
-    #=
-    params = HallThruster.run_simulation(sim, config, alg)
-    plot(params.z_cell, params.cache.ϕ) |> display
-
-    return (;params)
-    =#
+    if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
+        p = plot(sol; case)
+        display(p)
+    end
 
     return sol
 end

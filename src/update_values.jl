@@ -34,12 +34,13 @@ function update_values!(U, params, t = 0)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * electron_density(U[:, i], params) / mi + OVS_ne
-        Tev[i] = (1 - OVS) * U[index.nϵ, i]/ne[i] + OVS_Tev
+        @views ne[i] = (1 - OVS) * electron_density(U, params, i) + OVS_ne
+        ne[i] = ne[i]
+        Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = U[index.nϵ, i]
-        @views params.cache.νan[i] = params.anom_model(U, params, i)
-        params.cache.νc[i] = electron_collision_freq(params.cache.Tev[i], U[1, i]/mi , ne[i], mi)
-        params.cache.μ[i] = (1 - OVS) * electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
+        νan[i] = freq_electron_anom(U, params, i)
+        νc[i] = freq_electron_classical(U, params, i)
+        μ[i] = (1 - OVS) * electron_mobility(νan[i], νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
     # update electrostatic potential and potential gradient on edges
@@ -57,7 +58,7 @@ function update_values!(U, params, t = 0)
         ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
     end
 
-    ue[1] = ue[2] = ue[3]#electron_velocity(U, params, 1)
+    ue[1] = ue[2] = ue[3] #electron_velocity(U, params, 1)
     ue[end] = ue[end-1] = ue[end-2] #electron_velocity(U, params, ncells+2)
 
     # Update electron energy if implicit, or if not then set electron boundary conditions for explicit solve

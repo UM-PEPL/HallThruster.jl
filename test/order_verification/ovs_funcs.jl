@@ -4,7 +4,6 @@ function Lp_norm(v, p)
 end
 
 function test_refinements(verification_func, refinements, norm_orders)
-    @show norm_orders
     norms = [
         let results = verification_func(ncells)
             [Lp_norm(res.sim .- res.exact, p) for res in results, p in norm_orders]

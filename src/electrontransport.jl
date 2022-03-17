@@ -6,29 +6,13 @@ struct TwoZoneBohm <: ZeroEquationModel
     TwoZoneBohm(c1, c2) = new((c1, c2))
 end
 
-@inline function (model::TwoZoneBohm)(U, params, icell)
-    (;L_ch, νw) = params
-    B = params.cache.B[icell]
-    z = params.z_cell[icell]
-    c = model.coeffs
-    smoothing_length = params.config.smoothing_length
-
+@inline function (model::TwoZoneBohm)(U, params, i)
+    B = params.cache.B[i]
     ωce = e * B / mₑ
 
-    #=
-    if z < L_ch
-        α = νw[1]
-        β = c[1]
-    else
-        α = νw[2]
-        β = c[2]
-    end
-    =#
+    β = params.config.transition_function(params.z_cell[i], params.L_ch, model.coeffs[1], model.coeffs[2])
 
-    α = smooth_transition(z, L_ch, smoothing_length, νw[1], νw[2])
-    β = smooth_transition(z, L_ch, smoothing_length, c[1], c[2])
-
-    νan = β * ωce + α * 1e7
+    νan = β * ωce
     return νan
 end
 
@@ -54,32 +38,9 @@ end
     return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
 end
 
-"""
-    σ_en(Tev::Float64)
-
-calculation electron neutral collision cross section in m² 
-as a function of electron temperature in eV. Eq. 3.6-13, from Fundamentals of 
-Electric Propulsion, Goebel and Katz, 2008.
 
 """
-@inline function σ_en(Tev) #Te in eV, from intro to EP, 3.6-13
-    return 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6)) #[m^2] 
-end
-
-"""
-    ln_λ(ne::Float64, Tev::Float64)
-
-calculate coulomb logarithm as a function of electron number density and
-electron temperature in eV. Eq. 3.6-15, from Fundamentals of 
-Electric Propulsion, Goebel and Katz, 2008.
-
-"""
-@inline function ln_λ(ne, Tev) #from intro to EP, 3.6-15, or just assume constant 15-25
-    return 23 - 0.5 * log(ne * 1e-6 / Tev^3)
-end
-
-"""
-    get_v_c(Tev::Float64, nn::Float64, ne::Float64, m::Float64)
+    electron_collision_freq(Tev::Float64, nn::Float64, ne::Float64, m::Float64)
 
 calculate classical collision frequency, consisting of electron neutral and electron ion collision
 frequencies. Eq. 3.6-12 and 3.6-14, from Fundamentals of 

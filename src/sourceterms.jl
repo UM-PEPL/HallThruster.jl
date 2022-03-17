@@ -1,13 +1,13 @@
 function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
     fluids, fluid_ranges = params.fluids, params.fluid_ranges
     reactions, species_range_dict = params.reactions, params.species_range_dict
-    _, __, cell_volume = params.z_cell, params.z_edge, params.cell_volume
+    (;index, fluids, fluid_ranges, reactions, species, z_cell, z_edge, cell_volume, dt, index) = params
     dt = params.dt
     index = params.index
 
     mi = m(fluids[1])
     ne = params.cache.ne[i]
-    ϵ = params.cache.Tev[i]
+    ϵ = U[index.nϵ] / ne
 
     for r in reactions
         reactant_index = species_range_dict[r.reactant.symbol][1]
@@ -59,23 +59,15 @@ end
 function source_electron_energy_landmark(U, params, i)
     (; z_cell, L_ch, index) = params
 
-    #Landmark source term
-    #=if params.z_cell[i] < params.L_ch
-        νϵ = params.νϵ[1]
-    else
-        νϵ = params.νϵ[2]
-    end=#
-
     z = z_cell[i]
-    smoothing_length = params.config.smoothing_length
 
-    νϵ = smooth_transition(z, L_ch, smoothing_length, params.νϵ[1], params.νϵ[2])
+    αϵ = params.config.transition_function(z, L_ch, params.αϵ[1], params.αϵ[2])
     mi = params.propellant.m
     UU = 20.0
     ne = params.cache.ne[i]
     ϵ = U[index.nϵ, i] / ne
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
-    W = 1e7 * νϵ * ϵ * exp(-UU / ϵ)
+    W = 1e7 * αϵ * ϵ * exp(-UU / ϵ)
     return ne * (ue * ∇ϕ - U[index.ρn, i]/mi * params.loss_coeff(ϵ) - W)
 end

@@ -63,19 +63,14 @@ function S_wall_Bohm(params, i) #hara mikellides 2018
     return params.ne[i]*νₑ_w*Δϵ_w
 end
 
-function S_wall_simple(ϵ, i) #landmark and Hara non-oscillatory
-    return 1e7*exp(-20/ϵ[i])*ϵ[i] #also anomalous energy loss, #different cases for ν\_ϵ
-end
-
 function S_coll(U, params, i) #landmark table
     index = params.index
     fluid = params.fluids[1].species.element
-    (; ne, Tev) = params.cache.Tev
+    (; ne, Tev) = params.cache
     neutral_density = U[1, i]/fluid.m
     W = params.loss_coeff(Tev[i])
     return neutral_density*ne[i]*W
 end
-
 
 function update_electron_energy_explicit!(dU, U, params, t)
     #########################################################
@@ -148,8 +143,8 @@ function update_electron_energy_implicit!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    bϵ[1] = params.Te_L * ne[1]
-    bϵ[end] = params.Te_R * ne[end]
+    bϵ[1] = 3/2 * params.Te_L * ne[1]
+    bϵ[end] = 3/2 * params.Te_R * ne[end]
 
     # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
@@ -224,7 +219,7 @@ function update_electron_energy_implicit!(U, params)
 
         # Make sure Tev is positive, limit if below user-configured minumum electron temperature
         for i in 2:ncells-1
-            if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] < params.config.min_electron_temperature
+            if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] < params.config.min_electron_temperature * ne[i]
                 nϵ[i] = params.config.min_electron_temperature * ne[i]
             end
         end

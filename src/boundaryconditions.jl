@@ -31,7 +31,7 @@ function left_boundary_state!(bc_state, U, params)
     bc_state[index.ρn] = mdot_a / A_ch / un
 
     ne = 0.0
-    bohm_velocity = sqrt(e * 2/3 * Te_L / mi)
+    bohm_velocity = sqrt(e * Te_L / mi)
     for Z in 1:params.config.ncharge
         boundary_density = U[index.ρi[Z], 1]
         boundary_flux = U[index.ρiui[Z]]
@@ -45,7 +45,7 @@ function left_boundary_state!(bc_state, U, params)
         ne += Z * boundary_density / mi
     end
 
-    bc_state[index.nϵ] = ne * Te_L
+    bc_state[index.nϵ] = ne * 3/2 * Te_L
 end
 
 function right_boundary_state!(bc_state, U, params)
@@ -64,7 +64,7 @@ function right_boundary_state!(bc_state, U, params)
         ne += Z * boundary_density / mi
     end
 
-    bc_state[index.nϵ] = ne * Te_R
+    bc_state[index.nϵ] = ne * 3/2 * Te_R
 end
 
 function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)

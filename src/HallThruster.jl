@@ -17,7 +17,8 @@ const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 
-include("utility_functions.jl")
+include("finite_differences.jl")
+include("transition_functions.jl")
 include("physicalconstants.jl")
 include("gas.jl")
 include("conservationlaws.jl")
@@ -36,6 +37,7 @@ include("electronenergy.jl")
 include("update_values.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
+include("collisions.jl")
 include("simulation.jl")
 
 end # module

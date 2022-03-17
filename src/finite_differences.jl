@@ -1,26 +1,4 @@
 """
-    smooth_if(x, cutoff, v1, v2, k=10)
-Computes an analytic approximation to x < cutoff ? v1 : v2
-
-```jldoctest;setup = :(using HallThruster: smooth_if)
-v1 = 1
-v2 = 2
-cutoff = 0
-smooth_if(10.0, cutoff, v1, v2) ≈ v2
-
-# output
-
-true
-
-````
-"""
-smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
-
-function smooth_transition(x, x_exh, L_trans, a_in, a_out)
-    return a_in + (a_out - a_in) * (x - x_exh)^2 / ((x - x_exh)^2 + L_trans^2)
-end
-
-"""
     forward_diff_coeffs(x0, x1, x2)
 Generate finite difference coefficients for a forward first derivative approximation  at the point x0
 on a three-point stencil at points x0, x1, and x2
@@ -217,17 +195,6 @@ second_deriv_central_diff(f(x0), f(x1), f(x2), x0, x1, x2)
 @inline function second_deriv_central_diff(f0, f1, f2, x0, x1, x2)
     c0, c1, c2 = second_deriv_coeffs(x0, x1, x2)
     return c0 * f0 + c1 * f1 + c2 * f2
-end
-
-"""
-    lerp(x, x0, x1, y0, y1)
-Interpolate between two points (x0, y0) and (x1, y1)
-```jldoctest;setup = :(using HallThruster: lerp)
-julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
-1.0
-"""
-@inline function lerp(x, x0, x1, y0, y1)
-    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
 end
 
 """
