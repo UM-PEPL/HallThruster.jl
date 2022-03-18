@@ -52,7 +52,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         flux = HallThruster.HLLE,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
         collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 0.0
+        progress_interval = 2000
     )
 
     fluid = HallThruster.Xenon

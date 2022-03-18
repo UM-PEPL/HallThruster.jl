@@ -26,7 +26,7 @@ function make_progress_bar(niters, dt, config)
             SimTimeColumn(dt, "bold")
         ]
 
-        progress_bar = ProgressBar(;N = niters ÷ config.progress_interval, columns = cols)
+        progress_bar = ProgressBar(;N = 1 + ceil(Int, niters / config.progress_interval), columns = cols)
     else
         progress_bar = nothing
     end
