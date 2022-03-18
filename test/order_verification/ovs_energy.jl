@@ -102,15 +102,16 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     loss_coeff = HallThruster.loss_coeff_fit
     L_ch = 0.025
     propellant = HallThruster.Xenon
+    energy_equation = :LANDMARK
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0, implicit_iters,
-        min_electron_temperature, transition_function
+        min_electron_temperature, transition_function, energy_equation
     )
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ)
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,
-        αϵ, dt, L_ch, propellant, loss_coeff,
+        αϵ, dt, L_ch, propellant, loss_coeff
     )
 
     solve_energy!(U, params, niters, dt)
@@ -123,13 +124,13 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5, implicit_iters,
-        min_electron_temperature, transition_function
+        min_electron_temperature, transition_function, energy_equation
     )
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,
-        αϵ, dt, L_ch, propellant, loss_coeff,
+        αϵ, dt, L_ch, propellant, loss_coeff
     )
 
     solve_energy!(U, params, niters, dt)

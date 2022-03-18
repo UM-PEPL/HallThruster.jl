@@ -131,7 +131,7 @@ function update_electron_energy_explicit!(dU, U, params, t)
 end
 
 function update_electron_energy_implicit!(U, params)
-    (;Aϵ, bϵ, μ, ue, ne, νc, νei) = params.cache
+    (;Aϵ, bϵ, μ, ue, ne) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -184,9 +184,9 @@ function update_electron_energy_implicit!(U, params)
                 κR = μnϵR
             else
                 # Adjust thermal conductivity to be slightly more accurate
-                κL = 24/25 * (1 / (1 + νei[i-1] / √(2) / νc[i-1])) * μnϵL
-                κ0 = 24/25 * (1 / (1 + νei[i]   / √(2) / νc[i]))   * μnϵ0
-                κR = 24/25 * (1 / (1 + νei[i+1] / √(2) / νc[i+1])) * μnϵR
+                κL = 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL
+                κ0 = 24/25 * (1 / (1 + params.cache.νei[i]   / √(2) / params.cache.νc[i]))   * μnϵ0
+                κR = 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR
             end
 
             # coefficients for centered three-point finite difference stencils

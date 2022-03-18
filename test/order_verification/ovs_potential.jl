@@ -85,13 +85,14 @@ function verify_gradients(ncells, plot_results = false)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
 
-    z_cell = grid.cell_centers
+    z_cell, z_edge = grid.cell_centers, grid.edges
     ncells = length(z_cell)
 
     μ   = μ_func.(z_cell)
     ne  = ne_func.(z_cell)
     pe  = pe_func.(z_cell)
-    ϕ   = ϕ_func.(z_cell)
+    ϕ   = ϕ_func.(z_edge)
+    ϕ_cell = zeros(ncells)
     ∇ϕ  = zeros(ncells)
     ∇pe = zeros(ncells)
     ue  = zeros(ncells)
@@ -100,8 +101,8 @@ function verify_gradients(ncells, plot_results = false)
     ∇pe_exact = ∇pe_func.(z_cell)
     ue_exact  = ue_func.(z_cell)
 
-    cache = (;μ, ne, pe, ϕ, ∇ϕ, ∇pe, ue)
-    params = (;z_cell, cache)
+    cache = (;μ, ne, pe, ϕ, ϕ_cell, ∇ϕ, ∇pe, ue)
+    params = (;z_cell, cache, z_edge)
     U = nothing
 
     HallThruster.compute_gradients!(∇ϕ, ∇pe, ue, U, params)

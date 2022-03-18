@@ -34,12 +34,17 @@ end
     # check that first-order convergence is maintained for L1, L2, and L∞ norms
     for p in (1, 2, Inf)
         (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
-        #(slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
+        (slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
 
-        @test abs(slope_ϕ - 1.0) < 0.11
-        #@test abs(slope_∇ϕ - 2.0) < 0.1
-        #@test abs(slope_∇pe - 2.0) < 0.1
-        #@test abs(slope_ue - 2.0) < 0.1
+        tol = 0.11
+
+        # Check that potential and gradients are first order or better
+        @test abs(slope_ϕ - 1.0) < tol || slope_ϕ > 1.0
+        # Check that potential gradient and ue are first order or better
+        @test abs(slope_∇ϕ - 1.0) < tol || slope_∇ϕ > 1.0
+        @test abs(slope_ue - 1.0) < tol || slope_ue > 1.0
+        # Check that gradients are second order or better
+        @test abs(slope_∇pe - 2.0) < 0.1 || slope_ue > 2.0
     end
 end
 

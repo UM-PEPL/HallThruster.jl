@@ -30,7 +30,7 @@ end
 Effective frequency of electron scattering caused by collisions with neutrals
 """
 @inline function freq_electron_neutral(nn::Number, Tev::Number, model)
-    if model == :simple
+    if model == :simple || Tev < 0
         return 2.5e-13 * nn
     else
         σ_en(Tev) * nn * sqrt(8 * e * Tev / π / mₑ)
@@ -59,9 +59,9 @@ function freq_electron_ion(U, params, i)
     ni_sum = 0.0
     ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
     Z_eff = ne / ni_sum
-
     Tev = 2/3 * U[index.nϵ, i] / ne
-    return freq_electron_ion(ne, Tev, Z_eff)
+    νei = Tev ≤ 0.0 || ne ≤ 0.0 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
+    return νei
 end
 
 """

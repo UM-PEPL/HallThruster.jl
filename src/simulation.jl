@@ -38,7 +38,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     νen = zeros(ncells)
     νw = zeros(ncells)
     μ = zeros(ncells)
-    ϕ = zeros(ncells)
+    ϕ = zeros(nedges)
+    ϕ_cell = zeros(ncells)
     ∇ϕ = zeros(ncells)
     ne = zeros(ncells)
     Tev = zeros(ncells)
@@ -46,7 +47,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     ∇pe = zeros(ncells)
     ue = zeros(ncells)
 
-    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
+    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
     return U, cache
 end
 
@@ -242,11 +243,11 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
 
     # Choose which cache variables to save and set up saving callback
-    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw)
+    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :ϕ_cell)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw))
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell))
     end
 
     saved_values = SavedValues(
