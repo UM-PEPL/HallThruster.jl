@@ -51,7 +51,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.HLLE,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
-        collision_model = :simple, coupled = true
+        collision_model = :simple, coupled = true, energy_equation = :LANDMARK
     )
 
     fluid = HallThruster.Xenon
@@ -132,7 +132,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         solve_ion_energy = false,
         ion_temperature = 1000.0,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
-        energy_equation = :LANDMARK,
+        energy_equation = energy_equation,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = coupled,
         min_electron_temperature = 3.0,

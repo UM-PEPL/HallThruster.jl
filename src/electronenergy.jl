@@ -116,11 +116,11 @@ function update_electron_energy_explicit!(dU, U, params, t)
         μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
 
         advection_term = central_difference(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
-        dϵ_dz = central_difference(ϵL, ϵ0, ϵR, zL, z0, zR)
-        d²ϵ_dz² = second_deriv_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
+        ∇ϵ = central_difference(ϵL, ϵ0, ϵR, zL, z0, zR)
+        ∇²ϵ = second_deriv_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
 
-        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR) * dϵ_dz
-        diffusion_term += μ0 * nϵ[i] * d²ϵ_dz²
+        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR) * ∇ϵ
+        diffusion_term += μ0 * nϵ[i] * ∇²ϵ
 
         source_term = source_electron_energy_landmark(U, params, i)
 
@@ -131,7 +131,7 @@ function update_electron_energy_explicit!(dU, U, params, t)
 end
 
 function update_electron_energy_implicit!(U, params)
-    (;Aϵ, bϵ, μ, ue, ne) = params.cache
+    (;Aϵ, bϵ, μ, ue, ne, νc, νei) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -177,28 +177,40 @@ function update_electron_energy_implicit!(U, params)
             μnϵ0 = μ[i] * nϵ0
             μnϵR = μ[i+1] * nϵR
 
+            if params.config.energy_equation == :LANDMARK
+                # Use simplified thermal condutivity
+                κL = μnϵL
+                κ0 = μnϵ0
+                κR = μnϵR
+            else
+                # Adjust thermal conductivity to be slightly more accurate
+                κL = 24/25 * (1 / (1 + νei[i-1] / √(2) / νc[i-1])) * μnϵL
+                κ0 = 24/25 * (1 / (1 + νei[i]   / √(2) / νc[i]))   * μnϵ0
+                κR = 24/25 * (1 / (1 + νei[i+1] / √(2) / νc[i+1])) * μnϵR
+            end
+
             # coefficients for centered three-point finite difference stencils
             d_cL, d_c0, d_cR = central_diff_coeffs(zL, z0, zR)
             d2_cL, d2_c0, d2_cR = second_deriv_coeffs(zL, z0, zR)
 
             # finite difference derivatives
-            dnϵue_dz = d_cL * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
-            dμnϵ_dz  = d_cL * μnϵL      + d_c0 * μnϵ0      + d_cR * μnϵR
-            dϵ_dz    = d_cL * ϵL        + d_c0 * ϵ0        + d_cR * ϵR
-            d²ϵ_dz²  = d2_cL * ϵL       + d2_c0 * ϵ0       + d2_cR * ϵR
+            ∇nϵue = d_cL * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
+            ∇κ  = d_cL * κL  + d_c0 * κ0  + d_cR * κR
+            ∇ϵ  = d_cL * ϵL  + d_c0 * ϵ0  + d_cR * ϵR
+            ∇²ϵ = d2_cL * ϵL + d2_c0 * ϵ0 + d2_cR * ϵR
 
             # Explicit flux term
-            F_explicit = 5/3 * dnϵue_dz - 10/9 * (μnϵ0 * d²ϵ_dz² + dμnϵ_dz * dϵ_dz)
+            F_explicit = 5/3 * ∇nϵue - 10/9 * (κ0 * ∇²ϵ + ∇κ * ∇ϵ)
 
             # Contribution to implicit part from μnϵ * d²ϵ/dz² term
-            Aϵ.d[i] = -10/9 * μnϵ0 / ne0 * d2_c0
-            Aϵ.dl[i-1] = -10/9 * μnϵ0 / neL * d2_cL
-            Aϵ.du[i] = -10/9 * μnϵ0 / neR * d2_cR
+            Aϵ.d[i]    = -10/9 * κ0 * d2_c0 / ne0
+            Aϵ.dl[i-1] = -10/9 * κ0 * d2_cL / neL
+            Aϵ.du[i]   = -10/9 * κ0 * d2_cR / neR
 
-            # Contribution to implicit part from dμnϵ/dz * dϵ_dz term
-            Aϵ.d[i] -= 10/9 * dμnϵ_dz / ne0 * d_c0
-            Aϵ.dl[i-1] -= 10/9 * dμnϵ_dz / neL * d_cL
-            Aϵ.du[i] -= 10/9 * dμnϵ_dz / neR * d_cR
+            # Contribution to implicit part from dμnϵ/dz * ∇ϵ term
+            Aϵ.d[i]    -= 10/9 * ∇κ / ne0 * d_c0
+            Aϵ.dl[i-1] -= 10/9 * ∇κ / neL * d_cL
+            Aϵ.du[i]   -= 10/9 * ∇κ / neR * d_cR
 
             # Contribution to implicit part from advection term
             Aϵ.d[i] += 5/3 * ueR * d_c0
