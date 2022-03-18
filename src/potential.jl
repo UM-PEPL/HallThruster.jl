@@ -15,7 +15,7 @@ function solve_potential_edge!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
     (;z_cell, index, ϕ_L, ϕ_R) = params
-    N = length(z_cell) - 1
+    nedges = length(z_cell) - 1
 
     (;pe, ne, μ, A, b, ϕ) = params.cache
 
@@ -29,7 +29,7 @@ function solve_potential_edge!(U, params)
 
     mi = params.config.propellant.m
 
-    @inbounds for i in 2:(N - 1)
+    @inbounds for i in 2:nedges-1
 
         ne⁻ = ne[i]
         ne⁺ = ne[i + 1]

@@ -12,10 +12,10 @@ function sin_wave(var; amplitude, phase, nwaves, offset = 0.0)
     return amplitude * sin(2π * nwaves * var + phase) + offset
 end
 
-ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.25)
+ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.75, offset = 300.0)
 ne = sin_wave(x/L, amplitude = 1e18, phase = π/4, nwaves = 0.5, offset = 1.1e18)
-ui = sin_wave(x/L, amplitude = 13000, phase = π/4, nwaves = 0.75, offset = 10000)
-μ = sin_wave(x/L, amplitude = 1e3, phase = π/2, nwaves = 1.2, offset = 1.1e4)
+ui = sin_wave(x/L, amplitude = 13000, phase = π/4, nwaves = 0.83, offset = 10000)
+μ = sin_wave(x/L, amplitude = 1e4, phase = π/2, nwaves = 4, offset = 1.1e4)
 ϵ = sin_wave(x/L, amplitude = 40, phase = 3π/4, nwaves = 1.0, offset = 43)
 ρiui = ne * ui * HallThruster.Xenon.m
 pe = ne * ϵ
@@ -48,8 +48,8 @@ function verify_potential(ncells, plot_results = false)
 
     ϕ_exact = ϕ_func.(z_edge)
 
-    A = Tridiagonal(ones(ncells-2), ones(ncells-1), ones(ncells-2))
-    b = zeros(ncells) #for potential equation
+    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1))
+    b = zeros(nedges)
 
     ϕ_L = ϕ_exact[1]
     ϕ_R = ϕ_exact[end]
@@ -62,11 +62,11 @@ function verify_potential(ncells, plot_results = false)
 
     HallThruster.solve_potential_edge!(U, params)
 
-    results = (;z = z_cell, exact = ϕ_exact, sim = ϕ)
+    results = (;z = z_edge, exact = ϕ_exact, sim = ϕ)
 
     if plot_results
-        p = plot(z_cell, results.exact, label = "exact")
-        plot!(p, z_cell, results.sim, label = "sim")
+        p = plot(results.z, results.exact, label = "exact")
+        plot!(p, results.z, results.sim, label = "sim")
         display(p)
     end
 
