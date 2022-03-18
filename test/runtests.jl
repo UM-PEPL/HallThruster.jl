@@ -48,14 +48,8 @@ end
     include("order_verification/ovs_energy.jl")
     refinements = refines(5, 20, 2)
 
-    # Test spatial order of accuracy of explicit solver
-
-    # Test temporal order of accuracy of explicit solver
-
     # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
     slopes_nϵ, norms_nϵ = test_refinements(OVS_Energy.verify_energy, refinements, [1, 2, Inf])
-
-    # Test temporal accuracy of implicit solver
 
     # Check that electron energy is solved to second order
     for slope in slopes_nϵ

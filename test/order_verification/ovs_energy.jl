@@ -77,18 +77,18 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     ρn = ρn_func.(z_cell)
     U = zeros(2, ncells)
 
-    U[1, :] = ρn
-    U[2, :] .= 3 * ne
-
     nϵ_exact = nϵ_func.(z_cell)
-
-    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
-    bϵ = zeros(ncells)
 
     Te_L = 2/3 * nϵ_exact[1] / ne[1]
     Te_R = 2/3 * nϵ_exact[end] / ne[end]
 
-    min_electron_temperature = min(Te_L, Te_R)
+    U[1, :] = ρn
+    U[2, :] .= 3/2 * Te_L * ne # Set initial temp to 3 eV
+
+    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    bϵ = zeros(ncells)
+
+    min_electron_temperature = 0.1 * min(Te_L, Te_R)
 
     source_func = (U, params, i) -> source_energy(params.z_cell[i])
 
@@ -119,7 +119,7 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     # Test crank-nicholson implicit solve
 
     U[1, :] = ρn
-    U[2, :] .= 3 * ne
+    U[2, :] .= 3/2 * Te_L * ne # set initial temp to 3 eV
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5, implicit_iters,
