@@ -210,6 +210,40 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 
     loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 
+    # callback for calling the update_values! function at each timestep
+    update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
+
+    # Choose which cache variables to save and set up saving callback
+    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :ϕ_cell)
+
+    function save_func(u, t, integrator)
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell))
+    end
+
+    saved_values = SavedValues(
+        Float64, NamedTuple{fields_to_save, NTuple{length(fields_to_save), Vector{Float64}}}
+    )
+    saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
+
+
+    niters = round(Int, tspan[2] / timestep)
+
+    # Progress callback
+    if config.progress_interval > 0
+        progress_bar = ProgressBar(N = niters ÷ config.progress_interval, description = "Running simulation")
+    else
+        progress_bar = nothing
+    end
+
+    # Assemble callback set
+    if sim.callback !== nothing
+        callbacks = CallbackSet(update_callback, saving_callback, sim.callback)
+    else
+        callbacks = CallbackSet(update_callback, saving_callback)
+    end
+
+    # Simulation parameters
     params = (;
         config = config,
         propellant = config.propellant,
@@ -232,35 +266,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
         z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!,
-        scheme, BCs, dt=timestep,
+        scheme, BCs, dt=timestep, progress_bar,
+        iteration = [-1]
     )
-
-    #PREPROCESS
-    #make values in params available for first timestep
-    update_values!(U, params)
-
-    # Make callback for calling the update_values! function at each timestep
-    discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
-
-    # Choose which cache variables to save and set up saving callback
-    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :ϕ_cell)
-
-    function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, ϕ_cell))
-    end
-
-    saved_values = SavedValues(
-        Float64, NamedTuple{fields_to_save, NTuple{length(fields_to_save), Vector{Float64}}}
-    )
-    saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
-
-    # put two (or more) callbacks into a CallbackSet
-    if sim.callback !== nothing
-        callbacks = CallbackSet(discrete_callback, saving_callback, sim.callback)
-    else
-        callbacks = CallbackSet(discrete_callback, saving_callback)
-    end
 
     # Compute maximum allowed iterations
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
@@ -273,18 +281,33 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 	    f = ODEFunction(update!)
     end
 
+    #make values in params available for first timestep
+    update_values!(U, params)
+
     # Set up ODE problem and solve
     prob = ODEProblem{true}(f, U, tspan, params)
-	sol = solve(
-		prob, alg; saveat=sim.saveat, callback=callbacks,
-		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
-	)
+	sol = try
+        solve(
+            prob, alg; saveat=sim.saveat, callback=callbacks,
+            adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
+	    )
+    catch e
+        if config.progress_interval > 0
+            stop(progress_bar)
+        end
+        println("There was an error")
+        throw(e)
+    end
 
     # Print some diagnostic information
     if sol.retcode == :NaNDetected
         println("Simulation failed with NaN detected at t = $(sol.t[end])")
     elseif sol.retcode == :InfDetected
         println("Simulation failed with Inf detected at t = $(sol.t[end])")
+    end
+
+    if config.progress_interval > 0
+        stop(progress_bar)
     end
 
     # Return the solution

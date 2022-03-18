@@ -132,7 +132,7 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.u); case) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
+Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, case, start_ind)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)

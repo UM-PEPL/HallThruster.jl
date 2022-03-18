@@ -51,7 +51,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.HLLE,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
-        collision_model = :simple, coupled = true, energy_equation = :LANDMARK
+        collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
+        progress_interval = 0.0
     )
 
     fluid = HallThruster.Xenon
@@ -140,9 +141,10 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_iters = implicit_iters,
         source_potential = Returns(0.0),
         source_energy = Returns(0.0),
-        domain = domain,
+        domain,
         transition_function = transition,
-        collision_model = collision_model,
+        collision_model,
+        progress_interval,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)

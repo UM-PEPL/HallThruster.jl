@@ -11,6 +11,7 @@ using FileIO
 using DiffEqCallbacks
 using SparseArrays
 using ForwardDiff
+import Term.progress: track, ProgressBar, update, start, stop
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)

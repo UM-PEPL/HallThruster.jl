@@ -1,28 +1,47 @@
 
 function update_values!(integrator)
     (nvars, ncells) = size(integrator.u)
+
+    nandetected = false
+    infdetected = false
+
     @inbounds for j in 1:ncells, i in 1:nvars
         if isnan(integrator.u[i, j])
             println("NaN detected in variable $i in cell $j at time $(integrator.t)")
+            nandetected = true
             terminate!(integrator, :NaNDetected)
+            break
         elseif isinf(integrator.u[i, j])
             println("Inf detected in variable $i in cell $j at time $(integrator.t)")
+            infdetected = true
             terminate!(integrator, :InfDetected)
+            break
         end
     end
-    update_values!(integrator.u, integrator.p, integrator.t)
+
+    if !nandetected && !infdetected
+        update_values!(integrator.u, integrator.p, integrator.t)
+    end
 end
 
 function update_values!(U, params, t = 0)
 
+    params.iteration[1] += 1
+
+    # Update progress bar
+    progress_interval = params.config.progress_interval
+    iteration = params.iteration[1]
+    if progress_interval > 0 && iteration % progress_interval == 0
+        update(params.progress_bar)
+    end
+
     #update useful quantities relevant for potential, electron energy and fluid solve
     ncells = size(U, 2) - 2
 
-    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
+
+    (;z_cell, fluids, fluid_ranges, index) = params
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
     OVS = params.OVS.energy.active
-
-    mi = params.propellant.m
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U[:, 2], params)
@@ -49,20 +68,6 @@ function update_values!(U, params, t = 0)
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    #=
-    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
-
-    # Compute interior potential gradient and electron velocity and update source terms
-    @inbounds for i in 2:(ncells + 1)
-        # potential gradient
-        ∇ϕ[i] = first_deriv_central_diff_pot(ϕ, params.z_cell, i)
-
-        # electron velocity
-        ue[i] = (1 - OVS) * electron_velocity(U, params, i) + OVS * (params.OVS.energy.ue)
-    end
-    =#
-
     # Compute potential gradient, pressure gradient, and electron velocity
     compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
