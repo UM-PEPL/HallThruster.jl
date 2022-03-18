@@ -34,6 +34,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     B = zeros(ncells)
     νan = zeros(ncells)
     νc = zeros(ncells)
+    νei = zeros(ncells)
+    νen = zeros(ncells)
+    νw = zeros(ncells)
     μ = zeros(ncells)
     ϕ = zeros(ncells)
     ∇ϕ = zeros(ncells)
@@ -43,7 +46,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     ∇pe = zeros(ncells)
     ue = zeros(ncells)
 
-    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe)
+    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
     return U, cache
 end
 
@@ -62,6 +65,14 @@ function electron_density(U, params, i)
         ne += Z * U[index.ρi[Z], i] / params.config.propellant.m
     end
     return ne
+end
+
+function inlet_neutral_density(sim)
+    un = sim.neutral_velocity
+    A = channel_area(sim.geometry)
+    m_atom = sim.propellant.m
+    nn = sim.inlet_mdot / un / A / m_atom
+    return nn
 end
 
 function precompute_bfield!(B, zs)
@@ -144,6 +155,12 @@ function configure_fluids(config)
     return fluids, fluid_ranges, species, species_range_dict
 end
 
+function initial_condition!(U, z_cell, IC!, fluids)
+    for (i, z) in enumerate(z_cell)
+        @views IC!(U[:, i], z, fluids, z_cell[end])
+    end
+end
+
 function run_simulation(sim, config, alg) #put source and Bcs potential in params
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
@@ -217,88 +234,58 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         scheme, BCs, dt=timestep,
     )
 
-    U = deepcopy(U)
-    params = deepcopy(params)
-
     #PREPROCESS
     #make values in params available for first timestep
     update_values!(U, params)
 
-    #return params
+    # Make callback for calling the update_values! function at each timestep
+    discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
+
+    # Choose which cache variables to save and set up saving callback
+    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc))
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw))
     end
 
-    saved_values = SavedValues(Float64, NamedTuple{(:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc), NTuple{10, Vector{Float64}}})
-
-    discrete_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
+    saved_values = SavedValues(
+        Float64, NamedTuple{fields_to_save, NTuple{length(fields_to_save), Vector{Float64}}}
+    )
     saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
 
+    # put two (or more) callbacks into a CallbackSet
     if sim.callback !== nothing
-        cb = CallbackSet(discrete_callback, saving_callback, sim.callback)
+        callbacks = CallbackSet(discrete_callback, saving_callback, sim.callback)
     else
-        cb = CallbackSet(discrete_callback, saving_callback)
+        callbacks = CallbackSet(discrete_callback, saving_callback)
     end
 
-    implicit_energy = config.implicit_energy
-
+    # Compute maximum allowed iterations
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    if implicit_energy > 0
+    # Choose which function to use for ODE
+    # If implicit, we update electron energy in the callback, not using diffeq
+    if config.implicit_energy > 0
         f = ODEFunction(update_heavy_species!)
     else
 	    f = ODEFunction(update!)
     end
 
+    # Set up ODE problem and solve
     prob = ODEProblem{true}(f, U, tspan, params)
 	sol = solve(
-		prob, alg; saveat=sim.saveat, callback=cb,
+		prob, alg; saveat=sim.saveat, callback=callbacks,
 		adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
 	)
 
+    # Print some diagnostic information
     if sol.retcode == :NaNDetected
         println("Simulation failed with NaN detected at t = $(sol.t[end])")
     elseif sol.retcode == :InfDetected
         println("Simulation failed with Inf detected at t = $(sol.t[end])")
     end
 
+    # Return the solution
     return HallThrusterSolution(sol, params, saved_values.saveval)
 end
-
-function inlet_neutral_density(sim)
-    un = sim.neutral_velocity
-    A = channel_area(sim.geometry)
-    m_atom = sim.propellant.m
-    nn = sim.inlet_mdot / un / A / m_atom
-    return nn
-end
-
-function initial_condition!(U, z_cell, IC!, fluids)
-    for (i, z) in enumerate(z_cell)
-        @views IC!(U[:, i], z, fluids, z_cell[end])
-    end
-end
-
-############################################################################################
-using DelimitedFiles
-
-function load_hallis_output(output_path)
-    output_headers = [
-        :z, :ne, :ϕ, :Te, :Ez, :Br, :nn, :ndot, :μe, :μen, :μbohm, :μwall, :μei,
-    ]
-    output = DataFrame(readdlm(output_path, Float64), output_headers)
-    output.ωce = output.Br * 1.6e-19 / 9.1e-31
-    replace!(output.nn, 0.0 => 1e12)
-    return output[1:end-1, :]
-end
-
-
-function load_hallis_for_input()
-    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_01.out")
-    ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, hallis.ϕ)
-    grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
-    return ϕ_hallis, grad_ϕ_hallis
-end
-

@@ -78,14 +78,4 @@ end
 
 freq_electron_wall(U, params, i) = 1e7 * params.config.transition_function(params.z_cell[i], params.L_ch, params.αw[1], 0.0)
 
-freq_electron_anom(U, params, i) = params.anom_model(U, params, i) + freq_electron_wall(U, params, i)
-
-function freq_electron_classical(U, params, i)
-    νen = freq_electron_neutral(U, params, i)
-    if params.config.collision_model == :simple
-        return νen
-    else
-        νei = freq_electron_ion(U, params, i)
-        return νen + νei
-    end
-end
+freq_electron_anom(U, params, i) = params.anom_model(U, params, i)

@@ -19,7 +19,7 @@ function update_values!(U, params, t = 0)
     ncells = size(U, 2) - 2
 
     (;z_cell, fluids, fluid_ranges, index, scheme, source_term!, z_edge) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, νan, νc, μ, ∇pe) = params.cache
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
     OVS = params.OVS.energy.active
 
     mi = params.propellant.m
@@ -34,13 +34,17 @@ function update_values!(U, params, t = 0)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        @views ne[i] = (1 - OVS) * electron_density(U, params, i) + OVS_ne
-        ne[i] = ne[i]
+        compute_νei = params.config.collision_model !== :simple
+
+        ne[i] = (1 - OVS) * electron_density(U, params, i) + OVS_ne
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = U[index.nϵ, i]
+        νen[i] = freq_electron_neutral(U, params, i)
+        νei[i] = compute_νei * freq_electron_ion(U, params, i)
+        νw[i] = freq_electron_wall(U, params, i)
         νan[i] = freq_electron_anom(U, params, i)
-        νc[i] = freq_electron_classical(U, params, i)
-        μ[i] = (1 - OVS) * electron_mobility(νan[i], νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
+        νc[i] = νen[i] + νei[i]
+        μ[i] = electron_mobility(νan[i] + νw[i], νc[i], B[i])
     end
 
     # update electrostatic potential and potential gradient on edges
