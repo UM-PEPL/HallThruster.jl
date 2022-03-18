@@ -229,12 +229,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 
     niters = round(Int, tspan[2] / timestep)
 
-    # Progress callback
-    if config.progress_interval > 0
-        progress_bar = ProgressBar(N = niters ÷ config.progress_interval, description = "Running simulation")
-    else
-        progress_bar = nothing
-    end
+    progress_bar = make_progress_bar(niters, timestep, config)
 
     # Assemble callback set
     if sim.callback !== nothing
@@ -292,9 +287,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
             adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
 	    )
     catch e
-        if config.progress_interval > 0
-            stop(progress_bar)
-        end
+        stop_progress_bar(params)
         println("There was an error")
         throw(e)
     end
@@ -306,9 +299,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         println("Simulation failed with Inf detected at t = $(sol.t[end])")
     end
 
-    if config.progress_interval > 0
-        stop(progress_bar)
-    end
+    stop_progress_bar!(progress_bar, params)
 
     # Return the solution
     return HallThrusterSolution(sol, params, saved_values.saveval)

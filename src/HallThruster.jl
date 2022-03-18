@@ -11,7 +11,11 @@ using FileIO
 using DiffEqCallbacks
 using SparseArrays
 using ForwardDiff
+using Term
 import Term.progress: track, ProgressBar, update, start, stop
+import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
+import Term.style: apply_style  # to style strings
+import Term.measure: Measure  # to define the column's size
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
@@ -39,6 +43,7 @@ include("update_values.jl")
 include("sourceterms.jl")
 include("electrontransport.jl")
 include("collisions.jl")
+include("progressbar.jl")
 include("simulation.jl")
 
 end # module

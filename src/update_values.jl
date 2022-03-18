@@ -24,29 +24,24 @@ function update_values!(integrator)
     end
 end
 
+#update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
-
-    params.iteration[1] += 1
-
-    # Update progress bar
-    progress_interval = params.config.progress_interval
-    iteration = params.iteration[1]
-    if progress_interval > 0 && iteration % progress_interval == 0
-        update(params.progress_bar)
-    end
-
-    #update useful quantities relevant for potential, electron energy and fluid solve
-    ncells = size(U, 2) - 2
-
-
     (;z_cell, fluids, fluid_ranges, index) = params
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
+
     OVS = params.OVS.energy.active
+
+    # Update the current iteration
+    params.iteration[1] += 1
+
+    # Update the progress bar
+    update_progress_bar!(params.progress_bar, params, t)
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U[:, 2], params)
     @views right_boundary_state!(U[:, end], U[:, end-1], params)
 
+    ncells = size(U, 2) - 2
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
         z = z_cell[i]
