@@ -21,11 +21,7 @@ OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Parsers = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-<<<<<<< HEAD
-PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
-=======
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
->>>>>>> d1f96b22b8d3abd0115e2d66c3151da1890ce19a
 SodShockTube = "2160a001-e9fc-4c63-b529-f2c7ec8d982c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
