@@ -91,7 +91,7 @@ function update_heavy_species!(dU, U, params, t)
     last_ion_index = index.lf
 
     # Compute heavy species source terms
-    @turbo for i in 2:(ncells + 1)
+    for i in 2:(ncells + 1)
 
         #Compute dU/dt
         left = left_edge(i)
@@ -120,23 +120,29 @@ function update_heavy_species!(dU, U, params, t)
     if !params.implicit_energy
         update_electron_energy!(dU, U, params, t)
     end
+
+    return nothing
 end
 
 function update_electron_energy!(dU, U, params, t)
     #########################################################
     #ELECTRON SOLVE
-
     ncells = size(U, 2) - 2
 
     (;index, z_cell, z_edge) = params
     μ = params.cache.μ
+
     Tev = @views U[index.Tev, :]
     nϵ = @views U[index.nϵ, :]
-	ue = @views U[index.ue, :]
+    ue = @views U[index.ue, :]
+
+    Tev[1] = params.Te_L 
+    Tev[end] = params.Te_R
 
     implicit_energy = params.config.implicit_energy
 
-    @inbounds for i in 2:ncells+1
+        #Tev[i] = nϵ[i] / ne[i]
+        #Tev[i+1] = nϵ[i+1] / ne[i+1]
 
         # Upwinded first derivatives
         z0 = z_cell[i-1]
@@ -160,7 +166,7 @@ function update_electron_energy!(dU, U, params, t)
 
         diffusion_term += μ[i] * nϵ[i] * uneven_second_deriv(Tev[i-1], Tev[i], Tev[i+1], z0, z1, z2)
 
-        dU[index.nϵ, i] = (1 - implicit_energy) * dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
+        dU[index.nϵ, i] = dU[index.nϵ, i] - 5/3 * advection_term + 10/9 * (diffusion_term)
     end
 
 
@@ -192,7 +198,7 @@ function update_values!(U, params)
 
     ncells = size(U, 2) - 2
 
-    (;z_cell, fluids, fluid_ranges, index, scheme, source_term!) = params
+    (;z_cell, z_edge, fluids, fluid_ranges, index, scheme, source_term!) = params
     (;F, UL, UR, Q, B) = params.cache
     OVS = params.OVS.energy.active
 	z_edge = params.z_edge
@@ -218,7 +224,7 @@ function update_values!(U, params)
         OVS_ne = OVS * (params.OVS.energy.ne(z))
         OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
-        U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
+        @views U[index.ne, i] = (1 - OVS) * max(1e13, electron_density(U[:, i], params) / mi) + OVS_ne
         U[index.Tev, i] = (1 - OVS) * max(0.1, U[index.nϵ, i]/U[index.ne, i]) + OVS_Tev
         U[index.pe, i] = U[index.nϵ, i]
         params.cache.νan[i] = params.anom_model(i, U, params)
@@ -226,9 +232,18 @@ function update_values!(U, params)
         params.cache.μ[i] = (1 - params.OVS.energy.active)*electron_mobility(params.cache.νan[i], params.cache.νc[i], B[i]) #+ OVS*(params.OVS.energy.μ)
     end
 
+    apply_bc_electron!(U, params.BCs[3], :left, index)
+    apply_bc_electron!(U, params.BCs[4], :right, index)
+    U[index.pe, 1] = U[index.nϵ, 1]
+    U[index.pe, end] = U[index.nϵ, end]
+
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
     #U[index.ϕ, :] .= params.OVS.energy.active.*0.0 #avoiding abort during OVS
+    #@views U[index.grad_ϕ, 1] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, 1)
+    #@views U[index.grad_ϕ, end] = first_deriv_central_diff_pot(U[index.ϕ, :], params.z_cell, ncells+2)
+    @views ∇ϕ = U[index.grad_ϕ, :]
+    @views ϕ = U[index.ϕ, :]
     ∇ϕ[1] = uneven_forward_diff(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
     ∇ϕ[end] = uneven_backward_diff(ϕ[end-3], ϕ[end-2], ϕ[end-1], z_edge[end-2], z_edge[end-1], z_edge[end])
 
@@ -246,15 +261,6 @@ function update_values!(U, params)
     # Neumann condition for electron velocity
     U[index.ue, 1] = U[index.ue, 2]
     U[index.ue, end] = U[index.ue, end-1]
-
-    # Dirchlet BCs for electron energy
-    #U[index.nϵ, 1] = params.Te_L * U[index.ne, 1]
-    #U[index.nϵ, end] = params.Te_R * U[index.ne, end]
-    apply_bc_electron!(U, params.BCs[3], :left, index)
-    apply_bc_electron!(U, params.BCs[4], :right, index)
-
-
-
 end
 
 #=Config = @NamedTuple begin

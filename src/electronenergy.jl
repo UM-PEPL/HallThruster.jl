@@ -1,15 +1,8 @@
 #should be able to use global params variables now
 function electron_velocity(U, params, i)
-    (;z_cell, index) = params
-    μ = params.cache.μ
-
-    ∇ϕ = U[index.grad_ϕ, i]
-    ne = U[index.ne, i]
-    pe = @views U[index.pe, :]
-
-    ∇pe = first_deriv_central_diff(pe, z_cell, i)
-    #∇pe = uneven_central_diff(pe[i-1], pe[i], pe[i+1], z_cell[i-1], z_cell[i], z_cell[i+1])
-    uₑ = μ[i] * (∇ϕ - ∇pe/ne)
+    index = params.index
+    @views grad_nϵ = first_deriv_central_diff(U[index.pe, :], params.z_cell, i)
+    uₑ = params.cache.μ[i]*(U[index.grad_ϕ, i] - grad_nϵ/U[index.ne, i])
     return uₑ
 end
 
