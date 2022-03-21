@@ -125,11 +125,13 @@ compute the second-order approximation of the derivative at x0
 ```jldoctest;setup = :(using HallThruster: forward_difference)
 f(x) = x^4
 x0, x1, x2 = 2.0, 2.000001, 2.000002
-forward_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+fd = forward_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+fd ≈ 32
 
 # output
 
-31.999999998137355
+true
+
 ```
 """
 @inline function forward_difference(f0, f1, f2, x0, x1, x2)
@@ -145,11 +147,12 @@ compute the second-order approximation of the derivative at x1
 ```jldoctest;setup = :(using HallThruster: central_difference)
 f(x) = x^4
 x0, x1, x2 = 1.9999999, 2, 2.0000001
-central_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+cd = central_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+cd ≈ 32
 
 # output
 
-32.0
+true
 ```
 """
 @inline function central_difference(f0, f1, f2, x0, x1, x2)
@@ -165,11 +168,12 @@ compute the second-order approximation of the derivative at x2
 ```jldoctest;setup = :(using HallThruster: backward_difference)
 f(x) = x^4
 x0, x1, x2 = 1.9999998, 1.9999999, 2
-backward_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+bd = backward_difference(f(x0), f(x1), f(x2), x0, x1, x2)
+bd ≈ 32
 
 # output
 
-32.00000002980232
+true
 ```
 """
 @inline function backward_difference(f0, f1, f2, x0, x1, x2)
@@ -185,11 +189,12 @@ compute the second-order approximation of the second derivative at x1
 ```jldoctest;setup = :(using HallThruster: second_deriv_central_diff)
 f(x) = x^4
 x0, x1, x2 = 1.999999, 2.0, 2.000001
-second_deriv_central_diff(f(x0), f(x1), f(x2), x0, x1, x2)
+sd = second_deriv_central_diff(f(x0), f(x1), f(x2), x0, x1, x2)
+sd ≈ 48
 
 # output
 
-48.0
+true
 ```
 """
 @inline function second_deriv_central_diff(f0, f1, f2, x0, x1, x2)

@@ -5,7 +5,7 @@ function update_heavy_species!(dU, U, params, t)
 
     (;index, z_edge, scheme, fluids, species_range_dict, reactions) = params
     (;
-        #source_neutrals, source_ion_continuity, source_ion_momentum,
+        source_neutrals, source_ion_continuity, source_ion_momentum,
         electron_pressure_coupled, min_electron_temperature, propellant
     ) = params.config
     (;ue, μ) = params.cache
@@ -49,7 +49,7 @@ function update_heavy_species!(dU, U, params, t)
         dU[index.ρn, i] = -(Fn_R[1] - Fn_L[1])/Δz
 
         # User-provided neutral source term
-        #dU[index.ρn, i] += source_neutrals(U, params, i)
+        dU[index.ρn, i] += source_neutrals(U, params, i)
 
         # Compute electron density
         neL = 0.0
@@ -85,8 +85,8 @@ function update_heavy_species!(dU, U, params, t)
             dU[index.ρiui[Z], i] = -F_momentum / Δz + Q_accel
 
             # Add user-provided source terms
-            #dU[index.ρi[Z], i] += source_ion_continuity[Z](U, params, i)
-            #dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
+            dU[index.ρi[Z], i] += source_ion_continuity[Z](U, params, i)
+            dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
         end
 
         # Source terms due to ionization
