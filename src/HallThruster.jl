@@ -44,6 +44,8 @@ include("sourceterms.jl")
 include("electrontransport.jl")
 include("collisions.jl")
 include("progressbar.jl")
+include("configuration.jl")
+include("utility_functions.jl")
 include("simulation.jl")
 
 end # module
