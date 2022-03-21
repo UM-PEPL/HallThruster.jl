@@ -10,7 +10,7 @@ function update_heavy_species!(dU, U, params, t)
     ) = params.config
     (;ue, μ) = params.cache
 
-    ncells = size(U, 2) - 2
+    ncells = size(U, 2)
 
     mi = propellant.m
 
@@ -26,11 +26,8 @@ function update_heavy_species!(dU, U, params, t)
 
     coupled = electron_pressure_coupled
 
-    first_ind = 2
-    last_ind = ncells+1
-
     # Compute heavy species source terms
-    @inbounds for i in first_ind:last_ind
+    @inbounds for i in 2:ncells-1
 
         #Compute dU/dt
         left = left_edge(i)
@@ -57,19 +54,19 @@ function update_heavy_species!(dU, U, params, t)
         ne0 = 0.0
         for Z in 1:ncharge
             neL += Z * U[index.ρi[Z], i-1] / mi
-            ne0 += Z * U[index.ρi[Z], i] / mi
+            ne0 += Z * U[index.ρi[Z], i  ] / mi
             neR += Z * U[index.ρi[Z], i+1] / mi
         end
 
         # Compute electron energy
         ϵL = max(min_electron_temperature, nϵ[i-1] / neL)
-        ϵ0 = max(min_electron_temperature, nϵ[i] / ne0)
+        ϵ0 = max(min_electron_temperature, nϵ[i  ] / ne0)
         ϵR = max(min_electron_temperature, nϵ[i+1] / neR)
 
         # Compute ion fluxes and source terms
         for Z in 1:ncharge
             UL = SA[U[index.ρi[Z], i-1], U[index.ρiui[Z], i-1]]
-            U0 = SA[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
+            U0 = SA[U[index.ρi[Z], i  ], U[index.ρiui[Z], i  ]]
             UR = SA[U[index.ρi[Z], i+1], U[index.ρiui[Z], i+1]]
 
             fluid = fluids[Z+1]
@@ -77,11 +74,12 @@ function update_heavy_species!(dU, U, params, t)
             FL = scheme.flux_function(UL, U0, fluid, coupled, ϵL, ϵ0, neL, ne0)
             FR = scheme.flux_function(U0, UR, fluid, coupled, ϵ0, ϵR, ne0, neR)
 
-            F_mass, F_momentum = FR[1] - FL[1], FR[2] - FL[2]
+            F_mass     = FR[1] - FL[1]
+            F_momentum = FR[2] - FL[2]
 
             Q_accel = -Z * e * U[index.ρi[Z], i] / mi * ue[i] / μ[i]
 
-            dU[index.ρi[Z], i] = -F_mass / Δz
+            dU[index.ρi[Z]  , i] = -F_mass / Δz
             dU[index.ρiui[Z], i] = -F_momentum / Δz + Q_accel
 
             # Add user-provided source terms
@@ -100,4 +98,6 @@ function update_heavy_species!(dU, U, params, t)
             dU[product_index, i] += ρdot
         end
     end
+
+    return nothing
 end

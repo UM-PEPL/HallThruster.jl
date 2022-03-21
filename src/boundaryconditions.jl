@@ -24,8 +24,8 @@ struct Neumann_energy <: BoundaryCondition
 end
 
 function left_boundary_state!(bc_state, U, params)
-    (;propellant, Te_L, index, mdot_a, A_ch, fluids) = params
-    mi = propellant.m
+    (;Te_L, index, mdot_a, A_ch, fluids) = params
+    mi = params.config.propellant.m
 
     un = fluids[1].conservation_laws.u
     bc_state[index.ρn] = mdot_a / A_ch / un
@@ -49,8 +49,8 @@ function left_boundary_state!(bc_state, U, params)
 end
 
 function right_boundary_state!(bc_state, U, params)
-    (;propellant, Te_R, index) = params
-    mi = propellant.m
+    (;Te_R, index) = params
+    mi = params.config.propellant.m
 
     bc_state[index.ρn] = U[index.ρn]
 
