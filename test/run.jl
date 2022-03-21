@@ -49,7 +49,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = 1.0, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
-        flux = HallThruster.HLLE,
+        flux = HallThruster.rusanov,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
         collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
         progress_interval = 2000
@@ -160,4 +160,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=150, nsave=1000, dt = 0.9e-8, alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!), implicit_energy = 1.0);
+sol = run_sim(1e-3; ncells=100, nsave=1000, dt = 1e-8, alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!), implicit_energy = 1.0);

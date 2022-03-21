@@ -6,7 +6,7 @@ function Lp_norm(v, p)
 end
 
 function sin_wave(var; amplitude, phase, nwaves, offset = 0.0)
-    return amplitude * sin(2π * nwaves * var + phase) + offset
+    return amplitude * sin(2π * nwaves * (var + phase)) + offset
 end
 
 function test_refinements(verification_func, refinements, norm_orders)

@@ -20,7 +20,7 @@ const van_albada = FluxLimiter(r -> (r^2 + r) / (r^2 + 1))
 const van_leer = FluxLimiter(r -> (r + abs(r)) / (1 + abs(r)))
 
 function stage_limiter!(U, integrator, p, t)
-    min_density = p.config.min_number_density * p.propellant.m
+    min_density = p.config.min_number_density * p.config.propellant.m
     @inbounds for j in 1:size(U, 2)
         U[p.index.ρn, j] = max(U[p.index.ρn, j], min_density)
         for Z in p.config.ncharge
