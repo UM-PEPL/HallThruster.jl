@@ -188,7 +188,7 @@ compute the second-order approximation of the second derivative at x1
 
 ```jldoctest;setup = :(using HallThruster: second_deriv_central_diff)
 f(x) = x^4
-x0, x1, x2 = 1.999999, 2.0, 2.000001
+x0, x1, x2 = 1.9999, 2.0, 2.0001
 sd = second_deriv_central_diff(f(x0), f(x1), f(x2), x0, x1, x2)
 sd ≈ 48
 

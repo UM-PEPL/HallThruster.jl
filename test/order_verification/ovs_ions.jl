@@ -59,11 +59,21 @@ source_ρiui_conservative_coupled = eval(build_function(expand_derivatives(momen
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
 source_ρiui_nonconservative_coupled = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
-function solve_ions(ncells, source_momentum, scheme, plot_results = false)
+function solve_ions(ncells, scheme, plot_results = false; coupled, conservative)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
 
     propellant = HallThruster.Xenon
+
+    source_momentum = if coupled && conservative
+        source_ρiui_conservative_coupled
+    elseif coupled && !conservative
+        source_ρiui_nonconservative_coupled
+    elseif !coupled && conservative
+        source_ρiui_conservative_uncoupled 
+    elseif !coupled && !conservative
+        source_ρiui_nonconservative_uncoupled
+    end
 
     config = (;
         source_neutrals = (U, p, i) -> source_ρn(p.z_cell[i]),
@@ -77,6 +87,10 @@ function solve_ions(ncells, source_momentum, scheme, plot_results = false)
         ncharge = 1,
         electron_pressure_coupled = coupled,
         min_electron_temperature = 1.0,
+        neutral_velocity = un,
+        neutral_temperature = 300.0,
+        ion_temperature = Ti,
+        solve_ion_energy = false
     )
 
     z_edge = grid.edges
@@ -91,15 +105,15 @@ function solve_ions(ncells, source_momentum, scheme, plot_results = false)
 
     cache = (;ue, μ)
 
-    reactions = HallThruster.ionization_fits_Xe()
+    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    index = HallThruster.configure_index(fluid_ranges)
+
+    reactions = HallThruster.ionization_fits_Xe(1)
     U = zeros(4, ncells)
     U[index.ρn, :] .= ρn_func(0.0)
     U[index.ρi[1], :] .= ρi_func(0.0)
     U[index.ρiui[1], :] .= ρiui_func(0.0)
     U[index.nϵ, :] .= nϵ
-
-    species, fluids, fluid_ranges, species_range_dict = configure_fluids(config)
-    index = configure_index(fluid_ranges)
 
     params = (;
         index,
