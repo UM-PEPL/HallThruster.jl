@@ -174,27 +174,6 @@ function perform_OVS_potential(; MMS_CONSTS, fluxfn, reconstruct)
     return results
 end
 
-function compute_slope(refinements, errors)
-    p = Array{Union{Nothing, Float64}}(nothing, refinements-2)
-    for i in 1:refinements-2
-        p[i] = log(abs(errors[i+2]-errors[i+1])/abs(errors[i+1]-errors[i]))/log(0.5)
-    end 
-    return Statistics.mean(p)
-end
-
-function evaluate_slope(results, MMS_CONSTS)
-    nfluids = size(results[1].u_exa)[1]
-    if nfluids > MMS_CONSTS.refinements
-        nfluids = 1
-    end
-    L_1 = Array{Union{Nothing, Float64}}(nothing, nfluids)
-    L_inf = Array{Union{Nothing, Float64}}(nothing, nfluids)
-    for j in 1:nfluids
-        L_1[j] = compute_slope(MMS_CONSTS.refinements, [results[i].L_1[j] for i in 1:length(results)])
-        L_inf[j] = compute_slope(MMS_CONSTS.refinements, [results[i].L_inf[j] for i in 1:length(results)])
-    end
-    return L_1, L_inf
-end
 
 
 function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)

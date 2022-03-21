@@ -1,15 +1,14 @@
-using JLD2
-
-struct HallThrusterSolution{T, U, P}
+struct HallThrusterSolution{T, U, P, S}
     t::T
     u::U
+    savevals::S
     retcode::Symbol
     destats::DiffEqBase.DEStats
     params::P
 end
 
-function HallThrusterSolution(sol::S, params::P) where {S<:SciMLBase.AbstractODESolution, P}
-    return HallThrusterSolution(sol.t, sol.u, sol.retcode, sol.destats, params)
+function HallThrusterSolution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
+    return HallThrusterSolution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
 end
 
 """
@@ -54,117 +53,72 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
     print(io, "End time: $(sol.t[end]) seconds")
 end
 
-function Base.getindex(sol::HallThrusterSolution, I1, I2)
-    return sol.u[I1][I2, :]
+
+function timeaveraged(sol, tstampstart)
+    avg = zeros(size(sol.u[1]))
+    avg_savevals = deepcopy(sol.savevals[end])
+    (;Tev, ue, ϕ, ∇ϕ, ne) = avg_savevals
+    Tev .= 0.0
+    ue .= 0.0
+    ϕ .= 0.0
+    ∇ϕ .= 0.0
+    ne .= 0.0
+
+    tstamps = length(sol.t)
+    Δt = (tstamps - tstampstart + 1)
+    for i in tstampstart:length(sol.t)
+        avg .+= sol.u[i] / Δt
+        Tev .+= sol.savevals[i].Tev / Δt
+        ue .+= sol.savevals[i].ue  / Δt
+        ϕ .+= sol.savevals[i].ϕ / Δt
+        ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
+        ne .+= sol.savevals[i].ne / Δt
+    end
+    return avg, avg_savevals
 end
 
-function Base.getindex(sol::HallThrusterSolution, I1, field::String)
+function compute_current(sol)
     index = sol.params.index
-    mi = sol.params.fluids[1].species.element.m
-    params = sol.params
-    if field == "nn"
-        return sol[I1, 1] / mi
-    elseif field == "ni"
-        return sol[I1, 2] / mi
-    elseif field == "niui"
-        return sol[I1, 3] / mi
-    elseif field == "ui"
-        return sol[I1, 3] ./ sol[I1, 2]
-    elseif field == "ne"
-        return sol[I1, index.ne]
-    elseif field == "Te"
-        return sol[I1, index.Tev]
-    elseif field == "nϵ"
-        return sol[I1, index.nϵ]
-    elseif field == "pe"
-        return sol[I1, index.pe]
-    elseif field == "E"
-        return -sol[I1, index.grad_ϕ]
-    elseif field == "ϕ"
-        return sol[I1, index.ϕ]
-    elseif field == "B"
-        return params.cache.B
-    elseif field == "νan"
-        return [get_v_an(z, B, params.L_ch) for (z, B) in zip(params.z_cell, params.cache.B)]
-    elseif field == "νc"
-        return @views [
-                electron_collision_freq(Te, nn, ne, mi)
-                for (Te, nn, ne) in zip(
-                    sol.u[I1][index.Tev, :],
-                    sol.u[I1][1, :]/mi,
-                    sol.u[I1][2, :]/mi,
-                )]
-    elseif field == "z"
-        return params.z_cell
-    else
-        throw(ArgumentError("Hall thruster has no field \"$(field)\""))
+    current = zeros(3, length(sol.t))
+    area = sol.params.A_ch
+    mi = sol.params.propellant.m
+    for i in 1:length(sol.t)
+        (;ue, ne) = sol.savevals[i]
+        current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/mi*area
+        current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
+        current[3, i] = current[1, i] + current[2, i]
     end
+    return current
 end
 
-Base.firstindex(s::HallThrusterSolution, args...) = Base.firstindex(s.u, args...)
-Base.lastindex(s::HallThrusterSolution, args...) = Base.lastindex(s.u, args...)
-
-#=
-function extract_data(u::Matrix{T}, config)
-    nvars, ncells = u
-    d = Dict{String, Vector{T}}
-    mi = config.propellant.m
-    d["nn"] = u[1, :] / mi
-
-    offset = 1
-    if config.solve_neutral_velocity
-        d["un"] = u[2, :] / mi
-        offset += 1
-    else
-        d["un"] = config.un * ones(T,ncells)
-    end
-
-    for i in 1:config.ncharge
-        d["ni($(i))"] = u[offset, :]
-        d["ui($(i))"] = u[offset+1, :] ./ u[offset, :]
-        if config.solve_ion_temperature
-            d["Ti($(i))"] = u[offset+2, :] ./ u[offset, :]
-            offset += 3
-        else
-            d["Ti($i))"] = config.ion_temperature * ones(T, ncells)
-            offset += 2
+function compute_thrust(sol)
+    index = sol.params.index
+    thrust = zeros(length(sol.t))
+    area = sol.params.A_ch
+    for i in 1:length(sol.t)
+        for Z in 1:sol.params.config.ncharge
+            thrust[i] += area * sol.u[i][index.ρiui[Z], end]^2 / sol.u[i][index.ρi[Z], end]
         end
     end
+    return thrust
+end
 
-    index = (;lf = lf, nϵ = lf+1, Tev = lf+2, ne = lf+3, pe = lf+4, ϕ = lf+5, grad_ϕ = lf+6, ue = lf+7)
-    d["nϵ"] = u[offset, :]
-    d["Te"] = u[offset+1, :]
-    d["ne"] = u[offset+2, :]
-    d["ϕ"] = u[offset+4, :]
-    d["E"] = -u[offset+5, :]
-    d["ue"] = u[offset+6, :]
+using DelimitedFiles
 
-    return d
+function load_hallis_output(output_path)
+    output_headers = [
+        :z, :ne, :ϕ, :Te, :Ez, :Br, :nn, :ndot, :μe, :μen, :μbohm, :μwall, :μei,
+    ]
+    output = DataFrame(readdlm(output_path, Float64), output_headers)
+    output.ωce = output.Br * 1.6e-19 / 9.1e-31
+    replace!(output.nn, 0.0 => 1e12)
+    return output[1:end-1, :]
 end
 
 
-Base.@kwdef struct HallThrusterConfig
-    geometry
-    ncells::Int
-    restart::Bool
-    restart_filename::String
-    bfield
-    propellant
-    ncharge
-    solve_neutral_velocity
-    solve_ion_temperature
-    anom_model
-    anom_model_coeffs
-    energy_equation
-    ion_diffusion_coeff
-    electron_pressure_coupled
-    flux
-    reconstruct
-    limiter
-    mass_flow_rate
-    cathode_potential
-    anode_potential
-    cathode_Te
-    anode_Te
+function load_hallis_for_input()
+    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_01.out")
+    ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, hallis.ϕ)
+    grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
+    return ϕ_hallis, grad_ϕ_hallis
 end
-=#

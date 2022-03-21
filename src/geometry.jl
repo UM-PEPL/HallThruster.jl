@@ -31,9 +31,11 @@ channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2
 Generate a one-dimensional uniform grid on the domain specified in the geomety. Returns number of cells, coordinates
 of cell centers (plus ghost cells face coordinates), interface/edges and volume of a cell for number density calculations. 
 """
-function generate_grid(geometry, ncells)
+function generate_grid(geometry, ncells, domain = nothing)
+    domain = domain === nothing ? geometry.domain : domain
+
     # generate cell interface coordinates
-    z_edge = LinRange(geometry.domain[1], geometry.domain[2], ncells+1)
+    z_edge = LinRange(domain[1], domain[2], ncells+1)
 
     # generate cell center coordinates
     z_cell = [0.5 * (z_edge[i + 1] + z_edge[i]) for i in 1:ncells]
@@ -43,7 +45,7 @@ function generate_grid(geometry, ncells)
 
     # get cell area
     cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius) *
-                  abs(geometry.domain[2] - geometry.domain[1]) / ncells
+                  abs(domain[2] - domain[1]) / ncells
 
     return Grid1D(ncells, z_edge, z_cell, cell_volume)
 end
@@ -54,4 +56,7 @@ Geometry of the SPT_100 thruster
 """
 
 const SPT_100 = (domain=(0.0, 0.05), channel_length=0.025, inner_radius=0.0345,
+                 outer_radius=0.05)
+
+const SPT_100_1 = (domain=(0.0, 0.08), channel_length=0.025, inner_radius=0.0345,
                  outer_radius=0.05)
