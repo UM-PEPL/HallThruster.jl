@@ -1,237 +1,70 @@
 using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
 
-
 doctest(HallThruster)
 
 @testset "Gas and species tests" begin
-    @test repr(HallThruster.Krypton) == "Krypton"
-    @test repr(HallThruster.Electron) == "e-"
-    @test repr(HallThruster.Species(HallThruster.Xenon, 1)) == "Xe+"
-    @test repr(HallThruster.Species(HallThruster.Xenon, 3)) == "Xe3+"
-    @test repr(HallThruster.Species(HallThruster.Xenon, 0)) == "Xe"
-
-    M = 5.
-    γ = 1.
-    gas = HallThruster.Gas("Fake", "Fa"; γ, M)
-    @test repr(gas) == "Fake"
-    @test gas.m == M / HallThruster.NA
-    @test gas.R == HallThruster.R0 / M
-    @test gas.cp == γ / (γ - 1) * gas.R
-    @test gas.cv == gas.cp - gas.R
-
+    include("unit_tests/gas_and_species.jl")
 end
 
-@testset "Conservation law systems and fluids" begin
-    let Xe_0 = HallThruster.Species(HallThruster.Xenon, 0)
-        @test HallThruster.Fluid(Xe_0, HallThruster.ContinuityOnly(u = 300, T = 300)) |> HallThruster.nvars == 1
-        @test HallThruster.Fluid(Xe_0, HallThruster.IsothermalEuler(T = 300)) |> HallThruster.nvars == 2
-        @test HallThruster.Fluid(Xe_0, HallThruster.EulerEquations()) |> HallThruster.nvars == 3
+@testset "Conservation law systems, fluids, and fluxes" begin
+    include("unit_tests/conservation_laws.jl")
+end
+
+@testset "Flux limiters" begin
+    include("unit_tests/flux_limiters.jl")
+end
+
+@testset "Ionization" begin
+    include("unit_tests/ionization.jl")
+end
+
+@testset "Utility functions" begin
+    include("unit_tests/utility_funcs.jl")
+end
+
+@testset "Electron transport" begin
+    include("unit_tests/electron_transport.jl")
+end
+
+@testset "Order verification (potential and gradients)" begin
+    include("order_verification/ovs_funcs.jl")
+    include("order_verification/ovs_potential.jl")
+    refinements = refines(4, 10, 2)
+
+    # check that first-order convergence is maintained for L1, L2, and L∞ norms
+    for p in (1, 2, Inf)
+        (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
+        (slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
+
+        tol = 0.11
+
+        # Check that potential and gradients are first order or better
+        @test abs(slope_ϕ - 2.0) < tol || slope_ϕ > 2.0
+        # Check that potential gradient and ue are first order or better
+        @test abs(slope_∇ϕ - 1.0) < tol || slope_∇ϕ > 1.0
+        @test abs(slope_ue - 1.0) < tol || slope_ue > 1.0
+        # Check that gradients are second order or better
+        @test abs(slope_∇pe - 2.0) < 0.1 || slope_ue > 2.0
     end
 end
 
-let Xenon = HallThruster.Xenon,
-    Fluid = HallThruster.Fluid,
-    ContinuityOnly = HallThruster.ContinuityOnly,
-    IsothermalEuler = HallThruster.IsothermalEuler,
-    EulerEquations = HallThruster.EulerEquations,
-    temperature = HallThruster.temperature,
-    pressure = HallThruster.pressure,
-    density = HallThruster.density,
-    number_density = HallThruster.number_density,
-    velocity = HallThruster.velocity,
-    stagnation_energy = HallThruster.stagnation_energy,
-    static_energy = HallThruster.static_energy,
-    sound_speed = HallThruster.sound_speed,
-    mach_number = HallThruster.mach_number,
-    stagnation_enthalpy = HallThruster.stagnation_enthalpy,
-    static_enthalpy = HallThruster.static_enthalpy,
-    critical_sound_speed = HallThruster.critical_sound_speed,
-    m = HallThruster.m,
-    γ = HallThruster.γ,
-    R = HallThruster.R,
-    cp = HallThruster.cp,
-    cv = HallThruster.cv,
-    kB = HallThruster.kB,
-    flux = HallThruster.flux,
-    HLLE = HallThruster.HLLE,
-    upwind = HallThruster.upwind,
-    HLLE! = HallThruster.HLLE!,
-    upwind! = HallThruster.upwind!,
-    Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
+@testset "Order verification (electron energy)" begin
+    include("order_verification/ovs_funcs.jl")
+    include("order_verification/ovs_energy.jl")
+    refinements = refines(5, 20, 2)
 
-    R = Xenon.R
+    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
+    slopes_nϵ, norms_nϵ = test_refinements(OVS_Energy.verify_energy, refinements, [1, 2, Inf])
 
-    ρ = 1.0
-	T = 300
-	u = 300
-	ϵ = Xenon.cv * T + 0.5 * u^2
-	mXe = Xenon.m
-
-	continuity_eq = Fluid(Xe_0, ContinuityOnly(; u, T))
-	continuity_state = [ρ]
-	continuity = (continuity_state, continuity_eq)
-
-	isothermal_eq = Fluid(Xe_0, IsothermalEuler(T))
-	isothermal_state = [ρ, ρ * u]
-	isothermal = (isothermal_state, isothermal_eq)
-
-	euler_eq = Fluid(Xe_0, EulerEquations())
-	euler_state = [ρ, ρ * u, ρ * ϵ]
-	euler = (euler_state, euler_eq)
-
-	laws = [continuity, isothermal, euler]
-
-    function test_property(property, laws)
-		initval = 0.0
-		for (i, (U, f)) in enumerate(laws)
-			if i == 1
-				initval = property(U, f)
-			else
-				if property(U, f) ≉ initval
-					return false
-				end
-			end
-		end
-		return true
-	end
-
-    @testset "Thermodynamic property computation" begin
-		# Check to make sure our property checking code works
-		function fake_property(U, f::Fluid)
-            if f.conservation_laws.type == :EulerEquations
-                return 2
-            else
-                return 1
-            end
-        end
-        #@test !test_property(fake_property, laws)
-
-		# Check that thermodynamic property computations give identical
-		# results for the different fluid types
-		@test test_property(temperature, laws)
-		@test test_property(pressure, laws)
-		@test test_property(density, laws)
-		@test test_property(number_density, laws)
-		@test test_property(velocity, laws)
-		@test test_property(stagnation_energy, laws)
-		@test test_property(static_energy, laws)
-		@test test_property(sound_speed, laws)
-		@test test_property(mach_number, laws)
-		@test test_property(stagnation_enthalpy, laws)
-		@test test_property(static_enthalpy, laws)
-		@test test_property(critical_sound_speed, laws)
-		# Check that properties are being computed correctly
-		@test temperature(continuity...) ≈ T
-		@test velocity(continuity...) ≈ u
-		@test number_density(continuity...) ≈ ρ / m(continuity_eq)
-		@test density(continuity...) ≈  ρ
-		@test pressure(continuity...) ≈ ρ * HallThruster.Xenon.R * T
-		@test static_energy(continuity...) ≈ cv(continuity_eq) * T
-		@test stagnation_energy(continuity...) ≈ cv(continuity_eq) * T + 0.5 * u^2
-		@test static_enthalpy(continuity...) ≈ cp(continuity_eq) * T
-		@test stagnation_enthalpy(continuity...) ≈ cp(continuity_eq) * T + 0.5 * u^2
-		@test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R * T)
-	end
-
-    continuity_state_2 = continuity_state * 2
-	isothermal_state_2 = isothermal_state * 2
-	euler_state_2 = euler_state * 2
-
-    @testset "Flux computation" begin
-        pe = 0.0
-		p = ρ * R * T 
-		f_euler = (ρ * u, ρ * u^2 + p, ρ * u * (ϵ + p / ρ))
-		@test flux(continuity..., pe) == (f_euler[1], 0.0, 0.0)
-		@test flux(isothermal..., pe) == (f_euler[1], f_euler[2], 0.0)
-		@test flux(euler..., pe) == f_euler
-
-        coupled = false
-        F = [0.0, 0.0, 0.0]
-
-		# HLLE flux
-		@test HLLE!([0.0],continuity_state, continuity..., pe, pe, coupled)[1] == flux(continuity..., pe)[1]
-		@test HLLE!(F[1:2], isothermal_state, isothermal..., pe, pe, coupled)[1:2] == flux(isothermal..., pe)[1:2] |> collect
-		@test HLLE!(F[1:3], euler_state, euler..., pe, pe, coupled) == flux(euler..., pe) |> collect
-
-		@test upwind!([0.0], continuity_state, continuity_state_2, continuity_eq, pe, pe, coupled)[1] ==
-			flux(continuity..., pe)[1]
-
-		@test upwind!(F[1:2], isothermal_state, isothermal_state_2, isothermal_eq, pe, pe, coupled) ==
-			flux(isothermal..., pe)[1:2]  |> collect
-
-		isothermal_state_2[2] *= -2
-
-		@test upwind!(F[1:2], isothermal_state, isothermal_state_2, isothermal_eq, pe, pe, coupled)[1:2] ==
-			flux(isothermal_state_2, isothermal_eq, pe)[1:2]  |> collect
-
-		@test upwind!(F[1:3], euler_state, euler_state_2, euler_eq, pe, pe, coupled) == flux(euler..., pe) |> collect
-
-		euler_state_2[2] *= -2
-
-		@test upwind!(F[1:3], euler_state, euler_state_2, euler_eq, pe, pe, coupled) ==
-			flux(euler_state_2, euler_eq, pe) |> collect
-	end
-    U1 = [continuity_state; isothermal_state; euler_state]
-	U2 = [continuity_state_2; isothermal_state_2; euler_state_2]
-	U = hcat(U1, U1, U2, U2)
-	nconservative, ncells = size(U)
-	nedges = ncells - 1
-	UL = zeros(nconservative, nedges)
-	UR = zeros(nconservative, nedges)
-	F = zeros(nconservative, nedges)
-
-	function no_limiter(r)
-    r
-end
-scheme = (reconstruct = false, flux_function = upwind!, limiter = no_limiter)
-
-    coupled = false
-
-	HallThruster.compute_edge_states!(UL, UR, U, scheme)
-
-	UL_expected = hcat(U1, U1, U2)
-	UR_expected = hcat(U1, U2, U2)
-    pe = [0.0, 0.0, 0.0, 0.0]
-
-	fluids = [continuity_eq, isothermal_eq, euler_eq]
-	fluid_ranges = HallThruster.ranges(fluids)
-
-	HallThruster.compute_fluxes!(F, UL, UR, fluids, fluid_ranges, scheme, pe, coupled)
-
-	F1 = [
-		flux(U1[1:1], continuity_eq, pe[1]);
-		flux(U1[2:3], isothermal_eq, pe[1]);
-		flux(U1[4:6], euler_eq, pe[1]);
-	]
-
-	F2 = [
-		flux(U1[1:1], continuity_eq, pe[1]);
-		flux(U2[2:3], isothermal_eq, pe[1]);
-		flux(U2[4:6], euler_eq, pe[1]);
-	]
-
-	F1_continuity = flux(U1[1:1], continuity_eq, pe[1])[1]
-	F2_continuity = flux(U2[1:1], continuity_eq, pe[1])[1]
-	F_continuity = hcat(F1_continuity, F1_continuity, F2_continuity)
-
-	F1_isothermal = flux(U1[2:3], isothermal_eq, pe[1])[1:2] |> collect
-	F2_isothermal = flux(U2[2:3], isothermal_eq, pe[1])[1:2] |> collect
-	F_isothermal = hcat(F1_isothermal, F2_isothermal, F2_isothermal)
-
-	F1_euler = flux(U1[4:6], euler_eq, pe[1]) |> collect
-	F2_euler = flux(U2[4:6], euler_eq, pe[1]) |> collect
-	F_euler = hcat(F1_euler, F2_euler, F2_euler)
-
-	F_expected = vcat(F_continuity, F_isothermal, F_euler)
-
-	@testset "More flux tests" begin
-		@test UL_expected == UL
-		@test UR_expected == UR
-		@test fluid_ranges == [1:1, 2:3, 4:6]
-		@test F ≈ F_expected
-	end
+    # Check that electron energy is solved to second order
+    for slope in slopes_nϵ
+        @test abs(slope - 2.0) < 0.1
+    end
 end
 
+println("Tests done")
+
+#=
 @testset "Update computations" begin
     u = [1.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 0.0]
     ncharge = 3
@@ -241,80 +74,11 @@ end
     @test HallThruster.electron_density(u, params) == 1 + 4 + 9.
 end
 
-@testset "Limiter tests" begin
-    no_limiter = HallThruster.FluxLimiter(identity)
-
-    limiters = [
-        no_limiter,
-        HallThruster.koren,
-        HallThruster.minmod,
-        HallThruster.osher,
-        HallThruster.superbee,
-        HallThruster.van_albada,
-        HallThruster.van_albada_2,
-        HallThruster.van_leer
-    ]
-
-    for limiter in limiters
-        @test limiter(0) == 0
-        @test limiter(-1) == 0
-        @test limiter(1) == 1
-    end
-
-    @test no_limiter(100) == 100
-    @test HallThruster.superbee(100) == 2
-    @test HallThruster.minmod(100) == 1
-end
-
-@testset "Ionization tests" begin
-    Xe_0 = HallThruster.Species(HallThruster.Xenon, 0)
-    Xe_I = HallThruster.Species(HallThruster.Xenon, 1)
-    Xe_II = HallThruster.Species(HallThruster.Xenon, 2)
-    Xe_III = HallThruster.Species(HallThruster.Xenon, 3)
-
-    rxn_0_I = HallThruster.IonizationReaction(Xe_0, Xe_I, Te -> 0.0)
-    rxn_0_II = HallThruster.IonizationReaction(Xe_0, Xe_II, Te -> 0.0)
-    rxn_0_III = HallThruster.IonizationReaction(Xe_0, Xe_III, Te -> 0.0)
-    rxn_I_III = HallThruster.IonizationReaction(Xe_I, Xe_III, Te -> 0.0)
-    @test repr(rxn_0_I) == "e- + Xe -> 2e- + Xe+"
-    @test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
-    @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
-    @test repr(rxn_I_III) == "e- + Xe+ -> 3e- + Xe3+"
-
-    @test HallThruster.rate_coeff_filename(Xe_0, Xe_II, "ionization") == "ionization_Xe_Xe2+.dat"
-
-    @test_throws(ArgumentError, HallThruster.load_ionization_reaction(Xe_II, Xe_0))
-    @test !isnothing(HallThruster.load_ionization_reaction(Xe_0, Xe_II))
-end
 
 @testset "Miscellaneous tests" begin
     @test HallThruster.left_edge(1) == 0
     @test HallThruster.right_edge(1) == 1
     @test HallThruster.electron_density([1.0, 2.0, 0.0, 3.0, 0.0, 0.0], (config = (; ncharge = 2), index = (; ρi = [2, 4]))) == 8.0
-end
-
-@testset "Linear algebra tests" begin
-    A = Tridiagonal(ones(3), -2.6 * ones(4), ones(3))
-    b = [-240., 0, 0, -150]
-    @test A\b == HallThruster.tridiagonal_solve(A, b)
-end
-
-@testset "Linear Interpolation tests" begin
-
-    xs = 1:100
-    ys = xs .+ 0.1
-    @test [HallThruster.find_left_index(y, xs) for y in ys] == collect(xs)
-    @test HallThruster.find_left_index(1000, xs) == 100
-    @test HallThruster.find_left_index(-1000, xs) == 0
-
-    xs = [1., 2.]
-    ys = [1., 2.]
-    ℓ = HallThruster.LinearInterpolation(xs, ys)
-    @test ℓ isa HallThruster.LinearInterpolation{Float64, Float64}
-    @test ℓ(1.5) == 1.5
-
-    ys = [1., 2., 3.]
-    @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys))
 end
 
 @testset "Boundary condition tests" begin
@@ -333,24 +97,6 @@ end
     HallThruster.apply_bc!(U, BC2, :right, 0.0, 0.0)
     @test U[:, end] == zeros(3)
     @test_throws(ArgumentError, HallThruster.apply_bc!(U, BC2, :not_left_or_right, 0.0, 0.0))
-end
-
-@testset "Electron transport tests" begin
-    Tev = 30 #[eV]
-    m = HallThruster.Xenon.m #
-    Te = Tev*HallThruster.e/HallThruster.kB #
-    ne = 1e18 #[#/m^3]
-    nn = 0.5e18 #[#/m^3]
-    B = 1.0
-    ν_an = 0.0
-    σ_en = 6.6e-19*((Tev/4 - 0.1)/(1 + (Tev/4)^1.6)) #[m^2]
-    @test σ_en ≈ HallThruster.σ_en(Tev)
-    ln_λ = 23 - 0.5*log(1e-6*ne/Tev^3)
-    @test ln_λ ≈ HallThruster.ln_λ(ne, Tev)
-    ν_c = σ_en*nn*sqrt(8*HallThruster.kB*Te/pi/m) + 2.9e-12*ne*ln_λ/(Tev)^1.5
-    #@test ν_c ≈ HallThruster.get_v_c(Tev, nn, ne, m) #can't pass if Landmark set
-    μ_e = HallThruster.e/(HallThruster.mₑ * ν_c)/(1+(HallThruster.e*B/(HallThruster.mₑ*ν_c))^2)
-    #@test μ_e ≈ HallThruster.cf_electron_transport(ν_an, ν_c, B) can't pass if Landmark set
 end
 
 #=
@@ -695,17 +441,4 @@ mms_conservative = eval(conservative_func[1])
 
 end
 
-@testset "Order verification studies with MMS electron energy, HLLE and minmod reconstruct" begin
-    results = perform_OVS_elecenergy(; MMS_CONSTS = MMS_CONSTS_ELEC, fluxfn = HallThruster.HLLE!, reconstruct = true)
-    L_1, L_inf = evaluate_slope(results, MMS_CONSTS_ELEC)
-    expected_slope = 1
-    for i in 1:size(results[1].u_exa)[1]
-        @test L_1[i] ≈ expected_slope atol = expected_slope*10
-        println("Row $(i), L_1 $(L_1[i])")
-        @test L_inf[i] ≈ expected_slope atol = expected_slope*10
-        println("Row $(i), L_inf $(L_inf[i])")
-    end 
-    for i in 1:length(results)
-        println("Simulation with $(results[i].ncells) cells and dt $(results[i].timestep[1]) converged after $(round(results[i].solution.t[end]/results[i].timestep[end])) timesteps at time $(results[i].solution.t[end])")
-    end
-end
+=#

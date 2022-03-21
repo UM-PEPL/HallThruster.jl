@@ -1,40 +1,5 @@
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2
 
-
-function animate_solution_individual(sol)
-    mi = HallThruster.Xenon.m
-    @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (1e13, 1e20))
-        plot!(p, u[1, :] / mi, yaxis = :log, title = "Neutral and ion densities [n/m^3]", label = ["nₙ" ""])
-        plot!(p, u[2, :] / mi, label = ["nᵢ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t)
-        p = plot(ylims = (0, 3e4))
-        plot!(p, u[3, :] ./ u[2, :], title = "Ion velocity [m/s]", label = ["vᵢ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #nϵ
-        p = plot(ylims = (0, 20))
-        plot!(p, u[4, :], title = "Internal electron energy [eV*n/m^3]", label = ["nϵ" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #Tev
-        p = plot(ylims = (0, 120000))
-        plot!(p, u[5, :], title = "Electron temperature [eV]", label = ["Tev" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #ne
-        p = plot(ylims = (1e16, 1e20))
-        plot!(p, u[6, :], yaxis = :log, title = "Electron density and pressure", label = ["nₑ [n/m^3]" ""])
-        plot!(p, u[7, :] ./ HallThruster.e, label = ["pₑ [n*eV/m^3]" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #pe
-        p = plot(ylims = (1e13, 1e22))
-        plot!(p, u[7, :] ./ HallThruster.e, yaxis = :log, title = "Electron pressure", label = ["pₑ [n*eV/m^3]" ""])
-    end
-    @gif for (u, t) in zip(sol.u, sol.t) #ϕ
-        p = plot(ylims = (-100, 400))
-        plot!(p, u[8, :], title = "Potential", label = ["ϕ [V]" ""])
-    end
-end
-
 using DelimitedFiles
 
 function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
@@ -43,7 +8,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothi
     end
     p = plot()
     plot!(
-        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, bottommargin = 7Plots.mm, topmargin = 7Plots.mm, lw = 2,
+        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, margin = 7Plots.mm, lw = 2,
         kwargs...
     )
     if !isnothing(ref_path)
@@ -67,38 +32,23 @@ function load_hallis_output(output_path)
     return output[1:end-1, :]
 end
 
-function plot_solution(u, z = nothing, case = 1)
+function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     coeff = HallThruster.load_landmark()
-    mi = HallThruster.Xenon.m
-    ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
-    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = "landmark/landmark_neutral_density_$(case).csv")
-    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = "landmark/landmark_plasma_density_$(case).csv")
+    (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
+    #z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
+    ionization_rate = [coeff.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
+    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = case < 4 ? "landmark/landmark_neutral_density_$(case).csv" : nothing)
+    p_ne = plot_quantity(ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = case < 4 ? "landmark/landmark_plasma_density_$(case).csv" : nothing)
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = "landmark/landmark_ionization_rate_$(case).csv")
-    p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", ref_path = "landmark/landmark_electron_temperature_$(case).csv")
-    p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", ref_path = "landmark/landmark_potential_$(case).csv")
-    p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", ref_path = "landmark/landmark_electric_field_$(case).csv")
-    plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
-end
-
-function plot_solution_real(u, z = nothing, case = 1)
-    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_0$(case).out")
-    coeff = HallThruster.load_landmark()
-    mi = HallThruster.Xenon.m
-    ionization_rate = [coeff.rate_coeff(u[5, i])*u[1, i]*u[2, i]/mi/mi for i in 1:size(u, 2)]
-    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", hallis = hallis, hallisvar = hallis.nn)
-    p_ne = plot_quantity(u[2, :] / mi, z; title = "Plasma density", ylabel = "ne (m⁻³)", hallis = hallis, hallisvar = hallis.ne)
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_nϵ = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", hallis = hallis, hallisvar = hallis.ndot)
-    p_ϵ  = plot_quantity(u[5, :], z; title = "Electron temperature (eV)", ylabel = "ϵ (eV)", hallis = hallis, hallisvar = hallis.Te)
-    p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
-    p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", hallis = hallis, hallisvar = hallis.Ez)
-    p = plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
-    png(p, "last")
-    return p
+    p_iz = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = case < 4 ? "landmark/landmark_ionization_rate_$(case).csv" : nothing)
+    p_ϵ  = plot_quantity(u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)", ref_path = case < 4 ? "landmark/landmark_electron_temperature_$(case).csv" : nothing)
+    p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
+    p_ϕ  = plot_quantity(ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)", ref_path = case < 4 ? "landmark/landmark_potential_$(case).csv" : nothing)
+    p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = case < 4 ? "landmark/landmark_electric_field_$(case).csv" : nothing)
+    p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
+    p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
+    plot(p_nn, p_ne, p_ui, p_ϕ, p_pe, p_iz, p_ϵ, p_ue, p_E, p_∇pe, layout = (2, 5), size = (2500, 1000))
 end
 
 function plot_solution_OVS(u, z = nothing, case = 1)
@@ -126,9 +76,9 @@ function animate_solution_OVS(sol, z = nothing)
 end
 
 
-function animate_solution_all(sol, z = nothing)
-    @gif for (u, t) in zip(sol.u, sol.t)
-        plot_solution_real(u, z)
+function animate_solution_all(sol, case, z = nothing)
+    @gif for i in 1:length(sol.u)
+        plot_solution(sol.u[i], sol.savevals[i], sol.params.z_cell, case)
     end
 end
 
@@ -161,32 +111,16 @@ run simulation under three test cases
 return to implicit and other general framework, see what happens
 =#
 
-function timeaveraged(sol, tstampstart)
-    avg = zeros(size(sol.u[1]))
-    tstamps = length(sol.t)
-    for i in tstampstart:length(sol.t)
-        avg .+= sol.u[i]
-    end
-    avg /= (tstamps - tstampstart + 1)
-    return avg
-end
-
-function calc_current(sol)
-    current = zeros(2, length(sol.t))
-    area = pi*(0.05^2 - 0.035^2)
-    distance = 0.050 - 0.0350
-    for i in 1:length(sol.t)
-        current[1, i] = sol.u[i][3, end-1]*HallThruster.e/HallThruster.Xenon.m*area
-        current[2, i] = -sol.u[i][6, end-1]*HallThruster.e*sol.u[i][10, end-1]*area
-    end
-    return current
-end
-
 function plot_current(current, sol)
-    p1 = plot(ylims = (0, 30))
+
+    min_I, max_I = extrema(current)
+    mid_I = (min_I + max_I)/2
+    range = min(30, 5 + max_I - min_I)
+    ylims = (mid_I - range/2, mid_I + range/2)
+    p1 = plot(;ylims)
     plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
-    plot!(p1, sol.t, current[2, :] + current[1, :], label = ["I total" ""])
+    plot!(p1, sol.t, current[3, :], label = ["I total" ""])
     png(p1, "currents")
     return p1
 end
@@ -198,4 +132,9 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution) = plot_solution(sol.u[end], sol.params.z_cell)
+Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
+
+function plot_timeaveraged(sol, case, start_ind)
+    avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
+    plot_solution(avg, avg_savevals, sol.params.z_cell, case)
+end
