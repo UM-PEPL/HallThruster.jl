@@ -142,7 +142,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         un = config.neutral_velocity,
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
-        OVS = 0 #=config.verification=#,
+        OVS = config.verification,
         anom_model = config.anom_model,
         loss_coeff = loss_coeff,
         reactions = ionization_reactions,
