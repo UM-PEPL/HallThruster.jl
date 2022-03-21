@@ -21,6 +21,7 @@ struct QuadraticTransition <: TransitionFunction
     transition_length::Float64
     offset::Float64
 end
+
 function (q::QuadraticTransition)(x, cutoff, y1, y2)
     x′ = x - q.offset
     if x′ < cutoff

@@ -21,7 +21,6 @@ struct DataDriven <: ZeroEquationModel
     DataDriven(c1) = new((c1,))
 end
 
-
 @inline function (model::DataDriven)(U, params, icell)
     (;index) = params
     (;∇ϕ, B, νan) = params.cache

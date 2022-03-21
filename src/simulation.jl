@@ -175,7 +175,7 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
             adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
 	    )
     catch e
-        stop_progress_bar(params)
+        stop_progress_bar!(progess_bar, params)
         println("There was an error")
         throw(e)
     end

@@ -2,15 +2,13 @@ module OVS_Potential
 
 using Symbolics, HallThruster, Plots, LinearAlgebra
 
+include("ovs_funcs.jl")
+
 @variables x t
 
 Dx = Differential(x)
 
 L = 0.05
-
-function sin_wave(var; amplitude, phase, nwaves, offset = 0.0)
-    return amplitude * sin(2π * nwaves * var + phase) + offset
-end
 
 ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.75, offset = 300.0)
 ne = sin_wave(x/L, amplitude = 1e18, phase = π/4, nwaves = 0.5, offset = 1.1e18)

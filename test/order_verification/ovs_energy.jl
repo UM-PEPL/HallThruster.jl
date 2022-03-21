@@ -11,10 +11,6 @@ Dx = Differential(x)
 
 L = 0.05
 
-function sin_wave(var; amplitude, phase, nwaves, offset = 0.0)
-    return amplitude * sin(2π * nwaves * var + phase) + offset
-end
-
 ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.25)
 ne = sin_wave(x/L, amplitude = 1e16, phase = π/4, nwaves = 0.5, offset = 1.1e16)
 nn = sin_wave(x/L, amplitude = 5e18, phase = pi/3, nwaves = 2.0, offset = 6e18)

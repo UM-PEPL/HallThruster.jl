@@ -3,8 +3,12 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, propellant, scheme, fluids, species_range_dict, reactions) = params
-    (;ue, μ, ∇ϕ, ∇pe) = params.cache
+    (;index, z_edge, scheme, fluids, species_range_dict, reactions) = params
+    (;
+        #source_neutrals, source_ion_continuity, source_ion_momentum,
+        electron_pressure_coupled, min_electron_temperature, propellant
+    ) = params.config
+    (;ue, μ) = params.cache
 
     ncells = size(U, 2) - 2
 
@@ -17,13 +21,10 @@ function update_heavy_species!(dU, U, params, t)
 
     ncharge = params.config.ncharge
 
-    un, Tn, γn, Rn = fluids[1].conservation_laws.u, fluids[1].conservation_laws.T, γ(fluids[1]), R(fluids[1])
-    Ti = fluids[2].conservation_laws.T
-
     @views ρn = U[index.ρn, :]
     @views nϵ = U[index.nϵ, :]
 
-    coupled = params.config.electron_pressure_coupled
+    coupled = electron_pressure_coupled
 
     first_ind = 2
     last_ind = ncells+1
@@ -47,6 +48,9 @@ function update_heavy_species!(dU, U, params, t)
 
         dU[index.ρn, i] = -(Fn_R[1] - Fn_L[1])/Δz
 
+        # User-provided neutral source term
+        #dU[index.ρn, i] += source_neutrals(U, params, i)
+
         # Compute electron density
         neL = 0.0
         neR = 0.0
@@ -58,9 +62,9 @@ function update_heavy_species!(dU, U, params, t)
         end
 
         # Compute electron energy
-        ϵL = max(params.config.min_electron_temperature, nϵ[i-1] / neL)
-        ϵ0 = max(params.config.min_electron_temperature, nϵ[i] / ne0)
-        ϵR = max(params.config.min_electron_temperature, nϵ[i+1] / neR)
+        ϵL = max(min_electron_temperature, nϵ[i-1] / neL)
+        ϵ0 = max(min_electron_temperature, nϵ[i] / ne0)
+        ϵR = max(min_electron_temperature, nϵ[i+1] / neR)
 
         # Compute ion fluxes and source terms
         for Z in 1:ncharge
@@ -79,6 +83,10 @@ function update_heavy_species!(dU, U, params, t)
 
             dU[index.ρi[Z], i] = -F_mass / Δz
             dU[index.ρiui[Z], i] = -F_momentum / Δz + Q_accel
+
+            # Add user-provided source terms
+            #dU[index.ρi[Z], i] += source_ion_continuity[Z](U, params, i)
+            #dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
         end
 
         # Source terms due to ionization

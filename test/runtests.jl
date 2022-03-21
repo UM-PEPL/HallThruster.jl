@@ -29,7 +29,7 @@ end
 @testset "Order verification (potential and gradients)" begin
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_potential.jl")
-    refinements = refines(5, 20, 2)
+    refinements = refines(4, 10, 2)
 
     # check that first-order convergence is maintained for L1, L2, and L∞ norms
     for p in (1, 2, Inf)
@@ -39,7 +39,7 @@ end
         tol = 0.11
 
         # Check that potential and gradients are first order or better
-        @test abs(slope_ϕ - 1.0) < tol || slope_ϕ > 1.0
+        @test abs(slope_ϕ - 2.0) < tol || slope_ϕ > 2.0
         # Check that potential gradient and ue are first order or better
         @test abs(slope_∇ϕ - 1.0) < tol || slope_∇ϕ > 1.0
         @test abs(slope_ue - 1.0) < tol || slope_ue > 1.0
