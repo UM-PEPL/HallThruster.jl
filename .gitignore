@@ -2,3 +2,5 @@ docs/build
 .vscode
 *.png
 *.jld2
+*.gif
+*.cov

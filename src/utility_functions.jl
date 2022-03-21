@@ -1,72 +1,27 @@
-"""
-    smooth_max(x, y, k=10)
-Computes a smooth approximation to max(x, y)
-"""
-function smooth_max(x,y,k = 10)
-    (x*exp(k*x) + y*exp(k*y)) / (exp(k*x) + exp(k*y))
+left_edge(i) = i - 1
+right_edge(i) = i
+
+function electron_density(U, params, i)
+    ne = 0.0
+    index = params.index
+    @inbounds for Z in 1:params.config.ncharge
+        ne += Z * U[index.ρi[Z], i] / params.config.propellant.m
+    end
+    return ne
 end
 
-"""
-    smooth_min(x, y, k=10)
-Compute a smooth approximation to min(x, y)
-"""
-smooth_min(x,y,k=10) = smooth_max(x, y, -k)
-
-"""
-    smooth_if_gt(x, cutoff, v1, v2, k=10)
-Computes an analytic approximation to x < cutoff ? v1 : v2
-"""
-smooth_if(x, cutoff, v1, v2, k = 10) = 0.5*((v2-v1)*tanh(k*(x-cutoff)) + v1+v2)
-
-#=
-"""
-    mutable struct EnergyOVS
-Enables setting mu, ue, Tev and ne to certain values to very electron energy equation
-"""
-mutable struct EnergyOVS{F1, F2}
-    active ::Int64
-    μ::Union{Float64, Nothing}
-    ue::Union{Float64, Nothing}
-    Tev::F1
-    ne::F2
+function inlet_neutral_density(sim)
+    un = sim.neutral_velocity
+    A = channel_area(sim.geometry)
+    m_atom = sim.propellant.m
+    nn = sim.inlet_mdot / un / A / m_atom
+    return nn
 end
 
-"""
-    mutable struct Verification
-is passed to params to identify if OVS is active.
-"""
-
-mutable struct Verification{F1, F2}
-    potential ::Int64
-    fluid ::Int64
-    energy ::EnergyOVS{F1, F2}
-end=#
-
-
-@inline function uneven_forward_diff(f0, f1, f2, z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
-    return -(2h1 + h2)/h1/(h1 + h2)*f0 + (h1 + h2)/(h1*h2)*f1 - h1/h2/(h1 + h2)*f2
-end
-
-@inline function uneven_central_diff(f0, f1, f2, z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
-    return -h2/h1/(h1+h2)*f0 - (h1-h2)/(h1*h2)*f1 + h1/h2/(h1+h2)*f2
-end
-
-@inline function uneven_backward_diff(f0, f1, f2, z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
-    return h2/h1/(h1 + h2)*f0 - (h1 + h2)/(h1*h2)*f1 + (h1 + 2h2)/h2/(h1 + h2)*f2
-end
-
-@inline function uneven_second_deriv(f0, f1, f2, z0, z1, z2)
-    h1 = z1 - z0
-    h2 = z2 - z1
-    return 2 * (h2 * f0 - (h1 + h2) * f1 + h1 * f2) / (h1 * h2 * (h1 + h2))
-end
-
-@inline function diff(f0, f1, z0, z1)
-    return (f1 - f0) / (z1 - z0)
+function precompute_bfield!(B, zs)
+    B_max = 0.015
+    L_ch = 0.025
+    for (i, z) in enumerate(zs)
+        B[i] = B_field(B_max, z, L_ch)
+    end
 end
