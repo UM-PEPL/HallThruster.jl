@@ -58,7 +58,7 @@ end
 
     # Check that electron energy is solved to at least first order
     for slope in slopes_nϵ
-        @test abs(slope - 2.0) < 0.5 || slope > 2.0
+        @test abs(slope - 2.0) < 0.2 || slope > 2.0
     end
 end
 
