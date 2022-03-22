@@ -213,7 +213,7 @@ function update_electron_energy_implicit!(U, params)
             Aϵ.du[i]   -= 10/9 * ∇κ / neR * d_cR
 
             # Contribution to implicit part from advection term
-            Aϵ.d[i]    += 5/3 * ueR * d_c0
+            Aϵ.d[i]    += 5/3 * ue0 * d_c0
             Aϵ.dl[i-1] += 5/3 * ueL * d_cL
             Aϵ.du[i]   += 5/3 * ueR * d_cR
 
