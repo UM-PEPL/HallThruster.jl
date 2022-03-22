@@ -48,7 +48,7 @@ function left_boundary_state!(bc_state, U, params)
         ne += Z * boundary_density / mi
     end
 
-    bc_state[index.nϵ] = ne * 3/2 * Te_L
+    bc_state[index.nϵ] = ne * Te_L
 end
 
 function right_boundary_state!(bc_state, U, params)
@@ -67,7 +67,7 @@ function right_boundary_state!(bc_state, U, params)
         ne += Z * boundary_density / mi
     end
 
-    bc_state[index.nϵ] = ne * 3/2 * Te_R
+    bc_state[index.nϵ] = ne * Te_R
 end
 
 function apply_bc!(U, bc::Dirichlet, left_or_right::Symbol, ϵ0::Float64, mᵢ::Float64)

@@ -143,8 +143,8 @@ function update_electron_energy_implicit!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    bϵ[1] = 3/2 * params.Te_L * ne[1]
-    bϵ[end] = 3/2 * params.Te_R * ne[end]
+    bϵ[1] = params.Te_L * ne[1]
+    bϵ[end] = params.Te_R * ne[end]
 
     # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
@@ -213,14 +213,14 @@ function update_electron_energy_implicit!(U, params)
             Aϵ.du[i]   -= 10/9 * ∇κ / neR * d_cR
 
             # Contribution to implicit part from advection term
-            Aϵ.d[i] += 5/3 * ue0 * d_c0
+            Aϵ.d[i]    += 5/3 * ueR * d_c0
             Aϵ.dl[i-1] += 5/3 * ueL * d_cL
-            Aϵ.du[i] += 5/3 * ueR * d_cR
+            Aϵ.du[i]   += 5/3 * ueR * d_cR
 
             # Contribution to implicit part from timestepping
-            Aϵ.d[i] = 1.0 + implicit * dt * Aϵ.d[i]
+            Aϵ.d[i]    = 1.0 + implicit * dt * Aϵ.d[i]
             Aϵ.dl[i-1] = implicit * dt * Aϵ.dl[i-1]
-            Aϵ.du[i] = implicit * dt * Aϵ.du[i]
+            Aϵ.du[i]   = implicit * dt * Aϵ.du[i]
 
             # Explicit right-hand-side
             bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)

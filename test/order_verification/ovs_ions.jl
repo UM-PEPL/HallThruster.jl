@@ -10,14 +10,14 @@ Dt = Differential(t)
 Dx = Differential(x)
 
 const k_ionization = HallThruster.ionization_fits_Xe(1)[1].rate_coeff
-const un = 150
+const un = 1000
 const mi = HallThruster.Xenon.m
 const e = HallThruster.e
 const Ti = 300
 const L = 0.05
 
 ϕ = 0.0 * sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.5)
-ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 2, offset = 6e13)
+ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 1, offset = 6e13)
 nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 0.5, offset = 6e18)
 ui = sin_wave(x/L, amplitude = 2000, phase = -π/2, nwaves = 0.5, offset = 3000)
 μ = sin_wave(x/L, amplitude = 1e2, phase = 3π/2, nwaves = 0.6, offset = 1.1e2)
@@ -62,7 +62,7 @@ source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(mom
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
 source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
-function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled = true, conservative = true)
+function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled = true, conservative = true)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
 
@@ -155,26 +155,14 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
 
     tspan = (0, t_end)
-    dt = 0.9 * (z_cell[end] - z_cell[1]) / ncells / amax
+    dt = 0.7 * (z_cell[end] - z_cell[1]) / ncells / amax
     saveat = LinRange(tspan[1], tspan[2], 10000)
-
-    #=
-    alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!)
-    adaptive = false
-
-    prob = ODEProblem{true}(HallThruster.update_heavy_species!, U, tspan, params)
-	sol = solve(
-        prob, alg; saveat=saveat, adaptive=adaptive, dt=dt, maxiters = 100_000, dtmin = 1e-16
-    )=#
 
     dU = copy(U)
 
     t = 0.0
     while t < tspan[2]
-        #@views HallThruster.left_boundary_state!(U[:, 1], U[:, 2], params)
-        #@views HallThruster.right_boundary_state!(U[:, end], U[:, end-1], params)
         @views U[:, end] = U[:, end-1]
-        #@views U[:, 1] = U[:, 2]
         HallThruster.update_heavy_species!(dU, U, params, t)
         for i in eachindex(U)
             U[i] += dt * dU[i]
@@ -203,10 +191,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
         p = plot(p1, p2, p3, layout = (1, 3), size = (1800, 700), margin = 5Plots.mm)
         display(p)
     end
-
-    @show sol.t[end]
-
-
 
     return (
         ρn = (;z_cell, sim = ρn_sim, exact = ρn_exact),
