@@ -19,7 +19,7 @@ const L = 0.05
 ϕ = 0.0 * sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.5)
 ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 2, offset = 6e13)
 nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 0.5, offset = 6e18)
-ui = sin_wave(x/L, amplitude = 5000, phase = -π/2, nwaves = 0.5, offset = 3000)
+ui = sin_wave(x/L, amplitude = 2000, phase = -π/2, nwaves = 0.5, offset = 3000)
 μ = sin_wave(x/L, amplitude = 1e2, phase = 3π/2, nwaves = 0.6, offset = 1.1e2)
 ϵ = sin_wave(x/L, amplitude = 3, phase = -π/2, nwaves = 1, offset = 6)
 nϵ = ne * ϵ
@@ -58,9 +58,9 @@ momentum_nonconservative_coupled = ρi * (Dt(ui) + ui * Dx(ui) + nn * ui * k_ion
 source_ρn = eval(build_function(expand_derivatives(continuity_neutrals), [x]))
 source_ρi = eval(build_function(expand_derivatives(continuity_ions), [x]))
 source_ρiui_conservative_uncoupled = eval(build_function(expand_derivatives(momentum_conservative_uncoupled), [x]))
-source_ρiui_conservative_coupled = eval(build_function(expand_derivatives(momentum_conservative_coupled), [x]))
+source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(momentum_conservative_coupled), [x]))
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
-source_ρiui_nonconservative_coupled = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
+source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
 function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled = true, conservative = true)
 
@@ -101,11 +101,14 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
         ion_temperature = Ti,
         solve_ion_energy = false,
         min_number_density = 1e6,
-        mdot_a = mdot_a
+        mdot_a = mdot_a,
+        anode_sheath = false,
     )
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
+
+    nedges = length(z_edge)
 
     ue = ue_func.(z_cell)
     μ = μ_func.(z_cell)
@@ -114,10 +117,14 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
     ρi_exact = ρi_func.(z_cell)
     ui_exact = ui_func.(z_cell)
 
-    cache = (;ue, μ)
-
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
     index = HallThruster.configure_index(fluid_ranges)
+
+    F = zeros(4, nedges)
+    UL = zeros(4, nedges)
+    UR = zeros(4, nedges)
+
+    cache = (;ue, μ, F, UL, UR)
 
     reactions = HallThruster.ionization_fits_Xe(1)
     U = zeros(4, ncells+2)
@@ -125,7 +132,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
     z_start = z_cell[1]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
     U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
-    U[index.ρi[1], :] = 0.2 * [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
+    U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
     U[index.nϵ, :] = nϵ
 
@@ -141,7 +148,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),
         Te_R = 2/3 * ϵ_func(z_end),
-        mdot_a, 
+        mdot_a,
         A_ch
     )
 
@@ -149,8 +156,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
 
     tspan = (0, t_end)
     dt = 0.9 * (z_cell[end] - z_cell[1]) / ncells / amax
-    @show dt
-
     saveat = LinRange(tspan[1], tspan[2], 10000)
 
     #=
@@ -166,8 +171,10 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-3, coupled 
 
     t = 0.0
     while t < tspan[2]
-        @views HallThruster.left_boundary_state!(U[:, 1], U[:, 2], params)
-        @views HallThruster.right_boundary_state!(U[:, end], U[:, end-1], params)
+        #@views HallThruster.left_boundary_state!(U[:, 1], U[:, 2], params)
+        #@views HallThruster.right_boundary_state!(U[:, end], U[:, end-1], params)
+        @views U[:, end] = U[:, end-1]
+        #@views U[:, 1] = U[:, 2]
         HallThruster.update_heavy_species!(dU, U, params, t)
         for i in eachindex(U)
             U[i] += dt * dU[i]

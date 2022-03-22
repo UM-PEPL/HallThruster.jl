@@ -31,8 +31,8 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     else
         ρn0 / 1000
     end
-    ui = if z < L/2
-        -1000 + 80000(z/L)^2
+    ui = if z < L/2 
+        -5000 + 80000(z/L)^2
     else
         15000 + 10000z/L
     end
@@ -52,7 +52,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         flux = HallThruster.rusanov,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
         collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 2000
+        progress_interval = 0, anode_sheath = false
     )
 
     fluid = HallThruster.Xenon
@@ -148,6 +148,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         transition_function = transition,
         collision_model,
         progress_interval,
+        anode_sheath,
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
