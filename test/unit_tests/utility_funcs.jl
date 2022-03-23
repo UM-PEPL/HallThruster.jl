@@ -1,29 +1,28 @@
-# Linear algebra
-A = Tridiagonal(ones(3), -2.6 * ones(4), ones(3))
-b = [-240., 0, 0, -150]
-@test A\b == HallThruster.tridiagonal_solve(A, b)
-
-# Linear inteprolation
-xs = 1:100
-ys = xs .+ 0.1
-@test [HallThruster.find_left_index(y, xs) for y in ys] == collect(xs)
-@test HallThruster.find_left_index(1000, xs) == 100
-@test HallThruster.find_left_index(-1000, xs) == 0
-
-# Check that linear interpolation works correctly
-let xs = [1., 2.], ys = [1., 2.], ys_2 = [1., 2., 3.]
-    ℓ = HallThruster.LinearInterpolation(xs, ys)
-    @test ℓ isa HallThruster.LinearInterpolation{Float64, Float64}
-    @test ℓ(1.5) == 1.5
-    @test ℓ(0.0) == 1.0
-    @test ℓ(1.0) == 1.0
-    @test ℓ(2.0) == 2.0
-    @test ℓ(3.0) == 2.0
-    @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys_2))
+@testset "Linear algebra" begin
+    A = Tridiagonal(ones(3), -2.6 * ones(4), ones(3))
+    b = [-240., 0, 0, -150]
+    @test A\b == HallThruster.tridiagonal_solve(A, b)
 end
 
-# Test that stage limiter works properly
-let
+@testset "Linear Interpolation" begin
+    xs = 1:100
+    ys = xs .+ 0.1
+    @test [HallThruster.find_left_index(y, xs) for y in ys] == collect(xs)
+    @test HallThruster.find_left_index(1000, xs) == 100
+    @test HallThruster.find_left_index(-1000, xs) == 0
+    let xs = [1., 2.], ys = [1., 2.], ys_2 = [1., 2., 3.]
+        ℓ = HallThruster.LinearInterpolation(xs, ys)
+        @test ℓ isa HallThruster.LinearInterpolation{Float64, Float64}
+        @test ℓ(1.5) == 1.5
+        @test ℓ(0.0) == 1.0
+        @test ℓ(1.0) == 1.0
+        @test ℓ(2.0) == 2.0
+        @test ℓ(3.0) == 2.0
+        @test_throws(ArgumentError, HallThruster.LinearInterpolation(xs, ys_2))
+    end
+end
+
+@testset "Stage limiter" begin
     index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6, min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
 
@@ -40,14 +39,18 @@ let
 
 end
 
-let SPT_100 = HallThruster.SPT_100
+@testset "Channel area computation" begin
+    SPT_100 = HallThruster.SPT_100
     r0 = SPT_100.inner_radius
     r1 = SPT_100.outer_radius
     @test HallThruster.channel_area(r1, r0) == π * (0.05^2 - 0.0345^2)
     @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
 end
 
-let
+@testset "Minor utility functions" begin
+
+    mi = HallThruster.Xenon.m
+
     params = (
         index = (;ρi = [1,2,3]),
         config = (;
@@ -66,9 +69,7 @@ let
 
 end
 
-
-# Tests for array allocation and solution initialization
-let
+@testset "Array allocation and solution initialization" begin
     ncells = 17
     domain = (0.0, 0.08)
     geometry = HallThruster.SPT_100
@@ -132,4 +133,37 @@ let
     for i in 1:nvars
         @test U[i, :] ==  grid.cell_centers
     end
+end
+
+@testset "Transition functions" begin
+
+    step = HallThruster.StepFunction()
+
+    cutoff = 12
+    y1 = 17
+    y2 = 101
+
+    transition_length = 1.0
+    offset = 0.0
+
+    @test step(0, cutoff, y1, y2) == y1
+    @test step(cutoff * 2, cutoff, y1, y2) == y2
+
+    smooth = HallThruster.SmoothIf(transition_length)
+
+    @test smooth(0, cutoff, y1, y2) ≈ y1
+    @test smooth(cutoff * 2, cutoff, y1, y2) ≈ y2
+
+    linear = HallThruster.LinearTransition(transition_length, offset)
+
+    @test linear(0, cutoff, y1, y2) == y1
+    @test linear(cutoff * 2, cutoff, y1, y2) == y2
+    @test y1 < linear(cutoff + transition_length/10, cutoff, y1, y2) < y2
+    @test y1 < linear(cutoff - transition_length/10, cutoff, y1, y2) < y2
+
+    quadratic = HallThruster.QuadraticTransition(1.0, 0.0)
+    @test quadratic(0, cutoff, y1, y2) ≈ 17
+    @test quadratic(cutoff * 2000, cutoff, y1, y2) ≈ 101
+    @test quadratic(cutoff, cutoff, y1, y2) == 17
+    @test quadratic(cutoff + transition_length / 10, cutoff, y1, y2) > 1
 end

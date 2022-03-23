@@ -86,10 +86,6 @@ end
     end
 end
 
-
-
-println("Tests done")
-
 #=
 @testset "Simulation setup tests" begin
     @test SPT_100 isa HallThruster.Geometry1D

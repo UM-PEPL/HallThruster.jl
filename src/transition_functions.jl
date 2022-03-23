@@ -15,7 +15,7 @@ struct SmoothIf <: TransitionFunction
     transition_length::Float64
 end
 
-(s::SmoothIf)(x, cutoff, y1, y2) = ((y2 - y1)*tanh((x-cutoff)/transition_length) + y1 + y2) / 2
+(s::SmoothIf)(x, cutoff, y1, y2) = ((y2 - y1)*tanh((x-cutoff)/s.transition_length) + y1 + y2) / 2
 
 struct QuadraticTransition <: TransitionFunction
     transition_length::Float64
