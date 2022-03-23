@@ -116,6 +116,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
     ρn_exact = ρn_func.(z_cell)
     ρi_exact = ρi_func.(z_cell)
     ui_exact = ui_func.(z_cell)
+    ∇ϕ = ∇ϕ_func.(z_cell)
 
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
     index = HallThruster.configure_index(fluid_ranges)
@@ -124,7 +125,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
     UL = zeros(4, nedges)
     UR = zeros(4, nedges)
 
-    cache = (;ue, μ, F, UL, UR)
+    cache = (;ue, μ, F, UL, UR, ∇ϕ)
 
     reactions = HallThruster.ionization_fits_Xe(1)
     U = zeros(4, ncells+2)
@@ -156,7 +157,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
 
     tspan = (0, t_end)
     dt = 0.7 * (z_cell[end] - z_cell[1]) / ncells / amax
-    saveat = LinRange(tspan[1], tspan[2], 10000)
 
     dU = copy(U)
 
@@ -197,29 +197,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         ρi = (;z_cell, sim = ρi_sim, exact = ρi_exact),
         ui = (;z_cell, sim = ui_sim, exact = ui_exact),
     )
-
-    #return (sol, index, z_cell, ρi_exact, ρn_exact, ui_exact)
 end
-#=
-function plot_result(sol0, frame)
 
-    (sol, index, z_cell, ρi_exact, ρn_exact, ui_exact) = sol0
-    ρn_sim = sol.u[frame][index.ρn, :]
-    ρi_sim = sol.u[frame][index.ρi[1], :]
-    ρiui_sim = sol.u[frame][index.ρiui[1], :]
-    ui_sim = ρiui_sim ./ ρi_sim
-
-    p1 = plot(z_cell, ρn_sim, label = "sim", title = "Neutral density", legend = :outertop)
-    plot!(p1, z_cell, ρn_exact, label = "exact")
-
-    p2 = plot(z_cell, ρi_sim, label = "sim", title = "Ion density", legend = :outertop)
-    plot!(p2, z_cell, ρi_exact, label = "exact")
-
-    p3 = plot(z_cell, ui_sim, label = "sim", title = "Ion velocity", legend = :outertop)
-    plot!(p3, z_cell, ui_exact, label = "exact")
-
-    p = plot(p1, p2, p3, layout = (1, 3), size = (1800, 700), margin = 5Plots.mm)
-    display(p)
-end
-=#
 end

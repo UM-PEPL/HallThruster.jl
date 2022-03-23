@@ -1,57 +1,35 @@
-function apply_reactions!(Q, U, params, i::Int64) #replace Te with Tev
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    reactions, species_range_dict = params.reactions, params.species_range_dict
-    (;index, fluids, fluid_ranges, reactions, species, z_cell, z_edge, cell_volume, dt, index) = params
-    dt = params.dt
-    index = params.index
+function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
+    (;index, reactions, index, species_range_dict) = params
 
-    mi = m(fluids[1])
-    ne = params.cache.ne[i]
-    ϵ = U[index.nϵ] / ne
+    ne = electron_density(U, params, i)
+    ϵ  = U[index.nϵ, i] / ne
 
-    for r in reactions
-        reactant_index = species_range_dict[r.reactant.symbol][1]
-        product_index = species_range_dict[r.product.symbol][1]
-        n_reactant = U[reactant_index, i] / mi
-        if n_reactant > 1
-            k = r.rate_coeff
-
-            ndot = k(ϵ) * n_reactant * ne
-            Q[reactant_index] -= ndot * mi
-            Q[product_index] += ndot * mi
-        end
+    @inbounds for rxn in reactions
+        reactant_index = species_range_dict[rxn.reactant.symbol][1]
+        product_index  = species_range_dict[rxn.product.symbol ][1]
+        ρ_reactant = U[reactant_index, i]
+        ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
+        dU[reactant_index, i] -= ρdot
+        dU[product_index, i]  += ρdot
     end
 end
 
-function apply_ion_acceleration!(Q, U, params, i)
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
+@inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
+
+function apply_ion_acceleration!(dU, U, params, i)
     index = params.index
-    ∇ϕ = params.cache.∇ϕ
-    for j in 1:length(fluids)
-        E_d = -∇ϕ[i]
-        if fluids[j].species.Z > 0
-            ni = U[fluid_ranges[j][1], i]
-            @views Q[fluid_ranges[j][2]] += e / m(fluids[j]) *
-                                            ni *
-                                            E_d *
-                                            fluids[j].species.Z
-        end
+    (;∇ϕ, ue, μ) = params.cache
+    coupled = params.config.electron_pressure_coupled
+    mi = params.config.propellant.m
+
+    @inbounds for Z in 1:params.config.ncharge
+        Q_accel = coupled * ue[i] / μ[i] + (1 - coupled) * ∇ϕ[i]
+        Q_accel = -Z * e * U[index.ρi[Z], i] / mi * Q_accel
+        dU[index.ρiui[Z], i] += Q_accel
     end
 end
 
-function apply_ion_acceleration_coupled!(Q, U, params, i)
-    fluids, fluid_ranges = params.fluids, params.fluid_ranges
-    index = params.index
-    (;ue, μ) = params.cache
-    for j in 1:length(fluids)
-        if fluids[j].species.Z > 0
-            ni = U[fluid_ranges[j][1], i]
-            @views Q[fluid_ranges[j][2]] += -e / m(fluids[j]) *
-                                            ni * fluids[j].species.Z * ue[i] / μ[i]
-        end
-    end
-end
-
+#=
 """
     S_wall(params)
 
@@ -74,6 +52,7 @@ function S_coll(U, params, i) #landmark table
     W = params.loss_coeff(Tev[i])
     return neutral_density*ne[i]*W
 end
+=#
 
 function source_electron_energy_landmark!(Q, U, params, i)
     Q[params.index.nϵ] = source_electron_energy_landmark(U, params, i)

@@ -37,34 +37,25 @@ function update_heavy_species!(dU, U, params, t)
         # User-provided neutral source term
         dU[index.ρn, i] += source_neutrals(U, params, i)
 
-        ne = 0.0
+        #ne = 0.0
 
         for Z in 1:ncharge
-            ne += Z * U[index.ρi[Z], i] / mi
+            #ne += Z * U[index.ρi[Z], i] / mi
 
             # Acceleration source term
-            Q_accel = -Z * e * U[index.ρi[Z], i] / mi * ue[i] / μ[i]
+            #Q_accel = -Z * e * U[index.ρi[Z], i] / mi * ue[i] / μ[i]
 
             dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
-            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz + Q_accel
+            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz# + Q_accel
 
             # User-provided source terms
             dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z  ](U, params, i)
         end
 
-        ϵ = max(params.config.min_electron_temperature, U[index.nϵ, i] / ne)
+        apply_ion_acceleration!(dU, U, params, i)
+        apply_reactions!(dU, U, params, i)
 
-        # Source terms due to ionization
-        for r in reactions
-            reactant_index = species_range_dict[r.reactant.symbol][1]
-            product_index  = species_range_dict[r.product.symbol ][1]
-            ρ_reactant = U[reactant_index, i]
-            k = r.rate_coeff
-            ρdot = k(ϵ) * ρ_reactant * ne
-            dU[reactant_index, i] -= ρdot
-            dU[product_index, i] += ρdot
-        end
     end
 
     return nothing
