@@ -111,21 +111,9 @@ for NUM_CONSERVATIVE in 1:3
     end)
 end
 
-function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids, scheme) = params
-    (;propellant, electron_pressure_coupled) = config
-    nvars, ncells = size(U)
-
-    coupled = electron_pressure_coupled
-
-    ncharge = config.ncharge
-
-    mi = propellant.m
-
-    nedges = ncells-1
-
+function compute_edge_states!(UL, UR, U, scheme)
+    (nvars,  ncells) = size(U)
     Ψ = scheme.limiter
-
     # compute left and right edge states
     @inbounds for i in 2:ncells-1
         for j in 1:nvars
@@ -148,6 +136,22 @@ function compute_fluxes!(F, UL, UR, U, params)
 
     @. @views UL[:, 1]   = U[:, 1]
     @. @views UR[:, end] = U[:, end]
+end
+
+function compute_fluxes!(F, UL, UR, U, params)
+    (;config, index, fluids, scheme) = params
+    (;propellant, electron_pressure_coupled) = config
+    nvars, ncells = size(U)
+
+    coupled = electron_pressure_coupled
+
+    ncharge = config.ncharge
+
+    mi = propellant.m
+
+    nedges = ncells-1
+
+    compute_edge_states!(UL, UR, U, scheme)
 
     @inbounds for i in 1:nedges
 

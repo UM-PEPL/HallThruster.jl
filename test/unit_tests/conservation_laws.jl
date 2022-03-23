@@ -164,12 +164,30 @@ let Xenon = HallThruster.Xenon,
         # check that if the states actually lie along a line, we correctly reproduce the linear values at the inteface
         euler_state_L = 0.5 * euler_state
         euler_state_R = 2.0 * euler_state
-        edge_L, edge_R = HallThruster.reconstruct(euler_state_L, euler_state, euler_state_R, HallThruster.no_limiter)
-        @test edge_L == 0.75 * euler_state
-        @test edge_R == 1.5 * euler_state
+
+        edge_L = zeros(length(euler_state), 2)
+        edge_R = zeros(length(euler_state), 2)
+        U_euler = hcat(euler_state_L, euler_state, euler_state_R)
+
+        scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false)
+
+        HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, scheme)
+        @test edge_L[:, 1] == euler_state_L
+        @test edge_R[:, end] == euler_state_R
+        @test edge_L[:, 2] == euler_state
+        @test edge_R[:, 1] == euler_state
+
+        scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, true)
+        HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, scheme)
+        @test edge_L[:, 1] == euler_state_L
+        @test edge_R[:, end] == euler_state_R
+        @test edge_L[:, 2] == 1.5 * euler_state
+        @test edge_R[:, 1] == 0.75 * euler_state
 
         # check that if slopes have different signs, the avg slope resets to zero with any flux limiter
         euler_state_L2 = 2 * euler_state
+        U_euler_2 = hcat(euler_state_L2, euler_state, euler_state_R)
+
         limiters = [
             HallThruster.koren,
             HallThruster.minmod,
@@ -178,11 +196,15 @@ let Xenon = HallThruster.Xenon,
             HallThruster.van_albada,
             HallThruster.van_leer
         ]
+        #=
         for limiter in limiters
-            edge_L, edge_R = HallThruster.reconstruct(euler_state_L2, euler_state, euler_state_R, limiter)
-            @test edge_L == euler_state
-            @test edge_R == euler_state
+            scheme = HallThruster.HyperbolicScheme(identity, limiter, true)
+            HallThruster.compute_edge_states!(edge_L, edge_R, U_euler_2, scheme)
+            @test edge_L[:, 1] == euler_state_L
+            @test edge_R[:, end] == euler_state_R
+            @test edge_L[:, 2] == euler_state
+            @test edge_R[:, 1] == euler_state
         end
-
+        =#
     end
 end
