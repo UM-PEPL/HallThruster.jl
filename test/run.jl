@@ -82,37 +82,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     Tn = 300.0
     Ti = 1000.0
 
-    saveat = if nsave == 1
-        [end_time]
-    else
-        LinRange(0.0, end_time, nsave) |> collect
-    end
-
-    OVS_Tev = z -> 0.0
-    OVS_ne = z -> 0.0
-
     domain = (0.0, 0.05)
 
-    mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
-    sim = HallThruster.MultiFluidSimulation(
-        grid = mesh,
-        boundary_conditions = (HallThruster.Neumann(), HallThruster.Neumann(), HallThruster.Neumann(), HallThruster.Neumann()),
-        scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct),
-        initial_condition = IC!,
-        source_term! = nothing,
-        source_potential! = nothing,
-        boundary_potential! = nothing,
-        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(un, Tn))
-            HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(Ti))],
-        end_time = end_time,
-        saveat = saveat,
-        timestepcontrol = (dt, adaptive), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-        callback = nothing,
-        solve_energy = implicit_energy > 0,
-        verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
-    )
-
-    verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
 
     αϵ = if case == 1
         (1.0, 1.0)
@@ -144,7 +116,6 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = implicit_energy,
         propellant = HallThruster.Xenon,
         ncharge = 1,
-        verification = verification,
         solve_ion_energy = false,
         ion_temperature = Ti,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
@@ -164,10 +135,14 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         collision_model,
         progress_interval,
         anode_sheath,
-        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, HallThruster.SPT_100.channel_length)
+        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, HallThruster.SPT_100.channel_length),
+        initial_condition! = IC!,
+        callback = nothing,
     )
 
-    @time sol = HallThruster.run_simulation(sim, config, alg)
+    scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
+
+    @time sol = HallThruster.run_simulation(config, alg, scheme, dt, end_time, nsave, grid)
 
     if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)

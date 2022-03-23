@@ -49,4 +49,8 @@
     @test HallThruster.freq_electron_anom(U, params_1, 1) == e/me * 1/160
     @test HallThruster.freq_electron_anom(U, params_2, 1) == e/me * 1/16
 
+    model = HallThruster.NoAnom()
+    @test model(U, params_1, 1) == 0.0
+    @test model(U, params_1, 1) == 0.0
+
 end

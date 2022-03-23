@@ -30,7 +30,6 @@ function update_values!(U, params, t = 0)
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
 
     mi = params.config.propellant.m
-    OVS = params.OVS.energy.active
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -46,12 +45,10 @@ function update_values!(U, params, t = 0)
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
         z = z_cell[i]
-        OVS_ne = OVS * (params.OVS.energy.ne(z))
-        OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
         compute_νei = params.config.collision_model !== :simple
 
-        ne[i] = (1 - OVS) * electron_density(U, params, i) + OVS_ne
+        ne[i] = electron_density(U, params, i)
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = U[index.nϵ, i]
         νen[i] = freq_electron_neutral(U, params, i)

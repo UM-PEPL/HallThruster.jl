@@ -1,6 +1,10 @@
 abstract type AnomalousTransportModel end
 abstract type ZeroEquationModel <: AnomalousTransportModel end
 
+struct NoAnom <: ZeroEquationModel end
+
+@inline (::NoAnom)(U, params, i) = zero(eltype(U))
+
 struct TwoZoneBohm <: ZeroEquationModel
     coeffs::NTuple{2, Float64}
     TwoZoneBohm(c1, c2) = new((c1, c2))
