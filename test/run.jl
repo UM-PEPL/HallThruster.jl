@@ -56,16 +56,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     )
 
     fluid = HallThruster.Xenon
-    #fluid BCs #############################
-    ρ2 = 2.1801715574645586e-7/10 #ρ1 * exp(-((z - L) / 0.033)^2)
-    u1 = 150.0
-    ρ1 = 5e-6/0.004/abs(u1)
-    @show ρ1/HallThruster.Xenon.m
-    left_state = [ρ1, ρ2, ρ2 * -1000.0] # [ρ1, ρ1*u1, ρ1*E]
-    BCs = (HallThruster.Dirichlet_ionbohm(left_state), HallThruster.Neumann_ionbohm())
-
-    left_internal_energy = 3.0
-    BCs_elec = (HallThruster.Dirichlet_energy_upd_ne(left_internal_energy), HallThruster.Dirichlet_energy_upd_ne(left_internal_energy))
+    un = 150.0
+    Tn = 300.0
+    Ti = 1000.0
 
     saveat = if nsave == 1
         [end_time]
@@ -81,16 +74,15 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
     sim = HallThruster.MultiFluidSimulation(
         grid = mesh,
-        boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
+        boundary_conditions = (HallThruster.Neumann(), HallThruster.Neumann(), HallThruster.Neumann(), HallThruster.Neumann()),
         scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct),
         initial_condition = IC!,
-        source_term! = source!,
+        source_term! = nothing,
         source_potential! = nothing,
         boundary_potential! = nothing,
-        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(u1, 300.0))
-            HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(0.0))],
-        #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
-        end_time = end_time, #0.0002
+        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(un, Tn))
+            HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(Ti))],
+        end_time = end_time,
         saveat = saveat,
         timestepcontrol = (dt, adaptive), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
         callback = nothing,
@@ -124,15 +116,15 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         wall_collision_coeff = αw,
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
-        neutral_velocity = 150.0,
-        neutral_temperature = 300.0,
+        neutral_velocity = un,
+        neutral_temperature = Tn,
         ion_diffusion_coeff = 0.0e-3,
         implicit_energy = implicit_energy,
         propellant = HallThruster.Xenon,
         ncharge = 1,
         verification = verification,
         solve_ion_energy = false,
-        ion_temperature = 1000.0,
+        ion_temperature = Ti,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = energy_equation,
         ionization_coeffs = coeffs,
@@ -150,7 +142,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         collision_model,
         progress_interval,
         anode_sheath,
-        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, SPT_100.channel_length)
+        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, HallThruster.SPT_100.channel_length)
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
@@ -163,4 +155,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=100, nsave=1000, dt = 1e-8, alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!), implicit_energy = 1.0);
+sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);

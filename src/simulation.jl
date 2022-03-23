@@ -17,6 +17,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     U = zeros(nvariables + 1, ncells)
     A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
     b = zeros(nedges) #for potential equation
+    B = zeros(ncells)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
     νan = zeros(ncells)
@@ -36,8 +37,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     F = zeros(nvariables+1, nedges)
     UL = zeros(nvariables+1, nedges)
     UR = zeros(nvariables+1, nedges)
-
-    B = params.config.magnetic_field.(grid.cell_centers)
 
     cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
     return U, cache
@@ -88,6 +87,10 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
 		loss_coeff = loss_coeff_fit
     else
         throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
+    end
+
+    for (i, z) in enumerate(grid.cell_centers)
+        cache.B[i] = config.magnetic_field(z)
     end
 
     BCs = sim.boundary_conditions

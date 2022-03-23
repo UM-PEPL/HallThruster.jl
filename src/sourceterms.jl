@@ -52,6 +52,29 @@ function apply_ion_acceleration_coupled!(Q, U, params, i)
     end
 end
 
+"""
+    S_wall(params)
+
+wall heat loss. electron density multiplied by electron wall collision frequency and mean electron energy loss due to wall collision,
+which is assumed 2 Tev + sheath potential, using from Eq. ..., from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
+"""
+function S_wall_Bohm(params, i) #hara mikellides 2018
+    σ = 1e-10 #electron collision area
+    νₑ_w = 1 #needs to be added
+    fluid = params.fluids[1].species.element
+    Δϵ_w = 2*params.Tev[i] + params.Tev[i]*log(1-σ)/sqrt(2*pi*me/fluid.m)
+    return params.ne[i]*νₑ_w*Δϵ_w
+end
+
+function S_coll(U, params, i) #landmark table
+    index = params.index
+    fluid = params.fluids[1].species.element
+    (; ne, Tev) = params.cache
+    neutral_density = U[1, i]/fluid.m
+    W = params.loss_coeff(Tev[i])
+    return neutral_density*ne[i]*W
+end
+
 function source_electron_energy_landmark!(Q, U, params, i)
     Q[params.index.nϵ] = source_electron_energy_landmark(U, params, i)
 end
