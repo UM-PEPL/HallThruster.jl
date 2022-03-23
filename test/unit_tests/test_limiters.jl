@@ -1,4 +1,4 @@
-
+@testset "Limiters" begin
     limiters = [
         HallThruster.koren,
         HallThruster.minmod,
@@ -46,3 +46,4 @@
         # ψ(r) ≥ r ∀ r ∈ [1, 2]
         @test all(@. limiter(r2) ≤ r2)
     end
+end

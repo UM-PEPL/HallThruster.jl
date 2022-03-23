@@ -1,3 +1,9 @@
+struct HyperbolicScheme{F,L}
+    flux_function::F
+    limiter::L
+    reconstruct::Bool
+end
+
 function flux(U::SVector{1, T}, fluid, pe = 0.0) where T
     ρ = U[1]
     u = velocity(U, fluid)

@@ -2,29 +2,13 @@ using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, S
 
 doctest(HallThruster)
 
-@testset "Gas and species tests" begin
-    include("unit_tests/gas_and_species.jl")
-end
-
-@testset "Conservation law systems, fluids, and fluxes" begin
-    include("unit_tests/conservation_laws.jl")
-end
-
-@testset "Flux limiters" begin
-    include("unit_tests/flux_limiters.jl")
-end
-
-@testset "Ionization" begin
-    include("unit_tests/ionization.jl")
-end
-
-@testset "Utility functions" begin
-    include("unit_tests/utility_funcs.jl")
-end
-
-@testset "Electron transport" begin
-    include("unit_tests/electron_transport.jl")
-end
+include("unit_tests/test_gas.jl")
+include("unit_tests/test_conservation_laws.jl")
+include("unit_tests/test_limiters.jl")
+include("unit_tests/test_ionization.jl")
+include("unit_tests/test_misc.jl")
+include("unit_tests/test_electrons.jl")
+include("unit_tests/test_boundary_conditions.jl")
 
 @testset "Order verification (potential and gradients)" begin
     include("order_verification/ovs_funcs.jl")

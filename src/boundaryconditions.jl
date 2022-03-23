@@ -1,28 +1,3 @@
-abstract type BoundaryCondition end
-
-struct Dirichlet <: BoundaryCondition
-    state::Vector{Float64}
-end
-
-struct Neumann <: BoundaryCondition end
-
-struct Dirichlet_ionbohm <: BoundaryCondition
-    state::Vector{Float64}
-end
-
-struct Neumann_ionbohm <: BoundaryCondition end
-
-struct Dirichlet_energy <: BoundaryCondition
-    state::Float64
-end
-
-struct Dirichlet_energy_upd_ne <: BoundaryCondition
-    int_energy::Float64
-end
-
-struct Neumann_energy <: BoundaryCondition
-end
-
 function left_boundary_state!(bc_state, U, params)
     (;Te_L, index, mdot_a, A_ch, fluids) = params
     mi = params.config.propellant.m
