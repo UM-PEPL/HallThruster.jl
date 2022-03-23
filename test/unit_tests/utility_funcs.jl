@@ -65,3 +65,71 @@ let
     @test HallThruster.inlet_neutral_density(params.config) == ρn
 
 end
+
+
+# Tests for array allocation and solution initialization
+let
+    ncells = 17
+    domain = (0.0, 0.08)
+    geometry = HallThruster.SPT_100
+    grid = HallThruster.generate_grid(geometry, ncells, domain)
+    @test grid.cell_centers[end] == domain[2]
+    @test length(grid.cell_centers) == ncells+2
+    @test length(grid.edges) == ncells+1
+
+
+    Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
+    Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), HallThruster.IsothermalEuler(100.))
+    Xe_II = HallThruster.Fluid(HallThruster.Xenon(2), HallThruster.IsothermalEuler(100.))
+    Xe_III = HallThruster.Fluid(HallThruster.Xenon(3), HallThruster.EulerEquations())
+    fluids = [
+        Xe_0,
+        Xe_I,
+        Xe_II,
+        Xe_III
+    ]
+
+    nvars = 1 + 1 + 2 + 2 + 3
+
+    U, cache = HallThruster.allocate_arrays(grid, fluids)
+
+    @test size(U) == (nvars, ncells+2)
+
+    (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR) = cache
+
+    for arr in (F, UL, UR)
+        @test size(arr) == (nvars, ncells+1)
+    end
+
+    for arr in (bϵ, B, νan, νc, μ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
+        @test size(arr) == (ncells+2,)
+    end
+
+    for arr in (b, ϕ)
+        @test size(arr) == (ncells+1,)
+    end
+
+    @test size(A) == (ncells+1, ncells+1)
+    @test size(Aϵ) == (ncells+2, ncells+2)
+
+    @test A isa Tridiagonal
+    @test Aϵ isa Tridiagonal
+
+    function IC_test!(U, z, fluids, L)
+        U .= 2.0
+    end
+
+    HallThruster.initial_condition!(U, grid.cell_centers, IC_test!, fluids)
+
+    @test all(==(2.0), U)
+
+    function IC_test_2!(U, z, fluids, L)
+        U .= z
+    end
+
+    HallThruster.initial_condition!(U, grid.cell_centers, IC_test_2!, fluids)
+
+    for i in 1:nvars
+        @test U[i, :] ==  grid.cell_centers
+    end
+end
