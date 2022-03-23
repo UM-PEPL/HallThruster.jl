@@ -1,8 +1,9 @@
 function left_boundary_state!(bc_state, U, params)
-    (;Te_L, index, mdot_a, A_ch, fluids) = params
-    mi = params.config.propellant.m
+    (;Te_L, index, A_ch, config) = params
+    mi = config.propellant.m
 
-    un = fluids[1].conservation_laws.u
+    un = config.neutral_velocity
+    mdot_a = config.anode_mass_flow_rate
     bc_state[index.ρn] = mdot_a / A_ch / un
 
     ne = 0.0

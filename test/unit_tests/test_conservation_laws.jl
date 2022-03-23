@@ -1,4 +1,4 @@
-@testset "Fluxes and limiters" begin
+@testset "Fluxes and conservation laws" begin
     let Xenon = HallThruster.Xenon,
         Fluid = HallThruster.Fluid,
         ContinuityOnly = HallThruster.ContinuityOnly,
