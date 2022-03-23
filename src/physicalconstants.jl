@@ -5,10 +5,10 @@ Electron charge (1.602176634e-19 Coulomb)
 const e = 1.602176634e-19
 
 """
-    mₑ
+    me
 Electron mass (9.10938356e-31 kilograms)
 """
-const mₑ = 9.10938356e-31
+const me = 9.10938356e-31
 
 """
     kB

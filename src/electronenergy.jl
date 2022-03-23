@@ -59,7 +59,7 @@ function S_wall_Bohm(params, i) #hara mikellides 2018
     σ = 1e-10 #electron collision area
     νₑ_w = 1 #needs to be added
     fluid = params.fluids[1].species.element
-    Δϵ_w = 2*params.Tev[i] + params.Tev[i]*log(1-σ)/sqrt(2*pi*mₑ/fluid.m)
+    Δϵ_w = 2*params.Tev[i] + params.Tev[i]*log(1-σ)/sqrt(2*pi*me/fluid.m)
     return params.ne[i]*νₑ_w*Δϵ_w
 end
 
@@ -72,65 +72,7 @@ function S_coll(U, params, i) #landmark table
     return neutral_density*ne[i]*W
 end
 
-function update_electron_energy_explicit!(dU, U, params, t)
-    #########################################################
-    #ELECTRON SOLVE
-
-    ncells = size(U, 2) - 2
-
-    (;index, z_cell, z_edge) = params
-    (;Tev, ue, ne, B, μ) = params.cache
-    nϵ = @views U[index.nϵ, :]
-    implicit_energy = params.config.implicit_energy
-
-    mi = params.propellant.m
-
-    neL = 0.0
-    ne0 = sum(U[index.ρi[Z], 1] for Z in 1:params.config.ncharge) / mi
-    neR = sum(U[index.ρi[Z], 2] for Z in 1:params.config.ncharge) / mi
-
-    ϵL = 0.0
-    ϵ0 = nϵ[1] / ne0
-    ϵR = nϵ[2] / neR
-
-    νc_L = 0.0
-    νc_0 = electron_collision_freq(ϵ0, U[index.ρn, 1] / mi, ne0, mi)
-    νc_R = electron_collision_freq(ϵR, U[index.ρn, 2] / mi, neR, mi)
-
-    νan_L = 0.0
-    νan_0 = params.anom_model(U, params, 1)
-    νan_R = params.anom_model(U, params, 2)
-
-    μL = 0.0
-    μ0 = electron_mobility(νan_0, νc_0, params.cache.B[1])
-    μR = electron_mobility(νan_R, νc_R, params.cache.B[2])
-
-    @inbounds for i in 2:ncells+1
-
-        zL, z0, zR = z_cell[i-1], z_cell[i], z_cell[i+1]
-        neL, ne0, neR = ne0, neR, sum(U[index.ρi[Z], i+1] for Z in 1:params.config.ncharge) / mi
-        ϵL, ϵ0, ϵR = ϵ0, ϵR, nϵ[i+1] / neR
-
-        νc_L, νc_0, νc_R = νc_0, νc_R, electron_collision_freq(ϵR, U[index.ρn, i+1] / mi, neR, mi)
-        νan_L, νan_0, νan_R = νan_0, νan_R, params.anom_model(U, params, i+1)
-        μL, μ0, μR = μ0, μR, electron_mobility(νan_R, νc_R, B[i+1])
-
-        advection_term = central_difference(ue[i-1] * nϵ[i-1], ue[i] * nϵ[i], ue[i+1] * nϵ[i+1], zL, z0, zR)
-        ∇ϵ = central_difference(ϵL, ϵ0, ϵR, zL, z0, zR)
-        ∇²ϵ = second_deriv_central_diff(ϵL, ϵ0, ϵR, zL, z0, zR)
-
-        diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR) * ∇ϵ
-        diffusion_term += μ0 * nϵ[i] * ∇²ϵ
-
-        source_term = source_electron_energy_landmark(U, params, i)
-
-        dU[index.nϵ, i] = - 5/3 * advection_term + 10/9 * diffusion_term + source_term
-    end
-
-    return nothing
-end
-
-function update_electron_energy_implicit!(U, params)
+function update_electron_energy!(U, params)
     (;Aϵ, bϵ, μ, ue, ne) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy

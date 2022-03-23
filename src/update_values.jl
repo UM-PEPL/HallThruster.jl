@@ -68,21 +68,13 @@ function update_values!(U, params, t = 0)
     compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
     # Fix electron velocity on left and right cells
-    if !params.config.anode_sheath
-        ueL = ue[3]
-        ue[1] = ue[2] = ueL
-        ueR = ue[end-2]
-        ue[end] = ue[end-1] = ueR
-    end
+    ueL = ue[3]
+    ue[1] = ue[2] = ueL
+    ueR = ue[end-2]
+    ue[end] = ue[end-1] = ueR
 
-    # Update electron energy if implicit, or if not then set electron boundary conditions for explicit solve
-    if params.implicit_energy > 0
-        update_electron_energy_implicit!(U, params)
-    else
-        # Dirchlet BCs for electron energy
-        apply_bc_electron!(U, params.BCs[3], :left, index)
-        apply_bc_electron!(U, params.BCs[4], :right, index)
-    end
+    update_electron_energy!(U, params)
+
 end
 
 function compute_gradients!(∇ϕ, ∇pe, ue, U, params)

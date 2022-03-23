@@ -8,7 +8,7 @@ end
 
 @inline function (model::TwoZoneBohm)(U, params, i)
     B = params.cache.B[i]
-    ωce = e * B / mₑ
+    ωce = e * B / me
 
     β = params.config.transition_function(params.z_cell[i], params.L_ch, model.coeffs[1], model.coeffs[2])
 
@@ -27,7 +27,7 @@ end
     c = model.coeffs
 
     ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
-    ωce = e * B[icell] / mₑ
+    ωce = e * B[icell] / me
     vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
     if νan[icell] == 0.0
         α = 1.0
@@ -67,28 +67,15 @@ function B_field(B_max, z, L_ch) #same in Landmark and in FFM model Hara
     return B
 end
 
-function Te_func(z, L_ch) #will be gone soon
-    return 30 * exp(-(2 * (z - L_ch) / 0.033)^2)
-end
-
 """
-    cf_electron_transport(v_an::Float64, v_c::Float64, B::Float64)
+    electron_mobility(νan::Float64, νc::Float64, B::Float64)
 
 calculates electron transport according to the generalized Ohm's law
 as a function of the classical and anomalous collision frequencies
 and the magnetic field.
 """
-@inline function electron_mobility(v_an, v_c, B)
-    vₑ = v_an + v_c
-    Ω = e * B / (mₑ * vₑ)
-    return e / (mₑ * vₑ * (1 + Ω^2))
-end
-
-"""
-    electron_pressure(ne::Float64, Tev::Float64)
-
-ideal gas law for electrons. Tev is in eV.
-"""
-function electron_pressure(ne, Tev)
-    return e * ne * Tev
+@inline function electron_mobility(νan, νc, B)
+    νe = νan + νc
+    Ω = e * B / (me * νe)
+    return e / (me * νe * (1 + Ω^2))
 end

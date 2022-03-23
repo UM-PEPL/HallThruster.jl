@@ -42,11 +42,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function update!(dU, U, p, t)
-    update_heavy_species!(dU, U, p, t)
-    update_electron_energy_explicit!(dU, U, p, t)
-end
-
 function initial_condition!(U, z_cell, IC!, fluids)
     for (i, z) in enumerate(z_cell)
         @views IC!(U[:, i], z, fluids, z_cell[end])
@@ -159,19 +154,11 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     # Compute maximum allowed iterations
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    # Choose which function to use for ODE
-    # If implicit, we update electron energy in the callback, not using diffeq
-    if config.implicit_energy > 0
-        f = ODEFunction(update_heavy_species!)
-    else
-	    f = ODEFunction(update!)
-    end
-
     #make values in params available for first timestep
     update_values!(U, params)
 
     # Set up ODE problem and solve
-    prob = ODEProblem{true}(f, U, tspan, params)
+    prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
 	sol = try
         solve(
             prob, alg; saveat=sim.saveat, callback=callbacks,
