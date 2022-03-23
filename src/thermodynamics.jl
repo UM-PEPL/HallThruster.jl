@@ -11,37 +11,13 @@
 @inline velocity(U::SVector{2, T}, f::Fluid) where T = U[2] / U[1]
 @inline velocity(U::SVector{3, T}, f::Fluid) where T = U[2] / U[1]
 
-@inline function velocity(U, f::Fluid)
-    if f.conservation_laws.type == _ContinuityOnly
-        return f.conservation_laws.u
-    else
-        return U[2] / U[1]
-    end
-end
-
 @inline temperature(U::SVector{1, T}, f::Fluid) where T = f.conservation_laws.T
 @inline temperature(U::SVector{2, T}, f::Fluid) where T = f.conservation_laws.T
 @inline temperature(U::SVector{3, T}, f::Fluid) where T = (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1]) / U[1] / R(f)
 
-@inline function temperature(U, f::Fluid)
-    if f.conservation_laws.type == _EulerEquations
-        (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1]) / U[1] / R(f)
-    else
-        return f.conservation_laws.T
-    end
-end
-
 @inline pressure(U::SVector{1, T}, f::Fluid) where T = U[1] * R(f) * f.conservation_laws.T
 @inline pressure(U::SVector{2, T}, f::Fluid) where T = U[1] * R(f) * f.conservation_laws.T
 @inline pressure(U::SVector{3, T}, f::Fluid) where T = (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1])
-
-@inline function pressure(U, f::Fluid)
-    if f.conservation_laws.type == _EulerEquations
-        return (γ(f) - 1) * (U[3] - 0.5 * U[2]^2 / U[1])
-    else
-        return U[1] * R(f) * f.conservation_laws.T
-    end
-end
 
 function stagnation_energy(U, f::Fluid)
     if f.conservation_laws.type == _EulerEquations
