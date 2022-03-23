@@ -46,3 +46,22 @@ let SPT_100 = HallThruster.SPT_100
     @test HallThruster.channel_area(r1, r0) == π * (0.05^2 - 0.0345^2)
     @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
 end
+
+let
+    params = (
+        index = (;ρi = [1,2,3]),
+        config = (;
+            ncharge = 3, propellant = HallThruster.Xenon, neutral_velocity = 100,
+            geometry = HallThruster.SPT_100, anode_mass_flow_rate = 5e-6,
+        )
+    )
+
+    U = mi * [1e16; 2e16; 3e16 ;;]
+
+    @test HallThruster.electron_density(U, params, 1) == 1e16 + 4e16 + 9e16
+
+    A_ch = HallThruster.channel_area(params.config.geometry)
+    ρn = params.config.anode_mass_flow_rate / params.config.neutral_velocity / A_ch
+    @test HallThruster.inlet_neutral_density(params.config) == ρn
+
+end
