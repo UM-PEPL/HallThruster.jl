@@ -4,3 +4,4 @@ docs/build
 *.jld2
 *.gif
 *.cov
+landmark/webplotdigitizer
