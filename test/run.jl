@@ -8,6 +8,28 @@ using OrdinaryDiffEq, PartialFunctions
 
 include("plotting.jl")
 
+
+struct DataDriven <: HallThruster.ZeroEquationModel
+    coeffs::NTuple{1, Float64}
+    DataDriven(c1) = new((c1,))
+end
+
+@inline function (model::DataDriven)(U, params, icell)
+    (;index) = params
+    (;∇ϕ, B, νan) = params.cache
+    c = model.coeffs
+
+    ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
+    ωce = e * B[icell] / me
+    vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
+    if νan[icell] == 0.0
+        α = 1.0
+    else
+        α = 0.5
+    end
+    return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
+end
+
 function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
     B = if z < L_ch
         B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100

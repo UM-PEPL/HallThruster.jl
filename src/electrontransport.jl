@@ -16,27 +16,6 @@ end
     return νan
 end
 
-struct DataDriven <: ZeroEquationModel
-    coeffs::NTuple{1, Float64}
-    DataDriven(c1) = new((c1,))
-end
-
-@inline function (model::DataDriven)(U, params, icell)
-    (;index) = params
-    (;∇ϕ, B, νan) = params.cache
-    c = model.coeffs
-
-    ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
-    ωce = e * B[icell] / me
-    vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
-    if νan[icell] == 0.0
-        α = 1.0
-    else
-        α = 0.5
-    end
-    return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
-end
-
 """
     electron_mobility(νan::Float64, νc::Float64, B::Float64)
 
