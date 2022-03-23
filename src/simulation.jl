@@ -19,7 +19,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     b = zeros(nedges) #for potential equation
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
-    B = zeros(ncells)
     νan = zeros(ncells)
     νc = zeros(ncells)
     νei = zeros(ncells)
@@ -37,6 +36,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     F = zeros(nvariables+1, nedges)
     UL = zeros(nvariables+1, nedges)
     UR = zeros(nvariables+1, nedges)
+
+    B = params.config.magnetic_field.(grid.cell_centers)
 
     cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
     return U, cache
@@ -65,7 +66,6 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         grid = sim.grid
         U, cache = allocate_arrays(grid, fluids)
         initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
-        precompute_bfield!(cache.B, grid.cell_centers)
     end
 
     scheme = sim.scheme
@@ -91,8 +91,6 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     end
 
     BCs = sim.boundary_conditions
-
-    precompute_bfield!(cache.B, grid.cell_centers)
 
     loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 

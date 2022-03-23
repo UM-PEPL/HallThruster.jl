@@ -23,15 +23,6 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function reconstruct(u₋::SVector{$NUM_CONSERVATIVE, T}, uᵢ::SVector{$NUM_CONSERVATIVE, T}, u₊::SVector{$NUM_CONSERVATIVE, T}, ψ) where T
-        Δu = u₊ - uᵢ
-        ∇u = uᵢ - u₋
-        r = Δu ./ ∇u
-        uR = @SVector[uᵢ[i] + 0.5 * ψ(r[i]) * ∇u[i] for i in 1:$NUM_CONSERVATIVE]
-        uL = @SVector[uᵢ[i] - 0.5 * ψ(1/r[i]) * Δu[i]  for i in 1:$NUM_CONSERVATIVE]
-        return uL, uR
-    end
-
     function upwind(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)

@@ -17,11 +17,3 @@ function inlet_neutral_density(sim)
     nn = sim.inlet_mdot / un / A / m_atom
     return nn
 end
-
-function precompute_bfield!(B, zs)
-    B_max = 0.015
-    L_ch = 0.025
-    for (i, z) in enumerate(zs)
-        B[i] = B_field(B_max, z, L_ch)
-    end
-end

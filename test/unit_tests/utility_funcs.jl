@@ -39,3 +39,10 @@ let
     @test U[index.nϵ] == config.min_number_density * config.min_electron_temperature
 
 end
+
+let SPT_100 = HallThruster.SPT_100
+    r0 = SPT_100.inner_radius
+    r1 = SPT_100.outer_radius
+    @test HallThruster.channel_area(r1, r0) == π * (0.05^2 - 0.0345^2)
+    @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
+end

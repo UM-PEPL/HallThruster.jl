@@ -54,20 +54,6 @@ Electric Propulsion, Goebel and Katz, 2008.
 end
 
 """
-    B_field(B_max::Float64, z::Float64, L_ch::Float64)
-
-defines magnetic field as a function of position. 
-"""
-function B_field(B_max, z, L_ch) #same in Landmark and in FFM model Hara
-    B = if z < L_ch
-        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
-    else
-        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
-    end
-    return B
-end
-
-"""
     electron_mobility(νan::Float64, νc::Float64, B::Float64)
 
 calculates electron transport according to the generalized Ohm's law

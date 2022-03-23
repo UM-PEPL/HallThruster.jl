@@ -4,17 +4,17 @@
 
 
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
-using OrdinaryDiffEq
+using OrdinaryDiffEq, PartialFunctions
 
 include("plotting.jl")
 
-function source!(Q, U, params, i)
-    @turbo Q .= 0
-    HallThruster.apply_reactions!(Q, U, params, i)
-    #HallThruster.apply_ion_acceleration!(Q, U, params, i)
-    HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
-    HallThruster.source_electron_energy_landmark!(Q, U, params, i)
-    return Q
+function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
+    B = if z < L_ch
+        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
+    else
+        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
+    end
+    return B
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
@@ -62,7 +62,6 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     ρ1 = 5e-6/0.004/abs(u1)
     @show ρ1/HallThruster.Xenon.m
     left_state = [ρ1, ρ2, ρ2 * -1000.0] # [ρ1, ρ1*u1, ρ1*E]
-    right_state = [ρ1*2, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
     BCs = (HallThruster.Dirichlet_ionbohm(left_state), HallThruster.Neumann_ionbohm())
 
     left_internal_energy = 3.0
@@ -113,6 +112,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 
     αw = 1.0
 
+    Bmax_Tesla = 0.015
+
     config = (
         anode_potential = 300.0,
         cathode_potential = 0.0,
@@ -149,6 +150,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         collision_model,
         progress_interval,
         anode_sheath,
+        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, SPT_100.channel_length)
     )
 
     @time sol = HallThruster.run_simulation(sim, config, alg)
