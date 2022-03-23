@@ -196,15 +196,15 @@ let Xenon = HallThruster.Xenon,
             HallThruster.van_albada,
             HallThruster.van_leer
         ]
-        #=
+        
         for limiter in limiters
             scheme = HallThruster.HyperbolicScheme(identity, limiter, true)
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler_2, scheme)
-            @test edge_L[:, 1] == euler_state_L
+            @test edge_L[:, 1] == euler_state_L2
             @test edge_R[:, end] == euler_state_R
             @test edge_L[:, 2] == euler_state
             @test edge_R[:, 1] == euler_state
         end
-        =#
+        
     end
 end
