@@ -17,7 +17,7 @@ end
 function landmark_styles()
     common_options = (
         linewidth = 1.5,
-        linestyle = :solid,
+        linestyle = :dash,
     )
     return [
         (color = :red, label = "Fluid (δ = 1 mm)", common_options...),
