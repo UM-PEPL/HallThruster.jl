@@ -54,22 +54,26 @@ function S_coll(U, params, i) #landmark table
 end
 =#
 
-function source_electron_energy_landmark!(Q, U, params, i)
-    Q[params.index.nϵ] = source_electron_energy_landmark(U, params, i)
+function source_electron_energy!(Q, U, params, i)
+    Q[params.index.nϵ] = source_electron_energy(U, params, i)
 end
 
-function source_electron_energy_landmark(U, params, i)
-    (; z_cell, L_ch, index) = params
+function source_electron_energy(U, params, i)
+    index = params.index
 
-    z = z_cell[i]
-
-    αϵ = params.config.transition_function(z, L_ch, params.αϵ[1], params.αϵ[2])
     mi = params.propellant.m
-    UU = 20.0
     ne = params.cache.ne[i]
     ϵ = U[index.nϵ, i] / ne
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
-    W = 1e7 * αϵ * ϵ * exp(-UU / ϵ)
-    return ne * (ue * ∇ϕ - U[index.ρn, i]/mi * params.loss_coeff(ϵ) - W)
+
+    nn = U[index.ρn, i] / mi
+    K = params.config.collisional_loss_model(U, params, i)
+    W = params.config.wall_loss_model(U, params, i)
+
+    ohmic_heating      = ne * ue * ∇ϕ
+    wall_losses        = ne * W
+    collisional_losses = ne * nn * K
+
+    return ohmic_heating - wall_losses - collisional_losses
 end

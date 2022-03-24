@@ -1,4 +1,4 @@
-struct HyperbolicScheme{F,L}
+Base.@kwdef struct HyperbolicScheme{F,L}
     flux_function::F
     limiter::L
     reconstruct::Bool

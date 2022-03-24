@@ -26,22 +26,24 @@
     anom_model = HallThruster.TwoZoneBohm(1/160, 1/16)
     geometry = HallThruster.SPT_100
     transition_function = HallThruster.StepFunction()
-    config_simple = (;propellant = HallThruster.Xenon, collision_model = :simple, ncharge = 1, geometry, transition_function)
-    config_complex = (;propellant = HallThruster.Xenon, collision_model = :complex, ncharge = 1, geometry, transition_function)
+    config_simple = (;propellant = HallThruster.Xenon, collision_model = HallThruster.SimpleElectronNeutral(), ncharge = 1, geometry, transition_function)
+    config_complex = (;propellant = HallThruster.Xenon, collision_model = HallThruster.FullCollisionModel(), ncharge = 1, geometry, transition_function)
+    config_none = (;propellant = HallThruster.Xenon, collision_model = HallThruster.NoCollisions(), ncharge = 1, geometry, transition_function)
+
     params_1 = (;cache, index, config = config_simple, z_cell = [0.02], anom_model, L_ch = geometry.channel_length)
     params_2 = (;cache, index, config = config_complex, z_cell = [0.03], anom_model, L_ch = geometry.channel_length)
-
-    @test HallThruster.freq_electron_neutral(nn, Tev, :simple) == 2.5e-13 * nn
-    @test HallThruster.freq_electron_neutral(nn, Tev, :complex)  == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    params_3 = (;cache, index, config = config_none, z_cell = [0.03], anom_model, L_ch = geometry.channel_length)
 
     U = [mi * nn; mi * ne; ne * 3/2 * Tev ;;]
     @test HallThruster.freq_electron_neutral(U, params_1, 1) == 2.5e-13 * nn
     @test HallThruster.freq_electron_neutral(U, params_2, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    @test HallThruster.freq_electron_neutral(U, params_3, 1) == 0.0
 
     Z = 1
 
-    @test HallThruster.freq_electron_ion(U, params_1, 1) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+    @test HallThruster.freq_electron_ion(U, params_1, 1) == 0.0
     @test HallThruster.freq_electron_ion(U, params_2, 1) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+    @test HallThruster.freq_electron_ion(U, params_3, 1) == 0.0
 
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
     @test HallThruster.freq_electron_electron(U, params_1, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5

@@ -17,7 +17,7 @@ function update_electron_energy!(U, params)
     # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
         for i in 2:ncells-1
-            Q = source_electron_energy_landmark(U, params, i)
+            Q = source_electron_energy(U, params, i)
             # User-provided source term
             Q += params.config.source_energy(U, params, i)
 

@@ -112,7 +112,6 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = un,
         neutral_temperature = Tn,
-        ion_diffusion_coeff = 0.0e-3,
         implicit_energy = implicit_energy,
         propellant = HallThruster.Xenon,
         ncharge = 1,
@@ -153,3 +152,24 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 end
 
 sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);
+
+
+abstract type WallLossModel end
+
+struct SheathModel <: WallLossModel end
+
+struct LandmarkRadialLoss <: WallLossModel
+    α1::Float64
+    α2::Float64
+end
+
+shielded::Bool
+
+wall_material::WallMaterial
+
+struct Thruster
+    geometry::Geometry1D
+    shielded::Bool
+    magnetic_field::MagneticField
+end
+

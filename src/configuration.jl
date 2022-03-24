@@ -1,3 +1,90 @@
+struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC, CB, HS<:HyperbolicScheme}
+    discharge_voltage::Float64
+    cathode_potential::Float64
+    anode_Te::Float64
+    cathode_Te::Float64
+    wall_loss_model::W
+    wall_material::WallMaterial
+    wall_collision_freq::Float64
+    neutral_velocity::Float64
+    neutral_temperature::Float64
+    implicit_energy::Float64
+    propellant::Gas
+    ncharge::Int
+    ion_temperature::Float64
+    anom_model::A
+    ionization_coeffs::Symbol
+    electron_pressure_coupled::Float64
+    min_number_density::Float64
+    min_electron_temperature::Float64
+    transition_function::T
+    collision_model::C
+    progress_interval::Int
+    initial_condition::IC
+    callback::CB
+    magnetic_field_scale::Float64
+    source_neutrals::S_N
+    source_ion_continuity::S_IC
+    source_ion_momentum::S_IM
+    source_potential::S_ϕ
+    source_energy::S_E
+    scheme::HS
+end
+
+function Config(;
+        discharge_voltage::Float64,         # MANDATORY ARGUMENT
+        cathode_potential::Float64          = 0.0,
+        anode_Te::Float64                   = 3.0,
+        cathode_Te::Float64                 = 3.0,
+        wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = 20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
+        wall_material::WallMaterial         = IdealDielectric,
+        wall_collision_freq::Float64        = 0.0,
+        neutral_velocity::Float64           = 300.0,
+        neutral_temperature::Float64        = 300.0,
+        implicit_energy::Number             = 1.0,
+        propellant::Gas                     = Xenon,
+        ncharge::Int                        = 1,
+        ion_temperature::Float64            = 1000.,
+        anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
+        ionization_coeffs::Symbol           = :BOLSIG,
+        electron_pressure_coupled::Number   = 1.0,
+        min_number_density::Float64         = 1e6,
+        min_electron_temperature::Float64   = 1.0,
+        transition_function::TransitionFunction = LinearTransition(0.01, 0.0),
+        collision_model::CollisionModel     = SimpleElectronNeutral(),
+        progress_interval::Int              = 0,
+        initial_condition::IC,              # MANDATORY ARGUMENT
+        callback                            = nothing,
+        magnetic_field_scale::Float64       = 1.0,
+        source_neutrals::S_N                = Returns(0.0),
+        source_ion_continuity::S_IC         = nothing,
+        source_ion_momentum::S_IM           = nothing,
+        source_potential::S_ϕ               = Returns(0.0),
+        source_energy::S_E                  = Returns(0.0),
+        scheme::HyperbolicScheme            = HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false),
+    ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
+
+    # check that number of ion source terms matches number of charges for both
+    # continuity and momentum
+    source_IC = ion_source_terms(ncharge, source_ion_continuity, "continuity")
+    source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
+
+    return Config(
+        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_material, wall_collision_freq,
+        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
+        ionization_coeffs, electron_pressure_coupled, min_number_density, min_electron_temperature, transition_function,
+        collision_model, progress_interval, initial_condition, callback, magnetic_field_scale, source_neutrals,
+        source_IC, source_IM, source_potential, source_energy, scheme
+    )
+end
+
+function ion_source_terms(ncharge, source, type)
+    if ncharge != length(source)
+        throw(ArgumentError("Number of ion $type source terms must match number of charges"))
+    end
+end
+
+ion_source_terms(ncharge, ::Nothing, args...) = fill(Returns(0.0), ncharge)
 
 function make_keys(fluid_range, subscript)
     len = length(fluid_range)
