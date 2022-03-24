@@ -122,7 +122,7 @@ function update_electron_energy_explicit!(dU, U, params, t)
         diffusion_term = central_difference(μL * nϵ[i-1], μ0 * nϵ[i], μR * nϵ[i+1], zL, z0, zR) * ∇ϵ
         diffusion_term += μ0 * nϵ[i] * ∇²ϵ
 
-        source_term = source_electron_energy_landmark(U, params, i)
+        source_term = source_electron_energy(U, params, i)
 
         dU[index.nϵ, i] = - 5/3 * advection_term + 10/9 * diffusion_term + source_term
     end
@@ -149,7 +149,7 @@ function update_electron_energy_implicit!(U, params)
     # optionally, allow multiple iterations
     @inbounds for _ in 1:params.config.implicit_iters
         for i in 2:ncells-1
-            Q = source_electron_energy_landmark(U, params, i)
+            Q = source_electron_energy(U, params, i)
             # User-provided source term
             Q += params.config.source_energy(U, params, i)
 

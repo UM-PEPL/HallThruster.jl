@@ -45,3 +45,7 @@ Base.@kwdef mutable struct MultiFluidSimulation{IC,B1,B2,B3,B4,S,F,L,CB,SP,BP,VF
     verification::VF
 end
 
+struct wall_material{F}
+    SEE_func::F
+    conducting::Bool
+end

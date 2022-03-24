@@ -108,7 +108,15 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     elseif case == 3
         (0.4, 1.0)
     elseif case == 4
-        (0.1, 0.1)
+        (0.1, 1.0)
+    elseif case == 5
+        (0.3, 1.0)
+    elseif case == 6
+        (0.2, 1.0)
+    elseif case == 7
+        (0.22, 0.22)
+    elseif case == 8
+        (0.1, 1.0)
     end
 
     αw = 1.0
@@ -121,6 +129,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         restart_file = restart_file,
         radial_loss_coeffs = αϵ,
         wall_collision_coeff = αw,
+        #wall_loss_model = HallThruster.ConstantSheathPotential(20, 0.1, 0.1),
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride), 
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = 150.0,

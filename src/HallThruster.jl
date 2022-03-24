@@ -47,5 +47,6 @@ include("progressbar.jl")
 include("configuration.jl")
 include("utility_functions.jl")
 include("simulation.jl")
+include("walls.jl")
 
 end # module
