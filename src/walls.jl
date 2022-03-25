@@ -13,10 +13,11 @@ end
 function (model::ConstantSheathPotential)(U, params, i)
     (;z_cell, config, index) = params
     L_ch = config.geometry.channel_length
+
     z = z_cell[i]
 
     ne = params.cache.ne[i]
-    ϵ = U[index.nϵ, i] / ne[i]
+    ϵ = U[index.nϵ, i] / ne
 
     (;sheath_potential, inner_loss_coeff, outer_loss_coeff) = model
     αϵ = params.config.transition_function(z, L_ch, inner_loss_coeff, outer_loss_coeff)

@@ -72,8 +72,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov,
-        coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
-        collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
+        coeffs = :LANDMARK, transition = HallThruster.LinearTransition(0.001, 0.0),
+        collision_model = HallThruster.SimpleElectronNeutral(), coupled = true, energy_equation = :LANDMARK,
         progress_interval = 0, anode_sheath = false
     )
 
@@ -106,7 +106,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         anode_Te = 3.0,
         cathode_Te = 3.0,
         restart_file = restart_file,
-        radial_loss_coeffs = αϵ,
+        wall_loss_model = HallThruster.ConstantSheathPotential(20.0, αϵ[1], αϵ[2]),
         wall_collision_coeff = αw,
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
@@ -119,11 +119,11 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         ion_temperature = Ti,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = energy_equation,
-        ionization_coeffs = coeffs,
+        ionization_model = HallThruster.LANDMARK_Ionization_LUT(),
+        collisional_loss_model = HallThruster.LANDMARK_Loss_LUT(),
         electron_pressure_coupled = coupled,
         min_electron_temperature = 1.0,
         min_number_density = 1.0e6,
-        implicit_iters = implicit_iters,
         source_neutrals = Returns(0.0),
         source_ion_continuity = (Returns(0.0),),
         source_ion_momentum = (Returns(0.0),),
@@ -152,24 +152,3 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 end
 
 sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);
-
-
-abstract type WallLossModel end
-
-struct SheathModel <: WallLossModel end
-
-struct LandmarkRadialLoss <: WallLossModel
-    α1::Float64
-    α2::Float64
-end
-
-shielded::Bool
-
-wall_material::WallMaterial
-
-struct Thruster
-    geometry::Geometry1D
-    shielded::Bool
-    magnetic_field::MagneticField
-end
-

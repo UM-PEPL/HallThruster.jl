@@ -53,7 +53,6 @@ function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
     index = configure_index(fluid_ranges)
-    landmark = load_landmark()
 
     use_restart = config.restart_file !== nothing
 
@@ -72,27 +71,11 @@ function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
     tspan = (0.0, end_time)
     saveat = LinRange(tspan[1], tspan[2], nsave)
 
-    # Load ionization reactions fro file
-    if config.ionization_coeffs == :LANDMARK
-        if config.ncharge > 1
-            throw(ArgumentError("LANDMARK ionization table does not support multiply-charged ions. Please use :BOLSIG or reduce ncharge to 1."))
-        else
-            ionization_reactions = [IonizationReaction(species[1], species[2], landmark.rate_coeff)]
-        end
-    elseif config.ionization_coeffs == :BOLSIG
-        ionization_reactions = load_ionization_reactions(species)
-    elseif config.ionization_coeffs == :BOLSIG_FIT
-		ionization_reactions = ionization_fits_Xe(config.ncharge)
-		loss_coeff = loss_coeff_fit
-    else
-        throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
-    end
+    ionization_reactions = load_ionization_reactions(config.ionization_model, species)
 
     for (i, z) in enumerate(grid.cell_centers)
         cache.B[i] = config.magnetic_field(z)
     end
-
-    loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 
     # callback for calling the update_values! function at each timestep
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
@@ -131,14 +114,11 @@ function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
         Te_R = config.cathode_Te,
         L_ch = config.geometry.channel_length,
         A_ch = channel_area(config.geometry.outer_radius, config.geometry.inner_radius),
-        αϵ = config.radial_loss_coeffs,
         αw = config.wall_collision_coeff,
-        δ = config.ion_diffusion_coeff,
         un = config.neutral_velocity,
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
         anom_model = config.anom_model,
-        loss_coeff = loss_coeff,
         reactions = ionization_reactions,
         implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,

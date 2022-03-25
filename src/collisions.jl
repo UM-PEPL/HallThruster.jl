@@ -98,17 +98,21 @@ struct LANDMARK_Loss_LUT{F} <: CollisionalLossModel
     end
 end
 
+@inline (model::LANDMARK_Loss_LUT)(ϵ) = model.loss_coeff(ϵ)
+
 @inline function (model::LANDMARK_Loss_LUT)(U, params, i)
     ne = params.cache.ne[i]
     ϵ = U[params.index.nϵ, i] / ne
-    return model.loss_coeff(ϵ)
+    return model(ϵ)
 end
 
 struct LANDMARK_Loss_Fit <: CollisionalLossModel end
 
-@inline function (::LANDMARK_Loss_Fit)(U, params, i)
+@inline (::LANDMARK_Loss_Fit)(ϵ) = 6e-12 * exp(-39.0 / (ϵ + 3.0))
+
+@inline function (model::LANDMARK_Loss_Fit)(U, params, i)
     ne = params.cache.ne[i]
     ϵ = U[params.index.nϵ, i] / ne
-    K = 6e-12 * exp(-39.0 / (ϵ + 3.0))
+    return model(ϵ)
     return K
 end
