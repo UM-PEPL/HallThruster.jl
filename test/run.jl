@@ -14,10 +14,6 @@ struct DataDriven <: HallThruster.ZeroEquationModel
     DataDriven(c1) = new((c1,))
 end
 
-struct Thruster
-    shielded::Bool
-end
-
 @inline function (model::DataDriven)(U, params, icell)
     (;index) = params
     (;∇ϕ, B, νan) = params.cache
@@ -32,15 +28,6 @@ end
         α = 0.5
     end
     return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
-end
-
-function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
-    B = if z < L_ch
-        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
-    else
-        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
-    end
-    return B
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
@@ -71,26 +58,22 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
 end
 
 
-function run_sim(end_time = 0.0002; ncells = 160, nsave = 2, dt = 0.8e-8,
+function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
-        flux = HallThruster.rusanov,
-        coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
-        collision_model = :complex, coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 0, anode_sheath = false
+        flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLUT(), transition = HallThruster.LinearTransition(0.001, 0.0),
+        collision_model = HallThruster.SimpleElectronNeutral(), coupled = true, energy_equation = :LANDMARK,
+        progress_interval = 0,
     )
 
-    fluid = HallThruster.Xenon
     un = 150.0
     Tn = 300.0
     Ti = 1000.0
 
-    domain = (0.0, 0.08)
+    domain = (0.0, 0.05)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
-
-    αϵ = if case == 1
+    αϵ_in, αϵ_out = if case == 1
         (1.0, 1.0)
     elseif case == 2
         (0.5, 1.0)
@@ -102,54 +85,31 @@ function run_sim(end_time = 0.0002; ncells = 160, nsave = 2, dt = 0.8e-8,
 
     αw = 1.0
 
-    Bmax_Tesla = 0.015
-
-    config = (
-        anode_potential = 300.0,
-        cathode_potential = 0.0,
-        anode_Te = 3.0,
-        cathode_Te = 3.0,
-        restart_file = restart_file,
-        radial_loss_coeffs = αϵ,
-        wall_collision_coeff = αw,
-        #wall_loss_model = HallThruster.ConstantSheathPotential(20, 0.1, 1.0),
-        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride), 
-        thruster = Thruster(false),
-        geometry = HallThruster.SPT_100,
-        anode_mass_flow_rate = 5e-6,
-        neutral_velocity = un,
-        neutral_temperature = Tn,
-        ion_diffusion_coeff = 0.0e-3,
-        implicit_energy = implicit_energy,
-        propellant = HallThruster.Xenon,
-        ncharge = 1,
-        solve_ion_energy = false,
-        ion_temperature = Ti,
-        anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
-        energy_equation = energy_equation,
-        ionization_coeffs = coeffs,
-        electron_pressure_coupled = coupled,
-        min_electron_temperature = 1.0,
-        min_number_density = 1.0e6,
-        implicit_iters = implicit_iters,
-        source_neutrals = Returns(0.0),
-        source_ion_continuity = (Returns(0.0),),
-        source_ion_momentum = (Returns(0.0),),
-        source_potential = Returns(0.0),
-        source_energy = Returns(0.0),
-        domain,
-        transition_function = transition,
-        collision_model,
-        progress_interval,
-        anode_sheath,
-        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, HallThruster.SPT_100.channel_length),
-        initial_condition! = IC!,
-        callback = nothing,
-    )
-
     scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
 
-    @time sol = HallThruster.run_simulation(config, alg, scheme, dt, end_time, nsave, grid)
+    config = HallThruster.Config(;
+        discharge_voltage = 300.0,
+        initial_condition! = IC!,
+        collisional_loss_model = HallThruster.LandmarkLossLUT(),
+        wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
+        wall_collision_freq = αw * 1e7,
+        implicit_energy = implicit_energy,
+        transition_function = transition,
+        electron_pressure_coupled = coupled,
+        progress_interval = progress_interval,
+        neutral_velocity = un,
+        neutral_temperature = Tn,
+        ion_temperature = Ti,
+        thruster = HallThruster.SPT_100,
+        anode_mass_flow_rate = 5e-6,
+        scheme,
+        collision_model,
+        ionization_model,
+        domain,
+        energy_equation
+    )
+
+    @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)
 
     if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)
@@ -159,4 +119,4 @@ function run_sim(end_time = 0.0002; ncells = 160, nsave = 2, dt = 0.8e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=100, nsave=1000, case = 4, dt = 1.3e-8);
+sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);

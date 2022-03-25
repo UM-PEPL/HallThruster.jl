@@ -1,4 +1,4 @@
-struct HyperbolicScheme{F,L}
+Base.@kwdef struct HyperbolicScheme{F,L}
     flux_function::F
     limiter::L
     reconstruct::Bool
@@ -145,8 +145,8 @@ function compute_edge_states!(UL, UR, U, scheme)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids, scheme) = params
-    (;propellant, electron_pressure_coupled) = config
+    (;config, index, fluids) = params
+    (;propellant, electron_pressure_coupled, scheme) = config
     nvars, ncells = size(U)
 
     coupled = electron_pressure_coupled

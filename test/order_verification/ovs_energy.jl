@@ -32,7 +32,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
 ρn_func = eval(build_function(ρn, [x]))
 
-k(ϵ) = HallThruster.loss_coeff_fit(ϵ)
+k(ϵ) = HallThruster.LandmarkLossFit()(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5/3 * nϵ * ue - 10/9 * μ * nϵ * Dx(nϵ/ne)) + ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
@@ -60,7 +60,7 @@ end
 function verify_energy(ncells; niters = 10000, plot_results = false)
     index = (; ρn = 1, nϵ = 2)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     z_cell = grid.cell_centers
     ncells = length(z_cell)
@@ -79,7 +79,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     Te_R = nϵ_exact[end] / ne[end]
 
     U[1, :] = ρn
-    U[2, :] .= Te_L * ne # Set initial temp to 3 eV
+    U[2, :] = Te_L * ne # Set initial temp to 3 eV
 
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     bϵ = zeros(ncells)
@@ -88,26 +88,28 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
 
     source_func = (U, params, i) -> source_energy(params.z_cell[i])
 
-    implicit_iters = 1
-
     # Test backward difference implicit solve
     dt = 1e-6
 
     transition_function = HallThruster.StepFunction()
-    αϵ = (1.0, 1.0)
-    loss_coeff = HallThruster.loss_coeff_fit
+    collisional_loss_model = HallThruster.LandmarkLossFit()
+    wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, 1.0, 1.0)
     L_ch = 0.025
     propellant = HallThruster.Xenon
     energy_equation = :LANDMARK
 
+    geometry = (;channel_length = L_ch)
+
     config = (;
-        ncharge = 1, source_energy = source_func, implicit_energy = 1.0, implicit_iters,
-        min_electron_temperature, transition_function, energy_equation, propellant
+        ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
+        min_electron_temperature, transition_function, energy_equation, propellant,
+        collisional_loss_model, wall_loss_model, geometry
     )
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ)
+
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,
-        αϵ, dt, L_ch, loss_coeff, propellant
+        dt, L_ch, propellant
     )
 
     solve_energy!(U, params, niters, dt)
@@ -119,14 +121,15 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     U[2, :] .= Te_L * ne # set initial temp to 3 eV
 
     config = (;
-        ncharge = 1, source_energy = source_func, implicit_energy = 0.5, implicit_iters,
-        min_electron_temperature, transition_function, energy_equation, propellant
+        ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
+        min_electron_temperature, transition_function, energy_equation, propellant,
+        collisional_loss_model, wall_loss_model, geometry
     )
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,
-        αϵ, dt, L_ch, propellant, loss_coeff
+        dt, L_ch, propellant
     )
 
     solve_energy!(U, params, niters, dt)

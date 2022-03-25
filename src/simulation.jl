@@ -48,51 +48,32 @@ function initial_condition!(U, z_cell, IC!, fluids)
     end
 end
 
-function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
+function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
     index = configure_index(fluid_ranges)
-    landmark = load_landmark()
 
-    use_restart = config.restart_file !== nothing
+    use_restart = restart_file !== nothing
 
     if use_restart
         U, grid, B = read_restart(config.restart_file)
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
-        if grid === nothing
-            throw(ArgumentError("No grid provided and simulation is not a restart"))
-        end
+        grid = generate_grid(config.thruster.geometry, ncells, config.domain)
         U, cache = allocate_arrays(grid, fluids)
-        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, config.initial_condition!, fluids)
+        initial_condition!(U, grid.cell_centers, config.initial_condition!, fluids)
     end
 
     tspan = (0.0, end_time)
     saveat = LinRange(tspan[1], tspan[2], nsave)
 
-    # Load ionization reactions fro file
-    if config.ionization_coeffs == :LANDMARK
-        if config.ncharge > 1
-            throw(ArgumentError("LANDMARK ionization table does not support multiply-charged ions. Please use :BOLSIG or reduce ncharge to 1."))
-        else
-            ionization_reactions = [IonizationReaction(species[1], species[2], landmark.rate_coeff)]
-        end
-    elseif config.ionization_coeffs == :BOLSIG
-        ionization_reactions = load_ionization_reactions(species)
-    elseif config.ionization_coeffs == :BOLSIG_FIT
-		ionization_reactions = ionization_fits_Xe(config.ncharge)
-		loss_coeff = loss_coeff_fit
-    else
-        throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
-    end
+    ionization_reactions = load_ionization_reactions(config.ionization_model, species)
 
     for (i, z) in enumerate(grid.cell_centers)
-        cache.B[i] = config.magnetic_field(z)
+        cache.B[i] = config.thruster.magnetic_field(z)
     end
-
-    loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 
     # callback for calling the update_values! function at each timestep
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
@@ -124,26 +105,18 @@ function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
     # Simulation parameters
     params = (;
         config = config,
-        propellant = config.propellant,
-        ϕ_L = config.anode_potential,
+        ϕ_L = config.discharge_voltage + config.cathode_potential,
         ϕ_R = config.cathode_potential,
         Te_L = config.anode_Te,
         Te_R = config.cathode_Te,
-        L_ch = config.geometry.channel_length,
-        A_ch = channel_area(config.geometry.outer_radius, config.geometry.inner_radius),
-        αϵ = config.radial_loss_coeffs,
-        αw = config.wall_collision_coeff,
-        δ = config.ion_diffusion_coeff,
-        un = config.neutral_velocity,
-        Tn = config.neutral_temperature,
-        mdot_a = config.anode_mass_flow_rate,
-        anom_model = config.anom_model,
-        collisional_loss_coeff = loss_coeff,
+        L_ch = config.thruster.geometry.channel_length,
+        A_ch = config.thruster.geometry.channel_area,
         reactions = ionization_reactions,
-        implicit_energy = config.implicit_energy,
-        index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
-        z_edge=grid.edges, cell_volume=grid.cell_volume,
-        scheme, dt=timestep, progress_bar,
+        z_cell=grid.cell_centers,
+        z_edge=grid.edges,
+        dt=timestep,
+        progress_bar,
+        index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1]
     )
 
