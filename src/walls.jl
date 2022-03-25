@@ -51,39 +51,42 @@ Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
 end
 
-@inline function (model::WallSheath)(U, params, i)
-    (;z_cell, config, index) = params
-    L_ch = config.geometry.channel_length
-    z = z_cell[i]
+function (model::WallSheath)(U, params, i)
+    (;config, index) = params
 
     ne = params.cache.ne[i]
-    Tev = params.cache.Tev[i]
-    ϵ = U[index.nϵ, i] / ne
-    (;material) = model
 
-    γ = SEE_yield(material, Tev)
-    ϕ_s = compute_wall_sheath_potential(Tev, γ, params.propellant.m, mₑ)
-    νₑ = find_collision_frequency(Tev)
-    W = νₑ*ϵ*exp(ϕ_s/ϵ)
+    if config.thruster.shielded
+        ϵ = U[index.nϵ, 1] / ne
+    else
+        ϵ = U[index.nϵ, i] / ne
+    end
+
+    Tev = 2/3 * ϵ
+
+    γ = SEE_yield(model.material, Tev)
+    ϕ_s = compute_wall_sheath_potential(Tev, γ, params.config.propellant.m)
+    νₑ = effective_loss_frequency(Tev)
+    W = νₑ*Tev*exp(ϕ_s/Tev)
     return W
 end
 
+function effective_loss_frequency(Tev)
+    νₑ = 1/4*sqrt(8*e*Tev/π/me)*2
+    return νₑ
+end
+
 """
-    compute_wall_sheath_potential(Tev, γ, mᵢ, mₑ)
+    compute_wall_sheath_potential(Tev, γ, mi))
 compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Space charge limited above γ = 0.99. Currently only strictly valid for Xenon
 """
-function compute_wall_sheath_potential(Tev, γ, mᵢ, mₑ)
+function compute_wall_sheath_potential(Tev, γ, mi)
     if γ < 0.99
-        ϕ_w = -Tev*log(0.5*(1-γ)*sqrt(2*mᵢ/pi/mₑ))
+        ϕ_w = -Tev*log(0.5*(1-γ)*sqrt(2*mi/π/me))
     else
         ϕ_w = -1.02*Tev
     end
     return ϕ_w
-end
-
-function find_collision_frequency(Tev)
-    νₑ = 1/4*sqrt(8*e*Tev/pi/mₑ)*2
-    return νₑ
 end

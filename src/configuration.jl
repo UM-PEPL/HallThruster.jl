@@ -4,7 +4,6 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, C
     anode_Te::Float64
     cathode_Te::Float64
     wall_loss_model::W
-    wall_material::WallMaterial
     wall_collision_freq::Float64
     neutral_velocity::Float64
     neutral_temperature::Float64
@@ -42,7 +41,6 @@ function Config(;
         anode_Te::Float64                   = 3.0,
         cathode_Te::Float64                 = 3.0,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = 20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
-        wall_material::WallMaterial         = IdealDielectric,
         wall_collision_freq::Float64        = 0.0,
         neutral_velocity::Float64           = 300.0,
         neutral_temperature::Float64        = 300.0,
@@ -80,7 +78,7 @@ function Config(;
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
 
     return Config(
-        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_material, wall_collision_freq,
+        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_collision_freq,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         collision_model, collisional_loss_model, progress_interval, initial_condition!, callback, magnetic_field_scale, source_neutrals,
