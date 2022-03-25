@@ -39,7 +39,7 @@ end
 
 end
 
-@testset "Channel area computation" begin
+@testset "Geometry" begin
     SPT_100 = HallThruster.SPT_100
     r0 = SPT_100.geometry.inner_radius
     r1 = SPT_100.geometry.outer_radius
@@ -48,6 +48,18 @@ end
     @test HallThruster.SPT_100.geometry.channel_area == A_ch
     @test HallThruster.channel_area(SPT_100.geometry) == A_ch
     @test HallThruster.channel_area(SPT_100) == A_ch
+
+    mygeom = HallThruster.Geometry1D(channel_length = 1.0, inner_radius = 1.0, outer_radius = 2.0)
+    @test mygeom.channel_area == 3π
+
+    Bmax = 0.015
+    L_ch = 0.025
+    zs = 0:0.1:0.05
+
+    @test HallThruster.B_field_SPT_100(Bmax, L_ch, L_ch) ≈ Bmax
+    @test HallThruster.B_field_SPT_100(Bmax, L_ch, L_ch / 2) ≈ Bmax * exp(-0.5 * (L_ch/2/0.011)^2)
+    @test HallThruster.B_field_SPT_100(Bmax, L_ch, 2 * L_ch) ≈ Bmax * exp(-0.5 * (L_ch/0.018)^2)
+
 end
 
 @testset "Minor utility functions" begin
@@ -80,7 +92,6 @@ end
     @test grid.cell_centers[end] == domain[2]
     @test length(grid.cell_centers) == ncells+2
     @test length(grid.edges) == ncells+1
-
 
     Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
     Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), HallThruster.IsothermalEuler(100.))
@@ -169,4 +180,6 @@ end
     @test quadratic(cutoff * 2000, cutoff, y1, y2) ≈ 101
     @test quadratic(cutoff, cutoff, y1, y2) == 17
     @test quadratic(cutoff + transition_length / 10, cutoff, y1, y2) > 1
+
+
 end

@@ -7,7 +7,7 @@
 
     @test no_losses(U, params, i) == 0.0
 
-    landmark_losses = HallThruster.ConstantSheathPotential(20.0, 1.0, 1.0)
+    landmark_losses = HallThruster.ConstantSheathPotential(-20.0, 1.0, 1.0)
 
     Tev = 4.0
     ne = 1e18

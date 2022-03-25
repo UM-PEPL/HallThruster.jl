@@ -26,9 +26,12 @@
     anom_model = HallThruster.TwoZoneBohm(1/160, 1/16)
     thruster = HallThruster.SPT_100
     transition_function = HallThruster.StepFunction()
-    config_simple = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.SimpleElectronNeutral(), ncharge = 1, thruster, transition_function)
-    config_complex = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.FullCollisionModel(), ncharge = 1, thruster, transition_function)
-    config_none = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.NoCollisions(), ncharge = 1, thruster, transition_function)
+
+    wall_collision_freq = 1e7
+
+    config_simple = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.SimpleElectronNeutral(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_complex = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.FullCollisionModel(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_none = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.NoCollisions(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
 
     params_1 = (;cache, index, config = config_simple, z_cell = [0.02], L_ch = thruster.geometry.channel_length)
     params_2 = (;cache, index, config = config_complex, z_cell = [0.03], L_ch = thruster.geometry.channel_length)
@@ -55,4 +58,11 @@
     @test model(U, params_1, 1) == 0.0
     @test model(U, params_1, 1) == 0.0
 
+    @test HallThruster.freq_electron_wall(U, params_1, 1) == 1e7
+    @test HallThruster.freq_electron_wall(U, params_2, 1) == 0.0
+
+    loss_model = HallThruster.LandmarkLossLUT()
+
+    @test loss_model(10.0) == 4.1030E-13
+    @test loss_model(U, params_1, 1) == loss_model(3/2 * Tev)
 end

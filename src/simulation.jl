@@ -63,7 +63,7 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
     else
         grid = generate_grid(config.thruster.geometry, ncells, config.domain)
         U, cache = allocate_arrays(grid, fluids)
-        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, config.initial_condition!, fluids)
+        initial_condition!(U, grid.cell_centers, config.initial_condition!, fluids)
     end
 
     tspan = (0.0, end_time)

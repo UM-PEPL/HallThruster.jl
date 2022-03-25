@@ -40,7 +40,7 @@ function Config(;
         cathode_potential::Float64          = 0.0,
         anode_Te::Float64                   = 3.0,
         cathode_Te::Float64                 = 3.0,
-        wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = 20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
+        wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
         wall_collision_freq::Float64        = 0.0,
         neutral_velocity::Float64           = 300.0,
         neutral_temperature::Float64        = 300.0,

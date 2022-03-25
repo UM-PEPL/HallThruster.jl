@@ -97,7 +97,7 @@ function update_electron_energy!(U, params)
 
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     for i in 2:ncells-1
-        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] < params.config.min_electron_temperature * ne[i]
+        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < params.config.min_electron_temperature
             nϵ[i] = params.config.min_electron_temperature * ne[i]
         end
     end

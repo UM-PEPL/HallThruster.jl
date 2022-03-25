@@ -20,7 +20,7 @@ function (model::ConstantSheathPotential)(U, params, i)
 
     (;sheath_potential, inner_loss_coeff, outer_loss_coeff) = model
     αϵ = params.config.transition_function(z, L_ch, inner_loss_coeff, outer_loss_coeff)
-    W = 1e7 * αϵ * ϵ * exp(-sheath_potential / ϵ)
+    W = 1e7 * αϵ * ϵ * exp(sheath_potential / ϵ)
 
     return W
 end

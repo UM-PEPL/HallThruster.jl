@@ -26,7 +26,7 @@ end
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(::CollisionModel, ne, Tev, Z)          = 0.0
+@inline freq_electron_ion(::CollisionModel, ne, Tev, Z)     = 0.0
 @inline freq_electron_ion(::FullCollisionModel, ne, Tev, Z) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
 function freq_electron_ion(U, params, i)
@@ -54,7 +54,7 @@ function freq_electron_electron(U, params, i)
     return freq_electron_electron(ne, Tev)
 end
 
-freq_electron_wall(U, params, i) = 1e7 * params.config.transition_function(params.z_cell[i], params.L_ch, params.config.wall_collision_freq, 0.0)
+freq_electron_wall(U, params, i) = params.config.transition_function(params.z_cell[i], params.L_ch, params.config.wall_collision_freq, 0.0)
 
 freq_electron_anom(U, params, i) = params.config.anom_model(U, params, i)
 
@@ -114,5 +114,4 @@ struct LandmarkLossFit <: CollisionalLossModel end
     ne = params.cache.ne[i]
     ϵ = U[params.index.nϵ, i] / ne
     return model(ϵ)
-    return K
 end
