@@ -80,12 +80,12 @@ function plot_solution(u, saved_values, z, case = 1)
     ref_styles = landmark_styles()
 
     p_nn = plot_quantity(
-        u[1, :] / mi, z; title = "Neutral density", yaxis = :log,  ylabel = "nn (m⁻³)", ylims = (1e16, 1e21), 
+        u[1, :] / mi, z; title = "Neutral density",  ylabel = "nn (m⁻³)",
         ref_paths = landmark_references(case, "neutral_density"), ref_styles
     )
 
     p_ne = plot_quantity(
-        ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", yaxis = :log, ylims = (1e16, 1e21),
+        ne, z; title = "Plasma density", ylabel = "ne (m⁻³)",
         ref_paths = landmark_references(case, "plasma_density"), ref_styles
     )
 
@@ -97,7 +97,7 @@ function plot_solution(u, saved_values, z, case = 1)
     )
 
     p_ϵ  = plot_quantity(
-        u[4, :] ./ ne .*2/3, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
+        u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
         ref_paths = landmark_references(case, "energy"), ref_styles
     )
 

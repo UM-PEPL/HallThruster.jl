@@ -71,6 +71,13 @@ function (model::WallSheath)(U, params, i)
     return W
 end
 
+"""
+    effective_loss_frequency(Tev)
+compute effective loss frequency for electron power loss to walls. 
+based on Half Maxwellian approximation and correction factor 2 for 
+energy lost per electron compared to average energy. Goebel-Katz
+equ. 7.3 - 45. 
+"""
 function effective_loss_frequency(Tev)
     νₑ = 1/4*sqrt(8*e*Tev/π/me)*2
     return νₑ

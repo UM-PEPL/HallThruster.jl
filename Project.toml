@@ -1,15 +1,11 @@
+authors = ["Thomas Marks <marksta@umich.edu>"]
 name = "HallThruster"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
-authors = ["Thomas Marks <marksta@umich.edu>"]
 version = "0.1.0"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-<<<<<<< HEAD
-DataAssim = "cf87cc76-4620-5dad-9f0a-7411b2d39d18"
-=======
->>>>>>> 8c291264b29896406abfb46e4dd401b4c19b33b5
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
@@ -32,3 +28,6 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
+
+[extras]
+CPUSummary = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"

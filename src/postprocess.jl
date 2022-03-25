@@ -53,7 +53,11 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
     print(io, "End time: $(sol.t[end]) seconds")
 end
 
-
+"""
+    timeaveraged(sol, tstampstart)
+compute timeaveraged solution, input HallThrusterSolution type
+and the timestamp at which averaging starts, end at endtime. 
+"""
 function timeaveraged(sol, tstampstart)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
@@ -87,15 +91,27 @@ function timeaveraged(sol, tstampstart)
     return avg, avg_savevals
 end
 
-function compute_current(sol)
+"""
+    compute_current(sol, location)
+compute current at anode or cathode = outflow in 
+1D code. 
+"""
+function compute_current(sol, location)
     index = sol.params.index
     current = zeros(3, length(sol.t))
     area = sol.params.A_ch
     mi = sol.params.propellant.m
+    if location == "cathode"
+        loc = length(sol.savevals.ue[1]) - 1
+    elseif location == "anode"
+        loc = 2
+    else
+        error("Type anode or cathode as location argument")
+    end
     for i in 1:length(sol.t)
         (;ue, ne) = sol.savevals[i]
-        current[1, i] = sol.u[i][index.ρiui[1], end-1]*HallThruster.e/mi*area
-        current[2, i] = -ne[end-1] * ue[end-1]*HallThruster.e*area
+        current[1, i] = sol.u[i][index.ρiui[1], loc]*HallThruster.e/mi*area
+        current[2, i] = -ne[loc] * ue[loc]*HallThruster.e*area
         current[3, i] = current[1, i] + current[2, i]
     end
     return current
