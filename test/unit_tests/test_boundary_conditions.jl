@@ -14,7 +14,7 @@
         propellant = HallThruster.Xenon,
         anode_mass_flow_rate = 5e-4,
         neutral_velocity = 100,
-        geometry = HallThruster.SPT_100,
+        thruster = HallThruster.SPT_100,
         min_number_density = 1e6,
         min_electron_temperature = 1.0
     )
@@ -22,8 +22,7 @@
     params = (;
         Te_L = 3.0,
         Te_R = 3.0,
-        A_ch = HallThruster.channel_area(config.geometry),
-        mdot_a = config.anode_mass_flow_rate,
+        A_ch = config.thruster.geometry.channel_area,
         config,
         index,
     )

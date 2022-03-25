@@ -3,10 +3,10 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, scheme, fluids, species_range_dict, reactions) = params
+    (;index, z_edge) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
-        electron_pressure_coupled, min_electron_temperature, propellant
+        electron_pressure_coupled, propellant, scheme
     ) = params.config
 
     (;ue, μ, F, UL, UR) = params.cache
@@ -21,8 +21,6 @@ function update_heavy_species!(dU, U, params, t)
     #fluid BCs now in update_values struct
 
     ncharge = params.config.ncharge
-    coupled = electron_pressure_coupled
-    nϵ = @views U[index.nϵ, :]
 
     compute_fluxes!(F, UL, UR, U, params)
 
@@ -37,17 +35,10 @@ function update_heavy_species!(dU, U, params, t)
         # User-provided neutral source term
         dU[index.ρn, i] += source_neutrals(U, params, i)
 
-        #ne = 0.0
-
         for Z in 1:ncharge
-            #ne += Z * U[index.ρi[Z], i] / mi
-
-            # Acceleration source term
-            #Q_accel = -Z * e * U[index.ρi[Z], i] / mi * ue[i] / μ[i]
 
             dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
-            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz# + Q_accel
-
+            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz
             # User-provided source terms
             dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z  ](U, params, i)

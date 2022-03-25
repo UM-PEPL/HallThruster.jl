@@ -12,6 +12,7 @@ using DiffEqCallbacks
 using SparseArrays
 using ForwardDiff
 using Term
+using PartialFunctions
 import Term.progress: track, ProgressBar, update, start, stop
 import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
@@ -21,6 +22,7 @@ import Term.measure: Measure  # to define the column's size
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
+const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 
 include("finite_differences.jl")
 include("transition_functions.jl")
@@ -43,6 +45,7 @@ include("sourceterms.jl")
 include("electrontransport.jl")
 include("collisions.jl")
 include("progressbar.jl")
+include("walls.jl")
 include("configuration.jl")
 include("utility_functions.jl")
 include("simulation.jl")
