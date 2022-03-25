@@ -64,7 +64,7 @@ source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(
 
 function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled = true, conservative = true)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     propellant = HallThruster.Xenon
 
@@ -78,13 +78,13 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         source_ρiui_nonconservative_uncoupled
     end
 
-    geometry = HallThruster.SPT_100
+    thruster = HallThruster.SPT_100
 
-    A_ch = HallThruster.channel_area(geometry.outer_radius, geometry.inner_radius)
-    mdot_a = un * (ρn_func(0.0) + ui_func(0.0) / un *ρi_func(0.0))* A_ch
+    A_ch = HallThruster.channel_area(thruster)
+    anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un *ρi_func(0.0))* A_ch
 
     config = (;
-        geometry,
+        thruster,
         source_neutrals = (U, p, i) -> source_ρn(p.z_cell[i]),
         source_ion_continuity = (
             (U, p, i) -> source_ρi(p.z_cell[i]),
@@ -101,8 +101,9 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         ion_temperature = Ti,
         solve_ion_energy = false,
         min_number_density = 1e6,
-        mdot_a = mdot_a,
         anode_sheath = false,
+        anode_mass_flow_rate,
+        scheme,
     )
 
     z_edge = grid.edges
@@ -141,7 +142,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         index,
         config,
         cache,
-        scheme,
         fluids,
         species_range_dict,
         reactions,
@@ -149,7 +149,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),
         Te_R = 2/3 * ϵ_func(z_end),
-        mdot_a,
         A_ch
     )
 

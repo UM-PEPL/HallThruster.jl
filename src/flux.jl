@@ -145,8 +145,8 @@ function compute_edge_states!(UL, UR, U, scheme)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids, scheme) = params
-    (;propellant, electron_pressure_coupled) = config
+    (;config, index, fluids) = params
+    (;propellant, electron_pressure_coupled, scheme) = config
     nvars, ncells = size(U)
 
     coupled = electron_pressure_coupled

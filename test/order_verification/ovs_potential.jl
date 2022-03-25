@@ -31,7 +31,7 @@ function verify_potential(ncells, plot_results = false)
 
     index = (;ρiui = [1])
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     z_cell = grid.cell_centers
     z_edge = grid.edges
@@ -81,7 +81,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 
 function verify_gradients(ncells, plot_results = false)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     z_cell, z_edge = grid.cell_centers, grid.edges
     ncells = length(z_cell)

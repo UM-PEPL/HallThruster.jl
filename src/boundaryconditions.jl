@@ -3,8 +3,7 @@ function left_boundary_state!(bc_state, U, params)
     mi = config.propellant.m
 
     un = config.neutral_velocity
-    mdot_a = config.anode_mass_flow_rate
-    bc_state[index.ρn] = mdot_a / A_ch / un
+    bc_state[index.ρn] = inlet_neutral_density(config)
 
     ne = 0.0
     bohm_velocity = sqrt(e * 2/3 * Te_L / mi)

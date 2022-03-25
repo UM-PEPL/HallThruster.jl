@@ -11,8 +11,7 @@ Base.@kwdef struct ConstantSheathPotential <: WallLossModel
 end
 
 function (model::ConstantSheathPotential)(U, params, i)
-    (;z_cell, config, index) = params
-    L_ch = config.geometry.channel_length
+    (;z_cell, index, L_ch) = params
 
     z = z_cell[i]
 

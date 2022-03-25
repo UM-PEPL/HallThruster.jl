@@ -28,9 +28,9 @@
 
     @test_throws ArgumentError HallThruster.load_ionization_reactions(mymodel, [Xe_0])
 
-    landmark_lut = HallThruster.LANDMARK_Ionization_LUT()
-    bolsig_lut = HallThruster.BOLSIG_Ionization_LUT()
-    bolsig_fit = HallThruster.BOLSIG_Ionization_Fit()
+    landmark_lut = HallThruster.LandmarkIonizationLUT()
+    bolsig_lut = HallThruster.BolsigIonizationLUT()
+    bolsig_fit = HallThruster.BolsigIonizationFit()
 
     @test HallThruster.supported_gases(landmark_lut) == [HallThruster.Xenon]
     @test HallThruster.maximum_charge_state(landmark_lut) == 1

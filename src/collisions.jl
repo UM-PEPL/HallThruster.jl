@@ -54,9 +54,9 @@ function freq_electron_electron(U, params, i)
     return freq_electron_electron(ne, Tev)
 end
 
-freq_electron_wall(U, params, i) = 1e7 * params.config.transition_function(params.z_cell[i], params.L_ch, params.αw[1], 0.0)
+freq_electron_wall(U, params, i) = 1e7 * params.config.transition_function(params.z_cell[i], params.L_ch, params.config.wall_collision_freq, 0.0)
 
-freq_electron_anom(U, params, i) = params.anom_model(U, params, i)
+freq_electron_anom(U, params, i) = params.config.anom_model(U, params, i)
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)
@@ -87,9 +87,9 @@ end
 
 abstract type CollisionalLossModel end
 
-struct LANDMARK_Loss_LUT{F} <: CollisionalLossModel
+struct LandmarkLossLUT{F} <: CollisionalLossModel
     loss_coeff::F
-    function LANDMARK_Loss_LUT()
+    function LandmarkLossLUT()
         rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
         ϵ = rates[:, 1]
         k_loss = rates[:, 3]
@@ -98,19 +98,19 @@ struct LANDMARK_Loss_LUT{F} <: CollisionalLossModel
     end
 end
 
-@inline (model::LANDMARK_Loss_LUT)(ϵ) = model.loss_coeff(ϵ)
+@inline (model::LandmarkLossLUT)(ϵ) = model.loss_coeff(ϵ)
 
-@inline function (model::LANDMARK_Loss_LUT)(U, params, i)
+@inline function (model::LandmarkLossLUT)(U, params, i)
     ne = params.cache.ne[i]
     ϵ = U[params.index.nϵ, i] / ne
     return model(ϵ)
 end
 
-struct LANDMARK_Loss_Fit <: CollisionalLossModel end
+struct LandmarkLossFit <: CollisionalLossModel end
 
-@inline (::LANDMARK_Loss_Fit)(ϵ) = 6e-12 * exp(-39.0 / (ϵ + 3.0))
+@inline (::LandmarkLossFit)(ϵ) = 6e-12 * exp(-39.0 / (ϵ + 3.0))
 
-@inline function (model::LANDMARK_Loss_Fit)(U, params, i)
+@inline function (model::LandmarkLossFit)(U, params, i)
     ne = params.cache.ne[i]
     ϵ = U[params.index.nϵ, i] / ne
     return model(ϵ)

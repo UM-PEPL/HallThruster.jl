@@ -16,27 +16,27 @@ end
 
 abstract type IonizationModel end
 
-struct LANDMARK_Ionization_LUT <: IonizationModel end
-struct BOLSIG_Ionization_LUT <: IonizationModel end
-struct BOLSIG_Ionization_Fit <: IonizationModel end
+struct LandmarkIonizationLUT <: IonizationModel end
+struct BolsigIonizationLUT <: IonizationModel end
+struct BolsigIonizationFit <: IonizationModel end
 
 """
     supported_gases(model::IonizationModel)::Vector{HallThruster.Gas}
 Check which gases are supported by a given ionization model
 """
 @inline supported_gases(::IonizationModel) = Gas[]
-@inline supported_gases(::BOLSIG_Ionization_LUT)   = [Xenon]
-@inline supported_gases(::BOLSIG_Ionization_Fit)   = [Xenon]
-@inline supported_gases(::LANDMARK_Ionization_LUT) = [Xenon]
+@inline supported_gases(::BolsigIonizationLUT)   = [Xenon]
+@inline supported_gases(::BolsigIonizationFit)   = [Xenon]
+@inline supported_gases(::LandmarkIonizationLUT) = [Xenon]
 
 """
     maximum_charge_state(model::IonizationModel)::Int
 Return the maximum supported charge state for a given ionization model
 """
 @inline maximum_charge_state(::IonizationModel) = 0
-@inline maximum_charge_state(::BOLSIG_Ionization_LUT)   = 3
-@inline maximum_charge_state(::BOLSIG_Ionization_Fit)   = 3
-@inline maximum_charge_state(::LANDMARK_Ionization_LUT) = 1
+@inline maximum_charge_state(::BolsigIonizationLUT)   = 3
+@inline maximum_charge_state(::BolsigIonizationFit)   = 3
+@inline maximum_charge_state(::LandmarkIonizationLUT) = 1
 
 function _load_ionization_reactions(model::IonizationModel, species)
     supported = supported_gases(model)
@@ -53,7 +53,7 @@ end
 
 @inline load_ionization_reactions(::IonizationModel, species) = throw(ArgumentError("Function load_ionization_reactions(model, species) not implemented for provided ionization model"))
 
-function load_ionization_reactions(::BOLSIG_Ionization_LUT, species)
+function load_ionization_reactions(::BolsigIonizationLUT, species)
     species_sorted = sort(species; by=x -> x.Z)
     reactions = IonizationReaction{LinearInterpolation{Float64,Float64}}[]
     for i in 1:length(species)
@@ -81,7 +81,7 @@ function rate_coeff_filename(reactant, product, reaction_type)
     return joinpath(REACTION_FOLDER, join([reaction_type, repr(reactant), repr(product)], "_") * ".dat")
 end
 
-function load_ionization_reactions(::LANDMARK_Ionization_LUT, species)
+function load_ionization_reactions(::LandmarkIonizationLUT, species)
     rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
     ϵ = rates[:, 1]
     k_ionization = rates[:, 2]
@@ -89,7 +89,7 @@ function load_ionization_reactions(::LANDMARK_Ionization_LUT, species)
     return [IonizationReaction(Xenon(0), Xenon(1), rate_coeff)]
 end
 
-@inline function load_ionization_reactions(::BOLSIG_Ionization_Fit, species)
+@inline function load_ionization_reactions(::BolsigIonizationFit, species)
     ncharge = maximum(s.Z for s in species)
     return ionization_fits_Xe(ncharge)
 end

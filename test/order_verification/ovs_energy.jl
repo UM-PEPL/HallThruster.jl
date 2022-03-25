@@ -32,7 +32,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
 ρn_func = eval(build_function(ρn, [x]))
 
-k(ϵ) = HallThruster.LANDMARK_Loss_Fit()(ϵ)
+k(ϵ) = HallThruster.LandmarkLossFit()(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5/3 * nϵ * ue - 10/9 * μ * nϵ * Dx(nϵ/ne)) + ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
@@ -60,7 +60,7 @@ end
 function verify_energy(ncells; niters = 10000, plot_results = false)
     index = (; ρn = 1, nϵ = 2)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     z_cell = grid.cell_centers
     ncells = length(z_cell)
@@ -92,7 +92,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     dt = 1e-6
 
     transition_function = HallThruster.StepFunction()
-    collisional_loss_model = HallThruster.LANDMARK_Loss_Fit()
+    collisional_loss_model = HallThruster.LandmarkLossFit()
     wall_loss_model = HallThruster.ConstantSheathPotential(20.0, 1.0, 1.0)
     L_ch = 0.025
     propellant = HallThruster.Xenon

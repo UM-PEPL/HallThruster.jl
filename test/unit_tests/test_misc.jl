@@ -41,10 +41,13 @@ end
 
 @testset "Channel area computation" begin
     SPT_100 = HallThruster.SPT_100
-    r0 = SPT_100.inner_radius
-    r1 = SPT_100.outer_radius
-    @test HallThruster.channel_area(r1, r0) == π * (0.05^2 - 0.0345^2)
-    @test HallThruster.channel_area(SPT_100) == π * (0.05^2 - 0.0345^2)
+    r0 = SPT_100.geometry.inner_radius
+    r1 = SPT_100.geometry.outer_radius
+    A_ch = π * (0.05^2 - 0.0345^2)
+    @test HallThruster.channel_area(r1, r0) == A_ch
+    @test HallThruster.SPT_100.geometry.channel_area == A_ch
+    @test HallThruster.channel_area(SPT_100.geometry) == A_ch
+    @test HallThruster.channel_area(SPT_100) == A_ch
 end
 
 @testset "Minor utility functions" begin
@@ -55,7 +58,7 @@ end
         index = (;ρi = [1,2,3]),
         config = (;
             ncharge = 3, propellant = HallThruster.Xenon, neutral_velocity = 100,
-            geometry = HallThruster.SPT_100, anode_mass_flow_rate = 5e-6,
+            thruster = HallThruster.SPT_100, anode_mass_flow_rate = 5e-6,
         )
     )
 
@@ -63,7 +66,7 @@ end
 
     @test HallThruster.electron_density(U, params, 1) == 1e16 + 4e16 + 9e16
 
-    A_ch = HallThruster.channel_area(params.config.geometry)
+    A_ch = params.config.thruster.geometry.channel_area
     ρn = params.config.anode_mass_flow_rate / params.config.neutral_velocity / A_ch
     @test HallThruster.inlet_neutral_density(params.config) == ρn
 
@@ -72,8 +75,8 @@ end
 @testset "Array allocation and solution initialization" begin
     ncells = 17
     domain = (0.0, 0.08)
-    geometry = HallThruster.SPT_100
-    grid = HallThruster.generate_grid(geometry, ncells, domain)
+    thruster = HallThruster.SPT_100
+    grid = HallThruster.generate_grid(thruster.geometry, ncells, domain)
     @test grid.cell_centers[end] == domain[2]
     @test length(grid.cell_centers) == ncells+2
     @test length(grid.edges) == ncells+1

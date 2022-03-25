@@ -1,4 +1,4 @@
-struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC, CB, HS<:HyperbolicScheme}
+struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, CL<:CollisionalLossModel, HET<:Thruster, IZ<:IonizationModel, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC, CB, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -13,14 +13,15 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, S
     ncharge::Int
     ion_temperature::Float64
     anom_model::A
-    ionization_coeffs::Symbol
+    ionization_model::IZ
     electron_pressure_coupled::Float64
     min_number_density::Float64
     min_electron_temperature::Float64
     transition_function::T
     collision_model::C
+    collisional_loss_model::CL
     progress_interval::Int
-    initial_condition::IC
+    initial_condition!::IC
     callback::CB
     magnetic_field_scale::Float64
     source_neutrals::S_N
@@ -29,6 +30,10 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, S
     source_potential::S_ϕ
     source_energy::S_E
     scheme::HS
+    thruster::HET
+    domain::Tuple{Float64, Float64}
+    energy_equation::Symbol
+    anode_mass_flow_rate::Float64
 end
 
 function Config(;
@@ -46,14 +51,15 @@ function Config(;
         ncharge::Int                        = 1,
         ion_temperature::Float64            = 1000.,
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
-        ionization_coeffs::Symbol           = :BOLSIG,
+        ionization_model::IonizationModel   = BolsigIonizationLUT(),
         electron_pressure_coupled::Number   = 1.0,
         min_number_density::Float64         = 1e6,
         min_electron_temperature::Float64   = 1.0,
         transition_function::TransitionFunction = LinearTransition(0.01, 0.0),
         collision_model::CollisionModel     = SimpleElectronNeutral(),
+        collisional_loss_model::CollisionalLossModel = LandmarkLossLUT(),
         progress_interval::Int              = 0,
-        initial_condition::IC,              # MANDATORY ARGUMENT
+        initial_condition!::IC,              # MANDATORY ARGUMENT
         callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
         source_neutrals::S_N                = Returns(0.0),
@@ -62,6 +68,10 @@ function Config(;
         source_potential::S_ϕ               = Returns(0.0),
         source_energy::S_E                  = Returns(0.0),
         scheme::HyperbolicScheme            = HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false),
+        thruster::Thruster,                 # MANDATORY ARGUMENT
+        domain,                             # MANDATORY ARGUMENT
+        energy_equation                     = :LANDMARK,
+        anode_mass_flow_rate,               # MANDATORY ARGUMENT
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -72,9 +82,9 @@ function Config(;
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_material, wall_collision_freq,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
-        ionization_coeffs, electron_pressure_coupled, min_number_density, min_electron_temperature, transition_function,
-        collision_model, progress_interval, initial_condition, callback, magnetic_field_scale, source_neutrals,
-        source_IC, source_IM, source_potential, source_energy, scheme
+        ionization_model, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
+        collision_model, collisional_loss_model, progress_interval, initial_condition!, callback, magnetic_field_scale, source_neutrals,
+        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, energy_equation, anode_mass_flow_rate,
     )
 end
 
@@ -144,11 +154,7 @@ function configure_fluids(config)
     propellant = config.propellant
     species = [propellant(i) for i in 0:config.ncharge]
     neutral_fluid = Fluid(species[1], ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
-    ion_eqns = if config.solve_ion_energy
-        EulerEquations()
-    else
-        IsothermalEuler(T = config.ion_temperature)
-    end
+    ion_eqns = IsothermalEuler(T = config.ion_temperature)
     ion_fluids = [Fluid(species[i+1], ion_eqns) for i in 1:config.ncharge]
     fluids = [neutral_fluid; ion_fluids]
     fluid_ranges = ranges(fluids)

@@ -61,7 +61,7 @@ end
 function source_electron_energy(U, params, i)
     index = params.index
 
-    mi = params.propellant.m
+    mi = params.config.propellant.m
     ne = params.cache.ne[i]
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
