@@ -138,7 +138,7 @@ function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
         anom_model = config.anom_model,
-        loss_coeff = loss_coeff,
+        collisional_loss_coeff = loss_coeff,
         reactions = ionization_reactions,
         implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
