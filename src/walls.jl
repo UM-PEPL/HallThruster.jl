@@ -44,9 +44,12 @@ end
     Tev = params.cache.Tev[i]
     ϵ = U[index.nϵ, i] / ne
     (;material) = model
-
+    
+    if config.thruster.shielded
+        Tev = config.anode_Te
+    end
     γ = SEE_yield(material, Tev)
-    ϕ_s = compute_wall_sheath_potential(Tev, γ, params.propellant.m, mₑ)
+    ϕ_s = compute_wall_sheath_potential(Tev, γ, params.propellant.m, me)
     νₑ = find_collision_frequency(Tev)
     W = νₑ*ϵ*exp(ϕ_s/ϵ)
     
@@ -87,6 +90,6 @@ end
 
 
 function find_collision_frequency(Tev)
-    νₑ = 1/4*sqrt(8*e*Tev/pi/mₑ)*2
+    νₑ = 1/4*sqrt(8*e*Tev/pi/me)*2
     return νₑ
 end

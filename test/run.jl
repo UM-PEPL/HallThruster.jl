@@ -14,6 +14,10 @@ struct DataDriven <: HallThruster.ZeroEquationModel
     DataDriven(c1) = new((c1,))
 end
 
+struct Thruster
+    shielded::Bool
+end
+
 @inline function (model::DataDriven)(U, params, icell)
     (;index) = params
     (;∇ϕ, B, νan) = params.cache
@@ -67,13 +71,13 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
 end
 
 
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
+function run_sim(end_time = 0.0002; ncells = 160, nsave = 2, dt = 0.8e-8,
         implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
-        collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
+        collision_model = :complex, coupled = true, energy_equation = :LANDMARK,
         progress_interval = 0, anode_sheath = false
     )
 
@@ -82,7 +86,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     Tn = 300.0
     Ti = 1000.0
 
-    domain = (0.0, 0.05)
+    domain = (0.0, 0.08)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
 
@@ -108,6 +112,9 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         restart_file = restart_file,
         radial_loss_coeffs = αϵ,
         wall_collision_coeff = αw,
+        #wall_loss_model = HallThruster.ConstantSheathPotential(20, 0.1, 1.0),
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride), 
+        thruster = Thruster(false),
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         neutral_velocity = un,
@@ -152,4 +159,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);
+sol = run_sim(1e-3; ncells=100, nsave=1000, case = 4, dt = 1.3e-8);
