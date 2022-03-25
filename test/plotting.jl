@@ -27,7 +27,7 @@ function landmark_styles()
 end
 
 
-function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = String[], ref_styles = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
+function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = String[], ref_styles = nothing, hallis = nothing, hallisvar = nothing, label = "HallThruster.jl", kwargs...)
     if isnothing(z)
         z = LinRange(zmin, zmax, length(u))
     end
@@ -52,7 +52,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = Stri
     end
 
     plot!(
-        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, margin = 8Plots.mm, lw = 2,
+        p, z, u; label = label, xlabel = "z (m)", legend = :outertop, margin = 8Plots.mm, lw = 2,
         color = :black, linestyle = :solid,
         kwargs...
     )
@@ -80,7 +80,7 @@ function plot_solution(u, saved_values, z, case = 1)
     ref_styles = landmark_styles()
 
     p_nn = plot_quantity(
-        u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)",
+        u[1, :] / mi, z; title = "Neutral density",  ylabel = "nn (m⁻³)",
         ref_paths = landmark_references(case, "neutral_density"), ref_styles
     )
 
@@ -116,6 +116,84 @@ function plot_solution(u, saved_values, z, case = 1)
     #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
     plot(p_nn, p_ne, p_ui, p_ϕ, #=p_pe,=# p_iz, p_ϵ, p_ue, p_E, #=p_∇pe,=# layout = (2, 4), size = (2500, 1000))
 end
+
+function plot_multiple_solution(sols, labels, case = 1, timeaveraged_start = nothing)
+    
+    if timeaveraged_start !== nothing
+        u, saved_values = HallThruster.timeaveraged(sols[1], timeaveraged_start)
+        z = sols[1].params.z_cell
+    else
+        u, saved_values, z = sols[1].u[end], sols[1].savevals[end], sols[1].params.z_cell
+    end
+    mi = HallThruster.Xenon.m
+    coeff = HallThruster.load_landmark()
+    (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
+    #z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
+    ionization_rate = [coeff.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
+
+    ref_styles = landmark_styles()
+
+    p_nn = plot_quantity(
+        u[1, :] / mi, z; title = "Neutral density", yaxis = :log,  ylabel = "nn (m⁻³)", ylims = (1e16, 1e21), 
+        ref_paths = landmark_references(case, "neutral_density"), ref_styles, label = labels[1]
+    )
+
+    p_ne = plot_quantity(
+        ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", yaxis = :log, ylims = (1e16, 1e21),
+        ref_paths = landmark_references(case, "plasma_density"), ref_styles, label = labels[1]
+    )
+
+    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", label = labels[1])
+
+    p_iz = plot_quantity(
+        ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)",
+        ref_paths = landmark_references(case, "ionization"), ref_styles, label = labels[1]
+    )
+
+    p_ϵ  = plot_quantity(
+        u[4, :] ./ ne .*2/3, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
+        ref_paths = landmark_references(case, "energy"), ref_styles, label = labels[1]
+    )
+
+    p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)", label = labels[1])
+    p_ϕ  = plot_quantity(
+        ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)",
+        ref_paths = landmark_references(case, "potential"), ref_styles, label = labels[1]
+    )
+
+    p_E  = plot_quantity(
+        -∇ϕ, z; title = "Electric field", ylabel = "E (V/m)",
+        ref_paths = landmark_references(case, "electric_field"), ref_styles, label = labels[1]
+    )
+
+    #
+    for i in 2:length(sols)
+        if timeaveraged_start !== nothing
+            u, saved_values = HallThruster.timeaveraged(sols[i], timeaveraged_start)
+            z = sols[i].params.z_cell
+        else
+            u, saved_values, z = sols[i].u[end], sols[i].savevals[end], sols[i].params.z_cell
+        end
+        mi = HallThruster.Xenon.m
+        (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
+        #z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
+        ionization_rate = [coeff.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
+
+        plot!(p_nn, z, u[1, :] / mi, label = labels[i])
+        plot!(p_ne, z, ne, label = labels[i])
+        plot!(p_ui, z, u[3, :] ./ u[2, :] ./ 1000, label = labels[i])
+        plot!(p_iz, z, ionization_rate, label = labels[i])
+        plot!(p_ϵ, z, u[4, :] ./ ne .*2/3, label = labels[i])
+        plot!(p_ue, z, ue ./ 1000, label = labels[i])
+        plot!(p_ϕ, z, ϕ_cell, label = labels[i])
+        plot!(p_E, z, -∇ϕ, label = labels[i])
+    end
+
+    #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
+    #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
+    plot(p_nn, p_ne, p_ui, p_ϕ, #=p_pe,=# p_iz, p_ϵ, p_ue, p_E, #=p_∇pe,=# layout = (2, 4), size = (2500, 1000))
+end
+
 
 function plot_solution_OVS(u, z = nothing, case = 1)
     hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_0$(case).out")
@@ -203,4 +281,20 @@ Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals);
 function plot_timeaveraged(sol, case, start_ind)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
     plot_solution(avg, avg_savevals, sol.params.z_cell, case)
+end
+
+function plot_timeaveraged_compare(sols, labels, case, start_ind)
+    avg1, avg_savevals1 = HallThruster.timeaveraged(sol1, start_ind)
+    avg2, avg_savevals2 = HallThruster.timeaveraged(sol2, start_ind)
+    plot_multiple_solution((sol1, sol2), ("nada", "unshielded"), case)
+end
+
+
+function plot_thrust(thrust)
+    plot(sol.t, thrust, title = "Thrust", label = "Thrust", xlabel = "t [s]", ylabel = "F [N]")
+end
+
+function plot_thrust_compare(thrust1, thrust2)
+    p1 = plot(sol.t, thrust1, title = "Thrust", label = "Thrust shielded", xlabel = "t [s]", ylabel = "F [N]")
+    plot!(p1, sol.t, thrust2, label = "Thrust unshielded")
 end
