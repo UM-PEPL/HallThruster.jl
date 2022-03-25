@@ -1,6 +1,16 @@
+<<<<<<< HEAD
 docs/build
 .vscode
 *.png
 *.jld2
 *.gif
 *.cov
+=======
+docs/build
+.vscode
+*.png
+*.jld2
+*.gif
+*.cov
+landmark/webplotdigitizer
+>>>>>>> 080112260fb6d393b21febe02852c8dbcdc2edca

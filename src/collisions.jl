@@ -33,7 +33,7 @@ Effective frequency of electron scattering caused by collisions with neutrals
     if model == :simple || Tev < 0
         return 2.5e-13 * nn
     else
-        σ_en(Tev) * nn * sqrt(8 * e * Tev / π / mₑ)
+        σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
     end
 end
 
