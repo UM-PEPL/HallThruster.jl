@@ -6,6 +6,7 @@ makedocs(
     sitename = "HallThruster.jl",
     pages=[
         "Home" => "index.md",
+        "Configuration" => "config.md"
         "Internals" => "internals.md"
     ],
 )
