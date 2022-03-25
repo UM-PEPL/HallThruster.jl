@@ -26,10 +26,10 @@ end
 
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
-    (;z_cell, fluids, fluid_ranges, index) = params
+    (;z_cell, fluids, fluid_ranges, index, A_ch) = params
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
 
-    OVS = params.OVS.energy.active
+    mi = params.config.propellant.m
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -45,12 +45,10 @@ function update_values!(U, params, t = 0)
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
         z = z_cell[i]
-        OVS_ne = OVS * (params.OVS.energy.ne(z))
-        OVS_Tev = OVS * (params.OVS.energy.Tev(z))
 
         compute_νei = params.config.collision_model !== :simple
 
-        ne[i] = (1 - OVS) * electron_density(U, params, i) + OVS_ne
+        ne[i] = electron_density(U, params, i)
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = U[index.nϵ, i]
         νen[i] = freq_electron_neutral(U, params, i)
@@ -69,18 +67,11 @@ function update_values!(U, params, t = 0)
     # Fix electron velocity on left and right cells
     ueL = ue[3]
     ue[1] = ue[2] = ueL
-
     ueR = ue[end-2]
     ue[end] = ue[end-1] = ueR
 
-    # Update electron energy if implicit, or if not then set electron boundary conditions for explicit solve
-    if params.implicit_energy > 0
-        update_electron_energy_implicit!(U, params)
-    else
-        # Dirchlet BCs for electron energy
-        apply_bc_electron!(U, params.BCs[3], :left, index)
-        apply_bc_electron!(U, params.BCs[4], :right, index)
-    end
+    update_electron_energy!(U, params)
+
 end
 
 function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
@@ -97,7 +88,7 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    #∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
     ∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
@@ -115,7 +106,7 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+    #∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
     ∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])

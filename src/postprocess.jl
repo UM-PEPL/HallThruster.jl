@@ -57,12 +57,17 @@ end
 function timeaveraged(sol, tstampstart)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
-    (;Tev, ue, ϕ, ∇ϕ, ne) = avg_savevals
+    (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen) = avg_savevals
     Tev .= 0.0
     ue .= 0.0
     ϕ .= 0.0
     ∇ϕ .= 0.0
     ne .= 0.0
+    ϕ_cell .= 0.0
+    νan .= 0.0
+    νc .= 0.0
+    νen .= 0.0
+    νei .= 0.0
 
     tstamps = length(sol.t)
     Δt = (tstamps - tstampstart + 1)
@@ -71,8 +76,13 @@ function timeaveraged(sol, tstampstart)
         Tev .+= sol.savevals[i].Tev / Δt
         ue .+= sol.savevals[i].ue  / Δt
         ϕ .+= sol.savevals[i].ϕ / Δt
+        ϕ_cell .+= sol.savevals[i].ϕ_cell / Δt
         ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
         ne .+= sol.savevals[i].ne / Δt
+        νan .+= sol.savevals[i].νan / Δt
+        νc .+= sol.savevals[i].νc / Δt
+        νen .+= sol.savevals[i].νen / Δt
+        νei .+= sol.savevals[i].νei / Δt
     end
     return avg, avg_savevals
 end

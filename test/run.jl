@@ -4,17 +4,39 @@
 
 
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
-using OrdinaryDiffEq
+using OrdinaryDiffEq, PartialFunctions
 
 include("plotting.jl")
 
-function source!(Q, U, params, i)
-    @turbo Q .= 0
-    HallThruster.apply_reactions!(Q, U, params, i)
-    #HallThruster.apply_ion_acceleration!(Q, U, params, i)
-    HallThruster.apply_ion_acceleration_coupled!(Q, U, params, i)
-    HallThruster.source_electron_energy_landmark!(Q, U, params, i)
-    return Q
+
+struct DataDriven <: HallThruster.ZeroEquationModel
+    coeffs::NTuple{1, Float64}
+    DataDriven(c1) = new((c1,))
+end
+
+@inline function (model::DataDriven)(U, params, icell)
+    (;index) = params
+    (;∇ϕ, B, νan) = params.cache
+    c = model.coeffs
+
+    ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
+    ωce = e * B[icell] / me
+    vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
+    if νan[icell] == 0.0
+        α = 1.0
+    else
+        α = 0.5
+    end
+    return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
+end
+
+function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
+    B = if z < L_ch
+        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
+    else
+        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
+    end
+    return B
 end
 
 function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
@@ -31,8 +53,8 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
     else
         ρn0 / 1000
     end
-    ui = if z < L/2
-        -1000 + 80000(z/L)^2
+    ui = if z < L/2 
+        -5000 + 80000(z/L)^2
     else
         15000 + 10000z/L
     end
@@ -46,60 +68,23 @@ end
 
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
-        implicit_energy = 1.0, adaptive = false, reconstruct = false, limiter = HallThruster.osher,
+        implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
-        flux = HallThruster.HLLE,
+        flux = HallThruster.rusanov,
         coeffs = :LANDMARK, implicit_iters = 1, transition = HallThruster.LinearTransition(0.001, 0.0),
         collision_model = :simple, coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 2000
+        progress_interval = 0, anode_sheath = false
     )
 
     fluid = HallThruster.Xenon
-    #fluid BCs #############################
-    ρ2 = 2.1801715574645586e-7/10 #ρ1 * exp(-((z - L) / 0.033)^2)
-    u1 = 150.0
-    ρ1 = 5e-6/0.004/abs(u1)
-    @show ρ1/HallThruster.Xenon.m
-    left_state = [ρ1, ρ2, ρ2 * -1000.0] # [ρ1, ρ1*u1, ρ1*E]
-    right_state = [ρ1*2, ρ2, ρ2 * (u1 + 0.0)] # [ρ1, ρ1*(u1+0.0), ρ1*ER]
-    BCs = (HallThruster.Dirichlet_ionbohm(left_state), HallThruster.Neumann_ionbohm())
-
-    left_internal_energy = 3.0
-    BCs_elec = (HallThruster.Dirichlet_energy_upd_ne(left_internal_energy), HallThruster.Dirichlet_energy_upd_ne(left_internal_energy))
-
-    saveat = if nsave == 1
-        [end_time]
-    else
-        LinRange(0.0, end_time, nsave) |> collect
-    end
-
-    OVS_Tev = z -> 0.0
-    OVS_ne = z -> 0.0
+    un = 150.0
+    Tn = 300.0
+    Ti = 1000.0
 
     domain = (0.0, 0.05)
 
-    mesh = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
-    sim = HallThruster.MultiFluidSimulation(
-        grid = mesh,
-        boundary_conditions = boundary_conditions = (BCs[1], BCs[2], BCs_elec[1], BCs_elec[2]),
-        scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct),
-        initial_condition = IC!,
-        source_term! = source!,
-        source_potential! = nothing,
-        boundary_potential! = nothing,
-        fluids = [HallThruster.Fluid(HallThruster.Species(fluid, 0), HallThruster.ContinuityOnly(u1, 300.0))
-            HallThruster.Fluid(HallThruster.Species(fluid, 1), HallThruster.IsothermalEuler(0.0))],
-        #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())],
-        end_time = end_time, #0.0002
-        saveat = saveat,
-        timestepcontrol = (dt, adaptive), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
-        callback = nothing,
-        solve_energy = implicit_energy > 0,
-        verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
-    )
-
-    verification = HallThruster.Verification(0, 0, HallThruster.EnergyOVS(0, 0.0, 0.0, OVS_Tev, OVS_ne))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells, domain)
 
     αϵ = if case == 1
         (1.0, 1.0)
@@ -108,45 +93,36 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     elseif case == 3
         (0.4, 1.0)
     elseif case == 4
-        (0.1, 1.0)
-    elseif case == 5
-        (0.3, 1.0)
-    elseif case == 6
-        (0.2, 1.0)
-    elseif case == 7
-        (0.22, 0.22)
-    elseif case == 8
-        (0.1, 1.0)
+        (0.1, 0.1)
     end
 
     αw = 1.0
 
+    Bmax_Tesla = 0.015
+
     config = (
         anode_potential = 300.0,
         cathode_potential = 0.0,
-        anode_Te = 2.0,
-        cathode_Te = 2.0,
+        anode_Te = 3.0,
+        cathode_Te = 3.0,
         restart_file = restart_file,
         radial_loss_coeffs = αϵ,
         wall_collision_coeff = αw,
-        wall_loss_model = HallThruster.ConstantSheathPotential(20, 0.0, 0.0),
-        #wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride), 
         geometry = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
-        neutral_velocity = 150.0,
-        neutral_temperature = 300.0,
+        neutral_velocity = un,
+        neutral_temperature = Tn,
         ion_diffusion_coeff = 0.0e-3,
         implicit_energy = implicit_energy,
         propellant = HallThruster.Xenon,
         ncharge = 1,
-        verification = verification,
         solve_ion_energy = false,
-        ion_temperature = 0000.0,
+        ion_temperature = Ti,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
         energy_equation = energy_equation,
         ionization_coeffs = coeffs,
         electron_pressure_coupled = coupled,
-        min_electron_temperature = 3.0,
+        min_electron_temperature = 1.0,
         min_number_density = 1.0e6,
         implicit_iters = implicit_iters,
         source_neutrals = Returns(0.0),
@@ -158,9 +134,15 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         transition_function = transition,
         collision_model,
         progress_interval,
+        anode_sheath,
+        magnetic_field = B_field_SPT_100 $ (Bmax_Tesla, HallThruster.SPT_100.channel_length),
+        initial_condition! = IC!,
+        callback = nothing,
     )
 
-    @time sol = HallThruster.run_simulation(sim, config, alg)
+    scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
+
+    @time sol = HallThruster.run_simulation(config, alg, scheme, dt, end_time, nsave, grid)
 
     if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)
@@ -170,4 +152,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=150, nsave=1000, dt = 0.9e-8, alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!), implicit_energy = 1.0);
+sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);

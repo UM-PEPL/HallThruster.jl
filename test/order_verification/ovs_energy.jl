@@ -12,11 +12,11 @@ Dx = Differential(x)
 L = 0.05
 
 ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.25)
-ne = sin_wave(x/L, amplitude = 1e16, phase = π/4, nwaves = 0.5, offset = 1.1e16)
+ne = sin_wave(x/L, amplitude = 2e15, phase = π/4, nwaves = 0.5, offset = 1.1e16)
 nn = sin_wave(x/L, amplitude = 5e18, phase = pi/3, nwaves = 2.0, offset = 6e18)
 ui = sin_wave(x/L, amplitude = 13000, phase = π/4, nwaves = 0.75, offset = 10000)
 μ = sin_wave(x/L, amplitude = 1e4, phase = π/2, nwaves = 1.2, offset = 1.1e4)
-ϵ = sin_wave(x/L, amplitude = 20, phase = 1.3*π/2, nwaves = 1.1, offset = 25)
+ϵ = sin_wave(x/L, amplitude = 20, phase = 1.3*π/2, nwaves = 1.1, offset = 30)
 ∇ϕ = Dx(ϕ)
 ρiui = ne * ui * HallThruster.Xenon.m
 ρn = nn * HallThruster.Xenon.m
@@ -44,7 +44,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
-        HallThruster.update_electron_energy_implicit!(U, params)
+        HallThruster.update_electron_energy!(U, params)
         residual = Lp_norm(U .- U_old, 2)
         if iter == 1
             res0 = residual
@@ -57,7 +57,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(ncells; niters = 5000, plot_results = false)
+function verify_energy(ncells; niters = 10000, plot_results = false)
     index = (; ρn = 1, nϵ = 2)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100, ncells)
@@ -75,11 +75,11 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
 
     nϵ_exact = nϵ_func.(z_cell)
 
-    Te_L = 2/3 * nϵ_exact[1] / ne[1]
-    Te_R = 2/3 * nϵ_exact[end] / ne[end]
+    Te_L = nϵ_exact[1] / ne[1]
+    Te_R = nϵ_exact[end] / ne[end]
 
     U[1, :] = ρn
-    U[2, :] .= 3/2 * Te_L * ne # Set initial temp to 3 eV
+    U[2, :] .= Te_L * ne # Set initial temp to 3 eV
 
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     bϵ = zeros(ncells)
@@ -102,12 +102,12 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0, implicit_iters,
-        min_electron_temperature, transition_function, energy_equation
+        min_electron_temperature, transition_function, energy_equation, propellant
     )
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ)
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,
-        αϵ, dt, L_ch, propellant, loss_coeff
+        αϵ, dt, L_ch, loss_coeff, propellant
     )
 
     solve_energy!(U, params, niters, dt)
@@ -116,11 +116,11 @@ function verify_energy(ncells; niters = 5000, plot_results = false)
     # Test crank-nicholson implicit solve
 
     U[1, :] = ρn
-    U[2, :] .= 3/2 * Te_L * ne # set initial temp to 3 eV
+    U[2, :] .= Te_L * ne # set initial temp to 3 eV
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5, implicit_iters,
-        min_electron_temperature, transition_function, energy_equation
+        min_electron_temperature, transition_function, energy_equation, propellant
     )
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])

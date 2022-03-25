@@ -17,9 +17,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     U = zeros(nvariables + 1, ncells)
     A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
     b = zeros(nedges) #for potential equation
+    B = zeros(ncells)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
-    B = zeros(ncells)
     νan = zeros(ncells)
     νc = zeros(ncells)
     νei = zeros(ncells)
@@ -34,14 +34,12 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     pe = zeros(ncells)
     ∇pe = zeros(ncells)
     ue = zeros(ncells)
+    F = zeros(nvariables+1, nedges)
+    UL = zeros(nvariables+1, nedges)
+    UR = zeros(nvariables+1, nedges)
 
-    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
+    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
     return U, cache
-end
-
-function update!(dU, U, p, t)
-    update_heavy_species!(dU, U, p, t)
-    update_electron_energy_explicit!(dU, U, p, t)
 end
 
 function initial_condition!(U, z_cell, IC!, fluids)
@@ -50,7 +48,7 @@ function initial_condition!(U, z_cell, IC!, fluids)
     end
 end
 
-function run_simulation(sim, config, alg) #put source and Bcs potential in params
+function run_simulation(config, alg, scheme, timestep, end_time, nsave, grid)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
@@ -64,17 +62,15 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
-        grid = sim.grid
+        if grid === nothing
+            throw(ArgumentError("No grid provided and simulation is not a restart"))
+        end
         U, cache = allocate_arrays(grid, fluids)
-        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, sim.initial_condition, fluids)
-        precompute_bfield!(cache.B, grid.cell_centers)
+        initial_condition!(@views(U[1:index.nϵ, :]), grid.cell_centers, config.initial_condition!, fluids)
     end
 
-    scheme = sim.scheme
-    source_term! = sim.source_term!
-    timestep = sim.timestepcontrol[1]
-    adaptive = sim.timestepcontrol[2]
-    tspan = (0.0, sim.end_time)
+    tspan = (0.0, end_time)
+    saveat = LinRange(tspan[1], tspan[2], nsave)
 
     # Load ionization reactions fro file
     if config.ionization_coeffs == :LANDMARK
@@ -92,9 +88,9 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         throw(ArgumentError("Invalid ionization reactions selected. Please choose either :LANDMARK or :BOLSIG"))
     end
 
-    BCs = sim.boundary_conditions
-
-    precompute_bfield!(cache.B, grid.cell_centers)
+    for (i, z) in enumerate(grid.cell_centers)
+        cache.B[i] = config.magnetic_field(z)
+    end
 
     loss_coeff = config.ionization_coeffs == :BOLSIG_FIT ? loss_coeff_fit : landmark.loss_coeff
 
@@ -112,16 +108,15 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
     saved_values = SavedValues(
         Float64, NamedTuple{fields_to_save, NTuple{length(fields_to_save), Vector{Float64}}}
     )
-    saving_callback = SavingCallback(save_func, saved_values, saveat = sim.saveat)
-
+    saving_callback = SavingCallback(save_func, saved_values; saveat)
 
     niters = round(Int, tspan[2] / timestep)
 
     progress_bar = make_progress_bar(niters, timestep, config)
 
     # Assemble callback set
-    if sim.callback !== nothing
-        callbacks = CallbackSet(update_callback, saving_callback, sim.callback)
+    if config.callback !== nothing
+        callbacks = CallbackSet(update_callback, saving_callback, config.callback)
     else
         callbacks = CallbackSet(update_callback, saving_callback)
     end
@@ -142,37 +137,28 @@ function run_simulation(sim, config, alg) #put source and Bcs potential in param
         un = config.neutral_velocity,
         Tn = config.neutral_temperature,
         mdot_a = config.anode_mass_flow_rate,
-        OVS = config.verification,
         anom_model = config.anom_model,
         collisional_loss_coeff = loss_coeff,
         reactions = ionization_reactions,
         implicit_energy = config.implicit_energy,
         index, cache, fluids, fluid_ranges, species_range_dict, z_cell=grid.cell_centers,
-        z_edge=grid.edges, cell_volume=grid.cell_volume, source_term!,
-        scheme, BCs, dt=timestep, progress_bar,
+        z_edge=grid.edges, cell_volume=grid.cell_volume,
+        scheme, dt=timestep, progress_bar,
         iteration = [-1]
     )
 
     # Compute maximum allowed iterations
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    # Choose which function to use for ODE
-    # If implicit, we update electron energy in the callback, not using diffeq
-    if config.implicit_energy > 0
-        f = ODEFunction(update_heavy_species!)
-    else
-	    f = ODEFunction(update!)
-    end
-
     #make values in params available for first timestep
     update_values!(U, params)
 
     # Set up ODE problem and solve
-    prob = ODEProblem{true}(f, U, tspan, params)
+    prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
 	sol = try
         solve(
-            prob, alg; saveat=sim.saveat, callback=callbacks,
-            adaptive=adaptive, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
+            prob, alg; saveat, callback=callbacks,
+            adaptive=false, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
 	    )
     catch e
         stop_progress_bar!(progress_bar, params)

@@ -2,23 +2,60 @@ using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, D
 
 using DelimitedFiles
 
-function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_path = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
+function landmark_references(case, variable)
+    if case > 3
+        return String[]
+    else
+        suffixes = "fluid_1", "fluid_2", "hybrid"
+        return [
+            joinpath("landmark", "case_$case", "$(variable)_$(suffix).csv")
+            for suffix in suffixes
+        ]
+    end
+end
+
+function landmark_styles()
+    common_options = (
+        linewidth = 1.5,
+        linestyle = :dash,
+    )
+    return [
+        (color = :red, label = "Fluid (δ = 1 mm)", common_options...),
+        (color = :green, label = "Fluid (δ = 0.5 mm)", common_options...),
+        (color = :blue, label = "Hybrid", common_options...)
+    ]
+end
+
+
+function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = String[], ref_styles = nothing, hallis = nothing, hallisvar = nothing, kwargs...)
     if isnothing(z)
         z = LinRange(zmin, zmax, length(u))
     end
     p = plot()
-    plot!(
-        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, margin = 7Plots.mm, lw = 2,
-        kwargs...
-    )
-    if !isnothing(ref_path)
-        ref_data = readdlm(ref_path, ',')
-        z_ref, q_ref = ref_data[:, 1], ref_data[:, 2]
-        plot!(p, z_ref, q_ref, label = "Reference", lw = 2, lc = :red, ls = :dash)
-    elseif !isnothing(hallis)
+
+    for (i, ref_path) in enumerate(ref_paths)
+        if ispath(ref_path)
+            ref_data = readdlm(ref_path, ',')
+            z_ref, q_ref = ref_data[:, 1], ref_data[:, 2]
+            if isnothing(ref_styles)
+                plot!(p, z_ref, q_ref, label = "Reference $i", lw = 1, lc = :red, ls = :dash)
+            else
+                plot!(p, z_ref, q_ref; ref_styles[i]...)
+            end
+        else
+            @warn("File $ref_path not found, skipping plot.")
+        end
+    end
+    if !isnothing(hallis)
         z_ref, q_ref = hallis.z, hallisvar
         plot!(p, z_ref, q_ref, label = "Reference", lw = 2, lc = :red, ls = :dash)
     end
+
+    plot!(
+        p, z, u; label = "HallThruster.jl", xlabel = "z (m)", legend = :outertop, margin = 8Plots.mm, lw = 2,
+        color = :black, linestyle = :solid,
+        kwargs...
+    )
     return p
 end
 
@@ -38,17 +75,45 @@ function plot_solution(u, saved_values, z, case = 1)
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     #z_edge = [z[1]; [0.5 * (z[i] + z[i+1]) for i in 2:length(z)-2]; z[end]]
     ionization_rate = [coeff.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
-    p_nn = plot_quantity(u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)", ref_path = case < 4 ? "landmark/landmark_neutral_density_$(case).csv" : nothing)
-    p_ne = plot_quantity(ne, z; title = "Plasma density", ylabel = "ne (m⁻³)", ref_path = case < 4 ? "landmark/landmark_plasma_density_$(case).csv" : nothing)
+
+    ref_styles = landmark_styles()
+
+    p_nn = plot_quantity(
+        u[1, :] / mi, z; title = "Neutral density", ylabel = "nn (m⁻³)",
+        ref_paths = landmark_references(case, "neutral_density"), ref_styles
+    )
+
+    p_ne = plot_quantity(
+        ne, z; title = "Plasma density", ylabel = "ne (m⁻³)",
+        ref_paths = landmark_references(case, "plasma_density"), ref_styles
+    )
+
     p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)")
-    p_iz = plot_quantity(ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)", ref_path = case < 4 ? "landmark/landmark_ionization_rate_$(case).csv" : nothing)
-    p_ϵ  = plot_quantity(u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)", ref_path = case < 4 ? "landmark/landmark_electron_temperature_$(case).csv" : nothing)
+
+    p_iz = plot_quantity(
+        ionization_rate, z; title = "Ionization rate", ylabel = "nϵ (eV m⁻³)",
+        ref_paths = landmark_references(case, "ionization"), ref_styles
+    )
+
+    p_ϵ  = plot_quantity(
+        u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
+        ref_paths = landmark_references(case, "energy"), ref_styles
+    )
+
     p_ue = plot_quantity(ue ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
-    p_ϕ  = plot_quantity(ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)", ref_path = case < 4 ? "landmark/landmark_potential_$(case).csv" : nothing)
-    p_E  = plot_quantity(-∇ϕ, z; title = "Electric field", ylabel = "E (V/m)", ref_path = case < 4 ? "landmark/landmark_electric_field_$(case).csv" : nothing)
-    p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
-    p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
-    plot(p_nn, p_ne, p_ui, p_ϕ, p_pe, p_iz, p_ϵ, p_ue, p_E, p_∇pe, layout = (2, 5), size = (2500, 1000))
+    p_ϕ  = plot_quantity(
+        ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)",
+        ref_paths = landmark_references(case, "potential"), ref_styles
+    )
+
+    p_E  = plot_quantity(
+        -∇ϕ, z; title = "Electric field", ylabel = "E (V/m)",
+        ref_paths = landmark_references(case, "electric_field"), ref_styles
+    )
+
+    #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
+    #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
+    plot(p_nn, p_ne, p_ui, p_ϕ, #=p_pe,=# p_iz, p_ϵ, p_ue, p_E, #=p_∇pe,=# layout = (2, 4), size = (2500, 1000))
 end
 
 function plot_solution_OVS(u, z = nothing, case = 1)

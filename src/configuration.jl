@@ -50,7 +50,6 @@ function configure_index(fluid_ranges)
     index_keys = (keys_fluids..., keys_electrons..., :lf)
     index_values = (values_fluids..., values_electrons..., lf)
     index = NamedTuple{index_keys}(index_values)
-    @show index
     return index
 end
 
