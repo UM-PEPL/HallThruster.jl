@@ -100,9 +100,9 @@ function compute_current(sol, location)
     index = sol.params.index
     current = zeros(3, length(sol.t))
     area = sol.params.A_ch
-    mi = sol.params.propellant.m
+    mi = sol.params.config.propellant.m
     if location == "cathode"
-        loc = length(sol.savevals.ue[1]) - 1
+        loc = length(sol.savevals[1].ue) - 1
     elseif location == "anode"
         loc = 2
     else
