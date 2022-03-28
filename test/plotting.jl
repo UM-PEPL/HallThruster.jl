@@ -1,4 +1,4 @@
-using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2
+using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2, FFTW
 
 using DelimitedFiles
 
@@ -406,4 +406,30 @@ function load_slice(slice_path)
     slice.Te = slice.Te .* 3/2
     slice.uiz_1_1 = slice.uiz_1_1./1000
     return slice
+end
+
+function plot_PSD_current(current, sol)
+    # Number of points 
+    N = size(current)[2]
+    # Sample period
+    Ts = sol.t[2] - sol.t[1]
+    #time
+    t = sol.t
+
+    # signal 
+    signal = current[3, :]
+
+    # Fourier Transform of it 
+    F = fft(signal) |> fftshift
+    freqs = fftfreq(length(t), 1.0/Ts) |> fftshift
+
+    #return resolution limits
+    #max determined by period of samples
+    max_frequ = 1/2/Ts
+    #min by length of aquisition
+    min_frequ = 2/t[end]
+    # plots
+    time_domain = plot(t, signal, title = "Signal", label = "Total current", ylabel = "[A]", xlabel = "time [s]", margin = 5Plots.mm)
+    freq_domain = plot(freqs, abs.(F), title = "Spectrum", ylim =(0, 2e4), xlim=(min_frequ, 20000), label = "Power spectral density", xlabel = "frequency [Hz]", ylabel = "[dB/Hz]") 
+    plot(time_domain, freq_domain, layout = 2, size = (1000, 500))
 end

@@ -71,7 +71,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     Tn = 300.0
     Ti = 1000.0
 
-    domain = (0.0, 0.08)
+    domain = (0.0, 0.05)
 
     αϵ_in, αϵ_out = if case == 1
         (1.0, 1.0)
@@ -93,8 +93,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         discharge_voltage = 300.0,
         initial_condition! = IC!,
         collisional_loss_model = HallThruster.LandmarkLossLUT(),
-        #wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
-        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
+        wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
+        #wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
         wall_collision_freq = αw * 1e7,
         implicit_energy = implicit_energy,
         transition_function = transition,
