@@ -14,16 +14,16 @@ Aside from these arguments, all others have  default values provided. These are 
 
 - `ncharge`: Number of charge states to simulate. Defaults to `1`.
 - `propellant`: Propellant gas. Defaults to `Xenon`. Other options are described on the Gases and Species page.
-- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false)`. For more information, see [Fluxes and Numerics](@ref fluxes_and_numerics).
+- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false)`. For more information, see [Fluxes and Numerics](@ref).
 - `cathode_potential`: The potential at the right boundary of the simulation. Defaults to `0.0`
 - `anode_Te`: The electron temperature at the anode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
 - `cathode_Te`: The electron temperature at the cathode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
-- `wall_loss_model`: How radial losses due to sheaths are computed. Defaults to `ConstantSheathPotential(sheath_potential=-20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0)`, which is the loss term from LANDMARK case 1. Other wall loss models are described on the [Wall Loss models](@ref wall_loss_models) page.
+- `wall_loss_model`: How radial losses due to sheaths are computed. Defaults to `ConstantSheathPotential(sheath_potential=-20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0)`, which is the loss term from LANDMARK case 1. Other wall loss models are described on the [Wall Loss Models](@ref) page.
 - `wall_collision_freq`: Extra "wall collisions" to be added to the total electron momentum transfer collision frequency inside of the channel.  Units of Hz. Defaults to `0.0`.
-- `anom_model`: Model for computing the anomalous collision frequency. Defaults to `TwoZoneBohm(1/160, 1/16)`. Further details on the [Anomalous Transport](@ref anomalous_transport) page.
-- `ionization_model`: Model for ionization. Defaults to `BolsigIonizationLUT()`, which uses a lookup table derived from BOLSIG+ to compute ionization rate coefficients as a function of electron energy. Other options are described on the [Ionization models](@ref ionization_models) page.
-- `collision_model`: Model for classical momentum transfer collisions. Defaults to `SimpleElectronNeutral()`, in which $\nu_{en} = 2.5\times10^{-13} n_n$ and $\nu_{ei} = 0.0$, which is the form used in the LANDMARK benchmark. Other models with higher fidelity are described on the [Collision models](@ref collision_models) page.
-- `collisional_loss_model`: Model for electron energy losses due to inelastic collisions. Defaults to `LandmarkLossLUT`, which is the loss term used in the LANDMARK benchmark. Other models are described on the [Collision models](@ref collision_models) page.
+- `anom_model`: Model for computing the anomalous collision frequency. Defaults to `TwoZoneBohm(1/160, 1/16)`. Further details on the [Anomalous Transport](@ref) page.
+- `ionization_model`: Model for ionization. Defaults to `BolsigIonizationLUT()`, which uses a lookup table derived from BOLSIG+ to compute ionization rate coefficients as a function of electron energy. Other options are described on the [Ionization Models](@ref) page.
+- `collision_model`: Model for classical momentum transfer collisions. Defaults to `SimpleElectronNeutral()`, in which $\nu_{en} = 2.5\times10^{-13} n_n$ and $\nu_{ei} = 0.0$, which is the form used in the LANDMARK benchmark. Other models with higher fidelity are described on the [Collision Models](@ref) page.
+- `collisional_loss_model`: Model for electron energy losses due to inelastic collisions. Defaults to `LandmarkLossLUT`, which is the loss term used in the LANDMARK benchmark. Other models are described on the [Collision Models](@ref) page.
 - `neutral_velocity`: Neutral velocity in m/s. Defaults to `300.0`
 - `neutral_temperature`: Neutral temperature in Kelvins. Defaults to `300.0`.
 - `ion_temperature`: Ion temperature in Kelvins. Defaults to 100.0
@@ -33,8 +33,8 @@ Aside from these arguments, all others have  default values provided. These are 
 - `min_electron_temperature`: Minimum allowable electron temperature. Defaults to `1.0`.
 - `callback`: User-provided callback. This can by any standard callback from `DifferentialEquations.jl`. Defaults to `nothing`.
 - `magnetic_field_scale`: Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. Defaults to `1.0`.
-- `source_neutrals`: Extra user-provided neutral source term. Can be an arbitrary function, but must take `(U, params, i)` as arguments. Defaults to `Returns(0.0)`. See [User-provided source terms](@ref source_terms) for more information.
-- `source_ion_continuity`: Vector of extra source terms for ion continuity, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-provided source terms](@ref source_terms) for more information.
-- `source_ion_momentum`: Vector of extra source terms for ion momentum, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-provided source terms](@ref source_terms) for more information.
-- `source_potential`: Extra source term for potential equation. Defaults to `Returns(0.0)`. See [User-provided source terms](@ref source_terms) for more information.
-- `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-provided source terms](@ref source_terms) for more information.
+- `source_neutrals`: Extra user-provided neutral source term. Can be an arbitrary function, but must take `(U, params, i)` as arguments. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
+- `source_ion_continuity`: Vector of extra source terms for ion continuity, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref) for more information.
+- `source_ion_momentum`: Vector of extra source terms for ion momentum, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref) for more information.
+- `source_potential`: Extra source term for potential equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
+- `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
