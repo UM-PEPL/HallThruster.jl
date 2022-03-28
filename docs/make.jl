@@ -6,11 +6,20 @@ makedocs(
     sitename = "HallThruster.jl",
     pages=[
         "Home" => "index.md",
+        "Physics model" => "physics.md",
+        "Configuration" => [
+            "config.md",
+            "initialization.md",
+            "collision_models.md",
+            "ionization_models.md",
+            "anomalous_transport.md",
+            "source_terms.md",
+        ],
         "Internals" => "internals.md"
     ],
 )
 
 deploydocs(
-    repo = "github.com/archermarx/HallThruster.jl.git",
+    repo = "github.com/UM-PEPL/HallThruster.jl.git",
     devbranch = "main"
 )
