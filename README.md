@@ -1,4 +1,4 @@
-[![HallThruster.jl](https://raw.githubusercontent.com/archermarx/HallThruster.jl/main/docs/src/assets/banner.svg)](https://archermarx.github.io/HallThruster.jl/dev)
+[![HallThruster.jl](https://raw.githubusercontent.com/archermarx/HallThruster.jl/main/docs/src/assets/banner.svg)](https://um-pepl.github.io/HallThruster.jl/dev)
 
 
 | **Documentation**                                                               | **Build Status**                                                                                |
