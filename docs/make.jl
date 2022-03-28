@@ -19,6 +19,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/archermarx/HallThruster.jl.git",
+    repo = "github.com/um-pepl/HallThruster.jl.git",
     devbranch = "main"
 )
