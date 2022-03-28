@@ -6,6 +6,7 @@ makedocs(
     sitename = "HallThruster.jl",
     pages=[
         "Home" => "index.md",
+        "Physics model" => "physics.md",
         "Configuration" => [
             "config.md",
             "initialization.md",
