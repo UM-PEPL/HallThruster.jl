@@ -24,6 +24,12 @@ function update_heavy_species!(dU, U, params, t)
 
     compute_fluxes!(F, UL, UR, U, params)
 
+    if params.config.WENO #with WENO 5 only going up to 2nd last to boundary cells
+        for i in 3:ncells-3 #only fluxes ncells - 1
+            F[:, i] = WENO5_compute_fluxes((F[:, i-2], F[:, i-1], F[:, i], F[:, i+1], F[:, i+2]))
+        end
+    end
+
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
         right = right_edge(i)

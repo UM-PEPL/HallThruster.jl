@@ -109,7 +109,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         collision_model,
         ionization_model,
         domain,
-        energy_equation
+        energy_equation,
+        WENO = true
     )
 
     @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)

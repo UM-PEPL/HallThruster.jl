@@ -77,6 +77,37 @@ for NUM_CONSERVATIVE in 1:3
         return @SVector [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
+    #input is flux from HLLE or rusanov as first order, only on a large stencil. if not enough points available, reduce to first order
+    #flux₂² means (f(u₋₂), f(u₋₁), f(u), f(u₊₁), f(u₊₂))
+    function WENO5_compute_fluxes(flux₋₂²)
+        f_hat¹ = 1/3*flux₋₂²[1] - 7/6*flux₋₂²[2] + 11/6*flux₋₂²[3]
+        f_hat² = -1/6*flux₋₂²[2] + 5/6*flux₋₂²[3] + 1/3*flux₋₂²[4]
+        f_hat³ = 1/3*flux₋₂²[3] + 5/6*flux₋₂²[4] - 1/6*flux₋₂²[5]
+
+        γ₁ = 1/10
+        γ₂ = 3/5
+        γ₃ = 3/10
+
+        β₁ = 12/13*(flux₋₂²[1] - 2*flux₋₂²[2] + flux₋₂²[3]).^2 + 1/4*(flux₋₂²[1] - 4*flux₋₂²[2] + 3*flux₋₂²[3]).^2
+        β₂ = 12/13*(flux₋₂²[2] - 2*flux₋₂²[3] + flux₋₂²[4]).^2 + 1/4*(flux₋₂²[2] - flux₋₂²[4]).^2
+        β₃ = 12/13*(flux₋₂²[3] - 2*flux₋₂²[4] + flux₋₂²[5]).^2 + 1/4*(3*flux₋₂²[3] - 4*flux₋₂²[4] + flux₋₂²[5]).^2
+
+        ϵₖ = 1e-6
+
+        w_tilde₁ = γ₁/(ϵₖ .+ β₁).^2
+        w_tilde₂ = γ₂/(ϵₖ .+ β₂).^2
+        w_tilde₃ = γ₃/(ϵₖ .+ β₃).^2
+
+        w₁ = w_tilde₁ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+        w₂ = w_tilde₂ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+        w₃ = w_tilde₃ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+
+        f_hat = w₁*f_hat¹ + w₂*f_hat² + w₃*f_hat³
+
+        return f_hat
+    end
+
+
     function HLLE(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
