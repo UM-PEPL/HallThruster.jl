@@ -88,8 +88,10 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         (0.5, 1.0)
     elseif case == 3
         (0.4, 1.0)
-    elseif case == 4
-        (0.1, 0.1)
+    elseif case == 4 
+        (0.15, 1.0)
+    elseif case == 5
+        (0.1, 1.0)
     end
 
     αw = 1.0
@@ -102,6 +104,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         initial_condition! = IC!,
         collisional_loss_model = HallThruster.LandmarkLossLUT(),
         wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
+        #wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
         wall_collision_freq = αw * 1e7,
         implicit_energy = implicit_energy,
         transition_function = transition,
