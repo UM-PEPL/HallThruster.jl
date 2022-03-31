@@ -120,6 +120,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         ionization_model,
         domain,
         energy_equation,
+        propellant = HallThruster.Krypton
     )
 
     @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)

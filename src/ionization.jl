@@ -35,7 +35,7 @@ struct BolsigIonizationFit <: IonizationModel end
 Check which gases are supported by a given ionization model
 """
 @inline supported_gases(::IonizationModel) = Gas[]
-@inline supported_gases(::BolsigIonizationLUT)   = [Xenon]
+@inline supported_gases(::BolsigIonizationLUT)   = [Xenon, Krypton]
 @inline supported_gases(::BolsigIonizationFit)   = [Xenon]
 @inline supported_gases(::LandmarkIonizationLUT) = [Xenon]
 
@@ -148,5 +148,35 @@ function ionization_fits_Xe(ncharge::Int)
         return [Xe0_Xe1, Xe0_Xe2, Xe0_Xe3, Xe1_Xe2, Xe1_Xe3, Xe2_Xe3]
     else
         throw(ArgumentError("ncharge must be 1, 2, or 3"))
+    end
+end
+
+@inline function maxwellian_vdf(Tev, v)
+    sqrt(2/π) * v^2 * (me / e / Tev)^(3/2) * exp(-me * v^2 / 2 / e/ Tev)
+end
+
+function compute_rate_coeffs(energies, cross_section_func)
+    integrand(Te, v) = let ϵ = 1/2 * me * v^2 / e
+        cross_section_func(ϵ) * v * maxwellian_vdf(Te, v)
+    end
+
+    rate_coeffs = [
+        quadgk(integrand $ (2/3 * ϵ), 0.0, 10 * sqrt(2 * e * ϵ / me))[1] for ϵ in energies
+    ]
+    return rate_coeffs
+end
+
+function compute_rate_coeffs(cross_section_filename)
+    data = readdlm(cross_section_filename, ',')
+    energies = 1.0:150.0
+
+    ϵ, σ = data[:, 1], data[:, 2] * 1e-20
+    cross_section_func = LinearInterpolation(ϵ, σ)
+    rate_coeffs = compute_rate_coeffs(energies, cross_section_func)
+
+    fname = splitpath(cross_section_filename)[end]
+    open("reactions/$fname", "w") do io
+        println(io, "Energy (eV)	Rate coefficient (m3/s)")
+        writedlm(io, [energies rate_coeffs])
     end
 end
