@@ -45,15 +45,24 @@ function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*numb
         ρn0 / 1000
     end
     ui = if z < L/2 
-        -5000 + 80000(z/L)^2
+        -1000 + 80000(z/L)^2
     else
         15000 + 10000z/L
     end
 
     ρi = mi * (2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
     Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
-    ne = ρi / fluids[1].species.element.m
-    U .= SA[ρn, ρi, ρi*ui, ne*Tev]
+    ne = ρi / mi
+
+    ncharge = maximum(f.species.Z for f in fluids)
+
+    if ncharge == 1
+        U .= [ρn, ρi, ρi*ui, ne*Tev]
+    elseif ncharge == 2
+        U .= [ρn, ρi, ρi*ui, ρi/100, ρi/100 * sqrt(2) * ui, ne * Tev]
+    elseif ncharge == 3
+        U .= [ρn, ρi, ρi*ui, ρi/100, ρi/100 * sqrt(2) * ui, ρi/100, ρi/100 * sqrt(3) * ui, ne * Tev]
+    end
     return U
 end
 
@@ -68,8 +77,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     )
 
     un = 150.0
-    Tn = 300.0
-    Ti = 1000.0
+    Tn = 0.0
+    Ti = 0.0
 
     domain = (0.0, 0.05)
 
@@ -88,6 +97,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
 
     config = HallThruster.Config(;
+        ncharge = 1,
         discharge_voltage = 300.0,
         initial_condition! = IC!,
         collisional_loss_model = HallThruster.LandmarkLossLUT(),
@@ -106,7 +116,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         collision_model,
         ionization_model,
         domain,
-        energy_equation
+        energy_equation,
     )
 
     @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)

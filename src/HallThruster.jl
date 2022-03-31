@@ -17,6 +17,7 @@ import Term.progress: track, ProgressBar, update, start, stop
 import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
 import Term.measure: Measure  # to define the column's size
+using MuladdMacro
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
@@ -49,6 +50,5 @@ include("walls.jl")
 include("configuration.jl")
 include("utility_functions.jl")
 include("simulation.jl")
-include("walls.jl")
 
 end # module

@@ -18,7 +18,7 @@ function freq_electron_neutral(U, params, i)
     (;index) = params
     nn = U[index.ρn, i] / params.config.propellant.m
     ne = params.cache.ne[i]
-    Tev = 2/3 * U[index.nϵ, i] / ne
+    Tev = params.cache.Tev[i]
     return freq_electron_neutral(params.config.collision_model, nn, Tev)
 end
 
@@ -37,7 +37,7 @@ function freq_electron_ion(U, params, i)
     ni_sum = 0.0
     ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
     Z_eff = ne / ni_sum
-    Tev = 2/3 * U[index.nϵ, i] / ne
+    Tev = params.cache.Tev[i]
     νei = Tev ≤ 0.0 || ne ≤ 0.0 ? 0.0 : freq_electron_ion(params.config.collision_model, ne, Tev, Z_eff)
     return νei
 end
@@ -50,7 +50,7 @@ Effective frequency at which electrons are scattered due to collisions with othe
 
 function freq_electron_electron(U, params, i)
     ne = params.cache.ne[i]
-    Tev = 2/3 * U[params.index.nϵ, i] / ne
+    Tev = params.cache.Tev[i]
     return freq_electron_electron(ne, Tev)
 end
 
