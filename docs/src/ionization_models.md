@@ -10,11 +10,11 @@ The core of the ionization model in HallThruster.jl is the `IonizationReaction` 
 
 HallThruster.jl provides three models out of the box. These are
 
-| Model                   | ARGUMENTS                                                    | Supported species                                            | Maximum charge state | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------------ |
-| `LandmarkIonizationLUT` | None                                                         | `Xenon`                                                      | `1`                  | Lookup table provided for the LANDMARK benchmark. Table is stored in the `landmark` subfolder of the HallThruster.jl directory. |
-| `IonizationLUT`         | `extra_paths::Vector{AbstractString}` (optional). Extra folders in which to look for ionization models. | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | `3`                  | Ionization look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
-| `IonizationFit`         | None                                                         | `Xenon`                                                      | `3`                  | Fit to Xenon ionization look-up table from the `IonizationLUT` model. |
+| Model                   | Supported species                                            | Maximum charge state | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------------ |
+| `LandmarkIonizationLUT` | `Xenon`                                                      | `1`                  | Lookup table provided for the LANDMARK benchmark. Table is stored in the `landmark` subfolder of the HallThruster.jl directory. |
+| `IonizationLUT`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | `3`                  | Ionization look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
+| `IonizationFit`         | `Xenon`                                                      | `3`                  | Fit to Xenon ionization look-up table from the `IonizationLUT` model. |
 
 ### `LandmarkIonizationLUT`
 
@@ -26,7 +26,7 @@ To use the IonizationLUT model, initialize it as follows:
 ionization_model = IonizationLUT([extra_paths::Vector{AbstractString = String[]}])
 ```
 
-If `extra_paths` is empty, the HallThruster.jl will only look in the `reactions` subfolder of the HallThruster.jl main directory. Otherwise, HallThruster.jl will preferentially look in `extra_paths` before before falling back to the included tables. If two files in user-provided directories have the same name, HallThruster.jl will warn the user and then pick the one in the directory which comes first alphabetically. 
+If `extra_paths` is empty, the HallThruster.jl will only look in the `reactions` subfolder of the HallThruster.jl main directory. Otherwise, HallThruster.jl will preferentially look in `extra_paths` before before falling back to the included tables. If two files in user-provided directories have the same name, HallThruster.jl will pick the one in the directory which comes first in `extra_paths`.
 
 Inside of the folders listed in `extra_paths`, HallThruster.jl will look for rate coefficient files matching the desired propellant gas and maximum charge state.  The rate coefficient files must be named as follows in order to be found.
 
@@ -46,8 +46,6 @@ Energy (eV)	Rate coefficient (m3/s)
 6.0	1.5567995341077301e-15
 7.0	2.8667673314913722e-15
 ```
-
-
 
 ### `IonizationFit`
 
