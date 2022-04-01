@@ -1,4 +1,5 @@
 Base.@kwdef struct IonizationReaction{I}
+    ionization_energy::Float64
     reactant::Species
     product::Species
     rate_coeff::I
@@ -105,11 +106,19 @@ end
 
 function load_ionization_reaction(reactant, product, folder = REACTION_FOLDER)
     rates_file = rate_coeff_filename(reactant, product, "ionization", folder)
-    rates = readdlm(rates_file, '\t', skipstart = 1)
+    if ispath(rates_file)
+        ionization_energy, rates = open(rates_file) do io
+            ionization_energy = split(readline(io), ':')[2] |> strip |> parse $ (Float64)
+            rates = readdlm(io, skipstart=1)
+            ionization_energy, rates
+        end
+    else
+        throw(ArgumentError("$rates_file not found. This should normally be unreachable."))
+    end
     Te = rates[:, 1]
     k = rates[:, 2]
     rate_coeff = LinearInterpolation(Te, k)
-    return IonizationReaction(reactant, product, rate_coeff)
+    return IonizationReaction(ionization_energy, reactant, product, rate_coeff)
 end
 
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
@@ -121,7 +130,7 @@ function load_ionization_reactions(::LandmarkIonizationLUT, species)
     ϵ = rates[:, 1]
     k_ionization = rates[:, 2]
     rate_coeff = LinearInterpolation(ϵ, k_ionization)
-    return [IonizationReaction(Xenon(0), Xenon(1), rate_coeff)]
+    return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeff)]
 end
 
 @inline function load_ionization_reactions(::IonizationFit, species)
@@ -142,27 +151,27 @@ end
 function ionization_fits_Xe(ncharge::Int)
 
     Xe0_Xe1 = IonizationReaction(
-        Xenon(0), Xenon(1), Biexponential(3.6e-13, 40.0, 0.0, 0.0, 3.0)
+        12.1298437, Xenon(0), Xenon(1), Biexponential(3.6e-13, 40.0, 0.0, 0.0, 3.0)
     )
 
     Xe0_Xe2 = IonizationReaction(
-        Xenon(0), Xenon(2), Biexponential(3.8e-14, 57.0, 10.0, 0.7, 0.0)
+        33.1048437, Xenon(0), Xenon(2), Biexponential(3.8e-14, 57.0, 10.0, 0.7, 0.0)
     )
 
     Xe0_Xe3 = IonizationReaction(
-        Xenon(0), Xenon(3), Biexponential(1.7e-14, 120.0, 6.0, 0.5, 0.0)
+        64.1548427, Xenon(0), Xenon(3), Biexponential(1.7e-14, 120.0, 6.0, 0.5, 0.0)
     )
 
     Xe1_Xe2 = IonizationReaction(
-        Xenon(1), Xenon(2), Biexponential(1.48e-13, 35.0, 11.0, 0.45, 0.0)
+        20.975, Xenon(1), Xenon(2), Biexponential(1.48e-13, 35.0, 11.0, 0.45, 0.0)
     )
 
     Xe1_Xe3 = IonizationReaction(
-        Xenon(1), Xenon(3), Biexponential(4e-14, 100.0, 4.0, 0.8, 0.0)
+        52.025, Xenon(1), Xenon(3), Biexponential(4e-14, 100.0, 4.0, 0.8, 0.0)
     )
 
     Xe2_Xe3 = IonizationReaction(
-        Xenon(2), Xenon(3), Biexponential(1.11e-13, 43.0, 7.0, 0.68, 0.0)
+        31.05, Xenon(2), Xenon(3), Biexponential(1.11e-13, 43.0, 7.0, 0.68, 0.0)
     )
 
     if ncharge == 1

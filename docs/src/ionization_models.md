@@ -4,7 +4,7 @@ HallThruster.jl allows you to choose from a number of different ionization model
 
 ## Background
 
-The core of the ionization model in HallThruster.jl is the `IonizationReaction` struct. It has three fields: `reactant`, `product`, and `rate_coeff`. The first two are `Species` objects, while the third is an arbitrary function. This `rate_coeff` computes the ionization reaction rate coefficient (in m^3/s) provided the electron energy (in eV).  It is used in heavy species source terms in order to compute the production or destruction of the `reactant` and `product` due to ionization, and in the electron energy equation in order to compute electron energy losses due to inelastic ionization collisions.  
+The core of the ionization model in HallThruster.jl is the `IonizationReaction` struct. It has four fields: `ionization_energy`,  `reactant`, `product`, and `rate_coeff`. The first is of type `Float64` and is the ionization energy of the given reaction in eV. The next two are `Species` objects, while the last is an arbitrary function. This `rate_coeff` computes the ionization reaction rate coefficient (in m^3/s) provided the electron energy (in eV).  It is used in heavy species source terms in order to compute the production or destruction of the `reactant` and `product` due to ionization, and in the electron energy equation in order to compute electron energy losses due to inelastic ionization collisions.  
 
 ## Provided ionization models
 
@@ -34,9 +34,10 @@ Inside of the folders listed in `extra_paths`, HallThruster.jl will look for rat
 
 For example, for a reaction file containing rate coefficients for direct double ionization of Bismuth, you would name the file `ionization_Bi_Bi2+.dat`, or for Argon II being ionized to Argon III, it would be `ionization_Ar2+_Ar3+.dat`. 
 
-The rate coefficient files must have a header row (which is skipped on load), followed by two tab-delimited columns. The first should have the rate coefficient in m^3/s, and the second should have the electron energy (note: this is 3/2 Te) in electron-Volts. The first few rows of the `ionization_Kr_Kr+.dat` folder thus reads
+The rate coefficient files must have the ionization energy in the first row, with a colon separating the descriptor and the number. It must next have a header row (which is skipped on load), followed by two tab-delimited columns. The first should have the electron energy (note: this is 3/2 Te) in eV, and the second should have the  rate coefficient in m^3/s. The first few rows of the `ionization_Kr_Kr+.dat` folder thus reads
 
 ```
+Ionization energy (eV): 
 Energy (eV)	Rate coefficient (m3/s)
 1.0	1.812780887933804e-23
 2.0	6.784605416289418e-19

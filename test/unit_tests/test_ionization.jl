@@ -5,10 +5,10 @@
     Xe_III  = HallThruster.Xenon(3)
     Xe_IV   = HallThruster.Xenon(4)
 
-    rxn_0_I = HallThruster.IonizationReaction(Xe_0, Xe_I, Te -> 0.0)
-    rxn_0_II = HallThruster.IonizationReaction(Xe_0, Xe_II, Te -> 0.0)
-    rxn_0_III = HallThruster.IonizationReaction(Xe_0, Xe_III, Te -> 0.0)
-    rxn_I_III = HallThruster.IonizationReaction(Xe_I, Xe_III, Te -> 0.0)
+    rxn_0_I = HallThruster.IonizationReaction(0.0, Xe_0, Xe_I, Te -> 0.0)
+    rxn_0_II = HallThruster.IonizationReaction(0.0, Xe_0, Xe_II, Te -> 0.0)
+    rxn_0_III = HallThruster.IonizationReaction(0.0, Xe_0, Xe_III, Te -> 0.0)
+    rxn_I_III = HallThruster.IonizationReaction(0.0, Xe_I, Xe_III, Te -> 0.0)
     @test repr(rxn_0_I) == "e- + Xe -> 2e- + Xe+"
     @test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
     @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
@@ -82,8 +82,10 @@
     lookup_2_rxns = HallThruster._load_ionization_reactions(lookup_2, [Ar_0, Ar_I])
     @test length(lookup_2_rxns) == 1
     @test lookup_2_rxns[1].rate_coeff(0.3878e-01) ≈ 0.0
+    @test lookup_2_rxns[1].ionization_energy == 13.0
     lookup_2_rxns_Xe = HallThruster._load_ionization_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III])
     @test length(lookup_2_rxns_Xe) == 6
     @test lookup_2_rxns_Xe[1].rate_coeff(1.0) ≈ 0.0
     @test lookup_2_rxns_Xe[1].rate_coeff(1.0) != lookup_rxns[1].rate_coeff(1.0)
+    @test lookup_2_rxns_Xe[1].ionization_energy == 15.0
 end
