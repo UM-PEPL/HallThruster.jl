@@ -22,7 +22,7 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = 1, ρi = [2], nϵ = 3)
-    cache = (;ne = [ne], B = [B])
+    cache = (;ne = [ne], B = [B], Tev = [Tev])
     anom_model = HallThruster.TwoZoneBohm(1/160, 1/16)
     thruster = HallThruster.SPT_100
     transition_function = HallThruster.StepFunction()

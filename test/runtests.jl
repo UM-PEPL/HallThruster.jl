@@ -66,7 +66,6 @@ end
                 slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
 
                 theoretical_order = 1 + reconstruct
-
                 for slope in slopes
                     if WENO
                         println("WENO slope: ", slope)

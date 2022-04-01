@@ -12,7 +12,7 @@
     Tev = 4.0
     ne = 1e18
     cache = (;
-        ne = [ne],
+        ne = [ne], Tev = [Tev]
     )
     transition_function = HallThruster.StepFunction()
     config = (;

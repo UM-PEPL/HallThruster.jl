@@ -150,7 +150,9 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),
         Te_R = 2/3 * ϵ_func(z_end),
-        A_ch
+        A_ch,
+        reactant_indices = [index.ρn],
+        product_indices = [index.ρi[1]]
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
