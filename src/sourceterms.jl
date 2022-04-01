@@ -1,16 +1,21 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
-    (;index, reactions, index, species_range_dict) = params
+    (;index, reactions, index, reactant_indices, product_indices) = params
 
     ne = electron_density(U, params, i)
     ϵ  = U[index.nϵ, i] / ne
 
-    @inbounds for rxn in reactions
-        reactant_index = species_range_dict[rxn.reactant.symbol][1]
-        product_index  = species_range_dict[rxn.product.symbol ][1]
+    @inbounds for (rxn, reactant_index, product_index) in zip(reactions, reactant_indices, product_indices)
         ρ_reactant = U[reactant_index, i]
         ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
         dU[reactant_index, i] -= ρdot
         dU[product_index, i]  += ρdot
+        if reactant_index != index.ρn
+            reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
+            dU[reactant_index + 1, i] -= ρdot * reactant_velocity
+        else
+            reactant_velocity = params.config.neutral_velocity
+        end
+        dU[product_index + 1, i] += ρdot * reactant_velocity
     end
 end
 

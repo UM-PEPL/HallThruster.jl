@@ -51,13 +51,15 @@ end
 function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
+    ionization_reactions = _load_ionization_reactions(config.ionization_model, species)# |> wrap_reactions $ (species_range_dict)
+    reactant_indices, product_indices = species_indices(ionization_reactions, species_range_dict)
 
     index = configure_index(fluid_ranges)
 
     use_restart = restart_file !== nothing
 
     if use_restart
-        U, grid, B = read_restart(config.restart_file)
+        U, grid, B = read_restart(restart_file)
         _, cache = allocate_arrays(grid, fluids)
         cache.B .= B
     else
@@ -68,8 +70,6 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
 
     tspan = (0.0, end_time)
     saveat = LinRange(tspan[1], tspan[2], nsave)
-
-    ionization_reactions = load_ionization_reactions(config.ionization_model, species)
 
     for (i, z) in enumerate(grid.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
@@ -117,7 +117,9 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
         dt=timestep,
         progress_bar,
         index, cache, fluids, fluid_ranges, species_range_dict,
-        iteration = [-1]
+        iteration = [-1],
+        reactant_indices,
+        product_indices
     )
 
     # Compute maximum allowed iterations

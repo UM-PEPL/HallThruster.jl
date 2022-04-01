@@ -116,7 +116,7 @@ function plot_solution(u, saved_values, z, case = 1)
     )
 
     p_ϵ  = plot_quantity(
-        u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
+        u[end, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
         ref_paths = landmark_references(case, "energy"), ref_styles
     )
 
@@ -365,15 +365,10 @@ return to implicit and other general framework, see what happens
 =#
 
 function plot_current(current, sol)
-    min_I, max_I = extrema(current)
-    mid_I = (min_I + max_I)/2
-    range = min(30, 5 + max_I - min_I)
-    ylims = (mid_I - range/2, mid_I + range/2)
-    p1 = plot(;ylims, size = (1000, 600))
-    t = sol.t
-    plot!(p1, t, current[1, :], title = "Currents", label = ["Iᵢ" ""], xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
-    plot!(p1, t, current[2, :], label = ["Iₑ" ""])
-    plot!(p1, t, current[3, :], label = ["I total" ""])
+    p1 = plot()
+    plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
+    plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
+    plot!(p1, sol.t, current[3, :], label = ["I total" ""])
     return p1
 end
 

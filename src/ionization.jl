@@ -4,6 +4,16 @@ Base.@kwdef struct IonizationReaction{I}
     rate_coeff::I
 end
 
+function species_indices(reactions, species_range_dict)
+    reactant_indices = zeros(Int, length(reactions))
+    product_indices = zeros(Int, length(reactions))
+    for (i, reaction) in enumerate(reactions)
+        reactant_indices[i] = species_range_dict[reaction.reactant.symbol][1]
+        product_indices[i] = species_range_dict[reaction.product.symbol][1]
+    end
+    return reactant_indices, product_indices
+end
+
 function Base.show(io::IO, i::IonizationReaction)
     electron_input = "e-"
     electron_output = string(i.product.Z - i.reactant.Z + 1) * "e-"
@@ -45,13 +55,13 @@ function _load_ionization_reactions(model::IonizationModel, species)
         if s.element ∉ supported
             throw(ArgumentError("$(s.element) is not supported by the provided ionization model. The list of supported gases is $(supported)"))
         elseif s.Z > max_charge
-            throw(ArgumentError("The provided ionization model does not support ions with a charge state of $(s.Z). The maximum supported charge state is $(max_charge)"))
+            throw(ArgumentError("The provided ionization model does not support ions with a charge state of $(s.Z). The maximum supported charge state is $(max_charge)."))
         end
     end
     load_ionization_reactions(model, species)
 end
 
-@inline load_ionization_reactions(::IonizationModel, species) = throw(ArgumentError("Function load_ionization_reactions(model, species) not implemented for provided ionization model"))
+@inline load_ionization_reactions(::IonizationModel, species) = throw(ArgumentError("Function load_ionization_reactions(model, species) not implemented for provided ionization model."))
 
 function load_ionization_reactions(::BolsigIonizationLUT, species)
     species_sorted = sort(species; by=x -> x.Z)
@@ -94,32 +104,40 @@ end
     return ionization_fits_Xe(ncharge)
 end
 
-@inline biexponential(x, c1, c2, c3, c4, c5) = c1 * (exp(-c2 / (x + c5)) - c4 * exp(-c2 * c3 / (x + c5)))
+struct Biexponential{T}
+    c1::T
+    c2::T
+    c3::T
+    c4::T
+    c5::T
+end
+
+@inline (b::Biexponential)(x) = b.c1 * (exp(-b.c2 / (x + b.c5)) - b.c4 * exp(-b.c2 * b.c3 / (x + b.c5)))
 
 function ionization_fits_Xe(ncharge::Int)
 
     Xe0_Xe1 = IonizationReaction(
-        Xenon(0), Xenon(1), ϵ -> biexponential(ϵ, 3.6e-13, 40.0, 0.0, 0.0, 3.0)
+        Xenon(0), Xenon(1), Biexponential(3.6e-13, 40.0, 0.0, 0.0, 3.0)
     )
 
     Xe0_Xe2 = IonizationReaction(
-        Xenon(0), Xenon(2), ϵ -> biexponential(ϵ, 3.8e-14, 57.0, 10.0, 0.7, 0.0)
+        Xenon(0), Xenon(2), Biexponential(3.8e-14, 57.0, 10.0, 0.7, 0.0)
     )
 
     Xe0_Xe3 = IonizationReaction(
-        Xenon(0), Xenon(3), ϵ -> biexponential(ϵ, 1.7e-14, 120, 6.0, 0.5, 0.0)
+        Xenon(0), Xenon(3), Biexponential(1.7e-14, 120.0, 6.0, 0.5, 0.0)
     )
 
     Xe1_Xe2 = IonizationReaction(
-        Xenon(1), Xenon(2), ϵ -> biexponential(ϵ, 1.48e-13, 35.0, 11.0, 0.45, 0.0)
+        Xenon(1), Xenon(2), Biexponential(1.48e-13, 35.0, 11.0, 0.45, 0.0)
     )
 
     Xe1_Xe3 = IonizationReaction(
-        Xenon(1), Xenon(3), ϵ -> biexponential(ϵ, 4e-14, 100, 4.0, 0.8, 0.0)
+        Xenon(1), Xenon(3), Biexponential(4e-14, 100.0, 4.0, 0.8, 0.0)
     )
 
     Xe2_Xe3 = IonizationReaction(
-        Xenon(2), Xenon(3), ϵ -> biexponential(ϵ, 1.11e-13, 43.0, 7.0, 0.68, 0.0)
+        Xenon(2), Xenon(3), Biexponential(1.11e-13, 43.0, 7.0, 0.68, 0.0)
     )
 
     if ncharge == 1

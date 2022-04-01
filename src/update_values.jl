@@ -38,21 +38,19 @@ function update_values!(U, params, t = 0)
     update_progress_bar!(params.progress_bar, params, t)
 
     # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U[:, 2], params)
-    @views right_boundary_state!(U[:, end], U[:, end-1], params)
+    @views left_boundary_state!(U[:, 1], U, params)
+    @views right_boundary_state!(U[:, end], U, params)
 
     ncells = size(U, 2) - 2
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
         z = z_cell[i]
 
-        compute_νei = params.config.collision_model !== :simple
-
-        ne[i] = electron_density(U, params, i)
+        ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = U[index.nϵ, i]
         νen[i] = freq_electron_neutral(U, params, i)
-        νei[i] = compute_νei * freq_electron_ion(U, params, i)
+        νei[i] = freq_electron_ion(U, params, i)
         νw[i] = freq_electron_wall(U, params, i)
         νan[i] = freq_electron_anom(U, params, i)
         νc[i] = νen[i] + νei[i]
@@ -88,8 +86,8 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    #∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
+    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    #∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
     # Compute electron velocity
@@ -106,8 +104,8 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    #∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
-    ∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
+    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+    #∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
     # Compute electron velocity
