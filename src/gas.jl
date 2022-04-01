@@ -132,9 +132,15 @@ const Mercury = Gas("Mercury", "Hg"; γ = 5/3, M = 200.59)
 
 """
     Iodine::Gas
-Iodine gas
+Atomic Iodine
 """
-const Iodine = Gas("Iodine", "I"; γ = 1.42964, M = 126.904)
+const Iodine = Gas("Iodine", "I"; γ = 5/3, M = 126.904)
+
+"""
+    MolecularIodine::Gas
+Molecular (diatomic) Iodine gas
+"""
+const MolecularIodine = Gas("Iodine", "I2"; γ = 1.42964, M = 2 * 126.904)
 
 """
     Electron::Species
