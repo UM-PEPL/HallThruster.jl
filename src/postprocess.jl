@@ -40,7 +40,7 @@ function read_restart(path::AbstractString)
         ncells,
         params.z_edge,
         params.z_cell,
-        params.cell_volume
+        1.0,
     )
     B = params.cache.B
 
@@ -96,7 +96,7 @@ end
 compute current at anode or cathode = outflow in 
 1D code. 
 """
-function compute_current(sol, location)
+function compute_current(sol, location = "cathode")
     index = sol.params.index
     current = zeros(3, length(sol.t))
     area = sol.params.A_ch

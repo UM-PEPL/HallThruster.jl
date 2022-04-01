@@ -56,13 +56,11 @@ function (model::WallSheath)(U, params, i)
 
     ne = params.cache.ne[i]
 
-    if config.thruster.shielded
-        ϵ = U[index.nϵ, 1] / ne
+    Tev = if config.thruster.shielded
+        params.cache.Tev[1]
     else
-        ϵ = U[index.nϵ, i] / ne
+        params.cache.Tev[i]
     end
-
-    Tev = 2/3 * ϵ
 
     γ = SEE_yield(model.material, Tev)
     ϕ_s = compute_wall_sheath_potential(Tev, γ, params.config.propellant.m)
