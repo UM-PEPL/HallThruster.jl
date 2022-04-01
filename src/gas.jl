@@ -119,6 +119,24 @@ Xenon gas
 const Xenon = Gas("Xenon", "Xe"; γ=5 / 3, M=131.293)
 
 """
+    Bismuth::Gas
+Bismuth vapor
+"""
+const Bismuth = Gas("Bismuth", "Bi"; γ = 5/3, M = 208.9804)
+
+"""
+    Mercury::Gas
+Mercury vapor
+"""
+const Mercury = Gas("Mercury", "Hg"; γ = 5/3, M = 200.59)
+
+"""
+    Iodine::Gas
+Iodine gas
+"""
+const Iodine = Gas("Iodine", "I"; γ = 1.42964, M = 126.904)
+
+"""
     Electron::Species
 Electron
 """
