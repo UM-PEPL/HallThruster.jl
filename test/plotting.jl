@@ -369,10 +369,12 @@ function plot_current(current, sol)
     mid_I = (min_I + max_I)/2
     range = min(30, 5 + max_I - min_I)
     ylims = (mid_I - range/2, mid_I + range/2)
+    ylims = (0, 30)
     p1 = plot(;ylims, size = (1000, 600))
-    t = sol.t
+    t = sol.t #[7500:end] .- 0.00075
+    current = current #[:, 7500:end]
     plot!(p1, t, current[1, :], title = "Currents", label = ["Iᵢ" ""], xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
-    plot!(p1, t, current[2, :], label = ["Iₑ" ""])
+    #plot!(p1, t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, t, current[3, :], label = ["I total" ""])
     return p1
 end
