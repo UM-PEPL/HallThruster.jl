@@ -123,4 +123,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);
+sol = run_sim(1e-3; ncells=200, nsave=1000, case = 1, dt = 0.8e-8);
