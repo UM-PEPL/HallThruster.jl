@@ -35,18 +35,18 @@
     @test HallThruster.supported_gases(landmark_lut) == [HallThruster.Xenon]
     @test HallThruster.maximum_charge_state(landmark_lut) == 1
 
-    @test HallThruster.supported_gases(bolsig_lut) == [HallThruster.Xenon]
+    @test HallThruster.supported_gases(bolsig_lut) == [HallThruster.Xenon, HallThruster.Krypton]
     @test HallThruster.maximum_charge_state(bolsig_lut) == 3
 
     @test HallThruster.supported_gases(bolsig_fit) == [HallThruster.Xenon]
     @test HallThruster.maximum_charge_state(bolsig_fit) == 3
 
-    Kr_0 = HallThruster.Krypton(0)
-    Kr_I = HallThruster.Krypton(1)
+    Ar_0 = HallThruster.Argon(0)
+    Ar_I = HallThruster.Argon(1)
 
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_fit, [Kr_0, Kr_I])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_lut, [Kr_0, Kr_I])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Kr_0, Kr_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_fit, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_lut, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Ar_0, Ar_I])
 
     @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II])
     @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II, Xe_III])

@@ -27,11 +27,14 @@ function landmark_styles()
 end
 
 
-function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = String[], ref_styles = nothing, hallis = nothing, hallisvar = nothing, slicezr = nothing, slicezrvar = nothing, slice = nothing, slicevar = nothing, label = "HallThruster.jl", kwargs...)
+function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; normalize_z_factor = 1.0, ref_paths = String[], ref_styles = nothing, hallis = nothing, hallisvar = nothing, slicezr = nothing, slicezrvar = nothing, slice = nothing, slicevar = nothing, label = "HallThruster.jl", kwargs...)
     if isnothing(z)
         z = LinRange(zmin, zmax, length(u))
     end
-    p = plot()
+
+    z ./= normalize_z_factor
+
+    p = plot(; xlims = (z[1], z[end]), kwargs...)
 
     for (i, ref_path) in enumerate(ref_paths)
         if ispath(ref_path)
@@ -47,22 +50,21 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; ref_paths = Stri
         end
     end
     if !isnothing(hallis)
-        z_ref, q_ref = hallis.z, hallisvar
+        z_ref, q_ref = hallis.z / normalize_z_factor, hallisvar
         plot!(p, z_ref, q_ref, label = "Hallis 2D", lw = 2, lc = :red, ls = :dash)
     end
     if !isnothing(slicezr)
-        z_ref, q_ref = slicezr.z, slicezrvar
+        z_ref, q_ref = slicezr.z / normalize_z_factor, slicezrvar
         plot!(p, z_ref, q_ref, label = "Slicezr", lw = 2, lc = :green, ls = :dash)
     end
     if !isnothing(slice)
-        z_ref, q_ref = slice.z, slicevar
+        z_ref, q_ref = slice.z / normalize_z_factor, slicevar
         plot!(p, z_ref, q_ref, label = "Hall2De", lw = 2, lc = :blue, ls = :dashdot)
     end
 
     plot!(
-        p, z, u; label = label, xlabel = "z (m)", legend = :outertop, margin = 8Plots.mm, lw = 2,
+        p, z, u; label = label, legend = :outertop, margin = 8Plots.mm, lw = 2,
         color = :black, linestyle = :solid,
-        kwargs...
     )
     return p
 end
@@ -362,7 +364,7 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
+Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, case, start_ind)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
