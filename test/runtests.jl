@@ -55,17 +55,25 @@ end
     limiter = HallThruster.minmod
     flux_names = ("HLLE", "Rusanov")
     fluxes = (HallThruster.HLLE, HallThruster.rusanov)
+    WENO_names = ("WENO off", "WENO on")
+    WENOs = (false, true)
 
     for (flux, flux_name) in zip(fluxes, flux_names)
-        for reconstruct in (false, )
-            scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
+        for (WENO, WENO_name) in zip(WENOs, WENO_names)
+            for reconstruct in (false, )
+                scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct, WENO)
 
-            slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
+                slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
 
-            theoretical_order = 1 + reconstruct
+                theoretical_order = 1 + reconstruct
 
-            for slope in slopes
-                @test abs(slope - theoretical_order) < 0.2
+                for slope in slopes
+                    if WENO
+                        println("WENO slope: ", slope)
+                    else
+                        @test abs(slope - theoretical_order) < 0.2
+                    end
+                end
             end
         end
     end

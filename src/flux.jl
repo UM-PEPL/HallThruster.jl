@@ -2,6 +2,7 @@ Base.@kwdef struct HyperbolicScheme{F,L}
     flux_function::F
     limiter::L
     reconstruct::Bool
+    WENO::Bool
 end
 
 function flux(U::SVector{1, T}, fluid, pe = 0.0) where T
@@ -78,19 +79,18 @@ for NUM_CONSERVATIVE in 1:3
     end
 
     #input is flux from HLLE or rusanov as first order, only on a large stencil. if not enough points available, reduce to first order
-    #flux₂² means (f(u₋₂), f(u₋₁), f(u), f(u₊₁), f(u₊₂))
-    function WENO5_compute_fluxes(flux₋₂²)
-        f_hat¹ = 1/3*flux₋₂²[1] - 7/6*flux₋₂²[2] + 11/6*flux₋₂²[3]
-        f_hat² = -1/6*flux₋₂²[2] + 5/6*flux₋₂²[3] + 1/3*flux₋₂²[4]
-        f_hat³ = 1/3*flux₋₂²[3] + 5/6*flux₋₂²[4] - 1/6*flux₋₂²[5]
+    function WENO5_compute_fluxes(f₋₂, f₋₁, f₀, f₊₁, f₊₂)
+        f_hat¹ = 1/3*f₋₂ - 7/6*f₋₁ + 11/6*f₀
+        f_hat² = -1/6*f₋₁ + 5/6*f₀ + 1/3*f₊₁
+        f_hat³ = 1/3*f₀ + 5/6*f₊₁ - 1/6*f₊₂
 
         γ₁ = 1/10
         γ₂ = 3/5
         γ₃ = 3/10
-
-        β₁ = 12/13*(flux₋₂²[1] - 2*flux₋₂²[2] + flux₋₂²[3]).^2 + 1/4*(flux₋₂²[1] - 4*flux₋₂²[2] + 3*flux₋₂²[3]).^2
-        β₂ = 12/13*(flux₋₂²[2] - 2*flux₋₂²[3] + flux₋₂²[4]).^2 + 1/4*(flux₋₂²[2] - flux₋₂²[4]).^2
-        β₃ = 12/13*(flux₋₂²[3] - 2*flux₋₂²[4] + flux₋₂²[5]).^2 + 1/4*(3*flux₋₂²[3] - 4*flux₋₂²[4] + flux₋₂²[5]).^2
+    
+        β₁ = 12/13*(f₋₂ - 2*f₋₁ + f₀).^2 + 1/4*(f₋₂ - 4*f₋₁ + 3*f₀).^2
+        β₂ = 12/13*(f₋₁ - 2*f₀ + f₊₁).^2 + 1/4*(f₋₁ - f₊₁).^2
+        β₃ = 12/13*(f₀ - 2*f₊₁ + f₊₂).^2 + 1/4*(3*f₀ - 4*f₊₁ + f₊₂).^2
 
         ϵₖ = 1e-6
 
