@@ -31,6 +31,7 @@ nϵ_func = eval(build_function(nϵ, [x]))
 ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
 ρn_func = eval(build_function(ρn, [x]))
+ϵ_func = eval(build_function(ϵ, [x]))
 
 k(ϵ) = HallThruster.LandmarkLossFit()(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
@@ -72,6 +73,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     ∇ϕ = ∇ϕ_func.(z_cell)
     ρn = ρn_func.(z_cell)
     U = zeros(2, ncells)
+    Tev = ϵ_func.(z_cell) * 2/3
 
     nϵ_exact = nϵ_func.(z_cell)
 
@@ -105,7 +107,8 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
         min_electron_temperature, transition_function, energy_equation, propellant,
         collisional_loss_model, wall_loss_model, geometry
     )
-    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ)
+    
+    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev)
 
     params = (;
         z_cell, index, Te_L, Te_R, cache, config,

@@ -6,3 +6,4 @@ docs/build
 *.cov
 landmark/webplotdigitizer
 h9_tests.jl
+output
