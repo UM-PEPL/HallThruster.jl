@@ -126,8 +126,8 @@ for NUM_CONSERVATIVE in 1:3
 
         charge_factor = Z * e * coupled
 
-        aL = sqrt((@muladd charge_factor * TeL + γ * kB * TL) / mi)
-        aR = sqrt((@muladd charge_factor * TeR + γ * kB * TR) / mi)
+        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
         sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
         sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)

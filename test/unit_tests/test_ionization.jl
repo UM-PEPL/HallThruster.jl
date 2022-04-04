@@ -29,52 +29,61 @@
     @test_throws ArgumentError HallThruster.load_ionization_reactions(mymodel, [Xe_0])
 
     landmark_lut = HallThruster.LandmarkIonizationLUT()
-    bolsig_lut = HallThruster.BolsigIonizationLUT()
-    bolsig_fit = HallThruster.BolsigIonizationFit()
+    lookup = HallThruster.IonizationLUT()
+    fit = HallThruster.IonizationFit()
 
     @test HallThruster.supported_gases(landmark_lut) == [HallThruster.Xenon]
     @test HallThruster.maximum_charge_state(landmark_lut) == 1
 
-    @test HallThruster.supported_gases(bolsig_lut) == [HallThruster.Xenon]
-    @test HallThruster.maximum_charge_state(bolsig_lut) == 3
+    @test HallThruster.supported_gases(lookup) == HallThruster.Gas[]
+    @test HallThruster.maximum_charge_state(lookup) == 0
 
-    @test HallThruster.supported_gases(bolsig_fit) == [HallThruster.Xenon]
-    @test HallThruster.maximum_charge_state(bolsig_fit) == 3
+    @test HallThruster.supported_gases(fit) == [HallThruster.Xenon]
+    @test HallThruster.maximum_charge_state(fit) == 3
 
-    Kr_0 = HallThruster.Krypton(0)
-    Kr_I = HallThruster.Krypton(1)
+    Ar_0 = HallThruster.Argon(0)
+    Ar_I = HallThruster.Argon(1)
 
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_fit, [Kr_0, Kr_I])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_lut, [Kr_0, Kr_I])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Kr_0, Kr_I])
-
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II, Xe_III])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_fit, [Xe_0, Xe_I, Xe_II, Xe_III, Xe_IV])
-    @test_throws ArgumentError HallThruster._load_ionization_reactions(bolsig_lut, [Xe_0, Xe_I, Xe_II, Xe_III, Xe_IV])
-
-    landmark_rxns = HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I])
-    bolsig_rxns = HallThruster._load_ionization_reactions(bolsig_lut, [Xe_0, Xe_I, Xe_II, Xe_III])
-    bolsig_fit_rxns = HallThruster._load_ionization_reactions(bolsig_fit, [Xe_0, Xe_I, Xe_II, Xe_III])
-
-    @test length(landmark_rxns) == 1
-    @test length(bolsig_rxns) == 6
-    @test length(bolsig_fit_rxns) == 6
-
-    @test landmark_rxns[1].rate_coeff(19) ≈ 5.6880E-14
-
-    @test count(rxn -> rxn.reactant == Xe_0, bolsig_rxns) == 3
-    @test count(rxn -> rxn.reactant == Xe_I, bolsig_rxns) == 2
-    @test count(rxn -> rxn.reactant == Xe_II, bolsig_rxns) == 1
-    @test count(rxn -> rxn.reactant == Xe_III, bolsig_rxns) == 0
-    @test count(rxn -> rxn.product == Xe_0, bolsig_rxns) == 0
-    @test count(rxn -> rxn.product == Xe_I, bolsig_rxns) == 1
-    @test count(rxn -> rxn.product == Xe_II, bolsig_rxns) == 2
-    @test count(rxn -> rxn.product == Xe_III, bolsig_rxns) == 3
-
+    # Test behavior of fit
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(fit, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(fit, [Xe_0, Xe_I, Xe_II, Xe_III, Xe_IV])
+    fit_rxns = HallThruster._load_ionization_reactions(fit, [Xe_0, Xe_I, Xe_II, Xe_III])
+    @test length(fit_rxns) == 6
     @test_throws(ArgumentError, HallThruster.ionization_fits_Xe(0))
     @test_throws(ArgumentError, HallThruster.ionization_fits_Xe(4))
     @test length(HallThruster.ionization_fits_Xe(1)) == 1
     @test length(HallThruster.ionization_fits_Xe(2)) == 3
     @test length(HallThruster.ionization_fits_Xe(3)) == 6
+
+    # Test behavior of landmark lookup
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II, Xe_III])
+    landmark_rxns = HallThruster._load_ionization_reactions(landmark_lut, [Xe_0, Xe_I])
+    @test length(landmark_rxns) == 1
+    @test landmark_rxns[1].rate_coeff(19) ≈ 5.6880E-14
+
+    # Test behavior of general lookup
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(lookup, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_ionization_reactions(lookup, [Xe_0, Xe_I, Xe_II, Xe_III, Xe_IV])
+    lookup_rxns = HallThruster._load_ionization_reactions(lookup, [Xe_0, Xe_I, Xe_II, Xe_III])
+    @test length(lookup_rxns) == 6
+    @test count(rxn -> rxn.reactant == Xe_0, lookup_rxns) == 3
+    @test count(rxn -> rxn.reactant == Xe_I, lookup_rxns) == 2
+    @test count(rxn -> rxn.reactant == Xe_II, lookup_rxns) == 1
+    @test count(rxn -> rxn.reactant == Xe_III, lookup_rxns) == 0
+    @test count(rxn -> rxn.product == Xe_I, lookup_rxns) == 1
+    @test count(rxn -> rxn.product == Xe_0, lookup_rxns) == 0
+    @test count(rxn -> rxn.product == Xe_II, lookup_rxns) == 2
+    @test count(rxn -> rxn.product == Xe_III, lookup_rxns) == 3
+
+    # Test behavior of user-provided ionization reactions
+    lookup_2 = HallThruster.IonizationLUT([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "ionization_tests")])
+    lookup_2_rxns = HallThruster._load_ionization_reactions(lookup_2, [Ar_0, Ar_I])
+    @test length(lookup_2_rxns) == 1
+    @test lookup_2_rxns[1].rate_coeff(0.3878e-01) ≈ 0.0
+    lookup_2_rxns_Xe = HallThruster._load_ionization_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III])
+    @test length(lookup_2_rxns_Xe) == 6
+    @test lookup_2_rxns_Xe[1].rate_coeff(1.0) ≈ 0.0
+    @test lookup_2_rxns_Xe[1].rate_coeff(1.0) != lookup_rxns[1].rate_coeff(1.0)
 end
