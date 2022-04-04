@@ -137,7 +137,7 @@ we obtain the following second-order elliptic partial differential equation for 
 \end{align}
 ```
 
-This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in [Internals Internals](@ref).
+This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](@HallThruster.solve_potential_edge!).
 
 
 ## Electron energy equation
