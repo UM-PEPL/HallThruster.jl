@@ -85,6 +85,16 @@ Eq. 3.6-13, from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
     return 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6))
 end
 
+"""
+    supported_gases(model::CollisionModel)::Vector{HallThruster.Gas}
+Check which gases are supported by a given collision model
+"""
+@inline supported_gases(::CollisionModel) = Gas[]
+@inline supported_gases(::NoCollisions)   = [Xenon, Krypton, Argon, Air]
+@inline supported_gases(::SimpleElectronNeutral)   = [Xenon]
+@inline supported_gases(::FullCollisionModel) = [Xenon]
+
+
 abstract type CollisionalLossModel end
 
 struct LandmarkLossLUT{F} <: CollisionalLossModel
