@@ -13,6 +13,7 @@ makedocs(
             "collision_models.md",
             "ionization_models.md",
             "anomalous_transport.md",
+            "wall_loss_models.md"
             "source_terms.md",
         ],
         "Internals" => "internals.md"
