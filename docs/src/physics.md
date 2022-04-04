@@ -83,7 +83,7 @@ In addition, the electrons are assumed to be massless. This yields a generalized
 Here, ``\nu_e`` is the total electron momentum transfer collision frequency, ``\mathbf{j}_e = -e n_e \mathbf{u_e}`` is the electron current vector, ``p_e = n_e k_B T_e`` is the electron pressure, and ``B`` is the magnetic field. We want to model the electron velocity in both the axial (``\hat{z}``) and azimuthal (``\theta``) directions. Making the assumption that ``B`` is purely radial and that the plasma is axisymmetric, we arrive at the following two equations after some algebraic manipulations.
 
 ```@docs
-axial current equation
+eq:jez
 ```
 ```math
 \begin{aligned}
@@ -92,7 +92,7 @@ axial current equation
 \end{aligned}
 ```
 
-In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the \textit{Hall parameter}, or the ratio of the electron cyclotron frequency to the total electron momentum transfer collision frequency, and measures how well-magnetized the electrons are. Finally, we introduce the anomalous collision frequency (``\nu_{AN}``):
+In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the Hall parameter, or the ratio of the electron cyclotron frequency to the total electron momentum transfer collision frequency, and measures how well-magnetized the electrons are. Finally, we introduce the anomalous collision frequency (``\nu_{AN}``):
 
 ```math
     \nu_e = \nu_c + \nu_{AN}
@@ -105,7 +105,7 @@ In Hall thrusters, the observed axial/cross-field electron current is significan
 To compute the electrostatic potential, we first add the continuity equations from the multiple ion species and subtract the electron continuity equation to obtain the charge continuity equation:
 
 ```@docs
-current conservation equation
+eq:currentcons
 ```
 
 ```math
@@ -117,7 +117,7 @@ current conservation equation
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@ref) into the current conservation equation [`current conservation equation`](@ref) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@eq:jez) into the [`current conservation equation`](@eq:currentcons) and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
@@ -137,7 +137,7 @@ we obtain the following second-order elliptic partial differential equation for 
 \end{align}
 ```
 
-This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in [Internals Internals](@ref).
+This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](@HallThruster.solve_potential_edge!).
 
 
 ## Electron energy equation
