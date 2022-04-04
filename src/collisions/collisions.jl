@@ -1,45 +1,43 @@
-abstract type CollisionModel end
-
-struct NoCollisions <: CollisionModel end
-
-struct SimpleElectronNeutral <: CollisionModel end
-
-struct FullCollisionModel <: CollisionModel end
-
 """
-    freq_electron_neutral(model::CollisionModel, nn, Tev)
+    freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-@inline freq_electron_neutral(::NoCollisions, nn, Tev)          = 0.0
-@inline freq_electron_neutral(::SimpleElectronNeutral, nn, Tev) = 2.5e-13 * nn
-@inline freq_electron_neutral(::FullCollisionModel, nn, Tev)    = σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+function freq_electron_neutral(collisions, nn, Tev)
+    νen = 0.0
+    @inbounds for c in collisions
+        νen += c.rate_coeff(3/2 * Tev) * nn
+    end
+end
 
 function freq_electron_neutral(U, params, i)
     (;index) = params
     nn = U[index.ρn, i] / params.config.propellant.m
     ne = params.cache.ne[i]
     Tev = params.cache.Tev[i]
-    return freq_electron_neutral(params.config.collision_model, nn, Tev)
+    return freq_electron_neutral(params.electron_neutral_collisions, nn, Tev)
 end
 
 """
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(::CollisionModel, ne, Tev, Z)     = 0.0
-@inline freq_electron_ion(::FullCollisionModel, ne, Tev, Z) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+@inline freq_electron_ion(ne, Tev, Z) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
 function freq_electron_ion(U, params, i)
-    (;index) = params
-    mi = params.config.propellant.m
-    # Compute effective charge state
-    ne = params.cache.ne[i]
-    ni_sum = 0.0
-    ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
-    Z_eff = ne / ni_sum
-    Tev = params.cache.Tev[i]
-    νei = Tev ≤ 0.0 || ne ≤ 0.0 ? 0.0 : freq_electron_ion(params.config.collision_model, ne, Tev, Z_eff)
-    return νei
+    if params.config.electron_neutral_collisions
+        (;index) = params
+        mi = params.config.propellant.m
+        # Compute effective charge state
+        ne = params.cache.ne[i]
+        ni_sum = 0.0
+        ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
+        Z_eff = ne / ni_sum
+        Tev = params.cache.Tev[i]
+        νei = Tev ≤ 0.0 || ne ≤ 0.0 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
+        return νei
+    else
+        return 0.0
+    end
 end
 
 """

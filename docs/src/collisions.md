@@ -1,16 +1,18 @@
-# Ionization and Excitation
+# Collisions and Reactions
 
-HallThruster.jl allows you to choose from a few different ionization and excitation models, or supply your own. This allows you to implement different propellants or more charge states for an existing propellant.
+HallThruster.jl allows you to choose from a few different models for ionization, excitation and elastic scattering, or supply your own. This allows you to implement different propellants or more charge states for an existing propellant.
 
 ## Background
 
-Both ionization and excitation in HallThruster.jl are handled via the `Reaction` interface. This is an abstract type with two subtypes: `IonizationReaction` and `ExcitationReaction`.
+All collisions and reactions in HallThruster.jl are handled via the `Reaction` interface. This is an abstract type with three subtypes: `IonizationReaction`, `ExcitationReaction`, and `ElasticScattering`.
 
 The core of the ionization model in HallThruster.jl is the `IonizationReaction` struct. It has four fields: `energy`,  `reactant`, `product`, and `rate_coeff`. The first is of type `Float64` and is the ionization energy of the given reaction in eV. The next two are `Species` objects, while the last is an arbitrary function. This `rate_coeff` computes the ionization reaction rate coefficient (in m^3/s) provided the electron energy (in eV).  It is used in heavy species source terms in order to compute the production or destruction of the `reactant` and `product` due to ionization, and in the electron energy equation in order to compute electron energy losses due to inelastic ionization collisions.
 
 Excitation reactions are handled similarly. The `ExcitationReaction` struct has only three fields: `energy`, `reactant` and `rate_coeff`, with the same types as above. Since fluids of different excitation levels are not tracked explicitly, the choice of excitation model only affects the electron energy balance.
 
-## Provided ionization models
+Elastic scattering (electron-neutral) collisions are implemented via the `ElasticCollision` struct, which has two fields: `reactant` and `rate_coeff`, as no energy is lost in such collisions. This affects the electron momentum balance and the cross-field transport.
+
+## Ionization models
 
 HallThruster.jl provides two models out of the box. These are
 
@@ -55,7 +57,7 @@ Energy (eV) Rate coefficient (m3/s)
 
 This accounts for single ionization of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark.
 
-## Provided excitation models
+## Excitation models
 
 As with ionization, HallThruster.jl provides two models out of the box. These are
 
@@ -99,9 +101,20 @@ Energy (eV)	Rate coefficient (m3/s)
 
 This accounts for excitation of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark. LANDMARK does explicitly provide excitation rates, and instead gives an energy loss coefficient. However, using the provided ionization rate coefficients, we can back out the excitation rate coefficients. These are then used to construct an `ExcitationReaction`.
 
-## Implementing your own reactions
+## Electron-neutral elastic scattering models
 
-`ExcitationModel` and `IonizationModel` are both subtypes of `ReactionModel`.  Users may specify their own `IonizationModel`or `ExcitationModel` by implementing a few key functions required by the `ReactionModel` interface. Let's say we wanted to implement our own ionization model, called `MyIonizationModel`, we would first define our struct as a subtype of `HallThruster.IonizationModel`, along with any fields we might want:
+These are `ReactionModels` of type `ElectronNeutralModel`. HallThruster.jl provides three models out of the box. These are
+
+| Model                   | Supported species                                            | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `ElectronNeutralLookup`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | Electron-neutral elastic scattering look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
+| `LandmarkElectronNeutral` | `Xenon`                                                      | Constant rate coefficient of `2.5e-13` |
+| `GKElectronNeutral` | `Xenon` | Uses Eq. 36.13 on pg. 58 from Goebel and Katz to fit Xenon e-n cross section |
+
+
+## Implementing your own collisions
+
+`ElectronNeutralModel`, `ExcitationModel` and `IonizationModel` are all subtypes of `ReactionModel`.  Users may specify their own `IonizationModel`, `ElectronNeutralModel`, or `ExcitationModel` by implementing a few key functions required by the `ReactionModel` interface. Let's say we wanted to implement our own ionization model, called `MyIonizationModel`, we would first define our struct as a subtype of `HallThruster.IonizationModel`, along with any fields we might want:
 
 ```julia
 struct MyIonizationModel <: HallThruster.IonizationModel
@@ -109,7 +122,7 @@ struct MyIonizationModel <: HallThruster.IonizationModel
 end
 ```
 
-If we were defining an `ExcitationModel`, we would instead subtype `HallThruster.ExcitationModel`. Next, we need to define a few helper methods.
+If we were defining an `ExcitationModel`, we would instead subtype `HallThruster.ExcitationModel`, and if we were defining a model for electron-neutral elastic scattering, we would subtype `ElectronNeutralModel`. Next, we need to define a few helper methods.
 
 ### `supported_gases(::ReactionModel)::Vector{Gas}`
 
@@ -125,7 +138,7 @@ HallThruster.supported_gases(::MyIonizationModel) = [HallThruster.Bismuth]
 
 ### `maximum_charge_state(::ReactionModel)::Int`
 
-This method returns an integer corresponding to the maximum allowed charge state. By default, this is zero, indicating that our method can work with any charge state. However, to avoid mistakes down the line, it is best to define this. In our case, let's just work with singly-charged Bismuth.
+This method returns an integer corresponding to the maximum allowed charge state. By default, this is zero, indicating that our method can work with any charge state. However, to avoid mistakes down the line, it is best to define this, unless we're defining an `ElectronNeutralModel`. In our case, let's just work with singly-charged Bismuth.
 
 ```julia
 import HallThruster: maximum_charge_state
@@ -166,4 +179,4 @@ function load_reactions(model::MyIonizationModel, species)
 end
 ```
 
-The above advice works identically for defining your own `ExcitationModel`, with the sole exception that `ExcitationReaction` objects do not have a `product` field.
+The above advice works identically for defining your own `ExcitationModel`, with the sole exception that `ExcitationReaction` objects do not have a `product` field. Similarly, we can define our own `ElectronNeutralModel`, noting that `ElasticCollision`s do not have an `energy` field or a `product` field. We would also not need to define `maximum_charge_state` for an `ElectronNeutralModel`.

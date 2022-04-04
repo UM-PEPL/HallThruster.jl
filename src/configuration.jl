@@ -1,4 +1,4 @@
-struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, EX<:ExcitationModel, HET<:Thruster, IZ<:IonizationModel, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC, CB, HS<:HyperbolicScheme}
+struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC, CB, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -14,11 +14,12 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, E
     anom_model::A
     ionization_model::IZ
     excitation_model::EX
+    electron_neutral_model::EN
+    electron_ion_collisions::Bool
     electron_pressure_coupled::Float64
     min_number_density::Float64
     min_electron_temperature::Float64
     transition_function::T
-    collision_model::C
     progress_interval::Int
     initial_condition!::IC
     callback::CB
@@ -50,12 +51,13 @@ function Config(;
         ion_temperature::Float64            = 1000.,
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
         ionization_model::IonizationModel   = IonizationLookup(),
-        excitation_model::ExcitationModel   = ExcitationModel(),
+        excitation_model::ExcitationModel   = ExcitationLookup(),
+        electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
+        electron_ion_collisions::Bool       = true,
         electron_pressure_coupled::Number   = 1.0,
         min_number_density::Float64         = 1e6,
         min_electron_temperature::Float64   = 1.0,
         transition_function::TransitionFunction = LinearTransition(0.01, 0.0),
-        collision_model::CollisionModel     = SimpleElectronNeutral(),
         progress_interval::Int              = 0,
         initial_condition!::IC,              # MANDATORY ARGUMENT
         callback                            = nothing,
@@ -80,8 +82,8 @@ function Config(;
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_collision_freq,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
-        ionization_model, excitation_model, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
-        collision_model, progress_interval, initial_condition!, callback, magnetic_field_scale, source_neutrals,
+        ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
+        progress_interval, initial_condition!, callback, magnetic_field_scale, source_neutrals,
         source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, energy_equation, anode_mass_flow_rate,
     )
 end

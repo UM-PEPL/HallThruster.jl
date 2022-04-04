@@ -92,4 +92,7 @@
     ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Ar_0])
     @test ex_rxns[1].energy == 10.0
     @test ex_rxns[1].rate_coeff(1.0) ≈ 0.0
+
+    # Elastic collisions
+    ex_1 =
 end
