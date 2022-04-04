@@ -43,7 +43,11 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     rates_file = rate_coeff_filename(reactant, product, reaction_type, folder)
     if ispath(rates_file)
         energy, rates = open(rates_file) do io
-            energy = split(readline(io), ':')[2] |> strip |> parse $ (Float64)
+            if reaction_type == "ionization" || reaction_type == "excitation"
+                energy = split(readline(io), ':')[2] |> strip |> parse $ (Float64)
+            else
+                energy = 0.0
+            end
             rates = readdlm(io, skipstart=1)
             energy, rates
         end

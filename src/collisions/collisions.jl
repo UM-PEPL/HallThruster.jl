@@ -73,14 +73,3 @@ charge state Z, electron number density in m^-3, and electron temperature in eV.
 
     return ln_Λ
 end
-
-"""
-    σ_en(Tev)
-
-Electron neutral collision cross section in m² as a function of electron temperature in eV.
-Eq. 3.6-13, from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
-
-"""
-@inline function σ_en(Tev)
-    return 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6))
-end

@@ -32,3 +32,6 @@ and the magnetic field.
     Ω = e * B / (me * νe)
     return e / (me * νe * (1 + Ω^2))
 end
+
+
+@inline electron_sound_speed(Tev) = sqrt(8 * e * Tev / π / me)
