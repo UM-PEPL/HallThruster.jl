@@ -83,8 +83,9 @@ In addition, the electrons are assumed to be massless. This yields a generalized
 Here, ``\nu_e`` is the total electron momentum transfer collision frequency, ``\mathbf{j}_e = -e n_e \mathbf{u_e}`` is the electron current vector, ``p_e = n_e k_B T_e`` is the electron pressure, and ``B`` is the magnetic field. We want to model the electron velocity in both the axial (``\hat{z}``) and azimuthal (``\theta``) directions. Making the assumption that ``B`` is purely radial and that the plasma is axisymmetric, we arrive at the following two equations after some algebraic manipulations.
 
 ```@docs
-eq:jez
+eqjez
 ```
+
 ```math
 \begin{aligned}
     j_{ez} &= \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(E_z + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\\
@@ -105,7 +106,7 @@ In Hall thrusters, the observed axial/cross-field electron current is significan
 To compute the electrostatic potential, we first add the continuity equations from the multiple ion species and subtract the electron continuity equation to obtain the charge continuity equation:
 
 ```@docs
-eq:currentcons
+eqcurrentcons
 ```
 
 ```math
@@ -117,7 +118,7 @@ eq:currentcons
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@eq:jez) into the [`current conservation equation`](@eq:currentcons) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@eqjez) into the [`current conservation equation`](@eqcurrentcons) and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
@@ -172,4 +173,7 @@ In these expressions, ``\kappa_{e\perp}`` is the cross-field (axial) electron th
     W &= \nu_\epsilon \frac{3}{2} k_B T_e exp\left(\frac{-20eV}{\frac{3}{2} k_B T_e}\right)
 \end{align}
 ```
+## Sheath considerations
+
+insert from notes latex. reference from BC's and sheath wall losses
 
