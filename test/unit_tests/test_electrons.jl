@@ -60,9 +60,4 @@
 
     @test HallThruster.freq_electron_wall(U, params_1, 1) == 1e7
     @test HallThruster.freq_electron_wall(U, params_2, 1) == 0.0
-
-    loss_model = HallThruster.LandmarkLossLUT()
-
-    @test loss_model(10.0) == 4.1030E-13
-    @test loss_model(U, params_1, 1) == loss_model(3/2 * Tev)
 end

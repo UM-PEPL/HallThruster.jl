@@ -1,10 +1,10 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
-    (;index, ionization_reactions, excitation_reactions, index, reactant_indices, product_indices) = params
+    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices) = params
 
     ne = electron_density(U, params, i)
     ϵ  = U[index.nϵ, i] / ne
 
-    @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, reactant_indices, product_indices)
+    @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         ρ_reactant = U[reactant_index, i]
         ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
         # Change in density due to ionization
@@ -19,7 +19,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
             reactant_velocity = params.config.neutral_velocity
         end
         dU[product_index + 1, i] += ρdot * reactant_velocity=#
-        # Energy losses due to ionization
+
     end
 end
 

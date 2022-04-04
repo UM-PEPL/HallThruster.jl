@@ -23,12 +23,6 @@ Load ionization reactions for the provided species and ionization model
 """
 @inline load_reactions(i::IonizationModel, species) = throw(ArgumentError("Function load_reactions(model, species) not implemented for $(typeof(i))."))
 
-function load_ionization_reactions(model::IonizationModel, species)
-    check_species(model, species)
-    check_charge_states(model, species)
-    load_reactions(model, species)
-end
-
 """
     IonizationLookup(;[directories::Vector{String} = String[]])
 Default ionization model for HallThruster.jl.
@@ -53,7 +47,8 @@ function load_reactions(model::IonizationLookup, species)
             for folder in folders
                 filename = rate_coeff_filename(reactant, product, "ionization", folder)
                 if ispath(filename)
-                    reaction = load_rate_coeffs(reactant, product, "ionization",folder)
+                    energy, rate_coeff = load_rate_coeffs(reactant, product, "ionization",folder)
+                    reaction = IonizationReaction(energy, reactant, product, rate_coeff)
                     push!(reactions, reaction)
                     found = true
                     break

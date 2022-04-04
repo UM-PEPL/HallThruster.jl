@@ -1,4 +1,4 @@
-using Statistics
+using Statistics, HallThruster
 
 function Lp_norm(v, p)
     N = length(v)
@@ -57,4 +57,25 @@ function refines(num_refinements, initial, factor)
         initial * factor^(p-1)
         for p in 1:num_refinements
     ]
+end
+
+struct OVS_Ionization <: HallThruster.IonizationModel end
+struct OVS_Excitation <: HallThruster.ExcitationModel end
+
+import HallThruster.load_reactions
+
+function OVS_rate_coeff_iz(ϵ)
+    return 1e-12 * exp(-12.12/ϵ)
+end
+
+function OVS_rate_coeff_ex(ϵ)
+    return 1e-12 * exp(-8.32/ϵ)
+end
+
+function HallThruster.load_reactions(::OVS_Ionization, species)
+    return [HallThruster.IonizationReaction(12.12, HallThruster.Xenon(0), HallThruster.Xenon(1), OVS_rate_coeff_iz)]
+end
+
+function HallThruster.load_reactions(::OVS_Excitation, species)
+    return [HallThruster.ExcitationReaction(8.32, HallThruster.Xenon(0), OVS_rate_coeff_ex)]
 end

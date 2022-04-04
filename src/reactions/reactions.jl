@@ -2,9 +2,9 @@ abstract type Reaction end
 
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
-        joinpath(folder, join([reaction_type, repr(reactant), repr(product)], "_") * ".dat")
-    else
         joinpath(folder, join([reaction_type, repr(reactant)], "_") * ".dat")
+    else
+        joinpath(folder, join([reaction_type, repr(reactant), repr(product)], "_") * ".dat")
     end
     return fname
 end
@@ -53,7 +53,7 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     ϵ = rates[:, 1]
     k = rates[:, 2]
     rate_coeff = LinearInterpolation(ϵ, k)
-    return rate_coeff
+    return energy, rate_coeff
 end
 
 abstract type ReactionModel end

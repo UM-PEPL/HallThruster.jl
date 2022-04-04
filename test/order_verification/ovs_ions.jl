@@ -9,7 +9,7 @@ using Symbolics, HallThruster, Plots, LinearAlgebra, OrdinaryDiffEq
 Dt = Differential(t)
 Dx = Differential(x)
 
-const k_ionization = HallThruster.ionization_fits_Xe(1)[1].rate_coeff
+const k_ionization = OVS_rate_coeff_iz
 const un = 1000
 const mi = HallThruster.Xenon.m
 const e = HallThruster.e
@@ -104,7 +104,12 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         anode_sheath = false,
         anode_mass_flow_rate,
         scheme,
+        ionization_model = OVS_Ionization()
     )
+
+    species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
+
+    ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
@@ -128,7 +133,6 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
 
     cache = (;ue, μ, F, UL, UR, ∇ϕ)
 
-    reactions = HallThruster.ionization_fits_Xe(1)
     U = zeros(4, ncells+2)
     z_end = z_cell[end]
     z_start = z_cell[1]
@@ -144,14 +148,14 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         cache,
         fluids,
         species_range_dict,
-        reactions,
         z_edge,
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),
         Te_R = 2/3 * ϵ_func(z_end),
         A_ch,
-        reactant_indices = [index.ρn],
-        product_indices = [index.ρi[1]]
+        ionization_reactions,
+        ionization_reactant_indices = [index.ρn],
+        ionization_product_indices = [index.ρi[1]]
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))

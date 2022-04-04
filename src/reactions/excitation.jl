@@ -1,6 +1,6 @@
 Base.@kwdef struct ExcitationReaction{I} <: Reaction
     energy::Float64
-    reactant::Float64
+    reactant::Species
     rate_coeff::I
 end
 
@@ -44,12 +44,14 @@ function load_reactions(model::ExcitationLookup, species)
     species_sorted = sort(species; by=x -> x.Z)
     reactions = ExcitationReaction{LinearInterpolation{Float64,Float64}}[]
     folders = [model.directories; REACTION_FOLDER]
+    product = nothing
     for i in 1:length(species)
         reactant = species_sorted[i]
         for folder in folders
             filename = rate_coeff_filename(reactant, product, "excitation", folder)
             if ispath(filename)
-                reaction = load_rate_coeffs(reactant, product, "excitation",folder)
+                energy, rate_coeff = load_rate_coeffs(reactant, product, "excitation",folder)
+                reaction = HallThruster.ExcitationReaction(energy, reactant, rate_coeff)
                 push!(reactions, reaction)
                 break
             end
