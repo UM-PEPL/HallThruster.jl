@@ -94,7 +94,7 @@ function plot_solution(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     Xe_0 = HallThruster.Xenon(0)
     Xe_I = HallThruster.Xenon(1)
-    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    rxn = HallThruster.load_reactions(HallThruster.LandmarkIonizationLookup(), [Xe_0, Xe_I])[1]
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
 
@@ -142,7 +142,7 @@ function plot_solution_hallis_and_2D(u, saved_values, z, case = 1, hallis = noth
     mi = HallThruster.Xenon.m
     Xe_0 = HallThruster.Xenon(0)
     Xe_I = HallThruster.Xenon(1)
-    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    rxn = HallThruster.load_reactions(HallThruster.LandmarkIonizationLookup(), [Xe_0, Xe_I])[1]
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
 
@@ -201,7 +201,7 @@ function plot_multiple_solution(sols, labels, case = 1, timeaveraged_start = not
     mi = HallThruster.Xenon.m
     Xe_0 = HallThruster.Xenon(0)
     Xe_I = HallThruster.Xenon(1)
-    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    rxn = HallThruster.load_reactions(HallThruster.LandmarkIonizationLookup(), [Xe_0, Xe_I])[1]
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
 

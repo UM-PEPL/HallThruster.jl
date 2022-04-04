@@ -49,7 +49,7 @@ function Config(;
         ncharge::Int                        = 1,
         ion_temperature::Float64            = 1000.,
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
-        ionization_model::IonizationModel   = IonizationLUT(),
+        ionization_model::IonizationModel   = IonizationLookup(),
         electron_pressure_coupled::Number   = 1.0,
         min_number_density::Float64         = 1e6,
         min_electron_temperature::Float64   = 1.0,

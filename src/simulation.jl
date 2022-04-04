@@ -51,8 +51,13 @@ end
 function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
-    ionization_reactions = _load_ionization_reactions(config.ionization_model, species)# |> wrap_reactions $ (species_range_dict)
-    reactant_indices, product_indices = species_indices(ionization_reactions, species_range_dict)
+
+    ionization_reactions = _load_reactions(config.ionization_model, species)
+    ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
+    ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
+
+    excitation_reactions = _load_reactions(config.excitation_model, species)
+    excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
     index = configure_index(fluid_ranges)
 
@@ -111,15 +116,17 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
         Te_R = config.cathode_Te,
         L_ch = config.thruster.geometry.channel_length,
         A_ch = config.thruster.geometry.channel_area,
-        reactions = ionization_reactions,
         z_cell=grid.cell_centers,
         z_edge=grid.edges,
         dt=timestep,
         progress_bar,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
-        reactant_indices,
-        product_indices
+        ionization_reactions,
+        ionization_reactant_indices,
+        ionization_product_indices,
+        excitation_reactions,
+        excitation_reactant_indices,
     )
 
     # Compute maximum allowed iterations

@@ -84,34 +84,3 @@ Eq. 3.6-13, from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
 @inline function σ_en(Tev)
     return 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6))
 end
-
-abstract type CollisionalLossModel end
-
-struct LandmarkLossLUT{F} <: CollisionalLossModel
-    loss_coeff::F
-    function LandmarkLossLUT()
-        rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
-        ϵ = rates[:, 1]
-        k_loss = rates[:, 3]
-        loss_coeff = LinearInterpolation(ϵ, k_loss)
-        return new{typeof(loss_coeff)}(loss_coeff)
-    end
-end
-
-@inline (model::LandmarkLossLUT)(ϵ) = model.loss_coeff(ϵ)
-
-@inline function (model::LandmarkLossLUT)(U, params, i)
-    ne = params.cache.ne[i]
-    ϵ = U[params.index.nϵ, i] / ne
-    return model(ϵ)
-end
-
-struct LandmarkLossFit <: CollisionalLossModel end
-
-@inline (::LandmarkLossFit)(ϵ) = 6e-12 * exp(-39.0 / (ϵ + 3.0))
-
-@inline function (model::LandmarkLossFit)(U, params, i)
-    ne = params.cache.ne[i]
-    ϵ = U[params.index.nϵ, i] / ne
-    return model(ϵ)
-end
