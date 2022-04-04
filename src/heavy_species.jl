@@ -24,6 +24,25 @@ function update_heavy_species!(dU, U, params, t)
 
     compute_fluxes!(F, UL, UR, U, params)
 
+    if scheme.WENO #with WENO 5 only going up to 2nd last to boundary cells
+        @inbounds for i in 3:ncells-3 #only fluxes ncells - 1
+            # Handle neutrals
+            F[index.ρn, i] = WENO5_compute_fluxes(
+                F[index.ρn, i-2], F[index.ρn, i-1], F[index.ρn, i], F[index.ρn, i+1], F[index.ρn, i+2])
+            #Handle ions
+            for Z in 1:ncharge
+                @views @. F[index.ρi[Z]:index.ρiui[Z], i] = WENO5_compute_fluxes(
+                    SA[F[index.ρi[Z], i-2], F[index.ρiui[Z], i-2]],
+                    SA[F[index.ρi[Z], i-1], F[index.ρiui[Z], i-1]],
+                    SA[F[index.ρi[Z], i],   F[index.ρiui[Z], i]],
+                    SA[F[index.ρi[Z], i+1], F[index.ρiui[Z], i+1]],
+                    SA[F[index.ρi[Z], i+2], F[index.ρiui[Z], i+2]],
+                )
+                
+            end
+        end
+    end
+
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
         right = right_edge(i)

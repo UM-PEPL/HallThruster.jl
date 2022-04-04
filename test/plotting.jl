@@ -299,6 +299,44 @@ function animate_solution_all(sol, case, z = nothing)
     end
 end
 
+function animate_solution_big4(sol, case, z = nothing)
+    @gif for i in 1:length(sol.u)
+        plot_solution_big4(sol.u[i], sol.savevals[i], sol.params.z_cell, case)
+    end
+end
+
+function plot_solution_big4(u, saved_values, z, case = 1)
+    mi = HallThruster.Xenon.m
+    Xe_0 = HallThruster.Xenon(0)
+    Xe_I = HallThruster.Xenon(1)
+    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
+    ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
+
+    ref_styles = landmark_styles()
+
+    p_ne = plot_quantity(
+        ne, z; title = "Plasma density", ylabel = "ne (m⁻³)",
+        ref_paths = landmark_references(case, "plasma_density"), ref_styles, ylims = (1e17, 2e19)
+    )
+
+    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", ylims = (-3, 22))
+
+    p_ϵ  = plot_quantity(
+        u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
+        ref_paths = landmark_references(case, "energy"), ref_styles, ylims = (0, 90)
+    )
+
+    p_ϕ  = plot_quantity(
+        ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)",
+        ref_paths = landmark_references(case, "potential"), ref_styles, ylims = (0, 310)
+    )
+
+    #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
+    #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
+    plot(p_ne, p_ui, p_ϕ, #=p_pe,=# p_ϵ, #=p_∇pe,=# layout = (2, 2), size = (1200, 800))
+end
+
 function write_sol_csv(filename, sol)
     CSV.write(filename*".csv", DataFrame(sol), header = false)
 end
@@ -329,7 +367,6 @@ return to implicit and other general framework, see what happens
 =#
 
 function plot_current(current, sol)
-
     p1 = plot()
     plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
@@ -429,6 +466,7 @@ function plot_PSD_current(current, sol)
     min_frequ = 2/t[end]
     # plots
     time_domain = plot(t, signal, title = "Signal", label = "Total current", ylabel = "[A]", xlabel = "time [s]", margin = 5Plots.mm)
-    freq_domain = plot(freqs, abs.(F), title = "Spectrum", ylim =(0, 2e4), xlim=(min_frequ, 20000), label = "Power spectral density", xlabel = "frequency [Hz]", ylabel = "[dB/Hz]") 
-    plot(time_domain, freq_domain, layout = 2, size = (1000, 500))
+    freq_domain = plot(freqs, abs.(F), title = "Spectrum", ylim =(0, 2500), xlim=(1e5, 2e5), label = "Power spectral density", xlabel = "frequency [Hz]", ylabel = "[dB/Hz]", margin = 5Plots.mm) 
+    #plot(time_domain, freq_domain, layout = 2, size = (1000, 500))
+    plot(freq_domain, size = (600, 600))
 end

@@ -33,6 +33,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, C<:CollisionModel, C
     domain::Tuple{Float64, Float64}
     energy_equation::Symbol
     anode_mass_flow_rate::Float64
+    WENO::Bool
 end
 
 function Config(;
@@ -70,6 +71,7 @@ function Config(;
         domain,                             # MANDATORY ARGUMENT
         energy_equation                     = :LANDMARK,
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
+        WENO                                = false,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -82,7 +84,7 @@ function Config(;
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         collision_model, collisional_loss_model, progress_interval, initial_condition!, callback, magnetic_field_scale, source_neutrals,
-        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, energy_equation, anode_mass_flow_rate,
+        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, energy_equation, anode_mass_flow_rate, WENO
     )
 end
 
