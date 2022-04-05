@@ -7,9 +7,9 @@ abstract type ElectronNeutralModel <: ReactionModel end
 
 struct NoElectronNeutral <: ElectronNeutralModel end
 
-supported_species(::NoCollisions) = Gas[]
+supported_species(::NoElectronNeutral) = Gas[]
 
-load_reactions(::NoCollisions, species) = ElasticCollision{Nothing}[]
+load_reactions(::NoElectronNeutral, species) = ElasticCollision{Nothing}[]
 
 
 struct LandmarkElectronNeutral <: ElectronNeutralModel end
@@ -18,13 +18,13 @@ supported_species(::LandmarkElectronNeutral) = [Xenon]
 
 function load_reactions(::LandmarkElectronNeutral, species)
     landmark_electron_neutral = Returns(2.5e-13)
-    return [ElasticCollision(Xenon, landmark_electron_neutral)]
+    return [ElasticCollision(Xenon(0), landmark_electron_neutral)]
 end
 
 
-struct GoebelAndKatz <: ElectronNeutralModel end
+struct GKElectronNeutral <: ElectronNeutralModel end
 
-supported_species(::GoebelAndKatz) = [Xenon]
+supported_species(::GKElectronNeutral) = [Xenon]
 
 """
     σ_en(Tev)
@@ -37,7 +37,7 @@ Eq. 3.6-13, from Fundamentals of Electric Propulsion, Goebel and Katz, 2008.
     return max(0.0, 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6)))
 end
 
-function load_reactions(::GoebelAndKatz, species)
+function load_reactions(::GKElectronNeutral, species)
     rate_coeff(ϵ) = σ_en(2/3 * ϵ) * electron_sound_speed(2/3 * ϵ)
     return [ElasticCollision(Xenon(0), rate_coeff)]
 end

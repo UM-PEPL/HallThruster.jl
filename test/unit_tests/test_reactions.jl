@@ -94,5 +94,5 @@
     @test ex_rxns[1].rate_coeff(1.0) ≈ 0.0
 
     # Elastic collisions
-    ex_1 =
+    #ex_1 =
 end

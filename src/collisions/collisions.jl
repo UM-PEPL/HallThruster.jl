@@ -2,14 +2,15 @@
     freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-function freq_electron_neutral(collisions, nn, Tev)
+function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Number, Tev::Number) where T
     νen = 0.0
-    @inbounds for c in collisions
+    for c in collisions
         νen += c.rate_coeff(3/2 * Tev) * nn
     end
+    return νen
 end
 
-function freq_electron_neutral(U, params, i)
+function freq_electron_neutral(U::Matrix{T}, params, i::Int) where T
     (;index) = params
     nn = U[index.ρn, i] / params.config.propellant.m
     ne = params.cache.ne[i]
@@ -21,10 +22,10 @@ end
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(ne, Tev, Z) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
-function freq_electron_ion(U, params, i)
-    if params.config.electron_neutral_collisions
+function freq_electron_ion(U, params, i::Int)
+    if params.config.electron_ion_collisions
         (;index) = params
         mi = params.config.propellant.m
         # Compute effective charge state

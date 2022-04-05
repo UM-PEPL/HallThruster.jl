@@ -29,35 +29,44 @@
 
     wall_collision_freq = 1e7
 
-    config_simple = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.SimpleElectronNeutral(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
-    config_complex = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.FullCollisionModel(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
-    config_none = (;anom_model, propellant = HallThruster.Xenon, collision_model = HallThruster.NoCollisions(), ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_landmark = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.LandmarkElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_gk = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.GKElectronNeutral(), electron_ion_collisions = true, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_complex = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.ElectronNeutralLookup(), electron_ion_collisions = true, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_none = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.NoElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
 
-    params_1 = (;cache, index, config = config_simple, z_cell = [0.02], L_ch = thruster.geometry.channel_length)
-    params_2 = (;cache, index, config = config_complex, z_cell = [0.03], L_ch = thruster.geometry.channel_length)
-    params_3 = (;cache, index, config = config_none, z_cell = [0.03], L_ch = thruster.geometry.channel_length)
+    Xe_0 = HallThruster.Xenon(0)
+
+    en_landmark = HallThruster._load_reactions(config_landmark.electron_neutral_model, [Xe_0])
+    en_gk = HallThruster._load_reactions(config_gk.electron_neutral_model, [Xe_0])
+    en_complex = HallThruster._load_reactions(config_complex.electron_neutral_model, [Xe_0])
+    en_none = HallThruster._load_reactions(config_none.electron_neutral_model, [Xe_0])
+
+    params_landmark = (;cache, index, config = config_landmark, z_cell = [0.02], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_landmark)
+    params_gk = (;cache, index, config = config_gk, z_cell = [0.02], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_gk)
+    params_complex = (;cache, index, config = config_complex, z_cell = [0.03], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_complex)
+    params_none = (;cache, index, config = config_none, z_cell = [0.03], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none)
 
     U = [mi * nn; mi * ne; ne * 3/2 * Tev ;;]
-    @test HallThruster.freq_electron_neutral(U, params_1, 1) == 2.5e-13 * nn
-    @test HallThruster.freq_electron_neutral(U, params_2, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
-    @test HallThruster.freq_electron_neutral(U, params_3, 1) == 0.0
+    @test HallThruster.freq_electron_neutral(U, params_landmark, 1) == 2.5e-13 * nn
+    @test HallThruster.freq_electron_neutral(U, params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    @test HallThruster.freq_electron_neutral(U, params_none, 1) == 0.0
 
     Z = 1
 
-    @test HallThruster.freq_electron_ion(U, params_1, 1) == 0.0
-    @test HallThruster.freq_electron_ion(U, params_2, 1) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
-    @test HallThruster.freq_electron_ion(U, params_3, 1) == 0.0
+    @test HallThruster.freq_electron_ion(U, params_landmark, 1) == 0.0
+    @test HallThruster.freq_electron_ion(U, params_gk, 1) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+    @test HallThruster.freq_electron_ion(U, params_none, 1) == 0.0
 
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
-    @test HallThruster.freq_electron_electron(U, params_1, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
+    @test HallThruster.freq_electron_electron(U, params_landmark, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
 
-    @test HallThruster.freq_electron_anom(U, params_1, 1) == e/me * 1/160
-    @test HallThruster.freq_electron_anom(U, params_2, 1) == e/me * 1/16
+    @test HallThruster.freq_electron_anom(U, params_landmark, 1) == e/me * 1/160
+    @test HallThruster.freq_electron_anom(U, params_none, 1) == e/me * 1/16
 
     model = HallThruster.NoAnom()
-    @test model(U, params_1, 1) == 0.0
-    @test model(U, params_1, 1) == 0.0
+    @test model(U, params_landmark, 1) == 0.0
+    @test model(U, params_gk, 1) == 0.0
 
-    @test HallThruster.freq_electron_wall(U, params_1, 1) == 1e7
-    @test HallThruster.freq_electron_wall(U, params_2, 1) == 0.0
+    @test HallThruster.freq_electron_wall(U, params_landmark, 1) == 1e7
+    @test HallThruster.freq_electron_wall(U, params_none, 1) == 0.0
 end
