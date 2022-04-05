@@ -231,6 +231,10 @@ expanded ion density
 
 In one dimension, neglecting collisions with other species and assuming isentropic temperature and pressure terms, no convection and no electron inertia, the electrons can be described by the Boltzmann relation.
 
+```@docs
+Boltzmann relation
+```
+
 ```math
     n_e = n_0 exp\left(\frac{e \phi}{k T_e}\right)
 ```
