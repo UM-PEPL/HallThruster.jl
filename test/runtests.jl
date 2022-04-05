@@ -70,7 +70,7 @@ end
                     if WENO
                         println("WENO slope: ", slope)
                     else
-                        @test abs(slope - theoretical_order) < 0.2
+                        @test abs(slope - theoretical_order) < 0.2 || slope > theoretical_order
                     end
                 end
             end
