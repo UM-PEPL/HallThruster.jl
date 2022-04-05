@@ -269,6 +269,10 @@ As the sheath is assumed to be ion attracting, it can by definition not slow or 
 
 By substituting [`energy conservation`](@ref) equation, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
 
+```@docs
+Bohm velocity
+```
+
 ```math
     v_0 > \sqrt{\frac{kT_e}{m_i}}
 ```
