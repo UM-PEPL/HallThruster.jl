@@ -17,7 +17,7 @@ makedocs(
             "boundary_conditions.md",
             "source_terms.md",
         ],
-        "Verification" => "verification.md"
+        "Verification" => "verification.md",
         "Internals" => "internals.md"
     ],
 )
