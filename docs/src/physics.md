@@ -83,7 +83,7 @@ In addition, the electrons are assumed to be massless. This yields a generalized
 Here, ``\nu_e`` is the total electron momentum transfer collision frequency, ``\mathbf{j}_e = -e n_e \mathbf{u_e}`` is the electron current vector, ``p_e = n_e k_B T_e`` is the electron pressure, and ``B`` is the magnetic field. We want to model the electron velocity in both the axial (``\hat{z}``) and azimuthal (``\theta``) directions. Making the assumption that ``B`` is purely radial and that the plasma is axisymmetric, we arrive at the following two equations after some algebraic manipulations.
 
 ```@docs
-eqjez
+axial current equation
 ```
 
 ```math
@@ -106,7 +106,7 @@ In Hall thrusters, the observed axial/cross-field electron current is significan
 To compute the electrostatic potential, we first add the continuity equations from the multiple ion species and subtract the electron continuity equation to obtain the charge continuity equation:
 
 ```@docs
-eqcurrentcons
+current conservation equation
 ```
 
 ```math
@@ -118,7 +118,7 @@ eqcurrentcons
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@eqjez) into the [`current conservation equation`](@eqcurrentcons) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@ref) into the [`current conservation equation`](@ref) and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
@@ -138,7 +138,7 @@ we obtain the following second-order elliptic partial differential equation for 
 \end{align}
 ```
 
-This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](@HallThruster.solve_potential_edge!).
+This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}).
 
 
 ## Electron energy equation
@@ -180,7 +180,7 @@ The grid resolution of HallThruster.jl is much lower than what would be required
 In the following, potential differences ``e\phi`` are assumed to be on the order of the electron temperature ``k T_e``. Furthermore, assume that cold ions fall through an arbitrary potential of ``\phi_0`` while they move towards the wall. Through conservation of energy, their arrival velocity at the sheath edge can be related to the potential difference. 
 
 ```@docs
-eqconsenersheath
+energy conservation
 ```
 
 ```math
@@ -196,14 +196,14 @@ Additionally, the ion flux during acceleration toward the wall is conserved.
 The relation for ion velocity as a function of position in the sheath can be written as 
 
 ```@docs
-eqconsenersheath2
+above expression
 ```
 
 ```math
     \frac{1}{2} m_i v^2 = \frac{1}{2} m_i v_0^2 - e\phi (x)
 ```
 
-Rewriting both [`energy conservation`](@eqconsenersheath) and [`above expression`](@eqconsenersheath2) for ``v_0`` and ``v``, and dividing gives
+Rewriting both [`energy conservation`](@ref) and [`above expression`](@ref) for ``v_0`` and ``v``, and dividing gives
 
 ```math
     \frac{v_0}{v} = \sqrt{\frac{\phi_0}{\phi_0 - \phi}}
@@ -212,17 +212,17 @@ Rewriting both [`energy conservation`](@eqconsenersheath) and [`above expression
 which by applying flux conservation results in 
 
 ```@docs
-eqdensitysheath
+the density equation
 ```
 
 ```math
     n_i = n_0 \sqrt{\frac{\phi_0}{\phi_0 - \phi}}
 ```
 
-Close to the sheath edge [`the density equation`](@eqdensitysheath) can be expanded as a Taylor series, as ``\phi`` is small compared to ``\phi_0``.
+Close to the sheath edge [`the density equation`](@ref) can be expanded as a Taylor series, as ``\phi`` is small compared to ``\phi_0``.
 
 ```@docs
-eqiondensityexpanded
+expanded ion density
 ```
 
 ```math
@@ -238,7 +238,7 @@ In one dimension, neglecting collisions with other species and assuming isentrop
 In this regime, the electron density is diffusion dominated and dictated by the electrostatic field. This assumption is generally valid along magnetic field lines and across weak magnetic fields with sufficient electron electron collisions. The Boltzmann relation can be expanded by assuming that the change in potential at the sheath edge is small compared to the electron temperature. 
 
 ```@docs
-eqBoltzmann_relationexpanded
+expanded Boltzmann relation
 ```
 
 ```math
@@ -251,7 +251,7 @@ Taking Poisson's equation of the form
     \nabla^2 \phi = - \frac{e}{k Te_0}(n_i - n_e)
 ```
 
-and substituting [`expanded Boltzmann relation`](@eqBoltzmann_relationexpanded) and [`expanded ion density`](@eqiondensityexpanded) leads after rearranging to 
+and substituting [`expanded Boltzmann relation`](@ref) and [`expanded ion density`](@ref) leads after rearranging to 
 
 ```math
     \nabla^2 \phi = \frac{e n_0 \phi}{\epsilon_0}\left(\frac{1}{2\phi_0} - \frac{e}{kT_e}\right)
@@ -263,7 +263,7 @@ As the sheath is assumed to be ion attracting, it can by definition not slow or 
     \phi_0 > \frac{kT_e}{2e}
 ```
 
-By substituting \autoref{eq:consenersheath}, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
+By substituting [`energy conservation`](@ref) equation, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
 
 ```math
     v_0 > \sqrt{\frac{kT_e}{m_i}}
