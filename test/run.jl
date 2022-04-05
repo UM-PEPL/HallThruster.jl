@@ -73,7 +73,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
         collision_model = HallThruster.SimpleElectronNeutral(), coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 0,
+        progress_interval = 0, WENO = false
     )
 
     un = 150.0
@@ -96,7 +96,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 
     αw = 1.0
 
-    scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
+    scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct, WENO)
 
     config = HallThruster.Config(;
         ncharge = 1,
@@ -120,7 +120,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         ionization_model,
         domain,
         energy_equation,
-        propellant = HallThruster.Krypton
+        WENO = WENO
     )
 
     @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)
@@ -133,4 +133,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=100, nsave=1000, case = 1, dt = 1.3e-8);
+sol = run_sim(1e-3; ncells=200, nsave=1000, case = 1, dt = 0.8e-8);

@@ -2,6 +2,7 @@ Base.@kwdef struct HyperbolicScheme{F,L}
     flux_function::F
     limiter::L
     reconstruct::Bool
+    WENO::Bool
 end
 
 function flux(U::SVector{1, T}, fluid, pe = 0.0) where T
@@ -77,6 +78,36 @@ for NUM_CONSERVATIVE in 1:3
 
         return @SVector [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
     end
+
+    #input is flux from HLLE or rusanov as first order, only on a large stencil. if not enough points available, reduce to first order
+    function WENO5_compute_fluxes(f₋₂, f₋₁, f₀, f₊₁, f₊₂)
+        f_hat¹ = 1/3*f₋₂ - 7/6*f₋₁ + 11/6*f₀
+        f_hat² = -1/6*f₋₁ + 5/6*f₀ + 1/3*f₊₁
+        f_hat³ = 1/3*f₀ + 5/6*f₊₁ - 1/6*f₊₂
+
+        γ₁ = 1/10
+        γ₂ = 3/5
+        γ₃ = 3/10
+    
+        β₁ = 12/13*(f₋₂ - 2*f₋₁ + f₀).^2 + 1/4*(f₋₂ - 4*f₋₁ + 3*f₀).^2
+        β₂ = 12/13*(f₋₁ - 2*f₀ + f₊₁).^2 + 1/4*(f₋₁ - f₊₁).^2
+        β₃ = 12/13*(f₀ - 2*f₊₁ + f₊₂).^2 + 1/4*(3*f₀ - 4*f₊₁ + f₊₂).^2
+
+        ϵₖ = 1e-6
+
+        w_tilde₁ = γ₁/(ϵₖ .+ β₁).^2
+        w_tilde₂ = γ₂/(ϵₖ .+ β₂).^2
+        w_tilde₃ = γ₃/(ϵₖ .+ β₃).^2
+
+        w₁ = w_tilde₁ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+        w₂ = w_tilde₂ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+        w₃ = w_tilde₃ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
+
+        f_hat = w₁*f_hat¹ + w₂*f_hat² + w₃*f_hat³
+
+        return f_hat
+    end
+
 
     function HLLE(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
         γ = fluid.species.element.γ

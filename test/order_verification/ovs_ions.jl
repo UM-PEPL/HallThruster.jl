@@ -62,7 +62,7 @@ source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(mom
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
 source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
-function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled = true, conservative = true)
+function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled = true, conservative = true)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
@@ -105,6 +105,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
         anode_mass_flow_rate,
         scheme,
         ionization_model = OVS_Ionization()
+        WENO = true
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
@@ -161,7 +162,7 @@ function solve_ions(ncells, scheme, plot_results = false; t_end = 1e-4, coupled 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
 
     tspan = (0, t_end)
-    dt = 0.7 * (z_cell[end] - z_cell[1]) / ncells / amax
+    dt = 0.2 * (z_cell[end] - z_cell[1]) / ncells / amax #decrease dt for WENO5 scheme
 
     dU = copy(U)
 

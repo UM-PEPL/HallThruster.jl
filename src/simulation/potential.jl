@@ -1,6 +1,6 @@
 #try new potential solver, ie having extra cells on boundary
 """
-    solve_potential!(; U::Matrix{Float64}, params::NamedTuple)
+    solve_potential_edge!(; U::Matrix{Float64}, params::NamedTuple)
 function to solve the potential equation derived from the generalized Ohm's law
 and employing charge conservation using quasineutrality. Second derivatives approximated
 with 2nd order central difference scheme, first derivatives with central difference.
