@@ -12,7 +12,7 @@ Excitation reactions are handled similarly. The `ExcitationReaction` struct has 
 
 Elastic scattering (electron-neutral) collisions are implemented via the `ElasticCollision` struct, which has two fields: `reactant` and `rate_coeff`, as no energy is lost in such collisions. This affects the electron momentum balance and the cross-field transport.
 
-## Ionization models
+## Ionization
 
 HallThruster.jl provides two models out of the box. These are
 
@@ -57,7 +57,7 @@ Energy (eV) Rate coefficient (m3/s)
 
 This accounts for single ionization of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark.
 
-## Excitation models
+## Excitation
 
 As with ionization, HallThruster.jl provides two models out of the box. These are
 
