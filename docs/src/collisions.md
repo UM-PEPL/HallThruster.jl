@@ -101,7 +101,7 @@ Energy (eV)	Rate coefficient (m3/s)
 
 This accounts for excitation of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark. LANDMARK does explicitly provide excitation rates, and instead gives an energy loss coefficient. However, using the provided ionization rate coefficients, we can back out the excitation rate coefficients. These are then used to construct an `ExcitationReaction`.
 
-## Electron-neutral elastic scattering models
+## Electron-neutral elastic scattering
 
 These are `ReactionModels` of type `ElectronNeutralModel`. HallThruster.jl provides three models out of the box. These are
 
@@ -111,6 +111,75 @@ These are `ReactionModels` of type `ElectronNeutralModel`. HallThruster.jl provi
 | `LandmarkElectronNeutral` | `Xenon`                                                      | Constant rate coefficient of `2.5e-13` |
 | `GKElectronNeutral` | `Xenon` | Uses Eq. 36.13 on pg. 58 from Goebel and Katz to fit Xenon e-n cross section |
 
+### `ElectronNeutralLookup`
+
+Like `IonizationLookup` and `ExcitationLookup`, this reads a table of reaction rate coefficient vs energy from a file either in the HallThruster.jl `reactions` directory or in a user-provided directory. The interface and usage is identical to that of the other two lookup models, with the exception that since these collisions do not have an electron energy loss associated with them, we do not need to supply an energy in the first line of the files. Thus, the first few lines of `elastic_Kr.dat` are:
+
+```
+Energy (eV)	Rate coefficient (m3/s)
+1.0	1.7652019589294465e-14
+2.0	6.286806105711669e-14
+3.0	1.260621740782443e-13
+4.0	1.879916985413993e-13
+5.0	2.421697883866546e-13
+6.0	2.878523500134384e-13
+7.0	3.2602160860803316e-13
+```
+
+Naming is similarly simple, with HallThruster.jl looking for files named as follows
+
+```
+elastic_$(species).dat
+```
+
+Since electron-ion collisions are not handled via the `ReactionModel` interface, species with charge states greater than 0, if provided, are ignored.
+
+Once a rate coefficient ``k_en(\epsilon)`` is computed, the electron-neutral collision frequency is simply
+
+```math
+\nu_{en} = n_n k_{en}(\epsilon)
+```
+
+### `LandmarkElectronNeutral`
+
+In this model, as in the LANDMARK benchmark, the electron-neutral collision rate coefficient has a constant value of ``k_{en} = 2.5\times 10^{-13}``.
+
+### `GKElectronNeutral`
+
+This uses a fit to the Xenon average collision cross section as a function of electron temperature taken from [Goebel and Katz, Fundamentals of Electric Propulsion (page 58)](https://descanso.jpl.nasa.gov/SciTechBook/series1/Goebel__cmprsd_opt.pdf):
+
+```math
+\begin{aligned}
+\nu_{en} &= \sigma_{en}(T_e) n_n \sqrt{\frac{8 e T_e}{\pi m_e}} \\
+\sigma_{en}(T_e) &= 6.6\times 10^{-19} \left[\frac{\frac{T_e}{4} - 0.1}{1 + \left(\frac{T_e}{4}\right)^{1.6}}\right] \;[\textrm{m}^2]
+\end{aligned}
+```
+
+Here, ``T_e`` is in eV.
+
+## Electron-ion collisions
+
+Unlike the above types of collisions, electron-ion colulombic collisions are not strongly dependent on the type of gas, as the interaction distance is much larger than the atomic radius. They are thus handled via a simple Boolean flag in the `Config` struct: `electron_ion_collisions = true` or `electron_ion_collisions = false`. These are computed using the classical formulae (see [NRL Plasma Formulary, pg. 33](https://library.psfc.mit.edu/catalog/online_pubs/NRL_FORMULARY_13.pdf)):
+
+```math
+\nu_{ei} = 2.9 \times 10^{-6}\; Z^2 n_e T_e^{-3/2} \ln{\Lambda}.
+```
+
+Here, ``Z`` is the ion charge state, $n_e$ is the plasma density in m``^{-3}`` and ``T_e`` is the electron temperature in eV. In the above expression, ``\ln\Lambda`` is the well-known Coulomb logarithm, given by
+
+```math
+\begin{aligned}
+\ln\Lambda &= 23 - \frac{1}{2}\ln\left(10^{-6} \; Z^2 n_e T_e^{-3}\right) & T_e < 10 \;Z^2 \textrm{ eV} \\
+\ln\Lambda &= 24 - \frac{1}{2}\ln\left(10^{-6} \; n_e T_e^{-2}\right) & T_e > 10 \; Z^2 \textrm{ eV}.
+\end{aligned}
+```
+
+
+For plasmas containing multiple charge states, we compute the number-averaged charge state $\langle Z\rangle$ and use that in the above formula:
+
+```math
+\langle Z\rangle \equiv \left(\sum_{s} Z_s n_s\right) / n_e.
+```
 
 ## Implementing your own collisions
 
