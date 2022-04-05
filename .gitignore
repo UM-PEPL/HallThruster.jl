@@ -4,7 +4,7 @@ docs/build
 *.jld2
 *.gif
 *.cov
-!docs/src/assets/
+!/docs/src/assets/
 landmark/webplotdigitizer
 h9_tests.jl
 output
