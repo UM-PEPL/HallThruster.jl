@@ -21,9 +21,10 @@ Aside from these arguments, all others have  default values provided. These are 
 - `wall_loss_model`: How radial losses due to sheaths are computed. Defaults to `ConstantSheathPotential(sheath_potential=-20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0)`, which is the loss term from LANDMARK case 1. Other wall loss models are described on the [Wall Loss Models](@ref) page.
 - `wall_collision_freq`: Extra "wall collisions" to be added to the total electron momentum transfer collision frequency inside of the channel.  Units of Hz. Defaults to `0.0`.
 - `anom_model`: Model for computing the anomalous collision frequency. Defaults to `TwoZoneBohm(1/160, 1/16)`. Further details on the [Anomalous Transport](@ref) page.
-- `ionization_model`: Model for ionization. Defaults to `IonizationLUT()`, which uses a lookup table to compute ionization rate coefficients as a function of electron energy. Other options are described on the [Ionization Models](@ref) page.
-- `collision_model`: Model for classical momentum transfer collisions. Defaults to `SimpleElectronNeutral()`, in which $\nu_{en} = 2.5\times10^{-13} n_n$ and $\nu_{ei} = 0.0$, which is the form used in the LANDMARK benchmark. Other models with higher fidelity are described on the [Collision Models](@ref) page.
-- `collisional_loss_model`: Model for electron energy losses due to inelastic collisions. Defaults to `LandmarkLossLUT`, which is the loss term used in the LANDMARK benchmark. Other models are described on the [Collision Models](@ref) page.
+- `ionization_model`: Model for ionization. Defaults to `IonizationLookup()`, which uses a lookup table to compute ionization rate coefficients as a function of electron energy. Other options are described on the [Collisions and Reactions](@ref) page.
+- `excitation_model`: Model for excitation reactions. Defaults to `ExcitationLookup()`, which uses a lookup table to compute excitation rate coefficients as a function of electron energy.. Other models are described on the [Collisions and Reactions](@ref) page.
+- `electron_neutral_model`: Model for elastic scattering collisions between electrons and neutral atoms. Defaults to `ElectronNeutralLookup()`, which uses a lookup table to compute the elastic scattering rate coefficient. Other models are described on the [Collisions and Reactions](@ref) page.
+- `electron_ion_collisions`: Whether to include electron-ion collisions. Defaults to `true`. More information on the [Collisions and Reactions](@ref) page.
 - `neutral_velocity`: Neutral velocity in m/s. Defaults to `300.0`
 - `neutral_temperature`: Neutral temperature in Kelvins. Defaults to `300.0`.
 - `ion_temperature`: Ion temperature in Kelvins. Defaults to 100.0
