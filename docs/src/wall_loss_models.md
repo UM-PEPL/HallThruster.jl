@@ -1,4 +1,4 @@
-# Wall loss models
+# Wall Loss Models
 
 HallThruster.jl allows you to choose from three different wall loss models. They approximate the electron energy lost to the thruster walls in radial direction. As the computational axis of the 1D code is axially in the thruster, the wall loss is not directly resolved by the fluid and applied in each cell as an electron energy loss term. 
 
