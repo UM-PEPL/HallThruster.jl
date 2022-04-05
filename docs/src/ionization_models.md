@@ -1,4 +1,4 @@
-# Ionization models
+# Ionization Models
 
 HallThruster.jl allows you to choose from a number of different ionization models, or supply your own. This allows you to implement different propellants or more charge states for an existing propellant.
 
