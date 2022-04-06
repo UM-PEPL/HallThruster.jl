@@ -37,14 +37,14 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
         electron_neutral_model = HallThruster.LandmarkElectronNeutral(), coupled = true, energy_equation = :LANDMARK,
-        progress_interval = 0, WENO = false
+        progress_interval = 0, WENO = false, L = 0.05
     )
 
     un = 150.0
     Tn = 0.0
     Ti = 0.0
 
-    domain = (0.0, 0.05)
+    domain = (0.0, L)
 
     αϵ_in, αϵ_out = if case == 1
         (1.0, 1.0)
