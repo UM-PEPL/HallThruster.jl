@@ -76,6 +76,6 @@
 
     p = plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 600))
     savefig(p, "docs/src/assets/intialization.")
-    display(p)
+    display(p)=#
 end
 
