@@ -8,9 +8,13 @@ In addition to the MMS studies discussed above, we also compare the results to t
 
 Landmark energy loss term:
 ```math
-\begin{aligned}
-    W &= \nu_\epsilon \exp\left(\frac{-20}{T_{ev}}\right) \\
-    \nu_\epsilion &= \begin{cases}
+    W = \nu_\epsilon \exp\left(\frac{-20}{T_{ev}}\right)
+```
+
+where
+
+```math
+    \nu_\epsilion = \begin{cases}
         \alpha_1 \times 10^7 & z \leq L_{ch} \\
         \alpha_2 \times 10^7 & z > L_{ch}
     \end{cases}
