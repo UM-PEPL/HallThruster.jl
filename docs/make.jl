@@ -10,6 +10,7 @@ makedocs(
         "Configuration" => [
             "config.md",
             "initialization.md",
+            "thrusters.md",
             "collisions.md",
             "anomalous_transport.md",
             "wall_loss_models.md",
