@@ -1,6 +1,8 @@
 # Fluxes
 
 HallThruster.jl uses the Finite Volume method, and as such the face values of the fluxes need to be reconstructed. See [Numerics](@ref) for more information. 
+
+
 The fluxes ``F_{_{i+\frac{1}{2}}}`` and ``F_{_{i-\frac{1}{2}}}`` are reconstructed at the cell interfaces, and for this flux reconstruction multiple options are available. These are set using the object `HyperbolicScheme` consisting of fields `flux`, `limiter`, `reconstruct` and `WENO`.
 
 Three different flux approximations are available. 
