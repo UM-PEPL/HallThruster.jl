@@ -9,7 +9,7 @@ function left_boundary_state!(bc_state, U, params)
     bc_state[index.ρn] = mdot_a / A_ch / un
 
     ne = 0.0
-    bohm_velocity = sqrt(e * 2/3 * Te_L / mi)
+    bohm_velocity = sqrt(e * Te_L / mi)
     for Z in 1:params.config.ncharge
         boundary_density = U[index.ρi[Z], 2]
         boundary_flux = U[index.ρiui[Z], 2]

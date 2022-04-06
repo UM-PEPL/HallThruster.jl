@@ -62,8 +62,13 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 
     scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct, WENO)
 
+    ϵ_anode = 3.0
+    ϵ_cathode = 3.0
+
     config = HallThruster.Config(;
         ncharge = 1,
+        anode_Te = 2/3 * ϵ_anode,
+        cathode_Te = 2/3 * ϵ_cathode,
         discharge_voltage = 300.0,
         excitation_model = HallThruster.LandmarkExcitationLookup(),
         wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
