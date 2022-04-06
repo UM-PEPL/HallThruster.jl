@@ -14,7 +14,7 @@ Aside from these arguments, all others have  default values provided. These are 
 
 - `ncharge`: Number of charge states to simulate. Defaults to `1`.
 - `propellant`: Propellant gas. Defaults to `Xenon`. Other options are described on the Gases and Species page.
-- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false)`. For more information, see [Fluxes and Numerics](@ref).
+- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false, WENO = false)`. For more information, see [Fluxes and Numerics](@ref).
 - `cathode_potential`: The potential at the right boundary of the simulation. Defaults to `0.0`
 - `anode_Te`: The electron temperature at the anode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
 - `cathode_Te`: The electron temperature at the cathode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
