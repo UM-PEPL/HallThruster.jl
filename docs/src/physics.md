@@ -112,7 +112,7 @@ current conservation equation
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [axial current equation](@ref) into the [current conservation equation](@ref) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@ref) into the [`current conservation equation`](@ref) and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
