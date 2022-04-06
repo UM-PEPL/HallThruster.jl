@@ -5,7 +5,7 @@ The `Config` struct contains all of the options you need to run a simulation. On
 There are five absolutely mandatory arguments. These are:
 
 - `discharge_voltage`: The difference in potential between the anode and cathode, in Volts. This is used to set the left boundary condition. If the cathode potential is zero, then the anode potential is equal to the discharge voltage.
-- `thruster`: This is a `Thruster` object containing important geometric and magnetic information about the thruster being simulated. See the page about Thrusters for more.
+- `thruster`: This is a `Thruster` object containing important geometric and magnetic information about the thruster being simulated. See the page about [Thrusters](@ref) for more.
 - `domain`: This is a Tuple containing the locations of the left and right boundaries of the simulation domain, in meters. For instance, if your simulation domain starts at z = 0.0 and is 5 cm long, you would write `domain = (0.0, 0.05)`.
 - `anode_mass_flow_rate`: The propellant mass flow rate at the anode, in kg/s
 - `initial_condition!`: A function used for initializing the simulation. See the page about [Initialization](initialization.md) for more information.
@@ -14,7 +14,7 @@ Aside from these arguments, all others have  default values provided. These are 
 
 - `ncharge`: Number of charge states to simulate. Defaults to `1`.
 - `propellant`: Propellant gas. Defaults to `Xenon`. Other options are described on the Gases and Species page.
-- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false)`. For more information, see [Fluxes and Numerics](@ref).
+- `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux = rusanov, limiter = minmod, reconstruct = false, WENO = false)`. For more information, see [Fluxes and Numerics](@ref).
 - `cathode_potential`: The potential at the right boundary of the simulation. Defaults to `0.0`
 - `anode_Te`: The electron temperature at the anode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
 - `cathode_Te`: The electron temperature at the cathode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.

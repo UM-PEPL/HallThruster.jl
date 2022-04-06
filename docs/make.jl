@@ -6,16 +6,19 @@ makedocs(
     sitename = "HallThruster.jl",
     pages=[
         "Home" => "index.md",
+        "Tutorial" => "tutorial.md",
         "Physics model" => "physics.md",
         "Configuration" => [
             "config.md",
             "initialization.md",
+            "thrusters.md",
             "collisions.md",
             "anomalous_transport.md",
             "wall_loss_models.md",
             "boundary_conditions.md",
             "source_terms.md",
         ],
+        "Fluxes and Numerics" => "fluxes_and_numerics.md",
         "Verification" => "verification.md",
         "Internals" => "internals.md"
     ],
