@@ -53,11 +53,7 @@ function initialize!(U, params, ::DefaultInitialization)
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
 
-    ρn_0 = inlet_neutral_density(config)
-    ρn_1 = 0.01 * ρn_0
-    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z, L_ch / 2, ρn_0, ρn_1)
-
-    ni_center = L_ch / 3
+    ni_center = L_ch / 2
     ni_width = L_ch / 3
     ni_min = 2e17
     ni_max = 1.1e18
@@ -74,6 +70,14 @@ function initialize!(U, params, ::DefaultInitialization)
         ion_velocity_f1(z, Z)
     else
         ion_velocity_f2(z, Z)
+    end
+
+    ρn_0 = inlet_neutral_density(config)
+    ρn_1 = 0.01 * ρn_0
+    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z, L_ch / 2, ρn_0, ρn_1)
+    
+    for Z in 1:config.ncharge
+        ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / config.neutral_velocity
     end
 
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)

@@ -48,7 +48,7 @@ function update_values!(U, params, t = 0)
 
         ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
-        pe[i] = U[index.nϵ, i]
+        pe[i] = 3/2 * ne[i] * Tev[i] #U[index.nϵ, i]
         νen[i] = freq_electron_neutral(U, params, i)
         νei[i] = freq_electron_ion(U, params, i)
         νw[i] = freq_electron_wall(U, params, i)
