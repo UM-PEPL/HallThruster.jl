@@ -1,10 +1,10 @@
 # Verification
 
-Tests can be found in the `test` folder, and are split in `unit_tests` and `order_verification` tests. The [julia Test environment](https://docs.julialang.org/en/v1/stdlib/Test/) is used. Order verification studies verify the correct implemenation of the numerics by comparing the theoretical to the actual order of accuracy of the spatial discretization. For more details on the discretization, see [Fluxes and Numerics](@ref).
+Tests can be found in the `test` folder, and are split in `unit_tests` and `order_verification` tests. The [julia Test environment](https://docs.julialang.org/en/v1/stdlib/Test/) is used. We verify that the PDEs are discretized correctly  using the Method of Manufactured Solutions and perform order verification studies in order to ensure that the actual order of accuracy matches the predicted order.  For more details on the discretization, see [Fluxes and Numerics](@ref).
 
 ## Landmark
 
-The code has been compared to the [Landmark test case](https://www.landmark-plasma.com/test-case-3) for 1D fluid Hall Thruster discharges. The time-averaged behaviour for the three test cases vs HallThruster.jl is shown below. The differences between the three cases are the electron energy losses to the walls, which differ inside and outside the thruster. See the Landmark page for a detailed description. For the purpose of verficiation, the boundary conditions, source terms, collision models and anomalous collision frequency has been set to match Landmark. The results shown are time-averaged using the `rusanov` flux and no `reconstruction`. 
+In addition to the MMS studies discussed above, we also compare the results to the [Landmark test case](https://www.landmark-plasma.com/test-case-3)s for 1D fluid Hall Thruster discharges. Below, we compare the time-averaged output of HallThruster.jl for each of the three test cases to the expected results from Landmark. The cases differ only in the amount of electron energy lost to to radial sheaths inside the thruster.  For the purpose of verification, the boundary conditions, source terms, collision models and anomalous collision frequency has been set to match Landmark. The results shown are time-averaged, performed using 160 cells using the first-order Rusanov flux and without gradient reconstruction. 
 
 Landmark energy loss term:
 ```math
