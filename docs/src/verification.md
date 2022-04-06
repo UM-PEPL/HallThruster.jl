@@ -8,19 +8,24 @@ The code has been compared to the [Landmark test case](https://www.landmark-plas
 
 Landmark energy loss term:
 ```math
-W = \nu_\epsilon*10^7 exp\left(\frac{-20}{T_{ev}}\right)
+\begin{aligned}
+    W &= \nu_\epsilon \exp\left(\frac{-20}{T_{ev}}\right) \\
+    \nu_\epsilion &= \begin{cases}
+        \alpha_1 \times 10^7 & z \leq L_{ch} \\
+        \alpha_2 \times 10^7 & z > L_{ch}
+    \end{cases}
 ```
 
-In the following, `l` refers to the axial position of the thruster exit plane. 
+In the following, ``L_{ch}`` refers to the axial position of the thruster exit plane. 
 
 Case 1
-``\; \; \nu_\epsilon = 10^{7} \; \mathrm{s^{-1}} \enspace (x \leq l), \; \nu_\epsilon = 10^{7} \; \mathrm{s^{-1}} \enspace (x > l)``
+``\; \; \alpha_1 = 1.0, \alpha_2 = 1.0``
 ![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case1_rusanov_160cells.jpg)
 
 Case 2
-``\; \; \nu_\epsilon = 0.5*10^{7} \; \mathrm{s^{-1}} \enspace (x \leq l), \; \nu_\epsilon = 10^{7} \; \mathrm{s^{-1}} \enspace (x > l)``
+``\; \; \alpha_1 = 0.5, \alpha_2 = 1.0``
 ![Landmark2](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case2_rusanov_160cells.jpg)
 
 Case 3
-``\; \; \nu_\epsilon = 0.4*10^{7} \; \mathrm{s^{-1}} \enspace (x \leq l), \; \nu_\epsilon = 10^{7} \; \mathrm{s^{-1}} \enspace (x > l)``
+``\; \; \alpha_1 = 0.4, \alpha_2 = 1.0``
 ![Landmark3](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case3_rusanov_160cells.jpg)
