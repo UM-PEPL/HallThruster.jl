@@ -3,11 +3,5 @@ docs/build
 landmark/webplotdigitizer
 output
 
-/**
-!.gitignore
-!2D_test_SPT100/
-!docs/
-!landmark/
-!reactions/
-!src/
-!test/
+*.png
+*.jld2

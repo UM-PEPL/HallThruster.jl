@@ -11,15 +11,15 @@ end
 
 abstract type TransitionFunction end
 
-struct SmoothIf <: TransitionFunction
+Base.@kwdef struct SmoothIf <: TransitionFunction
     transition_length::Float64
 end
 
 (s::SmoothIf)(x, cutoff, y1, y2) = ((y2 - y1)*tanh((x-cutoff)/s.transition_length) + y1 + y2) / 2
 
-struct QuadraticTransition <: TransitionFunction
+Base.@kwdef struct QuadraticTransition <: TransitionFunction
     transition_length::Float64
-    offset::Float64
+    offset::Float64 = 0.0
 end
 
 function (q::QuadraticTransition)(x, cutoff, y1, y2)
@@ -31,10 +31,11 @@ function (q::QuadraticTransition)(x, cutoff, y1, y2)
     end
 end
 
-struct LinearTransition <: TransitionFunction
+Base.@kwdef struct LinearTransition <: TransitionFunction
     transition_length::Float64
-    offset::Float64
+    offset::Float64 = 0.0
 end
+
 function(ℓ::LinearTransition)(x, cutoff, y1, y2)
     x′ = x - ℓ.offset
     L = ℓ.transition_length

@@ -42,22 +42,19 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function initial_condition!(U, z_cell, IC!, fluids)
-    for (i, z) in enumerate(z_cell)
-        @views IC!(U[:, i], z, fluids, z_cell[end])
-    end
-end
-
 function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
+    # load collisions and reactions
     ionization_reactions = _load_reactions(config.ionization_model, species)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
     excitation_reactions = _load_reactions(config.excitation_model, species)
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
+
+    electron_neutral_collisions = _load_reactions(config.electron_neutral_model, species)
 
     index = configure_index(fluid_ranges)
 
@@ -70,7 +67,6 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
     else
         grid = generate_grid(config.thruster.geometry, ncells, config.domain)
         U, cache = allocate_arrays(grid, fluids)
-        initial_condition!(U, grid.cell_centers, config.initial_condition!, fluids)
     end
 
     tspan = (0.0, end_time)
@@ -127,13 +123,17 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
+        electron_neutral_collisions,
     )
 
     # Compute maximum allowed iterations
     maxiters = Int(ceil(1000 * tspan[2] / timestep))
 
-    #make values in params available for first timestep
-    update_values!(U, params)
+    if !use_restart
+        initialize!(U, params)
+        #make values in params available for first timestep
+        update_values!(U, params)
+    end
 
     # Set up ODE problem and solve
     prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)

@@ -49,6 +49,7 @@ include("collisions/excitation.jl")
 include("collisions/elastic.jl")
 include("collisions/collision_frequencies.jl")
 
+include("simulation/initialization.jl")
 include("simulation/geometry.jl")
 include("simulation/postprocess.jl")
 include("simulation/boundaryconditions.jl")
