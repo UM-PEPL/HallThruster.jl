@@ -124,7 +124,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev)
 
     params = (;
-        z_cell, index, Te_L, Te_R, cache, config,
+        z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
         dt, L_ch, propellant,
         ionization_reactions,
         ionization_reactant_indices,
@@ -149,7 +149,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
     params = (;
-        z_cell, index, Te_L, Te_R, cache, config,
+        z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R , cache, config,
         dt, L_ch, propellant,
         ionization_reactions,
         ionization_reactant_indices,
