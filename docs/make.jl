@@ -10,6 +10,7 @@ makedocs(
         "Physics model" => "physics.md",
         "Configuration" => [
             "config.md",
+            "propellants.md",
             "initialization.md",
             "thrusters.md",
             "fluxes.md",
