@@ -63,9 +63,9 @@ Some computations require the numerical approximation of derivatives, for exampl
 
 The generalized Ohm's law described in [Physics Model](@ref) can be rewritten in the following assuming only one charge state for simplicity.
 
-\begin{align}
+```math
 E &= \frac{-u_{e}}{\mu} - \frac{1}{en_i}\nabla (n_i k_B T_e)
-\end{align}
+```
 
 Substituting above expression into the ion momentum equation results in 
 
