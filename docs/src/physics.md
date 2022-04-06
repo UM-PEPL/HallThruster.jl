@@ -130,7 +130,7 @@ Defining the cross-field electron mobility
     \mu_{\perp} = \frac{e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2},
 ```
 
-we obtain the following second-order elliptic partial differential equation for the potential.
+we obtain the following second-order elliptic differential equation for the potential.
 
 ```math
 \begin{align}
