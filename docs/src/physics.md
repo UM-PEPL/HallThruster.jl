@@ -1,6 +1,6 @@
 # Physics model
 
-HallThruster.jl solves the quasineutral plasma equations of motion for a Hall Thruster along the thruster's channel centerline (the z-axis). We solve seperate models for neutral particles, ions, and electrons. Neutrals are assumed to have (user-configurable) constant velocity and temperature and are tracked by a single continuity equation. Ions are assumed isothermal and unmagnetized. Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation. We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law. Charge conservation is then used to solve for the electrostatic potential. The electron temperature is determined by solving an equation for the conservation of electron internal energy.
+HallThruster.jl solves the quasineutral plasma equations of motion for a Hall Thruster along the thruster's channel centerline (the z-axis). We solve seperate models for neutral particles, ions, and electrons. Neutrals are assumed to have constant velocity and temperature and are tracked by a single continuity equation. Ions are assumed isothermal and unmagnetized. Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation. We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law. Charge conservation is then used to solve for the electrostatic potential. The electron temperature is determined by solving an equation for the conservation of electron internal energy. For supported reaction and collision with different gases, see [Configuration](@ref). Xenon is the standard, Krypton is fully supported and in theory any monoatomic gas can be used as propellant in the simulation.
 
 ## Neutrals
 
@@ -75,9 +75,7 @@ We assume that the plasma is quasineutral, which means that the local charge den
 In addition, the electrons are assumed to be massless. This yields a generalized Ohm's law, also known as the Quasineutral Drift Diffusion (QDD) model. The electron momentum equation becomes:
 
 ```math
-\begin{align}
     \nu_e \frac{m_e}{e}\mathbf{j}_e = e n_e \mathbf{E} +\nabla p_e - \mathbf{j}_e \times \mathbf{B}
-\end{align}
 ```
 
 Here, ``\nu_e`` is the total electron momentum transfer collision frequency, ``\mathbf{j}_e = -e n_e \mathbf{u_e}`` is the electron current vector, ``p_e = n_e k_B T_e`` is the electron pressure, and ``B`` is the magnetic field. We want to model the electron velocity in both the axial (``\hat{z}``) and azimuthal (``\theta``) directions. Making the assumption that ``B`` is purely radial and that the plasma is axisymmetric, we arrive at the following two equations after some algebraic manipulations.
@@ -87,10 +85,8 @@ axial current equation
 ```
 
 ```math
-\begin{aligned}
     j_{ez} &= \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(E_z + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\\
     j_{e\theta} &= \Omega_e j_{ez}
-\end{aligned}
 ```
 
 In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the Hall parameter, or the ratio of the electron cyclotron frequency to the total electron momentum transfer collision frequency, and measures how well-magnetized the electrons are. Finally, we introduce the anomalous collision frequency (``\nu_{AN}``):
@@ -110,11 +106,9 @@ current conservation equation
 ```
 
 ```math
-\begin{align}
     \sigma &= \sum_{j=1}^3 j\;n_{ij} - n_e \\
     j_{iz} &=  \sum_{j=1}^3 j\;n_{ij} u_{ij} \\
     \frac{\partial \sigma}{\partial t} &+ \frac{\partial}{\partial z}\left(j_{iz} - j_{ez}\right) = 0
-\end{align}
 ```
 
 
@@ -133,9 +127,7 @@ Defining the cross-field electron mobility
 we obtain the following second-order elliptic differential equation for the potential.
 
 ```math
-\begin{align}
     \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right) = \frac{\partial}{\partial z}\left(\frac{\mu_{\perp}}{e}\frac{\partial p_e}{\partial z} - \frac{j_{iz}}{e}\right)
-\end{align}
 ```
 
 This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}).
@@ -157,12 +149,10 @@ Landmark below
 Here, ``q_ez`` is the electron heat conduction in one dimension and ``S_{loss} = S_{wall} + S_{coll}``, where ``S_{wall}`` represents the loss of electron energy to the thruster walls and ``S_{coll}`` captures the loss of energy to inelastic collisions. These terms are defined as follows:
 
 ```math
-\begin{align}
     q_{ez} &= -\kappa_{e\perp} \nabla_{\perp} T_e\\ 
     \kappa_{e\perp} &\approx \frac{4.7 n_e T_e}{m_e \omega_{ce}^2 \tau_e} \\
     \tau_e &= 1/\nu_e = \frac{1}{\nu_{ei} + \nu_{en} + \nu_{ee} + \nu_{AN}} \\
     S_{coll} &= \sum_{j} n_j \nu_j \Delta \epsilon_j
-\end{align}
 ```
 
 
