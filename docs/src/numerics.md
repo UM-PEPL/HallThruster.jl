@@ -48,13 +48,13 @@ The second order elliptic differential equation for the potential is discretized
 where
 
 ```math
-    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i+1}} &\approx \frac{1}{h}\left(\phi_{i+\frac{3}{2}} - \phi_{i + \frac{1}{2}}\right) + O(h^2)
+    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i+1}} \approx \frac{1}{h}\left(\phi_{i+\frac{3}{2}} - \phi_{i + \frac{1}{2}}\right) + O(h^2)
 ```
 
 similarly
 
 ```math
-    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i}} &\approx \frac{1}{h}\left(\phi_{i + \frac{1}{2}} - \phi_{i-\frac{1}{2}}\right) + O(h^2)
+    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i}} \approx \frac{1}{h}\left(\phi_{i + \frac{1}{2}} - \phi_{i-\frac{1}{2}}\right) + O(h^2)
 ```
 
 results in
