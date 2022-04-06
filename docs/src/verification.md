@@ -4,6 +4,10 @@ Tests can be found in the `test` folder, and are split in `unit_tests` and `orde
 
 ## Landmark
 
-The code has been compared to the Landmark test case for 1D fluid Hall Thruster discharges. The time-averaged behaviour for the three test cases vs HallThruster.jl is shown below.
+The code has been compared to the [Landmark test case](https://www.landmark-plasma.com/test-case-3) for 1D fluid Hall Thruster discharges. The time-averaged behaviour for the three test cases vs HallThruster.jl is shown below.
 
-Insert pictures of 3 test cases. 
+![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case1_rusanov_160cells.jpg)
+
+![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case2_rusanov_160cells.jpg)
+
+![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case3_rusanov_160cells.jpg)
