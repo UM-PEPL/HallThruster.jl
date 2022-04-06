@@ -17,7 +17,7 @@ h\frac{\partial n_n}{\partial t} + \left(F_{_{i+\frac{1}{2}}} - F_{_{i-\frac{1}{
 ```
 See [Fluxes](@ref) for the implemented fluxes, and possible limiters to be used in reconstruction to ensure a total variation diminishing scheme (TVD).
 
-## Time discretization heavy species
+## Time discretization of heavy species
 
 Time integration is handled by [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl). Strong stability preserving Runge Kutta schemes are used by default (specifically `SSPRK22`), but the user is free use other schemes provided by DifferentialEquations.jl.
 
@@ -27,10 +27,14 @@ Keep in mind that following von-Neumann stability analysis for explicit schemes 
     \sigma = \frac{u_i \Delta t}{\Delta x}
 ```
 
-Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cells, results in ``\Delta t \leq 1.2e-8`` s. This is valid for the continuity and isothermal euler equations, due to the heat flux term in the electron energy equation an additional constraint is added. In order to not further increase the timestepping restrictions and increase computational complexity, the electron energy equation is solved semi-implicitly. Setting `dt` and selecting the integration scheme is shown in [Initialization](@ref). 
+Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cells, results in ``\Delta t \leq 1.2 \times 10^{-8}`` s. In practice, it needs to be a bit lower in order to handle transients as the solution oscillates. This restriction is valid for the continuity and isothermal euler equations. Information on setting `dt` and selecting the integration scheme can be found in the [Tutorial](@ref).
 
 
 ## Electron energy equation discretization
+
+While the ions can be explicitly solved with ``$\Delta t \sim 10^{-8}``s, the heat condution term in the electron energy equation adds additional constraints which would lower the timestep by about a factor of 10. In order to not further increase the timestepping restrictions and increase computation time, the electron energy equation is solved semi-implicitly in time using a backward Euler or Crank-Nicholson scheme. See [Configuration](@ref) for information on how to select which scheme is used.
+
+The spatial discretization of the electron energy equation uses central finite differences in a manner similar to the potential solver (see below). This, combined with the semi-implicit timestepping, creates a tridiagonal linear system which can be efficiently solved using the Thomas algorithm.
 
 
 ## Potential solver
