@@ -73,7 +73,7 @@ function initialize!(U, params, ::DefaultInitialization)
     end
 
     ρn_0 = inlet_neutral_density(config)
-
+    # add recombined neutrals
     for Z in 1:config.ncharge
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / config.neutral_velocity
     end
