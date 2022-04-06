@@ -1,11 +1,11 @@
 # Thrusters
 
-Predefined thruster models are specified as a `Thruster` object. The struct has 4 self-explanatory fields: `name` of type `string`, `geometry` of type `HallThruster.Geometry1D`, `magnetic_field` of type `B`, and `shielded` which is a Boolean. You can add your own thrusters. 
+Predefined thruster models are specified as a `Thruster` object. The struct has 4 self-explanatory fields: `name` of type `string`, `geometry` of type `HallThruster.Geometry1D`, `magnetic_field` of type `B` (which can be an arbitrary function of `z`), and `shielded` which is a Boolean. You can easily add your own thrusters. 
 
 ## SPT-100
-For example, the SPT-100 is defined in the following:
+For example, the SPT-100 is defined in the following way:
 
-````markdown
+````julia
 const SPT_100 = Thruster(
     name = "SPT-100",
     geometry = geometry_SPT_100,
@@ -16,7 +16,7 @@ const SPT_100 = Thruster(
 
 while the geometry is defined here
 
-````markdown
+````julia
 const geometry_SPT_100 = Geometry1D(
     inner_radius = 0.0345,
     outer_radius = 0.05,
@@ -26,7 +26,7 @@ const geometry_SPT_100 = Geometry1D(
 
 and the magnetic field profile is approximated as follows
 
-````markdown
+````julia
 function B_field_SPT_100(B_max, L_ch, z)
     B = if z < L_ch
         B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
@@ -39,4 +39,4 @@ end
 
 ## Custom thrusters
 
-You can add your own thruster models by defining the geometry, magnetic field profile and selecting shielded or not. Shielded thrusters are assumed to have lower electron energy losses to the walls, see [Wall Loss Models](@ref). Note that since HallThruster.jl is a 1D code, the `inner_radius` and `outer_radius` merely used for total thrust and discharge current computations (from the specific values) and do not effectively alter the results of a simulation other than in postprocessing. 
+You can add your own thruster models by defining the geometry, magnetic field profile and selecting shielded or not. Shielded thrusters are assumed to have lower electron energy losses to the walls, see [Wall Loss Models](@ref). Note that since HallThruster.jl is a 1D code, the `inner_radius` and `outer_radius` merely used for computing the inlet neutral density and thetotal thrust and discharge current computations (from the specific values). Aside from these, they do not majorly effect the simulation results. 
