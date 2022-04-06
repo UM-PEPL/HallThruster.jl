@@ -43,13 +43,17 @@
         U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:config.ncharge
     ]
 
-    @test ui[1][1] ≈ -sqrt(2/3 * HallThruster.e * config.anode_Te / mi)
-    @test ui[2][1] ≈ -sqrt(2/3 * 2 * HallThruster.e * config.anode_Te / mi)
-    @test ui[3][1] ≈ -sqrt(2/3 * 3 * HallThruster.e * config.anode_Te / mi)
+    @test ui[1][1] ≈ -sqrt(HallThruster.e * config.anode_Te / mi)
+    @test ui[2][1] ≈ -sqrt(2 * HallThruster.e * config.anode_Te / mi)
+    @test ui[3][1] ≈ -sqrt(3 * HallThruster.e * config.anode_Te / mi)
 
-    @test abs(ϵ[1] - config.anode_Te) < 0.1
-    @test abs(ϵ[end] - config.cathode_Te) < 0.1
+    @test abs(2/3 * ϵ[1] - config.anode_Te) < 0.1
+    @test abs(2/3 * ϵ[end] - config.cathode_Te) < 0.1
     
+    struct NewInitialization <: HallThruster.InitialCondition end
+    @test_throws ArgumentError HallThruster.initialize!(U, params, NewInitialization())
+
+    #=
     z_cell = params.z_cell
     xlabel = "z (cm)"
     p1 = plot(z_cell * 100, U[index.ρn, :] ./ mi; xlabel, label = "", title = "Neutral number density (m⁻³)")
@@ -72,6 +76,6 @@
 
     p = plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 600))
     savefig(p, "docs/src/assets/intialization.svg")
-    display(p)
+    display(p)=#
 end
 

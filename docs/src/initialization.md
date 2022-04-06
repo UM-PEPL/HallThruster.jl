@@ -8,6 +8,15 @@ The default is `DefaultInitialization()`, which initializes the solution domain 
 
 ### Ion densities
 
+The ion densities are Gaussian with a constant offset and a scaling factor proportional to the mass flow rate and discharge voltage.  For ions with charge 1, the density is
+$$
+\rho_{i} = 2 \times 10^{17} m_i \sqrt{\frac{V_d}{300}}\frac{\dot{m}}{5\times10^{-6}}\left(1 + 5 \exp\left[-\left(\frac{z - z_0 - L_{ch}/2}{L_{ch}/3}\right)^2\right]\right)
+$$
+For ions with charge `Z`, the density is assumed to scale as
+$$
+\rho_i|_Z = \frac{\rho_i |_{Z=1}}{Z^2}
+$$
+
 ### Ion velocities
 
 Ions are initialized with the Bohm velocity at the anode. For an ion of charge ``Z``, this is
@@ -42,12 +51,13 @@ $$
 ### Electron energy
 
 The number density is computed from the ion densties. The electron temperature is a Gaussian with height $V_d / 10$ eV plus a linear baseline to make sure the boundary conditions are satisfied:
-
-`\epsilon
+$$
+T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + \frac{V_d}{10}\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
+$$
 
 ### Example
 
-For  a simulation of the SPT-100 with $V_d$= 500V, three ion charge states, a a mass flow rate of 3 mg/s, an anode electron temperature of 3 V and a cathode electron temperature of 5 V, the initial condition looks like:
+For  a simulation of the SPT-100 with $V_d$= 500V, three ion charge states, a a mass flow rate of 3 mg/s, an anode electron temperature of 3 eV and a cathode electron temperature of 5 eV, the initial condition looks like:
 
 ![](./assets/initialization.svg)
 
