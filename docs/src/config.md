@@ -5,7 +5,7 @@ The `Config` struct contains all of the options you need to run a simulation. On
 There are five absolutely mandatory arguments. These are:
 
 - `discharge_voltage`: The difference in potential between the anode and cathode, in Volts. This is used to set the left boundary condition. If the cathode potential is zero, then the anode potential is equal to the discharge voltage.
-- `thruster`: This is a `Thruster` object containing important geometric and magnetic information about the thruster being simulated. See the page about Thrusters for more.
+- `thruster`: This is a `Thruster` object containing important geometric and magnetic information about the thruster being simulated. See the page about [Thrusters](@ref) for more.
 - `domain`: This is a Tuple containing the locations of the left and right boundaries of the simulation domain, in meters. For instance, if your simulation domain starts at z = 0.0 and is 5 cm long, you would write `domain = (0.0, 0.05)`.
 - `anode_mass_flow_rate`: The propellant mass flow rate at the anode, in kg/s
 - `initial_condition!`: A function used for initializing the simulation. See the page about [Initialization](initialization.md) for more information.
