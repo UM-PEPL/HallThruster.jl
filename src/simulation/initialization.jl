@@ -73,12 +73,14 @@ function initialize!(U, params, ::DefaultInitialization)
     end
 
     ρn_0 = inlet_neutral_density(config)
-    ρn_1 = 0.01 * ρn_0
-    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z, L_ch / 2, ρn_0, ρn_1)
-    
+
     for Z in 1:config.ncharge
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / config.neutral_velocity
     end
+
+    ρn_1 = 0.01 * ρn_0
+
+    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z, L_ch / 2, ρn_0, ρn_1)
 
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
 
