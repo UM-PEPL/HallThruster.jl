@@ -1,6 +1,6 @@
 # Physics model
 
-HallThruster.jl solves the quasineutral plasma equations of motion for a Hall Thruster along the thruster's channel centerline (the z-axis). We solve seperate models for neutral particles, ions, and electrons. Neutrals are assumed to have constant velocity and temperature and are tracked by a single continuity equation. Ions are assumed isothermal and unmagnetized. Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation. We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law. Charge conservation is then used to solve for the electrostatic potential. The electron temperature is determined by solving an equation for the conservation of electron internal energy. For supported reaction and collision with different gases, see [Configuration](@ref). Xenon is the standard, Krypton is fully supported and in theory any monoatomic gas can be used as propellant in the simulation.
+HallThruster.jl solves the quasineutral plasma equations of motion for a Hall Thruster along the thruster's channel centerline (the z-axis). We solve seperate models for neutral particles, ions, and electrons. Neutrals are assumed to have constant velocity and temperature and are tracked by a single continuity equation. Ions are assumed isothermal and unmagnetized. Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation. We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law. Charge conservation is then used to solve for the electrostatic potential. The electron temperature is determined by solving an equation for the conservation of electron internal energy. The model is based upon the work presented in [K. Hara, *Non-oscillatory quasineutral fluid model of cross-field discharge plasmas*, Physics of Plasmas 25, 123508, 2018](https://aip.scitation.org/doi/pdf/10.1063/1.5055750). See [Configuration](@ref) for supported gases. Xenon is the standard, Krypton is fully supported and in theory any monoatomic gas can be used as propellant in the simulation.
 
 ## Neutrals
 
@@ -95,7 +95,7 @@ In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the 
     \nu_e = \nu_c + \nu_{AN}
 ```
 
-In Hall thrusters, the observed axial/cross-field electron current is significantly higher than that which would result from classical collisions alone (here, ``\nu_c`` represents the classical electron momentum transfer collision frequency). We model this enhanced transport in a fluid framework as an additional ANOMALOUS collision frequency. The purpose of this code is to facilitate the development and testing of models for this important parameter.
+In Hall thrusters, the observed axial/cross-field electron current is significantly higher than that which would result from classical collisions alone (here, ``\nu_c`` represents the classical electron momentum transfer collision frequency, see [Collisions and Reactions](@ref)). We model this enhanced transport in a fluid framework as an additional anomalous collision frequency, see [Anomalous Transport](@ref). The purpose of this code is to facilitate the development and testing of models for this important parameter.
 
 ## Electrostatic potential
 
@@ -112,7 +112,7 @@ current conservation equation
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@ref) into the [`current conservation equation`](@ref) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [axial current equation](@ref) into the [current conservation equation](@ref) and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
@@ -130,42 +130,31 @@ we obtain the following second-order elliptic differential equation for the pote
     \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right) = \frac{\partial}{\partial z}\left(\frac{\mu_{\perp}}{e}\frac{\partial p_e}{\partial z} - \frac{j_{iz}}{e}\right)
 ```
 
-This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in the [potential solver description](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}).
+This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in [Numerics](@ref). 
 
 
 ## Electron energy equation
 
-The electron temperature equation in one dimension is
+The electron internal energy equation in one dimension is
 
 ```math
-    \frac{\partial}{\partial t}\left(\frac{3}{2} n_e k_B T_e\right) + \frac{\partial}{\partial z}\left(\frac{5}{2} n_e k_B T_e u_{ez} + q_{ez}\right) = \frac{\partial p_e }{\partial z} u_{ez} + m_e n_e \nu_e \left|u_e\right|^2 - S_{loss}
+    \frac{\partial}{\partial t}\left(\frac{3}{2} n_e k_B T_e\right) + \frac{\partial}{\partial z}\left(\frac{5}{2} n_e k_B T_e u_{ez} + q_{ez}\right) = 
+    n_e u_{ez} \frac{\partial\phi}{\partial z} - W_{loss} - S_{coll}
 ```
 
-Landmark below
-```math
-     \frac{\partial}{\partial t}\left(\frac{3}{2} n_e k_B T_e\right) + \frac{\partial}{\partial z}\left(\frac{5}{2} n_e k_B T_e u_{ez} - \frac{10}{9}n_e k_B T_e\frac{\partial\frac{3}{2} k_B T_e}{\partial z}\right) = n_e u_{ez} \frac{\partial\phi}{\partial z} - n_e n_n K - n_e W
-```
-
-Here, ``q_ez`` is the electron heat conduction in one dimension and ``S_{loss} = S_{wall} + S_{coll}``, where ``S_{wall}`` represents the loss of electron energy to the thruster walls and ``S_{coll}`` captures the loss of energy to inelastic collisions. These terms are defined as follows:
+Here, ``q_ez`` is the electron heat conduction in one dimension and ``S_{wall}``, see [Wall Loss Models](@ref),  represents the loss of electron energy to the thruster walls and ``S_{coll}``, see [Collisions and Reactions](@ref) captures the loss of energy due to inelastic collisions. The heat transfer terms are defined as follows:
 
 ```math
     q_{ez} &= -\kappa_{e\perp} \nabla_{\perp} T_e\\ 
     \kappa_{e\perp} &\approx \frac{4.7 n_e T_e}{m_e \omega_{ce}^2 \tau_e} \\
     \tau_e &= 1/\nu_e = \frac{1}{\nu_{ei} + \nu_{en} + \nu_{ee} + \nu_{AN}} \\
-    S_{coll} &= \sum_{j} n_j \nu_j \Delta \epsilon_j
 ```
 
+In these expressions, ``\kappa_{e\perp}`` is the cross-field (axial) electron thermal conductivity, for which we employ the Braginskii closure, ``\tau_{e}`` is the electron collision time, ``\nu_j`` is the rate of inelastic collisions between electrons and species ``j`` and ``\Delta \epsilon_j`` is the average energy loss due to such collisions. These latter two parameters are computed using BOLSIG++. The heat transfer terms slightly change when considering the [Landmark case study](https://www.landmark-plasma.com/test-case-3), while the different wall and inelastic collision loss models are described in [Wall Loss Models](@ref) and [Collisions and Reactions](@ref). 
 
-In these expressions, ``\kappa_{e\perp}`` is the cross-field (axial) electron thermal conductivity, for which we employ the Braginskii closure, ``\tau_{e}`` is the electron collision time, ``\nu_j`` is the rate of inelastic collisions between electrons and species ``j`` and ``\Delta \epsilon_j`` is the average energy loss due to such collisions. These latter two parameters are computed using BOLSIG++. The wall loss term ``S_{loss}`` will be defined later. These terms slightly change when considering the [Landmark case study](https://www.landmark-plasma.com/test-case-3).
-
-```math
-\begin{align}
-    W &= \nu_\epsilon \frac{3}{2} k_B T_e exp\left(\frac{-20eV}{\frac{3}{2} k_B T_e}\right)
-\end{align}
-```
 ## Sheath considerations
 
-The grid resolution of HallThruster.jl is much lower than what would be required to resolve plasma sheaths properly, which would require a grid size on the order or lower than the debye lenght. However, the sheath and presheath are important to model Hall Thruster discharges accurately. As this is a 1D axial solver, we do not have any direct fluxes towards the walls, the energy losses can however be taken into account by a source term in the energy equation. This term and the boundary conditions implemented at the anode employ the following presheath approximations and assumptions. They are absolutely critical to replicate experimental Hall Thruster behaviour. 
+HallThruster.jl, being a fluid globally quasineutral model, is not designed to resolve plasma sheaths. However, the sheath and presheath are important to model Hall Thruster discharges accurately. As this is a 1D axial solver, we do not have any direct fluxes towards the walls, the energy losses can however be taken into account by a source term in the energy equation. This term and the boundary conditions implemented at the anode employ the following presheath approximations and assumptions. They are absolutely critical to replicate experimental Hall Thruster behaviour. 
 
 In the following, potential differences ``e\phi`` are assumed to be on the order of the electron temperature ``k T_e``. Furthermore, assume that cold ions fall through an arbitrary potential of ``\phi_0`` while they move towards the wall. Through conservation of energy, their arrival velocity at the sheath edge can be related to the potential difference. 
 
