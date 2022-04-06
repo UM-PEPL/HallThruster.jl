@@ -59,9 +59,7 @@ T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z
 
 For  a simulation of the SPT-100 with ``V_d``= 500V, three ion charge states, a a mass flow rate of 3 mg/s, an anode electron temperature of 3 eV and a cathode electron temperature of 5 eV, the initial condition looks like:
 
-![](https://github.com/UM-PEPL/HallThruster.jl/blob/0aa2beab0797be74a31cfaa56d868d70235645a9/docs/src/assets/intialization.jpg)
-
-
+![](https://github.com/UM-PEPL/HallThruster.jl/blob/main/docs/src/assets/intialization.jpg?raw=true)
 
 ## Custom initial conditions
 
