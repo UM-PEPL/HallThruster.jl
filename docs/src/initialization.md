@@ -1,6 +1,6 @@
 # Initialization
 
-Hall2De provides sensible defaults for simulation initialization, or allows you to specify your own initial condition.
+HallThruster.jl provides sensible defaults for simulation initialization, or allows you to specify your own initial condition.
 
 ## Default
 
