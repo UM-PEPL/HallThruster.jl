@@ -11,8 +11,8 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    bϵ[1] = params.Te_L * ne[1]
-    bϵ[end] = params.Te_R * ne[end]
+    bϵ[1] = 1.5 * params.Te_L * ne[1]
+    bϵ[end] = 1.5 * params.Te_R * ne[end]
 
     @inbounds for i in 2:ncells-1
         Q = source_electron_energy(U, params, i)

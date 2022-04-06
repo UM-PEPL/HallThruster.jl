@@ -30,7 +30,7 @@
 
     mi = config.propellant.m
 
-    u_bohm_1 = sqrt(e * 2/3 * params.Te_L / mi)
+    u_bohm_1 = sqrt(e * params.Te_L / mi)
     u_bohm_2 = sqrt(2) * u_bohm_1
 
     ni_1 = 1e17
