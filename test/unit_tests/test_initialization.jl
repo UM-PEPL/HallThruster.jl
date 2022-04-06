@@ -49,7 +49,7 @@
 
     @test abs(ϵ[1] - config.anode_Te) < 0.1
     @test abs(ϵ[end] - config.cathode_Te) < 0.1
-    #=
+    
     z_cell = params.z_cell
     xlabel = "z (cm)"
     p1 = plot(z_cell * 100, U[index.ρn, :] ./ mi; xlabel, label = "", title = "Neutral number density (m⁻³)")
@@ -71,6 +71,7 @@
     end
 
     p = plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 600))
-    savefig(p, "docs/src/assets/intialization.svg")=#
+    savefig(p, "docs/src/assets/intialization.svg")
+    display(p)
 end
 

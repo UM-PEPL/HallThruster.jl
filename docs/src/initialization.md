@@ -6,7 +6,7 @@ Hall2De provides sensible defaults for simulation initialization, or allows you 
 
 The default is `DefaultInitialization()`, which initializes the solution domain as described in the following sections. Below, $z_0$ and $z_N$ are `domain[1]` and `domain[2]`, as passed into the `Config` object (see [Configuration](@ref)), $L_{ch}$ and $A_{ch}$ are `config.thruster.geometry.channel_length` and `config.thruster.geometry.channel_area`, respectively, and $\dot{m}$ is `config.anode_mass_flow_rate`.
 
-### Plasma density
+### Ion densities
 
 ### Ion velocities
 
@@ -32,19 +32,18 @@ $$
 
 The neutral density at the anode is computed in the same way as during a simulation, namely: 
 $$
-\rho_{n, anode} = \frac{\dot{m}}{u_n A_{ch}} - \sum_s \frac{[\rho_i u_i]_{anode}}{u_n}
+\rho_{n, anode} = \frac{\dot{m}}{u_n A_{ch}} - \sum_s \frac{[\rho_{is} u_{is}]_{anode}}{u_n}
 $$
 The density at the cathode is assumed to be 1/100 that at the anode. In the domain, the neutral density has a sigmoid shape:
 $$
-\rho_n(z) = 
+\rho_n(z) = \frac{1}{2}\left(\rho_{n,anode} + \rho_{n, cathode} + (\rho_{n, anode} - \rho_{n, cathode})\tanh\left(\frac{z - z_0 - L_{ch}/2}{L_{ch} / 6}\right)\right)
 $$
-
-
-
 
 ### Electron energy
 
+The number density is computed from the ion densties. The electron temperature is a Gaussian with height $V_d / 10$ eV plus a linear baseline to make sure the boundary conditions are satisfied:
 
+`\epsilon
 
 ### Example
 

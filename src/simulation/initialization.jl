@@ -52,6 +52,7 @@ function initialize!(U, params, ::DefaultInitialization)
     (;ncharge, anode_Te, cathode_Te, domain, thruster, propellant, discharge_voltage) = config
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
+    z0 = domain[1]
 
     ni_center = z0 + L_ch / 2
     ni_width = L_ch / 3
@@ -59,7 +60,6 @@ function initialize!(U, params, ::DefaultInitialization)
     ni_max = 1.1e18
     ion_density_function = (z, Z) -> mi * (ni_min + (ni_max - ni_min) * exp(-(((z-z0) - ni_center) / ni_width)^2)) / Z^2
 
-    z0 = domain[1]
     bohm_velocity = Z -> -sqrt(Z * e * 2/3 * anode_Te / mi)
 
     final_velocity = Z -> sqrt(2 * Z * e * discharge_voltage / mi)
@@ -87,7 +87,7 @@ function initialize!(U, params, ::DefaultInitialization)
 
     Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Te, cathode_Te)
     Te_min = min(anode_Te, cathode_Te)
-    Te_max = config.discharge_voltage / 10
+    Te_max = 3/2 * (config.discharge_voltage / 10)
     Te_width = L_ch/3
 
     energy_function = z -> Te_baseline(z) + (Te_max - Te_min) * exp(-(((z-z0) - L_ch) / Te_width)^2)
