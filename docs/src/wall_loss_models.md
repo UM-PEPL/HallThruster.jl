@@ -22,4 +22,4 @@ The density relation in the 'WallSheath' model is based upon the electron [`Bolt
 
 The effect on magnetic shielding on the electron energy can be seen below. Compared are time-averaged electron energy profiles for a Xenon SPT-100 type thruster using Boron Nitride walls.
 
-![unshielded_vs_shielded](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/shielded_vs_unshielded_BN_Xenon)
+![unshielded_vs_shielded](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/shielded_vs_unshielded_BN_Xenon.jpg)
