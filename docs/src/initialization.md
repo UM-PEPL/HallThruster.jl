@@ -50,7 +50,7 @@ $$
 
 ### Electron energy
 
-The number density is computed from the ion densties. The electron temperature is a Gaussian with height $V_d / 10$ eV plus a linear baseline to make sure the boundary conditions are satisfied:
+The number density is computed from the ion densities. The electron temperature is a Gaussian with height $V_d / 10$ eV plus a linear baseline to make sure the boundary conditions are satisfied:
 $$
 T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + \frac{V_d}{10}\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
 $$
