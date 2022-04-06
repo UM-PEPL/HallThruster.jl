@@ -4,7 +4,7 @@ HallThruster.jl allows you to choose from a few different models for ionization,
 
 ## Background
 
-All collisions and reactions in HallThruster.jl are handled via the `Reaction` interface. This is an abstract type with three subtypes: `IonizationReaction`, `ExcitationReaction`, and `ElasticScattering`.
+Most collisions in HallThruster.jl are handled via the `Reaction` interface. This is an abstract type with three subtypes: `IonizationReaction`, `ExcitationReaction`, and `ElasticScattering`.
 
 The core of the ionization model in HallThruster.jl is the `IonizationReaction` struct. It has four fields: `energy`,  `reactant`, `product`, and `rate_coeff`. The first is of type `Float64` and is the ionization energy of the given reaction in eV. The next two are `Species` objects, while the last is an arbitrary function. This `rate_coeff` computes the ionization reaction rate coefficient (in m^3/s) provided the electron energy (in eV).  It is used in heavy species source terms in order to compute the production or destruction of the `reactant` and `product` due to ionization, and in the electron energy equation in order to compute electron energy losses due to inelastic ionization collisions.
 

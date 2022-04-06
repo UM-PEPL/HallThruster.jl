@@ -84,7 +84,7 @@ end
 
 end
 
-@testset "Array allocation and solution initialization" begin
+@testset "Array allocation" begin
     ncells = 17
     domain = (0.0, 0.08)
     thruster = HallThruster.SPT_100
@@ -129,24 +129,6 @@ end
 
     @test A isa Tridiagonal
     @test Aϵ isa Tridiagonal
-
-    function IC_test!(U, z, fluids, L)
-        U .= 2.0
-    end
-
-    HallThruster.initial_condition!(U, grid.cell_centers, IC_test!, fluids)
-
-    @test all(==(2.0), U)
-
-    function IC_test_2!(U, z, fluids, L)
-        U .= z
-    end
-
-    HallThruster.initial_condition!(U, grid.cell_centers, IC_test_2!, fluids)
-
-    for i in 1:nvars
-        @test U[i, :] ==  grid.cell_centers
-    end
 end
 
 @testset "Transition functions" begin

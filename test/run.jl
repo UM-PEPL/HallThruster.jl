@@ -30,42 +30,6 @@ end
     return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
 end
 
-function IC!(U, z, fluids, L) #for testing light solve, energy equ is in eV*number*density
-    mi = fluids[1].species.element.m
-    un = 150.0
-    #ρn = 5e-6/0.004/abs(un) - z / L * 5e-6/0.004/abs(un)
-    ρn0 = 5e-6/0.004/abs(un)
-    z1 = L/7
-    z2 = L/2.5
-    ρn = if z < z1
-        ρn0
-    elseif z < z2
-        ρn0 - (z - z1) * (0.999 * ρn0) / (z2 - z1)
-    else
-        ρn0 / 1000
-    end
-    ui = if z < L/2 
-        -1000 + 80000(z/L)^2
-    else
-        15000 + 10000z/L
-    end
-
-    ρi = mi * (2e17 + 9e17 * exp(-(4 * (z - L/4) / 0.033)^2))
-    Tev = 3 + 37 * exp(-(2 * (z - L/2) / 0.023)^2)
-    ne = ρi / mi
-
-    ncharge = maximum(f.species.Z for f in fluids)
-
-    if ncharge == 1
-        U .= [ρn, ρi, ρi*ui, ne*Tev]
-    elseif ncharge == 2
-        U .= [ρn, ρi, ρi*ui, ρi/100, ρi/100 * sqrt(2) * ui, ne * Tev]
-    elseif ncharge == 3
-        U .= [ρn, ρi, ρi*ui, ρi/100, ρi/100 * sqrt(2) * ui, ρi/100, ρi/100 * sqrt(3) * ui, ne * Tev]
-    end
-    return U
-end
-
 
 function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,

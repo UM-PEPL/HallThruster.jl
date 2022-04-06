@@ -101,3 +101,19 @@ function _load_reactions(model::ReactionModel, species)
     check_charge_states(model, species)
     load_reactions(model, species)
 end
+
+function reactant_indices(reactions, species_range_dict)
+    reactant_indices = zeros(Int, length(reactions))
+    for (i, reaction) in enumerate(reactions)
+        reactant_indices[i] = species_range_dict[reaction.reactant.symbol][1]
+    end
+    return reactant_indices
+end
+
+function product_indices(reactions, species_range_dict)
+    product_indices = zeros(Int, length(reactions))
+    for (i, reaction) in enumerate(reactions)
+        product_indices[i] = species_range_dict[reaction.product.symbol][1]
+    end
+    return product_indices
+end

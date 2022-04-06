@@ -42,12 +42,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function initial_condition!(U, z_cell, IC!, fluids)
-    for (i, z) in enumerate(z_cell)
-        @views IC!(U[:, i], z, fluids, z_cell[end])
-    end
-end
-
 function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)

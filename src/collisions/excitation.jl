@@ -83,5 +83,5 @@ function load_reactions(model::LandmarkExcitationLookup, species)
     # loss coefficient from the inelastic loss term
     k_excitation = @. (k_loss - ionization_energy * k_iz) / excitation_energy
     rate_coeff = LinearInterpolation(ϵ, k_excitation)
-    return ExcitationReaction(excitation_energy, Xenon(0), rate_coeff)
+    return [ExcitationReaction(excitation_energy, Xenon(0), rate_coeff)]
 end
