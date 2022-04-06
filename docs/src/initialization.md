@@ -4,17 +4,41 @@ Hall2De provides sensible defaults for simulation initialization, or allows you 
 
 ## Default
 
-The default is `DefaultInitialization()`, which initializes the solution domain in the following way
-
-### Neutral density
-
-
+The default is `DefaultInitialization()`, which initializes the solution domain as described in the following sections. Below, $z_0$ and $z_N$ are `domain[1]` and `domain[2]`, as passed into the `Config` object (see [Configuration](@ref)), $L_{ch}$ and $A_{ch}$ are `config.thruster.geometry.channel_length` and `config.thruster.geometry.channel_area`, respectively, and $\dot{m}$ is `config.anode_mass_flow_rate`.
 
 ### Plasma density
 
-
-
 ### Ion velocities
+
+Ions are initialized with the Bohm velocity at the anode. For an ion of charge ``Z``, this is
+$$
+u_i[1] = -u_{bohm} =- \sqrt{\frac{Z \;e\;T_{eV, anode}}{m_i}}
+$$
+
+
+The maximum ion velocity is determined by the discharge voltage ``V_d``:
+$$
+u_i[\mathrm{end}] = u_{max} = \sqrt{\frac{2 \;Z \;e \; V_d}{m_i}}
+$$
+The initial ion velocity profile between the cathode and the anode is then prescribed as:
+$$
+u_i(z) = \begin{cases}
+	u_{bohm} + \frac{2}{3}(u_{max} - u_{bohm})\left(\frac{z - z_0}{L_{ch}}\right)^2 & z-z_0 < L_{ch} \\
+	\frac{1}{3}\left(u_{bohm} + u_{max}\right)\left(1 - \frac{z - z_0 - L_{ch}}{z_N - L_{ch}}\right) + u_{max}\left(\frac{z - z_0 - L_{ch}}{z_N - L_{ch}}\right) & z - z_0 \ge L_{ch}
+\end{cases}
+$$
+
+### Neutral density
+
+The neutral density at the anode is computed in the same way as during a simulation, namely: 
+$$
+\rho_{n, anode} = \frac{\dot{m}}{u_n A_{ch}} - \sum_s \frac{[\rho_i u_i]_{anode}}{u_n}
+$$
+The density at the cathode is assumed to be 1/100 that at the anode. In the domain, the neutral density has a sigmoid shape:
+$$
+\rho_n(z) = 
+$$
+
 
 
 
@@ -24,11 +48,9 @@ The default is `DefaultInitialization()`, which initializes the solution domain 
 
 ### Example
 
-
-
 For  a simulation of the SPT-100 with $V_d$= 500V, three ion charge states, a a mass flow rate of 3 mg/s, an anode electron temperature of 3 V and a cathode electron temperature of 5 V, the initial condition looks like:
 
-![initialization_img](./assets/initialization.svg)
+![](./assets/initialization.svg)
 
 ## Custom initial conditions
 

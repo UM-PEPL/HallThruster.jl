@@ -49,24 +49,25 @@ end
 
 function initialize!(U, params, ::DefaultInitialization)
     (;z_cell, config, index) = params
-    (;ncharge, anode_Te, cathode_Te, domain, thruster, propellant, anode_mass_flow_rate, discharge_voltage) = config
+    (;ncharge, anode_Te, cathode_Te, domain, thruster, propellant, discharge_voltage) = config
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
 
-    ni_center = L_ch / 2
+    ni_center = z0 + L_ch / 2
     ni_width = L_ch / 3
     ni_min = 2e17
     ni_max = 1.1e18
-    ion_density_function = (z, Z) -> mi * (ni_min + (ni_max - ni_min) * exp(-((z - ni_center) / ni_width)^2)) / Z^2
+    ion_density_function = (z, Z) -> mi * (ni_min + (ni_max - ni_min) * exp(-(((z-z0) - ni_center) / ni_width)^2)) / Z^2
 
+    z0 = domain[1]
     bohm_velocity = Z -> -sqrt(Z * e * 2/3 * anode_Te / mi)
 
     final_velocity = Z -> sqrt(2 * Z * e * discharge_voltage / mi)
     scale(Z) = 2/3 * (final_velocity(Z) - bohm_velocity(Z))
-    ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * (z / L_ch)^2
-    ion_velocity_f2(z, Z) = lerp(z, L_ch, domain[2], ion_velocity_f1(L_ch, Z), final_velocity(Z))
+    ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * ((z-z0) / L_ch)^2
+    ion_velocity_f2(z, Z) = lerp(z, z0 + L_ch, domain[2], ion_velocity_f1(L_ch, Z), final_velocity(Z))
 
-    ion_velocity_function = (z, Z) -> if z < L_ch
+    ion_velocity_function = (z, Z) -> if z - z0 < L_ch
         ion_velocity_f1(z, Z)
     else
         ion_velocity_f2(z, Z)
@@ -80,7 +81,7 @@ function initialize!(U, params, ::DefaultInitialization)
 
     ρn_1 = 0.01 * ρn_0
 
-    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z, L_ch / 2, ρn_0, ρn_1)
+    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z-z0, L_ch / 2, ρn_0, ρn_1)
 
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
 
@@ -89,7 +90,7 @@ function initialize!(U, params, ::DefaultInitialization)
     Te_max = config.discharge_voltage / 10
     Te_width = L_ch/3
 
-    energy_function = z -> Te_baseline(z) + (Te_max - Te_min) * exp(-((z - L_ch) / Te_width)^2)
+    energy_function = z -> Te_baseline(z) + (Te_max - Te_min) * exp(-(((z-z0) - L_ch) / Te_width)^2)
 
     # Fill the state vector
     for (i, z) in enumerate(z_cell)
