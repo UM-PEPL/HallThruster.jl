@@ -71,7 +71,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         cathode_Te = 2/3 * ϵ_cathode,
         discharge_voltage = 300.0,
         excitation_model = HallThruster.LandmarkExcitationLookup(),
-        wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, αϵ_in, αϵ_out),
+        wall_loss_model = HallThruster.ConstantSheathPotential(-20, αϵ_in, αϵ_out),
         wall_collision_freq = αw * 1e7,
         implicit_energy = implicit_energy,
         transition_function = transition,
@@ -100,4 +100,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=200, nsave=1000, case = 1, dt = 0.8e-8);
+sol = run_sim(1e-3; ncells=200, nsave=1000, case = 1, dt = 0.7e-8);
