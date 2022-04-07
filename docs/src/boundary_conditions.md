@@ -1,6 +1,6 @@
 # Boundary Conditions
 
-HallThruster.jl solves fluid hyperbolic conservation laws. As such, boundary conditions on at least one side have to be specified. Dirichlet boundary conditions on both sides in the potential equation. 
+HallThruster.jl solves fluid hyperbolic conservation laws. As such, boundary conditions on at least one side have to be specified. Dirichlet boundary conditions are applied on both sides in the potential equation. 
 
 ## Background
 
