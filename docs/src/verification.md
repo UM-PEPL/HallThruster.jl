@@ -1,7 +1,5 @@
 # Verification
 
-Hello world!
-
 Tests can be found in the `test` folder, and are split in `unit_tests` and `order_verification` tests. The [julia Test environment](https://docs.julialang.org/en/v1/stdlib/Test/) is used. We verify that the PDEs are discretized correctly  using the Method of Manufactured Solutions and perform order verification studies in order to ensure that the actual order of accuracy matches the predicted order.  For more details on the discretization, see [Fluxes](@ref) and [Numerics](@ref).
 
 ## Landmark
