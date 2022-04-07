@@ -840,12 +840,6 @@ git-tree-sha1 = "bcaef4fc7a0cfe2cba636d84cda54b5e4e4ca3cd"
 uuid = "d125e4d3-2237-4719-b19c-fa641b8a4667"
 version = "0.1.8"
 
-[[deps.MarchingCubes]]
-deps = ["StaticArrays"]
-git-tree-sha1 = "5f768e0a0c3875df386be4c036f78c8bd4b1a9b6"
-uuid = "299715c1-40a9-479a-aaf9-4a633d36f717"
-version = "0.1.2"
-
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
@@ -969,12 +963,6 @@ git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.5+0"
 
-[[deps.Optim]]
-deps = ["Compat", "FillArrays", "ForwardDiff", "LineSearches", "LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "PositiveFactorizations", "Printf", "SparseArrays", "StatsBase"]
-git-tree-sha1 = "bc0a748740e8bc5eeb9ea6031e6f050de1fc0ba2"
-uuid = "429524aa-4258-5aef-a3af-852621145aeb"
-version = "1.6.2"
-
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51a08fb14ec28da2ec7a927c4337e4332c2a4720"
@@ -1066,12 +1054,6 @@ deps = ["DataAPI", "Future"]
 git-tree-sha1 = "db3a23166af8aebf4db5ef87ac5b00d36eb771e2"
 uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 version = "1.4.0"
-
-[[deps.PositiveFactorizations]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "17275485f373e6673f7e7f97051f703ed5b15b20"
-uuid = "85a6dd25-e78a-55b7-8502-1745935b8125"
-version = "0.2.4"
 
 [[deps.PreallocationTools]]
 deps = ["Adapt", "ArrayInterface", "ForwardDiff", "LabelledArrays"]
@@ -1248,12 +1230,6 @@ version = "0.9.4"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
-
-[[deps.SodShockTube]]
-deps = ["Documenter", "NLsolve", "PartialFunctions"]
-git-tree-sha1 = "7e50636e09bba0761d065118d364799904b40507"
-uuid = "2160a001-e9fc-4c63-b529-f2c7ec8d982c"
-version = "1.0.3"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
@@ -1448,18 +1424,6 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
-
-[[deps.UnicodePlots]]
-deps = ["Contour", "Crayons", "Dates", "LinearAlgebra", "MarchingCubes", "NaNMath", "SparseArrays", "StaticArrays", "StatsBase", "Unitful"]
-git-tree-sha1 = "1785494cb9484f9ab05bbc9d81a2d4de4341eb39"
-uuid = "b8865327-cd53-5732-bb35-84acbb429228"
-version = "2.9.0"
-
-[[deps.Unitful]]
-deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "b649200e887a487468b71821e2644382699f1b0f"
-uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.11.0"
 
 [[deps.Unzip]]
 git-tree-sha1 = "34db80951901073501137bdbc3d5a8e7bbd06670"
