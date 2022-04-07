@@ -1,12 +1,5 @@
 abstract type Reaction end
 
-"""
-    load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}
-Load ionization reactions for the provided species and ionization model
-"""
-@inline load_reactions(model::ReactionModel, species) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
-
-
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
         joinpath(folder, join([reaction_type, repr(reactant)], "_") * ".dat")
@@ -68,6 +61,12 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
 end
 
 abstract type ReactionModel end
+
+"""
+    load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}
+Load ionization reactions for the provided species and ionization model
+"""
+@inline load_reactions(model::ReactionModel, species) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
 
 function check_species(model::ReactionModel, species)
     supported = supported_gases(model)
