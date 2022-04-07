@@ -6,7 +6,7 @@
 | [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://UM-PEPL.github.io/HallThruster.jl/dev) | [![CI](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/UM-PEPL/HallThruster.jl/branch/main/graph/badge.svg?token=cEoGN49eZp)](https://codecov.io/gh/UM-PEPL/HallThruster.jl)|
 
 
-HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia. It was initially developed by the University of Michigan's [Plasmadynamics and Electric Propulsion Laboratory](https://pepl.engin.umich.edu) and is licensed under the MIT license.
+HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia. It was initially developed by the University of Michigan's [Plasmadynamics and Electric Propulsion Laboratory](https://pepl.engin.umich.edu) and is licensed under the MIT license. 
 
 ## Installation
 
