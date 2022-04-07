@@ -10,16 +10,14 @@ using LinearAlgebra
 using FileIO
 using DiffEqCallbacks
 using SparseArrays
-using ForwardDiff
 using Term
 using PartialFunctions
 import Term.progress: track, ProgressBar, update, start, stop
 import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
 import Term.measure: Measure  # to define the column's size
-using MuladdMacro
-using SpecialFunctions
 using QuadGK
+using DelimitedFiles
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
@@ -60,5 +58,6 @@ include("simulation/sourceterms.jl")
 include("simulation/update_values.jl")
 include("simulation/configuration.jl")
 include("simulation/simulation.jl")
+include("plotting.jl")
 
 end # module

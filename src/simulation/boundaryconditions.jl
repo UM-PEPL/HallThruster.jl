@@ -19,6 +19,7 @@ function left_boundary_state!(bc_state, U, params)
 
         # Enforce Bohm condition
         boundary_velocity = min(-sqrt(Z) * bohm_velocity, boundary_velocity)
+        # Second derivative of density is zero at the boundary
         boundary_density = -(c1 * ρ1 + c2 * ρ2) / c0 #max(mi * params.config.min_number_density, boundary_flux / boundary_velocity)
 
         bc_state[index.ρn] -= (boundary_density * boundary_velocity) / un

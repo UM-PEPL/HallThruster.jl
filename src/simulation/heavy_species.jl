@@ -38,7 +38,6 @@ function update_heavy_species!(dU, U, params, t)
                     SA[F[index.ρi[Z], i+1], F[index.ρiui[Z], i+1]],
                     SA[F[index.ρi[Z], i+2], F[index.ρiui[Z], i+2]],
                 )
-                
             end
         end
     end
@@ -65,7 +64,6 @@ function update_heavy_species!(dU, U, params, t)
 
         apply_ion_acceleration!(dU, U, params, i)
         apply_reactions!(dU, U, params, i)
-
     end
 
     return nothing

@@ -4,7 +4,7 @@ Effective frequency of electron scattering caused by collisions with neutrals
 """
 function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Number, Tev::Number) where T
     νen = 0.0
-    for c in collisions
+    @inbounds for c in collisions
         νen += c.rate_coeff(3/2 * Tev) * nn
     end
     return νen
@@ -13,7 +13,6 @@ end
 function freq_electron_neutral(U::Matrix{T}, params, i::Int) where T
     (;index) = params
     nn = U[index.ρn, i] / params.config.propellant.m
-    ne = params.cache.ne[i]
     Tev = params.cache.Tev[i]
     return freq_electron_neutral(params.electron_neutral_collisions, nn, Tev)
 end

@@ -16,7 +16,7 @@ function flux(U::SVector{2, T}, fluid, pe = 0.0) where T
     u = velocity(U, fluid)
     p = pressure(U, fluid)
 
-    return SA[ρu, @muladd ρu * u + p + pe]
+    return SA[ρu, ρu * u + p + pe]
 end
 
 function flux(U::SVector{3, T}, fluid, pe = 0.0) where T
@@ -65,8 +65,8 @@ for NUM_CONSERVATIVE in 1:3
 
         charge_factor = Z * e * coupled
 
-        @muladd aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-        @muladd aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+         aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+         aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
         sL_max = max(abs(uL - aL), abs(uL + aL), #=abs(uL)=#)
         sR_max = max(abs(uR - aR), abs(uR + aR), #=abs(uR)=#)
@@ -162,8 +162,8 @@ function compute_edge_states!(UL, UR, U, scheme)
                 ∇u = uᵢ - u₋
                 r = Δu / ∇u
 
-                @muladd UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-                @muladd UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+                 UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
+                 UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
             else
                 UL[j, right_edge(i)] = U[j, i]
                 UR[j, left_edge(i)]  = U[j, i]
@@ -198,8 +198,8 @@ function compute_fluxes!(F, UL, UR, U, params)
         for Z in 1:ncharge
             ni_L = UL[index.ρi[Z], i] / mi
             ni_R = UR[index.ρi[Z], i] / mi
-            @muladd neL = neL + Z * ni_L
-            @muladd neR = neR + Z * ni_R
+             neL = neL + Z * ni_L
+             neR = neR + Z * ni_R
         end
 
         # Compute electron temperature
