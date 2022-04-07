@@ -1,12 +1,5 @@
-#solve electron issues
-#1) get rid of electron source terms, no heat conduction, and put the fluxes in explicit solve. Set electron velocity to a constant. See if this does indeed run and plot solution over time, set electron solve to false.
-#2) if above works, do MMS with that.
-
-
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
 using OrdinaryDiffEq, PartialFunctions
-
-include("plotting.jl")
 
 
 struct DataDriven <: HallThruster.ZeroEquationModel
@@ -83,7 +76,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         thruster = HallThruster.SPT_100,
         anode_mass_flow_rate = 5e-6,
         scheme,
-        electron_neutral_model,
+        electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
+        electron_ion_collisions = false,
         ionization_model,
         domain,
         energy_equation,
@@ -100,4 +94,4 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-3; ncells=200, nsave=1000, case = 1, dt = 0.7e-8);
+sol = run_sim(1e-3; ncells=200, nsave=1000, case = 3, dt = 0.7e-8);

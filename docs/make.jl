@@ -22,7 +22,8 @@ makedocs(
         ],
         "Numerics" => "numerics.md",
         "Verification" => "verification.md",
-        "Internals" => "internals.md"
+        "Internals" => "internals.md",
+        "Contribution" => "contribution.md"
     ],
 )
 
