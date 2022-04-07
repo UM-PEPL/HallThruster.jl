@@ -14,9 +14,10 @@ Landmark energy loss term:
 where
 
 ```math
-    \nu_\epsilion = 
+    \nu_\epsilion = \begin{cases}
         \alpha_1 \times 10^7 & z \leq L_{ch} \\
         \alpha_2 \times 10^7 & z > L_{ch}
+    \end{cases}
 ```
 
 In the following, ``L_{ch}`` refers to the axial position of the thruster exit plane. 
