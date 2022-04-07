@@ -57,5 +57,6 @@ include("simulation/sourceterms.jl")
 include("simulation/update_values.jl")
 include("simulation/configuration.jl")
 include("simulation/simulation.jl")
+include("plotting.jl")
 
 end # module
