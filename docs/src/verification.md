@@ -1,6 +1,6 @@
 # Verification
 
-Tests can be found in the `test` folder, and are split in `unit_tests` and `order_verification` tests. The [julia Test environment](https://docs.julialang.org/en/v1/stdlib/Test/) is used. We verify that the PDEs are discretized correctly  using the Method of Manufactured Solutions and perform order verification studies in order to ensure that the actual order of accuracy matches the predicted order.  For more details on the discretization, see [Fluxes and Numerics](@ref).
+Tests can be found in the `test` folder, and are split in `unit_tests` and `order_verification` tests. The [julia Test environment](https://docs.julialang.org/en/v1/stdlib/Test/) is used. We verify that the PDEs are discretized correctly  using the Method of Manufactured Solutions and perform order verification studies in order to ensure that the actual order of accuracy matches the predicted order.  For more details on the discretization, see [Fluxes](@ref) and [Numerics](@ref).
 
 ## Landmark
 
@@ -8,18 +8,26 @@ In addition to the MMS studies discussed above, we also compare the results to t
 
 Landmark energy loss term:
 ```math
-    W = \nu_\epsilon \exp\left(\frac{-20}{T_{ev}}\right)
+    W = \nu_\epsilon \exp\left(\frac{-20}{\epsilon}\right)
 ```
 
 where
 
 ```math
-    \nu_\epsilion = 
-        \alpha_1 \times 10^7 & z \leq L_{ch} \\
-        \alpha_2 \times 10^7 & z > L_{ch}
+    \nu_{\epsilon}=
+    \begin{cases}
+        \alpha_1 \times 10^7 & z - z_0 \leq L_{ch} \\
+        \alpha_2 \times 10^7 & z - z_0 > L_{ch}
+    \end{cases}
 ```
 
-In the following, ``L_{ch}`` refers to the axial position of the thruster exit plane. 
+and
+
+```math
+\epsilon = \frac{3}{2} T_{ev}
+```
+
+In the above, ``L_{ch}`` refers to thruster channel length and ``z_0`` is `domain[1]`, or the z-location of the anode.
 
 Case 1
 ``\; \; \alpha_1 = 1.0, \alpha_2 = 1.0``

@@ -34,8 +34,8 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     )
 
     un = 150.0
-    Tn = 0.0
-    Ti = 0.0
+    Tn = 300.0
+    Ti = 1000.0
 
     domain = (0.0, L)
 

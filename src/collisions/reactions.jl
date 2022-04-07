@@ -62,6 +62,12 @@ end
 
 abstract type ReactionModel end
 
+"""
+    load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}
+Load ionization reactions for the provided species and ionization model
+"""
+@inline load_reactions(model::ReactionModel, species) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
+
 function check_species(model::ReactionModel, species)
     supported = supported_gases(model)
     if length(supported) > 0

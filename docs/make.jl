@@ -7,6 +7,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Tutorial" => "tutorial.md",
+        "Background" => "background.md",
         "Physics model" => "physics.md",
         "Configuration" => [
             "config.md",
@@ -23,7 +24,8 @@ makedocs(
         "Numerics" => "numerics.md",
         "Verification" => "verification.md",
         "Internals" => "internals.md",
-        "Contribution" => "contribution.md"
+        "Contribution" => "contribution.md",
+        "Citation" => "citation.md"
     ],
 )
 

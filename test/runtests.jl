@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra
+using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra, DelimitedFiles
 
 doctest(HallThruster)
 
@@ -16,8 +16,8 @@ include("unit_tests/test_initialization.jl")
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_potential.jl")
     refinements = refines(4, 10, 2)
-
     # check that first-order convergence is maintained for L1, L2, and L∞ norms
+
     for p in (1, 2, Inf)
         (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
         (slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)

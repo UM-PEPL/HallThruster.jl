@@ -16,13 +16,6 @@ end
 
 abstract type ExcitationModel <: ReactionModel end
 
-function load_excitation_reactions(model::ExcitationModel, species)
-    check_species(model, species)
-    load_reaction(model, species)
-end
-
-load_reactions(model::ExcitationModel) = throw(ArgumentError("load_reactions(model::$(typeof(model)), species) not yet implemented."))
-
 """
     NoExcitation <: ExcitationModel
 Model for neglecting excitation energy losses
