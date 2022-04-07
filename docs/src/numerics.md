@@ -39,7 +39,7 @@ The spatial discretization of the electron energy equation uses central finite d
 
 ## Potential solver
 
-The second order elliptic differential equation for the potential is discretized using a second order centered difference scheme, with all derivatives appearing approximated in a similar fashion. The values are solved for on the edges of the fluid cells, leading to a staggered grid and avoiding interpolation for the most part. The tridiagonal system `\underline{\underline{A}} \underline{x} = \underline{b}` is then solved. The left hand side of the potential equation, see [Physics model](@ref) is discretized as follows, the indexing refers to the fluid discretization: 
+The second order elliptic differential equation for the potential is discretized using a second order centered difference scheme, with all derivatives appearing approximated in a similar fashion. The values are solved for on the edges of the fluid cells, leading to a staggered grid and avoiding interpolation for the most part. The tridiagonal system ``\underline{\underline{A}} \underline{x} = \underline{b}`` is then solved. The left hand side of the potential equation, see [Physics model](@ref) is discretized as follows, the indexing refers to the fluid discretization: 
 
 ```math
     \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right)\bigg\vert^\delta_{_{i + \frac{1}{2}}} \approx \frac{1}{h} \left(\left(\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i+1}}\right) - \left(\mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i} \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i}}\right) \right) + O(h^2)
@@ -63,7 +63,7 @@ results in
     \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right)\bigg\vert^\delta_{_{i}} \approx \frac{1}{h^2} \left(\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} \phi_{i + \frac{3}{2}} - (\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} + \mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i}) \phi_{i + \frac{1}{2}} + \mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i} \phi_{i - \frac{1}{2}}\right)  + O(h^2)
 ```
 
-The left hand side is incorporated into a `\mathrm{NxN}` matrix A, while the RHS is added to the vector b and `N = n_{cells} + 1`. This results in a tridiagonal matrix that is diagonally dominant, and can therefore be solved using the Thomas algorithm at a computational expense of O(`N`), rather than O(`N^3`) for standard Gaussian elimination. The implementation can be found [here](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}). 
+The left hand side is incorporated into a ``\mathrm{NxN}`` matrix A, while the RHS is added to the vector b and ``N = n_{cells} + 1``. This results in a tridiagonal matrix that is diagonally dominant, and can therefore be solved using the Thomas algorithm at a computational expense of O(``N``), rather than O(``N^3``) for standard Gaussian elimination. The implementation can be found [here](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}). 
 
 ## Evaluation of derivatives
 
@@ -74,7 +74,7 @@ Some computations require the numerical approximation of derivatives, for exampl
 The generalized Ohm's law described in [Physics Model](@ref) can be rewritten in the following assuming only one charge state for simplicity.
 
 ```math
-E &= \frac{-u_{e}}{\mu} - \frac{1}{en_i}\nabla (n_i k_B T_e)
+E = \frac{-u_{e}}{\mu} - \frac{1}{en_i}\nabla (n_i k_B T_e)
 ```
 
 Substituting above expression into the ion momentum equation results in 

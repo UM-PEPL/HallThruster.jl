@@ -85,8 +85,8 @@ axial current equation
 ```
 
 ```math
-    j_{ez} &= \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(E_z + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\\
-    j_{e\theta} &= \Omega_e j_{ez}
+    j_{ez} = \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(E_z + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\\
+    j_{e\theta} = \Omega_e j_{ez}
 ```
 
 In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the Hall parameter, or the ratio of the electron cyclotron frequency to the total electron momentum transfer collision frequency, and measures how well-magnetized the electrons are. Finally, we introduce the anomalous collision frequency (``\nu_{AN}``):
@@ -106,9 +106,9 @@ current conservation equation
 ```
 
 ```math
-    \sigma &= \sum_{j=1}^3 j\;n_{ij} - n_e \\
-    j_{iz} &=  \sum_{j=1}^3 j\;n_{ij} u_{ij} \\
-    \frac{\partial \sigma}{\partial t} &+ \frac{\partial}{\partial z}\left(j_{iz} - j_{ez}\right) = 0
+    \sigma = \sum_{j=1}^3 j\;n_{ij} - n_e \\
+    j_{iz} =  \sum_{j=1}^3 j\;n_{ij} u_{ij} \\
+    \frac{\partial \sigma}{\partial t} + \frac{\partial}{\partial z}\left(j_{iz} - j_{ez}\right) = 0
 ```
 
 
