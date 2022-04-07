@@ -10,14 +10,12 @@ using LinearAlgebra
 using FileIO
 using DiffEqCallbacks
 using SparseArrays
-using ForwardDiff
 using Term
 using PartialFunctions
 import Term.progress: track, ProgressBar, update, start, stop
 import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
 import Term.measure: Measure  # to define the column's size
-using MuladdMacro
 using SpecialFunctions
 using QuadGK
 
