@@ -17,6 +17,7 @@ import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
 import Term.measure: Measure  # to define the column's size
 using QuadGK
+using DelimitedFiles
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)

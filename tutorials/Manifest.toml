@@ -542,7 +542,7 @@ version = "0.9.17"
 
 [[deps.HallThruster]]
 deps = ["BenchmarkTools", "CSV", "DataFrames", "DelimitedFiles", "DiffEqBase", "DiffEqCallbacks", "Documenter", "FFTW", "FileIO", "JLD2", "LinearAlgebra", "LoopVectorization", "OrdinaryDiffEq", "Parsers", "PartialFunctions", "Plots", "Printf", "QuadGK", "SparseArrays", "StaticArrays", "Statistics", "Symbolics", "Term"]
-git-tree-sha1 = "bf9921c7e0508051ba21c9ec92b1b16c81a78657"
+git-tree-sha1 = "184e66b71a5dd36ee552cb97119b3d99c76337a5"
 repo-rev = "main"
 repo-url = "https://github.com/UM-PEPL/HallThruster.jl"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
