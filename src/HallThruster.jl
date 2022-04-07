@@ -16,7 +16,6 @@ import Term.progress: track, ProgressBar, update, start, stop
 import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
 import Term.style: apply_style  # to style strings
 import Term.measure: Measure  # to define the column's size
-using SpecialFunctions
 using QuadGK
 
 # path to the HallThruster directory

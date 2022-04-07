@@ -33,7 +33,7 @@ As we allow for multiple ion charge states, `source_ion_continuity` and `source_
     false
     ```
 
-    Better would be to use FunctionWrappers or to implement a callable singleton type, as shown below:
+    Better would be to implement a callable type, as shown below:
 
     ```julia
     struct MySource
