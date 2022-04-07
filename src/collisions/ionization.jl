@@ -18,12 +18,6 @@ end
 abstract type IonizationModel <: ReactionModel end
 
 """
-    load_reactions(model::IonizationModel, species)::Vector{IonizationReaction}
-Load ionization reactions for the provided species and ionization model
-"""
-@inline load_reactions(i::IonizationModel, species) = throw(ArgumentError("Function load_reactions(model, species) not implemented for $(typeof(i))."))
-
-"""
     IonizationLookup(;[directories::Vector{String} = String[]])
 Default ionization model for HallThruster.jl.
 Reads ionization rate coefficients from file. Looks (preferentially) in provided directories and in the reactions subfolder for rate coefficient files

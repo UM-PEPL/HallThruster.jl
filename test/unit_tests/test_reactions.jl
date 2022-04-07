@@ -93,6 +93,13 @@
     @test ex_rxns[1].energy == 10.0
     @test ex_rxns[1].rate_coeff(1.0) ≈ 0.0
 
-    # Elastic collisions
-    #ex_1 =
+    ex_lookup_landmark = HallThruster.LandmarkExcitationLookup()
+    ex_landmark_rxn = HallThruster.load_reactions(ex_lookup_landmark, [Xe_0])[1]
+    @test ex_landmark_rxn.energy == 8.32
+
+    landmark_table = readdlm(joinpath(HallThruster.PACKAGE_ROOT, "landmark", "landmark_rates.csv"), ',', skipstart = 1)
+    loss_itp = HallThruster.LinearInterpolation(landmark_table[:, 1], landmark_table[:, 3])
+    iz_landmark_rxn = landmark_rxns[1]
+
+    @test 8.32 * ex_landmark_rxn.rate_coeff(14.32) + 12.12 * iz_landmark_rxn.rate_coeff(14.32) ≈ loss_itp(14.32)
 end
