@@ -1,12 +1,5 @@
-#solve electron issues
-#1) get rid of electron source terms, no heat conduction, and put the fluxes in explicit solve. Set electron velocity to a constant. See if this does indeed run and plot solution over time, set electron solve to false.
-#2) if above works, do MMS with that.
-
-
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
 using OrdinaryDiffEq, PartialFunctions
-
-include("plotting.jl")
 
 
 struct DataDriven <: HallThruster.ZeroEquationModel

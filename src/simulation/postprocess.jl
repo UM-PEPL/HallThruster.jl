@@ -128,23 +128,3 @@ function compute_thrust(sol)
     end
     return thrust
 end
-
-using DelimitedFiles
-
-function load_hallis_output(output_path)
-    output_headers = [
-        :z, :ne, :ϕ, :Te, :Ez, :Br, :nn, :ndot, :μe, :μen, :μbohm, :μwall, :μei,
-    ]
-    output = DataFrame(readdlm(output_path, Float64), output_headers)
-    output.ωce = output.Br * 1.6e-19 / 9.1e-31
-    replace!(output.nn, 0.0 => 1e12)
-    return output[1:end-1, :]
-end
-
-
-function load_hallis_for_input()
-    hallis = load_hallis_output("landmark/Av_PLOT_HALLIS_1D_01.out")
-    ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, hallis.ϕ)
-    grad_ϕ_hallis = HallThruster.LinearInterpolation(hallis.z, -hallis.Ez)
-    return ϕ_hallis, grad_ϕ_hallis
-end

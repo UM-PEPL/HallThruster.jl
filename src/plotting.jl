@@ -1,6 +1,4 @@
-using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, DataFrames, CSV, JLD2, FFTW
-
-using DelimitedFiles
+using Plots
 
 function landmark_references(case, variable)
     if case > 3
@@ -8,7 +6,7 @@ function landmark_references(case, variable)
     else
         suffixes = "fluid_1", "fluid_2", "hybrid"
         return [
-            joinpath("landmark", "case_$case", "$(variable)_$(suffix).csv")
+            joinpath(PACKAGE_ROOT, "landmark", "case_$case", "$(variable)_$(suffix).csv")
             for suffix in suffixes
         ]
     end
