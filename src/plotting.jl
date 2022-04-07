@@ -401,7 +401,7 @@ end
 
 Plots.plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
-function plot_timeaveraged(sol, case, start_ind)
+function plot_timeaveraged(sol, start_ind = 1; case)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
     plot_solution(avg, avg_savevals, sol.params.z_cell, case)
 end
