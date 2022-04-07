@@ -27,7 +27,7 @@ const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 
 include("utilities/utility_functions.jl")
 include("utilities/transition_functions.jl")
-include("utilities/progressbar.jl")
+include("visualization/progressbar.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -58,6 +58,6 @@ include("simulation/sourceterms.jl")
 include("simulation/update_values.jl")
 include("simulation/configuration.jl")
 include("simulation/simulation.jl")
-include("plotting.jl")
+include("visualization/plotting.jl")
 
 end # module
