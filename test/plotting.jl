@@ -309,22 +309,28 @@ function plot_solution_big4(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     Xe_0 = HallThruster.Xenon(0)
     Xe_I = HallThruster.Xenon(1)
-    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    rxn = HallThruster.load_reactions(HallThruster.LandmarkIonizationLookup(), [Xe_0, Xe_I])[1]
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
 
+
     ref_styles = landmark_styles()
+
+    p_nn = plot_quantity(
+        u[1, :] / mi, z; title = "Neutral density", #=yaxis = :log, =# ylims = (1e16, 5e19),  ylabel = "nn (m⁻³)",
+        ref_paths = landmark_references(case, "neutral_density"), ref_styles #, label = labels[1]
+    )
 
     p_ne = plot_quantity(
         ne, z; title = "Plasma density", ylabel = "ne (m⁻³)",
-        ref_paths = landmark_references(case, "plasma_density"), ref_styles, ylims = (1e17, 2e19)
+        ref_paths = landmark_references(case, "plasma_density"), ref_styles, ylims = (1e17, 1.5e18) #2e19
     )
 
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", ylims = (-3, 22))
+    #p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", ylims = (-3, 22))
 
     p_ϵ  = plot_quantity(
         u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
-        ref_paths = landmark_references(case, "energy"), ref_styles, ylims = (0, 90)
+        ref_paths = landmark_references(case, "energy"), ref_styles, ylims = (0, 40)
     )
 
     p_ϕ  = plot_quantity(
@@ -334,7 +340,7 @@ function plot_solution_big4(u, saved_values, z, case = 1)
 
     #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
     #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
-    plot(p_ne, p_ui, p_ϕ, #=p_pe,=# p_ϵ, #=p_∇pe,=# layout = (2, 2), size = (1200, 800))
+    plot(p_nn, p_ne, p_ϕ, #=p_pe,=# p_ϵ, #=p_∇pe,=# layout = (2, 2), size = (1200, 800))
 end
 
 function write_sol_csv(filename, sol)
