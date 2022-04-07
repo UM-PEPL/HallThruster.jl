@@ -366,7 +366,7 @@ return to implicit and other general framework, see what happens
 
 function plot_current(current, sol)
     p1 = plot(xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
-    plot!(p1, sol.t, current[1, :], title = "Currents at right boundary", label = ["Iᵢ" ""])
+    plot!(p1, sol.t, current[1, :], title = "Currents", label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, sol.t, current[3, :], label = ["I total" ""])
     return p1
