@@ -364,9 +364,9 @@ run simulation under three test cases
 return to implicit and other general framework, see what happens
 =#
 
-function plot_current(current, sol)
+function plot_current(current, sol, title)
     p1 = plot(xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
-    plot!(p1, sol.t, current[1, :], title = "Currents", label = ["Iᵢ" ""])
+    plot!(p1, sol.t, current[1, :], title = title, label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, sol.t, current[3, :], label = ["I total" ""])
     return p1
@@ -411,7 +411,7 @@ function plot_thrust(thrust, sol)
 end
 
 function plot_thrust_compare(thrusts, sols,  labels)
-    p1 = plot(sols[1].t, thrust[1], title = "Thrust", label = thrusts[1], xlabel = "t [s]", ylabel = "F [N]")
+    p1 = plot(sols[1].t, thrusts[1], title = "Thrust", label = labels[1], xlabel = "t [s]", ylabel = "F [N]")
     for i in 2:length(thrusts)
         plot!(p1, sols[i].t, thrusts[i], label = labels[i])
     end
