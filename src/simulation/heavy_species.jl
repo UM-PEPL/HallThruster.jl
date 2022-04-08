@@ -64,7 +64,12 @@ function update_heavy_species!(dU, U, params, t)
 
         apply_ion_acceleration!(dU, U, params, i)
         apply_reactions!(dU, U, params, i)
+
+        dU[index.nϵ, i] = 0.0
     end
+
+    @. @views dU[:, 1] = 0.0
+    @. @views dU[:, end] = 0.0
 
     return nothing
 end

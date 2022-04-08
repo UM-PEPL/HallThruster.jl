@@ -86,12 +86,12 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 
     @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)
 
-    if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
+    #=if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)
         display(p)
-    end
+    end=#
 
     return sol
 end
 
-sol = run_sim(1e-3; ncells=200, nsave=1000, case = 3, dt = 0.7e-8);
+sol = run_sim(1e-6; ncells=200, nsave=1000, case = 3, dt = 0.7e-8);
