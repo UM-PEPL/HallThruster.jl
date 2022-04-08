@@ -88,7 +88,7 @@ Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Space charge limited above γ = 0.99. Currently only strictly valid for Xenon
 """
 function compute_wall_sheath_potential(Tev, γ, mi)
-    if γ < 0.99
+    if γ < 1 - 8.3*sqrt(me/mi)
         ϕ_w = -Tev*log(0.5*(1-γ)*sqrt(2*mi/π/me))
     else
         ϕ_w = -1.02*Tev
