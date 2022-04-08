@@ -415,6 +415,7 @@ function plot_thrust_compare(thrusts, sols,  labels)
     for i in 2:length(thrusts)
         plot!(p1, sols[i].t, thrusts[i], label = labels[i])
     end
+    return p1
 end
 
 function load_slicezr(slicezr_path)
