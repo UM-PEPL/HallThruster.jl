@@ -128,3 +128,8 @@ function compute_thrust(sol)
     end
     return thrust
 end
+
+function cut_solution(sol, tstampstart)
+    sol_cut = HallThrusterSolution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
+    return sol_cut
+end
