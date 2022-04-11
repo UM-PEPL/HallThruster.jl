@@ -45,7 +45,6 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info
-          ignore: "src/visualization"
   docs:
     name: Documentation
     runs-on: ubuntu-latest
