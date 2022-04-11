@@ -61,8 +61,8 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; normalize_z_fact
     end
 
     plot!(
-        p, z, u; label = label, legend = :outertop, margin = 8Plots.mm, lw = 2,
-        color = :black, linestyle = :solid,
+        p, z, u; label = label, legend = :outertop, margin = 12Plots.mm, lw = 2,
+        color = :black, linestyle = :solid, xlabel = "z (cm)"
     )
     return p
 end
@@ -307,18 +307,23 @@ function plot_solution_big4(u, saved_values, z, case = 1)
     mi = HallThruster.Xenon.m
     Xe_0 = HallThruster.Xenon(0)
     Xe_I = HallThruster.Xenon(1)
-    rxn = HallThruster.load_ionization_reactions(HallThruster.LandmarkIonizationLUT(), [Xe_0, Xe_I])[1]
+    rxn = HallThruster.load_reactions(HallThruster.LandmarkIonizationLookup(), [Xe_0, Xe_I])[1]
     (;Tev, ue, ϕ_cell, ∇ϕ, ne, pe, ∇pe) = saved_values
     ionization_rate = [rxn.rate_coeff(3/2 * Tev[i])*u[1, i]*ne[i]/mi for i in 1:size(u, 2)]
 
     ref_styles = landmark_styles()
+
+    p_nn = plot_quantity(
+        u[1, :] / mi, z; title = "Neutral density",  ylabel = "nn (m⁻³)",
+        ref_paths = landmark_references(case, "neutral_density"), ref_styles, ylims = (1e16, 2e20)
+    )
 
     p_ne = plot_quantity(
         ne, z; title = "Plasma density", ylabel = "ne (m⁻³)",
         ref_paths = landmark_references(case, "plasma_density"), ref_styles, ylims = (1e17, 2e19)
     )
 
-    p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", ylims = (-3, 22))
+    #p_ui = plot_quantity(u[3, :] ./ u[2, :] ./ 1000, z; title = "Ion velocity", ylabel = "ui (km/s)", ylims = (-3, 22))
 
     p_ϵ  = plot_quantity(
         u[4, :] ./ ne, z; title = "Electron energy (3/2 Te) (eV)", ylabel = "ϵ (eV)",
@@ -327,12 +332,12 @@ function plot_solution_big4(u, saved_values, z, case = 1)
 
     p_ϕ  = plot_quantity(
         ϕ_cell, z; title = "Potential", ylabel = "ϕ (V)",
-        ref_paths = landmark_references(case, "potential"), ref_styles, ylims = (0, 310)
+        ref_paths = landmark_references(case, "potential"), ref_styles, ylims = (0, 310), xlabel = "z (cm)"
     )
 
     #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
     #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
-    plot(p_ne, p_ui, p_ϕ, #=p_pe,=# p_ϵ, #=p_∇pe,=# layout = (2, 2), size = (1200, 800))
+    plot(p_nn, p_ne, p_ϕ, p_ϵ, layout = (2, 2), size = (1000, 666)) #1200, 800
 end
 
 function write_sol_csv(filename, sol)
@@ -353,16 +358,6 @@ function read_jld2(filename)
     sol = read(f, "sol")
     return sol
 end
-
-#=analyse simulation
-make time averaged quantities and plot them, to compare with Landmark
-make time resolved discharge current plots
-make x, t space plots
-include ionization rate, can be inferred after from nn, ne, and Tev
-get boundaries right with not fixing value ion density
-run simulation under three test cases
-return to implicit and other general framework, see what happens
-=#
 
 function plot_current(current, sol, title)
     p1 = plot(xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
@@ -468,4 +463,17 @@ function plot_PSD_current(current, sol)
     freq_domain = plot(freqs, abs.(F), title = "Spectrum", ylim =(0, 2500), xlim=(1e5, 2e5), label = "Power spectral density", xlabel = "frequency [Hz]", ylabel = "[dB/Hz]", margin = 5Plots.mm) 
     #plot(time_domain, freq_domain, layout = 2, size = (1000, 500))
     plot(freq_domain, size = (600, 600))
+end
+
+function extract_time_resolved_series(sol, index)
+    data = zeros(length(sol.t), length(sol.params.z_cell))
+    for i in 1:length(sol.t)
+        data[i, :] = sol.u[i][index, :]
+    end
+    return data
+end
+
+function heatmap_onevariable(time_resolved_data, sol, title)
+    p1 = heatmap(sol.params.z_cell, sol.t, time_resolved_data, margin = 10Plots.mm, title = title, xlabel = "z (cm)", ylabel = "t (s)", size = (1000, 500))
+    return p1
 end

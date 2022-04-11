@@ -29,7 +29,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
-        electron_neutral_model = HallThruster.LandmarkElectronNeutral(), coupled = true, energy_equation = :LANDMARK,
+        coupled = true, energy_equation = :LANDMARK,
         progress_interval = 0, WENO = false, L = 0.05
     )
 
@@ -64,7 +64,7 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         cathode_Te = 2/3 * ϵ_cathode,
         discharge_voltage = 300.0,
         excitation_model = HallThruster.LandmarkExcitationLookup(),
-        wall_loss_model = HallThruster.ConstantSheathPotential(-20, αϵ_in, αϵ_out),
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
         wall_collision_freq = αw * 1e7,
         implicit_energy = implicit_energy,
         transition_function = transition,
