@@ -1,12 +1,9 @@
-function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
-    B = if z < L_ch
-        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
-    else
-        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
-    end
-    return B
-end
-
+"""
+    Geometry1D
+Struct containing information about Hall thruster geometry.
+Required fields are `channel_length`, `inner_radius`, and `outer_radius`, all in meters.
+Contains a fourth field, `channel_area`, which is computed from the above three.
+"""
 struct Geometry1D
     channel_length::Float64
     inner_radius::Float64
@@ -18,6 +15,12 @@ struct Geometry1D
     end
 end
 
+
+"""
+    Thruster
+Struct containing information about a Hall thruster. This includes a name, geometry (a `Geometry1D` object), radial magnetic field along
+centerline (a function which takes z in meters and outputs B in Tesla), and a flag indicating whether the thruster is magnetically-shielded.
+"""
 Base.@kwdef struct Thruster{B}
     name::String = "noname"
     geometry::HallThruster.Geometry1D
@@ -75,6 +78,15 @@ const geometry_SPT_100 = Geometry1D(
     outer_radius = 0.05,
     channel_length = 0.025
 )
+
+function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
+    B = if z < L_ch
+        B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
+    else
+        B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
+    end
+    return B
+end
 
 const SPT_100 = Thruster(
     name = "SPT-100",
