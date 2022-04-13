@@ -133,3 +133,27 @@ function cut_solution(sol, tstampstart)
     sol_cut = HallThrusterSolution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
     return sol_cut
 end
+
+function Base.getindex(sol::HallThrusterSolution, field::Symbol, charge::Int = 1)
+    mi = sol.params.config.propellant.m
+    index = sol.params.index
+    ncells = size(sol.u[1], 2)
+
+    if charge > sol.params.config.ncharge
+        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
+    end
+
+    if field == :nn
+        return [[u[index.ρn, i] / mi for i in 1:ncells] for u in sol.u]
+    elseif field == :ni
+        return [[u[index.ρi[charge], i] / mi for i in 1:ncells] for u in sol.u]
+    elseif field == :ui
+        return [[u[index.ρiui[charge], i] / u[index.ρi[charge], i] for i in 1:ncells] for u in sol.u]
+    elseif field == :B
+        return [sol.params.cache.B]
+    elseif field == :ωce
+        return [e * sol[:B, charge][1] / me]
+    else
+        return [getproperty(saved, field) for saved in sol.savevals]
+    end
+end

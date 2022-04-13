@@ -64,7 +64,7 @@ function Config(;
         electron_pressure_coupled::Number   = 1.0,
         min_number_density                  = 1e6,
         min_electron_temperature            = 1.0,
-        transition_function::TransitionFunction = LinearTransition(0.01, 0.0),
+        transition_function::TransitionFunction = LinearTransition(0.001, 0.0),
         progress_interval::Int              = 0,
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,

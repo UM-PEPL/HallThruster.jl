@@ -63,7 +63,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; normalize_z_fact
 
     plot!(
         p, z, u; label = label, legend = :outertop, margin = 12Plots.mm, lw = 2,
-        color = :black, linestyle = :solid, xlabel = "z (cm)"
+        color = :black, linestyle = :solid, xlabel = "z (m)"
     )
     return p
 end
@@ -397,7 +397,7 @@ end
 
 plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
-function plot_timeaveraged(sol, start_ind = 1; case)
+function plot_timeaveraged(sol, start_ind = 1; case = 4)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
     plot_solution(avg, avg_savevals, sol.params.z_cell, case)
 end
