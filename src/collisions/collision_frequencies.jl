@@ -33,7 +33,7 @@ function freq_electron_ion(U, params, i::Int)
         ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
         Z_eff = ne / ni_sum
         Tev = params.cache.Tev[i]
-        νei = Tev ≤ 0.0 || ne ≤ 0.0 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
+        νei = Tev ≤ 0.0 || ne ≤ 0.0 || Z_eff ≤ 1 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
         return νei
     else
         return 0.0

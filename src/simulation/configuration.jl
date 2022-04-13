@@ -103,6 +103,11 @@ function Config(;
     min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
+    if ncharge > 1 && electron_pressure_coupled
+        warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
+        electron_pressure_coupled = false
+    end
+
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_collision_freq,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,

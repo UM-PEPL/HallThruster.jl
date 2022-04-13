@@ -85,15 +85,19 @@ Base.@kwdef struct WallSheath <: WallLossModel
 end
 
 function (model::WallSheath)(U, params, i)
-    (;config, index) = params
+    (;config, z_cell) = params
 
-    ne = params.cache.ne[i]
-
-    Tev = if config.thruster.shielded
+    Tev_in = if config.thruster.shielded
         params.cache.Tev[1]
     else
         params.cache.Tev[i]
     end
+
+    Tev_out = params.cache.Tev[i]
+
+    L_ch = config.thruster.geometry.channel_length
+
+    Tev = config.transition_function(z_cell[i], L_ch, Tev_in, Tev_out)
 
     γ = SEE_yield(model.material, Tev)
     ϕ_s = compute_wall_sheath_potential(Tev, γ, params.config.propellant.m)

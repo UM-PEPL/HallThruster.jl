@@ -1,4 +1,4 @@
-using Plots: plot!, @gif, png, savefig
+using Plots: Plots, plot!, @gif, png, savefig
 import Plots.plot
 
 function landmark_references(case, variable)
@@ -395,7 +395,7 @@ function load_hallis_for_input()
     return ϕ_hallis, grad_ϕ_hallis
 end
 
-plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
+#plot(sol::HallThruster.HallThrusterSolution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, start_ind = 1; case = 4)
     avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)

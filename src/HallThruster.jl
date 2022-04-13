@@ -21,6 +21,10 @@ using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions
 using Unitful
 
+# Packages used for making plots
+using Measures: mm
+using RecipesBase
+
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
@@ -61,5 +65,6 @@ include("simulation/update_values.jl")
 include("simulation/configuration.jl")
 include("simulation/simulation.jl")
 include("visualization/plotting.jl")
+include("visualization/recipes.jl")
 
 end # module

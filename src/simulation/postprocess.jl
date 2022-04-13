@@ -54,11 +54,11 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
 end
 
 """
-    timeaveraged(sol, tstampstart)
-compute timeaveraged solution, input HallThrusterSolution type
-and the timestamp at which averaging starts, end at endtime. 
+    time_average(sol, tstampstart)
+compute timeaveraged solution, input HallThrusterSolution type and the frame at which averaging starts. 
+Returns a HallThrusterSolution object with a single frame.
 """
-function timeaveraged(sol, tstampstart)
+function time_average(sol, tstampstart = 1)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
     (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen) = avg_savevals
@@ -88,7 +88,15 @@ function timeaveraged(sol, tstampstart)
         νen .+= sol.savevals[i].νen / Δt
         νei .+= sol.savevals[i].νei / Δt
     end
-    return avg, avg_savevals
+
+    return HallThrusterSolution(
+        sol.t[end:end],
+        [avg],
+        [avg_savevals],
+        sol.retcode,
+        sol.destats,
+        sol.params
+    )
 end
 
 """
