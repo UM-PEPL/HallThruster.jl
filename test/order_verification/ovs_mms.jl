@@ -88,9 +88,9 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
 
     n_save = 1
     saveat = if n_save == 1
-        [MMS_CONSTS.max_end_time]
+        [MMS_CONSTS.max_duration]
     else
-        LinRange(0.0, MMS_CONSTS.max_end_time, n_save) |> collect
+        LinRange(0.0, MMS_CONSTS.max_duration, n_save) |> collect
     end
 
     simulation = HallThruster.MultiFluidSimulation(grid = HallThruster.generate_grid(HallThruster.SPT_100, MMS_CONSTS.n_cells_start), 
@@ -103,7 +103,7 @@ function perform_OVS(; MMS_CONSTS, fluxfn, reconstruct)
     fluids = [HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.ContinuityOnly(MMS_CONSTS.u_constant, MMS_CONSTS.T_constant));
     HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.IsothermalEuler(MMS_CONSTS.T_constant))],
     #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())], 
-    end_time = MMS_CONSTS.max_end_time, 
+    duration = MMS_CONSTS.max_duration, 
     saveat = saveat,
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
     callback = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass), 
@@ -212,9 +212,9 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
 
     n_save = 100
     saveat = if n_save == 1
-        [MMS_CONSTS.max_end_time]
+        [MMS_CONSTS.max_duration]
     else
-        LinRange(0.0, MMS_CONSTS.max_end_time, n_save) |> collect
+        LinRange(0.0, MMS_CONSTS.max_duration, n_save) |> collect
     end
 
     cb_convergence = DiffEqCallbacks.TerminateSteadyState(1e-8, 1e-6, DiffEqCallbacks.allDerivPass)
@@ -230,7 +230,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
     fluids = [HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.ContinuityOnly(MMS_CONSTS.u_constant, MMS_CONSTS.T_constant));
     HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 1), HallThruster.IsothermalEuler(MMS_CONSTS.T_constant))],
     #[HallThruster.Fluid(HallThruster.Species(MMS_CONSTS.fluid, 0), HallThruster.EulerEquations())], 
-    end_time = MMS_CONSTS.max_end_time, 
+    duration = MMS_CONSTS.max_duration, 
     saveat = saveat,
     timestepcontrol = (1e-6, false), #if adaptive true, given timestep ignored. Still sets initial timestep, therefore cannot be chosen arbitrarily large.
     callback = cb, 
@@ -259,7 +259,7 @@ function perform_OVS_elecenergy(; MMS_CONSTS, fluxfn, reconstruct)
         solve_ion_energy = false,
         ion_temperature = 1000.0,
         anom_model = HallThruster.TwoZoneBohm(1/160, 1/16),
-        energy_equation = :LANDMARK,
+        LANDMARK = true,
         ionization_coeffs = :LANDMARK,
         electron_pressure_coupled = false,
     )

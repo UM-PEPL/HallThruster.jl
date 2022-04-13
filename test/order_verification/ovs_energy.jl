@@ -101,13 +101,13 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
     wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, 1.0, 1.0)
     L_ch = 0.025
     propellant = HallThruster.Xenon
-    energy_equation = :LANDMARK
+    LANDMARK = true
 
     geometry = (;channel_length = L_ch)
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
-        min_electron_temperature, transition_function, energy_equation, propellant,
+        min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry
     )
 
@@ -143,7 +143,7 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
-        min_electron_temperature, transition_function, energy_equation, propellant,
+        min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry
     )
 

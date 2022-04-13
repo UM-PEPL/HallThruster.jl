@@ -11,14 +11,16 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
         dU[reactant_index, i] -= ρdot
         dU[product_index, i]  += ρdot
 
-        # Momentum transfer due to ionization
-        #=if reactant_index != index.ρn
-            reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
-            dU[reactant_index + 1, i] -= ρdot * reactant_velocity
-        else
-            reactant_velocity = params.config.neutral_velocity
+        if !params.config.LANDMARK
+            # Momentum transfer due to ionization
+            if reactant_index != index.ρn
+                reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
+                dU[reactant_index + 1, i] -= ρdot * reactant_velocity
+            else
+                reactant_velocity = params.config.neutral_velocity
+            end
+            dU[product_index + 1, i] += ρdot * reactant_velocity
         end
-        dU[product_index + 1, i] += ρdot * reactant_velocity=#
 
     end
 end

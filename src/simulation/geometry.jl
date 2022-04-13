@@ -3,6 +3,9 @@
 Struct containing information about Hall thruster geometry.
 Required fields are `channel_length`, `inner_radius`, and `outer_radius`, all in meters.
 Contains a fourth field, `channel_area`, which is computed from the above three.
+
+# Fields
+$(TYPEDFIELDS)
 """
 struct Geometry1D
     channel_length::Float64
@@ -18,14 +21,17 @@ end
 
 """
     Thruster
-Struct containing information about a Hall thruster. This includes a name, geometry (a `Geometry1D` object), radial magnetic field along
-centerline (a function which takes z in meters and outputs B in Tesla), and a flag indicating whether the thruster is magnetically-shielded.
+Struct containing information about a Hall thruster. This includes a `name`, `geometry` (a `Geometry1D` object), `magnetic_field` (radial magnetic field along
+centerline, a function which takes z in meters and outputs B in Tesla), and a `shielded` (a flag indicating whether the thruster is magnetically-shielded).
+
+# Fields
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct Thruster{B}
     name::String = "noname"
-    geometry::HallThruster.Geometry1D
-    magnetic_field::B
-    shielded::Bool
+    geometry::Geometry1D   # A Geometry1D object containing geometric information about the thruster
+    magnetic_field::B      # A function which takes z in meters and outputs B in Tesla
+    shielded::Bool         # Whether the thruster is magnetically-shielded
 end
 
 struct Grid1D

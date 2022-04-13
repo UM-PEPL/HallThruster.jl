@@ -42,7 +42,20 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
-function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
+"""
+    $(SIGNATURES)
+Run a Hall thruster simulation using the provided Config object.
+
+## Arguments
+- `config`: a `Config` containing simulation parameters. 
+- `dt`: The timestep, in seconds. Typical values are O(10 ns) (1e-8 seconds).
+- `duration`: How long to run the simulation, in seconds (simulation time, not wall time). Typical runtimes are O(1 ms) (1e-3 seconds).
+- `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
+- `nsave`: How many frames to save.
+- `alg`: Explicit timestepping algorithm to use. Defaults to second-order strong-stability preserving Runge-Kutta with a stage limiter and a step limiter(`SSPRK22(stage_limiter = stage_limiter!)`), but will work with any explicit timestepping algorithm provided by `OrdinaryDiffEq`.
+- `restart_file`: path to restart file. Defaults to `nothing`.
+"""
+function run_simulation(config::Config; dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
@@ -69,7 +82,7 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
         U, cache = allocate_arrays(grid, fluids)
     end
 
-    tspan = (0.0, end_time)
+    tspan = (0.0, duration)
     saveat = LinRange(tspan[1], tspan[2], nsave)
 
     for (i, z) in enumerate(grid.cell_centers)
@@ -92,9 +105,9 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
     )
     saving_callback = SavingCallback(save_func, saved_values; saveat)
 
-    niters = round(Int, tspan[2] / timestep)
+    niters = round(Int, tspan[2] / dt)
 
-    progress_bar = make_progress_bar(niters, timestep, config)
+    progress_bar = make_progress_bar(niters, dt, config)
 
     # Assemble callback set
     if config.callback !== nothing
@@ -114,7 +127,7 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
         A_ch = config.thruster.geometry.channel_area,
         z_cell=grid.cell_centers,
         z_edge=grid.edges,
-        dt=timestep,
+        dt,
         progress_bar,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
@@ -127,7 +140,7 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
     )
 
     # Compute maximum allowed iterations
-    maxiters = Int(ceil(1000 * tspan[2] / timestep))
+    maxiters = Int(ceil(1000 * tspan[2] / dt))
 
     if !use_restart
         initialize!(U, params)
@@ -140,7 +153,7 @@ function run_simulation(config, timestep, end_time, ncells, nsave; alg = SSPRK22
 	sol = try
         solve(
             prob, alg; saveat, callback=callbacks,
-            adaptive=false, dt=timestep, dtmax=10*timestep, dtmin = timestep/10, maxiters = maxiters,
+            adaptive=false, dt=dt, dtmax=10*dt, dtmin = dt/10, maxiters = maxiters,
 	    )
     catch e
         stop_progress_bar!(progress_bar, params)

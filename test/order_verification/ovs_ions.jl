@@ -105,7 +105,6 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         anode_mass_flow_rate,
         scheme,
         ionization_model = OVS_Ionization(),
-        WENO = true,
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]

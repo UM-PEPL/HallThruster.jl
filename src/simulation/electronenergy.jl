@@ -43,7 +43,7 @@ function update_electron_energy!(U, params)
         μnϵ0 = μ[i] * nϵ0
         μnϵR = μ[i+1] * nϵR
 
-        if params.config.energy_equation == :LANDMARK
+        if params.config.LANDMARK
             # Use simplified thermal condutivity
             κL = μnϵL
             κ0 = μnϵ0

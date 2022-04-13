@@ -2,34 +2,12 @@ using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, D
 using OrdinaryDiffEq, PartialFunctions
 
 
-struct DataDriven <: HallThruster.ZeroEquationModel
-    coeffs::NTuple{1, Float64}
-    DataDriven(c1) = new((c1,))
-end
-
-@inline function (model::DataDriven)(U, params, icell)
-    (;index) = params
-    (;∇ϕ, B, νan) = params.cache
-    c = model.coeffs
-
-    ui = abs(U[index.ρiui[1], icell] / U[index.ρi[1], icell])
-    ωce = e * B[icell] / me
-    vde = max(ui, abs(-∇ϕ[icell] / B[icell]))
-    if νan[icell] == 0.0
-        α = 1.0
-    else
-        α = 0.5
-    end
-    return α * max(1e-4 * ωce, c[1] * ωce * ui / vde) + (1-α) * νan[icell]
-end
-
-
-function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
+function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,
         restart_file = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
-        coupled = true, energy_equation = :LANDMARK,
+        coupled = true, LANDMARK = true,
         progress_interval = 0, WENO = false, L = 0.05
     )
 
@@ -80,11 +58,10 @@ function run_sim(end_time = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         electron_ion_collisions = false,
         ionization_model,
         domain,
-        energy_equation,
-        WENO = WENO
+        LANDMARK,
     )
 
-    @time sol = HallThruster.run_simulation(config, dt, end_time, ncells, nsave; restart_file, alg)
+    @time sol = HallThruster.run_simulation(config; dt, duration, ncells, nsave, restart_file, alg)
 
     #=if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)

@@ -1,3 +1,16 @@
+"""
+$(TYPEDEF)
+
+Abstract type for wall loss models in the electron energy equation. Types included with HallThruster.jl are:
+
+- `NoWallLosses`
+    No electron energy losses to the wall.
+- `ConstantSheathPotential(sheath_potential, inner_loss_coeff, outer_loss_coeff)`
+    Power to the walls scales with `α * exp(-sheath_potential))`, where `α = inner_loss_coeff` inside the channel and `α = outer_loss_coeff` outside.
+- `WallSheath(material::WallMaterial)`
+    Power to the walls is computed self-consistently using a sheath model, dependent on the secondary electron emission yield of the provided material.
+    See `WallMaterial` for material options.
+"""
 abstract type WallLossModel end
 
 struct NoWallLosses <: WallLossModel end
@@ -25,6 +38,26 @@ function (model::ConstantSheathPotential)(U, params, i)
     return W
 end
 
+"""
+$(TYPEDEF)
+
+Struct containing secondary electron emission (SEE) yield fit coefficients for a material. Used in the `WallSheath` wall loss model
+
+# Fields
+
+$(TYPEDFIELDS)
+
+The SEE yield is computed as a function of electron temperature in eV (`Tev`) as `Γ * a * Tev^b`.
+
+# Available materials
+
+- `IdealDielectric` (a material with zero SEE)
+- `Alumina`
+- `BoronNitride`
+- `BNSiO2`
+- `StainlessSteel`
+
+"""
 Base.@kwdef struct WallMaterial
     a::Float64
     b::Float64
