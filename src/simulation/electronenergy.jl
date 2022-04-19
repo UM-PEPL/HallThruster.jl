@@ -1,5 +1,5 @@
 function ElectronCondLookup()
-    rates = HallThruster.readdlm("reactions/e_conduccoeff.dat", skipstart = 1)
+    rates = HallThruster.readdlm(joinpath(PACKAGE_ROOT, "reactions/e_conduccoeff.dat"), skipstart = 1)
     Z = rates[:, 1]
     cond_coeff = rates[:, 2]
     coeff = LinearInterpolation(Z, cond_coeff)
