@@ -1,3 +1,11 @@
+function ElectronCondLookup()
+    rates = HallThruster.readdlm("reactions/e_conduccoeff.dat", skipstart = 1)
+    Z = rates[:, 1]
+    cond_coeff = rates[:, 2]
+    coeff = LinearInterpolation(Z, cond_coeff)
+    return coeff
+end
+
 function update_electron_energy!(U, params)
     (;Aϵ, bϵ, μ, ue, ne) = params.cache
     (;z_cell, dt, index) = params
@@ -49,10 +57,13 @@ function update_electron_energy!(U, params)
             κ0 = μnϵ0
             κR = μnϵR
         else
+            #get adjusted coeffient for higher charge states
+            κ_charge = params.config.electron_cond_lookup(params.cache.Z_eff[i])
+            correction_factor = κ_charge/4.7
             # Adjust thermal conductivity to be slightly more accurate
-            κL = 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL
-            κ0 = 24/25 * (1 / (1 + params.cache.νei[i]   / √(2) / params.cache.νc[i]))   * μnϵ0
-            κR = 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR
+            κL = 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
+            κ0 = 24/25 * (1 / (1 + params.cache.νei[i]   / √(2) / params.cache.νc[i]))   * μnϵ0 * correction_factor
+            κR = 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR * correction_factor
         end
 
         # coefficients for centered three-point finite difference stencils
