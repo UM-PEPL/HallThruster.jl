@@ -27,7 +27,7 @@ end
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
     (;z_cell, fluids, fluid_ranges, index, A_ch) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw) = params.cache
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff) = params.cache
 
     mi = params.config.propellant.m
 
@@ -55,6 +55,7 @@ function update_values!(U, params, t = 0)
         νan[i] = freq_electron_anom(U, params, i)
         νc[i] = νen[i] + νei[i]
         μ[i] = electron_mobility(νan[i] + νw[i], νc[i], B[i])
+        Z_eff[i] = compute_Z_eff(U, params, i)
     end
 
     # update electrostatic potential and potential gradient on edges

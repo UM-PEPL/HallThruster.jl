@@ -22,7 +22,7 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = 1, ρi = [2], nϵ = 3)
-    cache = (;ne = [ne], B = [B], Tev = [Tev])
+    cache = (;ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0])
     anom_model = HallThruster.TwoZoneBohm(1/160, 1/16)
     thruster = HallThruster.SPT_100
     transition_function = HallThruster.StepFunction()
@@ -69,4 +69,9 @@
 
     @test HallThruster.freq_electron_wall(U, params_landmark, 1) == 1e7
     @test HallThruster.freq_electron_wall(U, params_none, 1) == 0.0
+
+    electron_cond_lookup = HallThruster.ElectronCondLookup()
+
+    @test electron_cond_lookup(1) == 4.66
+    @test electron_cond_lookup(1.5) == 4.33
 end
