@@ -121,6 +121,8 @@ function run_simulation(config::Config;
 
     # Simulation parameters
     params = (;
+        ncharge = config.ncharge,
+        mi = config.propellant.m,
         config = config,
         ϕ_L = config.discharge_voltage + config.cathode_potential,
         ϕ_R = config.cathode_potential,

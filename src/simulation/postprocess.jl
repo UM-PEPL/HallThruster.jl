@@ -25,9 +25,12 @@ function write_restart(path::AbstractString, sol)
         "savevals" => sol.savevals,
         "z_edge" => sol.params.z_edge,
         "z_cell" => sol.params.z_cell,
+        "L_ch" => sol.params.L_ch,
         "A_ch" => sol.params.A_ch,
         "B" => sol.params.cache.B,
         "index" => sol.params.index,
+        "ncharge" => sol.params.ncharge,
+        "mi" => sol.params.mi
     ))
 end
 
@@ -42,11 +45,15 @@ function read_restart(path::AbstractString)
     dict = load(path)
 
     params = (;
+        ncharge = dict["ncharge"],
         cache = (;B = dict["B"]),
         A_ch = dict["A_ch"],
         z_edge = dict["z_edge"],
         z_cell = dict["z_cell"],
-        index = dict["index"]
+        index = dict["index"],
+        L_ch = dict["L_ch"],
+        ionization_reactions = IonizationReaction{nothing}[],
+        mi = dict["mi"]
     )
 
     return Solution(
@@ -150,11 +157,11 @@ function cut_solution(sol, tstampstart)
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
-    mi = sol.params.config.propellant.m
+    mi = sol.params.mi
     index = sol.params.index
     ncells = size(sol.u[1], 2)
 
-    if charge > sol.params.config.ncharge
+    if charge > sol.params.ncharge
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
 

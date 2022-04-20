@@ -1,6 +1,5 @@
 @recipe function f(sol::Solution, frame::Int = length(sol.u))
-    (;z_cell, config, ionization_reactions) = sol.params
-    (;ncharge, thruster) = config
+    (;z_cell, ionization_reactions, ncharge, L_ch) = sol.params
 
     subplot_width = 500
     subplot_height = 500
@@ -15,7 +14,7 @@
 
     size := (width, height)
 
-    z_normalized = z_cell ./ thruster.geometry.channel_length
+    z_normalized = z_cell ./ L_ch
 
     label_user = get(plotattributes, :label, "")
     label --> label_user
@@ -64,7 +63,7 @@
         end
 
         # Plot rate of production of all three species
-        ionization_rate = zeros(length(z_normalized))
+        ionization_rate = ones(length(z_normalized)) * eps(Float64)
         for rxn in ionization_reactions
             if rxn.product.Z == Z
                 if rxn.reactant.Z == 0
@@ -85,7 +84,7 @@
         end
     end
 
-    if config.ncharge > 1
+    if ncharge > 1
         # Plot electron density
         @series begin
             y := sol[:ne][frame]
