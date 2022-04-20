@@ -56,7 +56,16 @@ function update_electron_energy!(U, params)
         end
 
         # coefficients for centered three-point finite difference stencils
-        d_cL, d_c0, d_cR = central_diff_coeffs(zL, z0, zR)
+        d_cL, d_c0, d_cR =
+            if params.electron_energy_order == 2
+                central_diff_coeffs(zL, z0, zR)
+            else
+                if ue[i] ≤ 0
+                    downwind_diff_coeffs(zL, z0, zR)
+                else
+                    upwind_diff_coeffs(zL, z0, zR)
+                end
+            end
         d2_cL, d2_c0, d2_cR = second_deriv_coeffs(zL, z0, zR)
 
         # finite difference derivatives

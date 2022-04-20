@@ -1,14 +1,14 @@
-struct HallThrusterSolution{T, U, P, S}
+struct Solution{T, U, P, S, D}
     t::T
     u::U
     savevals::S
     retcode::Symbol
-    destats::DiffEqBase.DEStats
+    destats::D
     params::P
 end
 
-function HallThrusterSolution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
-    return HallThrusterSolution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
+function Solution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
+    return Solution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
 end
 
 """
@@ -20,8 +20,14 @@ This can be reloaded to resume a simulation. The filetype can be anything suppor
 """
 function write_restart(path::AbstractString, sol)
     save(path, Dict(
-        "u" =>  sol.u[end],
-        "params" => sol.params
+        "t" => sol.t,
+        "u" =>  sol.u,
+        "savevals" => sol.savevals,
+        "z_edge" => sol.params.z_edge,
+        "z_cell" => sol.params.z_cell,
+        "A_ch" => sol.params.A_ch,
+        "B" => sol.params.cache.B,
+        "index" => sol.params.index,
     ))
 end
 
@@ -34,20 +40,21 @@ The filetype can be anything supported by FileIO, though JLD2 is preferred.
 """
 function read_restart(path::AbstractString)
     dict = load(path)
-    u, params = dict["u"], dict["params"]
-    ncells = length(params.z_cell)-2
-    grid = Grid1D(
-        ncells,
-        params.z_edge,
-        params.z_cell,
-        1.0,
-    )
-    B = params.cache.B
 
-    return u, grid, B
+    params = (;
+        cache = (;B = dict["B"]),
+        A_ch = dict["A_ch"],
+        z_edge = dict["z_edge"],
+        z_cell = dict["z_cell"],
+        index = dict["index"]
+    )
+
+    return Solution(
+        dict["t"], dict["u"], dict["savevals"], :Restart, nothing, params
+    )
 end
 
-function Base.show(io::IO, mime::MIME"text/plain", sol::HallThrusterSolution)
+function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
     println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
     println(io, "Retcode: $(string(sol.retcode))")
     print(io, "End time: $(sol.t[end]) seconds")
@@ -55,8 +62,8 @@ end
 
 """
     time_average(sol, tstampstart)
-compute timeaveraged solution, input HallThrusterSolution type and the frame at which averaging starts. 
-Returns a HallThrusterSolution object with a single frame.
+compute timeaveraged solution, input Solution type and the frame at which averaging starts. 
+Returns a Solution object with a single frame.
 """
 function time_average(sol, tstampstart = 1)
     avg = zeros(size(sol.u[1]))
@@ -89,7 +96,7 @@ function time_average(sol, tstampstart = 1)
         νei .+= sol.savevals[i].νei / Δt
     end
 
-    return HallThrusterSolution(
+    return Solution(
         sol.t[end:end],
         [avg],
         [avg_savevals],
@@ -138,11 +145,11 @@ function compute_thrust(sol)
 end
 
 function cut_solution(sol, tstampstart)
-    sol_cut = HallThrusterSolution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
+    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
     return sol_cut
 end
 
-function Base.getindex(sol::HallThrusterSolution, field::Symbol, charge::Int = 1)
+function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
     mi = sol.params.config.propellant.m
     index = sol.params.index
     ncells = size(sol.u[1], 2)

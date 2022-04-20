@@ -37,8 +37,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     F = zeros(nvariables+1, nedges)
     UL = zeros(nvariables+1, nedges)
     UR = zeros(nvariables+1, nedges)
+    tmp = zeros(ncells)
 
-    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
+    cache = (; tmp, A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
     return U, cache
 end
 
@@ -55,7 +56,9 @@ Run a Hall thruster simulation using the provided Config object.
 - `alg`: Explicit timestepping algorithm to use. Defaults to second-order strong-stability preserving Runge-Kutta with a stage limiter and a step limiter(`SSPRK22(stage_limiter = stage_limiter!)`), but will work with any explicit timestepping algorithm provided by `OrdinaryDiffEq`.
 - `restart_file`: path to restart file. Defaults to `nothing`.
 """
-function run_simulation(config::Config; dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!), restart_file = nothing)
+function run_simulation(config::Config;
+    dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
+    restart_file = nothing, num_subiterations = 1, electron_energy_order = 2)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
 
@@ -137,6 +140,8 @@ function run_simulation(config::Config; dt, duration, ncells, nsave, alg = SSPRK
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
+        num_subiterations,
+        electron_energy_order
     )
 
     # Compute maximum allowed iterations
@@ -171,5 +176,5 @@ function run_simulation(config::Config; dt, duration, ncells, nsave, alg = SSPRK
     stop_progress_bar!(progress_bar, params)
 
     # Return the solution
-    return HallThrusterSolution(sol, params, saved_values.saveval)
+    return Solution(sol, params, saved_values.saveval)
 end

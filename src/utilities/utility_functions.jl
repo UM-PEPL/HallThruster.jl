@@ -10,7 +10,7 @@ struct LinearInterpolation{X<:Number,Y<:Number}
     end
 end
 
-function (itp::LinearInterpolation)(x::T) where {T}
+function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
     xs, ys = itp.xs, itp.ys
     if x ≤ xs[1]
         return ys[1] / oneunit(T)
@@ -18,7 +18,11 @@ function (itp::LinearInterpolation)(x::T) where {T}
         return ys[end] / oneunit(T)
     end
     i = find_left_index(x, xs)
-    return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+    if use_log
+        return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
+    else
+        return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+    end
 end
 
 function find_left_index(value, array)
