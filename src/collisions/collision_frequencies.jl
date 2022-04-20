@@ -23,15 +23,22 @@ Effective frequency at which electrons are scattered due to collisions with ions
 """
 @inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
+function compute_Z_eff(U, params, i::Int)
+    (;index) = params
+    mi = params.config.propellant.m
+    # Compute effective charge state
+    ne = params.cache.ne[i]
+    ni_sum = 0.0
+    ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
+    Z_eff = ne / ni_sum
+    return Z_eff
+end
+
 function freq_electron_ion(U, params, i::Int)
     if params.config.electron_ion_collisions
-        (;index) = params
-        mi = params.config.propellant.m
         # Compute effective charge state
         ne = params.cache.ne[i]
-        ni_sum = 0.0
-        ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
-        Z_eff = ne / ni_sum
+        Z_eff = params.cache.Z_eff[i]
         Tev = params.cache.Tev[i]
         νei = Tev ≤ 0.0 || ne ≤ 0.0 || Z_eff ≤ 1 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
         return νei

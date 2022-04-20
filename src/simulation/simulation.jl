@@ -37,9 +37,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     F = zeros(nvariables+1, nedges)
     UL = zeros(nvariables+1, nedges)
     UR = zeros(nvariables+1, nedges)
-    tmp = zeros(ncells)
+    Z_eff = zeros(ncells)
 
-    cache = (; tmp, A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR)
+    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR, Z_eff)
     return U, cache
 end
 
