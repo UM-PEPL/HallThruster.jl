@@ -16,7 +16,7 @@
     )
     transition_function = HallThruster.StepFunction()
     config = (;
-        thruster = (;shielded = true),
+        thruster = (;geometry = HallThruster.geometry_SPT_100, shielded = true),
         transition_function,
         propellant = HallThruster.Xenon,
     )

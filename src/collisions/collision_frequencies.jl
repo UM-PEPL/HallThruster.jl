@@ -40,7 +40,7 @@ function freq_electron_ion(U, params, i::Int)
         ne = params.cache.ne[i]
         Z_eff = params.cache.Z_eff[i]
         Tev = params.cache.Tev[i]
-        νei = Tev ≤ 0.0 || ne ≤ 0.0 || Z_eff ≤ 1 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
+        νei = Tev ≤ 0.0 || ne ≤ 0.0 || Z_eff < 1 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
         return νei
     else
         return 0.0

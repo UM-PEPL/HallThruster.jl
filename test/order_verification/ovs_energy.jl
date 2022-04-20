@@ -58,7 +58,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(ncells; niters = 10000, plot_results = false)
+function verify_energy(order, ncells; niters = 20000, plot_results = false)
     index = (; ρn = 1, nϵ = 2)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
@@ -130,7 +130,8 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
-        excitation_reactant_indices
+        excitation_reactant_indices,
+        electron_energy_order = order,
     )
 
     solve_energy!(U, params, niters, dt)
@@ -155,7 +156,8 @@ function verify_energy(ncells; niters = 10000, plot_results = false)
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
-        excitation_reactant_indices
+        excitation_reactant_indices,
+        electron_energy_order = order
     )
 
     solve_energy!(U, params, niters, dt)

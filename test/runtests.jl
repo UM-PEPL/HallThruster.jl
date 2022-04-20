@@ -22,13 +22,15 @@ include("unit_tests/test_initialization.jl")
         (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
         (slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
 
-        tol = 0.15
+        tol = 0.1
+
+        @show slope_ϕ, slope_∇ϕ, slope_∇pe, slope_ue
 
         # Check that potential and gradients are first order or better
-        @test abs(slope_ϕ - 1.0) < tol || slope_ϕ > 1.0
+        @test abs(slope_ϕ - 2.0) < tol || slope_ϕ > 2.0
         # Check that potential gradient and ue are first order or better
-        @test abs(slope_∇ϕ - 1.0) < tol || slope_∇ϕ > 1.0
-        @test abs(slope_ue - 1.0) < tol || slope_ue > 1.0
+        @test abs(slope_∇ϕ - 2.0) < tol || slope_∇ϕ > 2.0
+        @test abs(slope_ue - 2.0) < tol || slope_ue > 2.0
         # Check that pressure gradient is second order or better
         @test abs(slope_∇pe - 2.0) < tol || slope_∇pe > 2.0
     end
@@ -37,14 +39,21 @@ end
 @testset "Order verification (electron energy)" begin
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_energy.jl")
+
+    vfunc = order -> x -> OVS_Energy.verify_energy(order, x)
     refinements = refines(6, 20, 2)
 
-    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
-    slopes_nϵ, norms_nϵ = test_refinements(OVS_Energy.verify_energy, refinements, [1, 2, Inf])
 
-    # Check that electron energy is solved to at least first order
-    for slope in slopes_nϵ
-        @test abs(slope - 2.0) < 0.2 || slope > 2.0
+    for order in [1, 2]
+        println("Energy, order = $order")
+        # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
+        slopes_nϵ, norms_nϵ = test_refinements(vfunc(order), refinements, [1, 2, Inf])
+
+        # Check that electron energy is solved to at least first order
+        for slope in slopes_nϵ
+            @show slope
+            @test abs(slope - order) < 0.1 || slope ≥ order
+        end
     end
 end
 

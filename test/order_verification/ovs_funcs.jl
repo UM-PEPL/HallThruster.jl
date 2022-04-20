@@ -17,7 +17,7 @@ function test_refinements(verification_func, refinements, norm_orders)
         for ncells in refinements
     ] |> unzip
 
-    slopes = compute_slope.(norms)
+    slopes = [expsmooth(compute_slope(refinements, norm), 0.75)[end] for norm in norms]
     return slopes, norms
 end
 
@@ -29,11 +29,22 @@ function unzip(v)
     ]
 end
 
-function compute_slope(errors)
-    p = [
-        log(abs(errors[i+2]-errors[i+1])/abs(errors[i+1]-errors[i]))/log(0.5) for i in 1:length(errors)-2
+function compute_slope(refinements, errors)
+    q = [
+        #log(abs(errors[i+2]-errors[i+1])/abs(errors[i+1]-errors[i]))/log(0.5) for i in 1:length(errors)-2
+        log(errors[i+1] / errors[i]) /
+        log(refinements[i] / refinements[i+1])
+        for i in 1:length(errors)-1
     ]
-    return mean(p)
+    return q
+end
+
+function expsmooth(xs, α)
+    smoothed = copy(xs)
+    for i in 2:length(xs)
+        smoothed[i] = α * xs[i] + (1 - α) * smoothed[i-1]
+    end
+    return smoothed
 end
 
 function plot_convergence(refinements, errors)
