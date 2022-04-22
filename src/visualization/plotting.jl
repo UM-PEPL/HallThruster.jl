@@ -1,4 +1,4 @@
-using Plots: Plots, plot!, @gif, png, savefig
+using Plots: plot!, @gif, png, savefig, mm
 import Plots.plot
 
 function landmark_references(case, variable)
@@ -62,7 +62,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; normalize_z_fact
     end
 
     plot!(
-        p, z, u; label = label, legend = :outertop, margin = 12Plots.mm, lw = 2,
+        p, z, u; label = label, legend = :outertop, #=margin = 12Plots.mm,=# lw = 2,
         color = :black, linestyle = :solid, xlabel = "z (m)"
     )
     return p
@@ -361,7 +361,7 @@ function read_jld2(filename)
 end
 
 function plot_current(current, sol, title)
-    p1 = plot(xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
+    p1 = plot(xlabel = "t [s]", ylabel = "I [A]", margin = 5mm)
     plot!(p1, sol.t, current[1, :], title = title, label = ["Iᵢ" ""])
     plot!(p1, sol.t, current[2, :], label = ["Iₑ" ""])
     plot!(p1, sol.t, current[3, :], label = ["I total" ""])
@@ -373,7 +373,7 @@ function plot_current_compare(currents, sols, labels)
     mid_I = (min_I + max_I)/2
     range = min(30, 5 + max_I - min_I)
     ylims = (mid_I - range/2, mid_I + range/2)
-    p1 = plot(;ylims, size = (1000, 500), xlabel = "t [s]", ylabel = "I [A]", margin = 5Plots.mm)
+    p1 = plot(;ylims, size = (1000, 500), xlabel = "t [s]", ylabel = "I [A]", margin = mm)
     #plot!(p1, sols[1].t, currents[1][1, :], linestyle = :solid, color = :green, title = "Total current vs grid size", label = labels[1] * "  Iᵢ")
     #plot!(p1, sols[1].t, currents[1][2, :], linestyle = :solid, color = :blue, label =  labels[1] * " Iₑ")
     plot!(p1, sols[1].t, currents[1][3, :], linestyle = :solid, color = :black, label =  labels[1] * " I total", title = "Total current vs grid size")

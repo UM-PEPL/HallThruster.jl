@@ -1,5 +1,5 @@
 using Test, HallThruster, Plots, StaticArrays, DiffEqCallbacks, LinearAlgebra, DiffEqBase, LoopVectorization
-using OrdinaryDiffEq, PartialFunctions
+using OrdinaryDiffEq, PartialFunctions, SpecialFunctions
 
 
 function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
