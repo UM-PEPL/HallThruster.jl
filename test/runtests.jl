@@ -1,4 +1,4 @@
-using Test, Documenter, HallThruster, StaticArrays, BenchmarkTools, Symbolics, Statistics, LinearAlgebra, DelimitedFiles
+using Test, Documenter, HallThruster, StaticArrays, Symbolics, Statistics, LinearAlgebra, DelimitedFiles
 
 doctest(HallThruster)
 

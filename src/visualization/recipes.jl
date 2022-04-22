@@ -17,7 +17,12 @@
     z_normalized = z_cell ./ L_ch
 
     label_user = get(plotattributes, :label, "")
-    label --> label_user
+    label_mod = if sol.retcode == :LIF_data
+        ""
+    else
+        label_user
+    end
+    label --> label_mod
     linewidth --> 2
     yscale --> :identity
 
@@ -33,6 +38,7 @@
         ylabel := "Density (m⁻³)"
         subplot := 1
         title := "Neutral density"
+        label := label_mod
         ()
     end
 
@@ -40,14 +46,16 @@
     Tev = sol[:Tev][frame]
 
     for Z in 1:ncharge
-        # Plot ion density
-        @series begin
-            y := sol[:ni, Z][frame]
-            ylabel := "Density (m⁻³)"
-            subplot := 2
-            label := ifelse(!isempty(label_user),  label_user * ", Z = $Z", "")
-            title := "Plasma density"
-            ()
+        if sol.retcode != :LIF_data
+            # Plot ion density
+            @series begin
+                y := sol[:ni, Z][frame]
+                ylabel := "Density (m⁻³)"
+                subplot := 2
+                label := ifelse(!isempty(label_mod),  label_mod * ", Z = $Z", "")
+                title := "Plasma density"
+                ()
+            end
         end
 
         # Plot ion velocity
@@ -63,22 +71,26 @@
         end
 
         # Plot rate of production of all three species
-        ionization_rate = ones(length(z_normalized)) * eps(Float64)
-        for rxn in ionization_reactions
-            if rxn.product.Z == Z
-                if rxn.reactant.Z == 0
-                    reactant_density = sol[:nn][frame]
-                else
-                    reactant_density = sol[:ni, rxn.reactant.Z][frame]
+        ionization_rate = fill(eps(Float64), length(z_normalized))
+        if isempty(ionization_reactions)
+            ionization_rate .*= NaN
+        else
+            for rxn in ionization_reactions
+                if rxn.product.Z == Z
+                    if rxn.reactant.Z == 0
+                        reactant_density = sol[:nn][frame]
+                    else
+                        reactant_density = sol[:ni, rxn.reactant.Z][frame]
+                    end
+                    ionization_rate .+= reactant_density .* ne .* rxn.rate_coeff.(3/2 .* Tev)
                 end
-                ionization_rate .+= reactant_density .* ne .* rxn.rate_coeff.(3/2 .* Tev)
             end
         end
         @series begin
             y := ionization_rate
             ylabel := "Ionization rate (m⁻³/s)"
             subplot := 5
-            label := ifelse(!isempty(label_user),  label_user * ", Z = $Z", "")
+            label := ifelse(!isempty(label_mod), label_mod * ", Z = $Z", "")
             title := "Ionization rate"
             ()
         end
@@ -90,7 +102,7 @@
             y := sol[:ne][frame]
             ylabel := "Density (m⁻³)"
             subplot := 2
-            label := ifelse(!isempty(label_user),  label_user * ", ne", "ne")
+            label := ifelse(!isempty(label_mod),  label_mod * ", ne", "ne")
             ()
         end
     end
@@ -102,6 +114,7 @@
         yscale := :identity
         title := "Potential"
         subplot := 4
+        label := label_mod
         ()
     end
 
@@ -112,6 +125,7 @@
         yscale := :identity
         subplot := 6
         title := "Electron temperature"
+        label := label_mod
         ()
     end
 
@@ -122,6 +136,7 @@
         yscale := :identity
         subplot := 7
         title := "Cross-field electron velocity"
+        label := label_mod
         ()
     end
 
@@ -132,6 +147,7 @@
         yscale := :identity
         subplot := 8
         title := "Electric field"
+        label := label_mod
         ()
     end
 end
