@@ -114,6 +114,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
+    #z_cell = LinRange(-0.05/ncells/2, 0.05 + 0.05/ncells/2, ncells+2)
 
     nedges = length(z_edge)
 

@@ -116,7 +116,7 @@ for NUM_CONSERVATIVE in 1:3
         ]
     end
 
-    function global(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
+    function global_lax_friedrichs(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -174,35 +174,32 @@ function compute_edge_states!(UL, UR, U, scheme)
     Ψ = scheme.limiter
     # compute left and right edge states
     @inbounds for i in 2:ncells-1
-        #=if scheme.reconstruct
-            u₋ = U[1, i-1]
-            uᵢ = U[1, i]
-            u₊ = U[1, i+1]
-            Δu = u₊ - uᵢ
-            ∇u = uᵢ - u₋
-            r = Δu / ∇u
-
-             UL[1, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-             UR[1, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
-        else
-            UL[1, right_edge(i)] = U[1, i]
-            UR[1, left_edge(i)]  = U[1, i]
-        end
-        for j in 2:nvars
-            UL[j, right_edge(i)] = U[j, i]
-            UR[j, left_edge(i)]  = U[j, i]
-        end=#
         for j in 1:nvars
             if scheme.reconstruct
-                u₋ = U[j, i-1]
-                uᵢ = U[j, i]
-                u₊ = U[j, i+1]
-                Δu = u₊ - uᵢ
-                ∇u = uᵢ - u₋
-                r = Δu / ∇u
+                if j == 3 || j == 5 || j == 7 #do primitive variable reconstruction
+                    u₋ = U[j, i-1]/U[j-1, i-1]
+                    uᵢ = U[j, i]/U[j-1, i]
+                    u₊ = U[j, i+1]/U[j-1, i+1]
+                    Δu = u₊ - uᵢ
+                    ∇u = uᵢ - u₋
+                    r = Δu / ∇u
+                    uL = uᵢ + 0.5 * Ψ(r) * ∇u
+                    uR = uᵢ - 0.5 * Ψ(1/r) * Δu
+                    ρL = UL[j-1, right_edge(i)] #use previously computed rho 
+                    ρR = UR[j-1, left_edge(i)]
+                    UL[j, right_edge(i)] = uL*ρL
+                    UR[j, left_edge(i)] = uR*ρR
+                else
+                    u₋ = U[j, i-1]
+                    uᵢ = U[j, i]
+                    u₊ = U[j, i+1]
+                    Δu = u₊ - uᵢ
+                    ∇u = uᵢ - u₋
+                    r = Δu / ∇u
 
-                UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-                UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+                    UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
+                    UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+                end
             else
                 UL[j, right_edge(i)] = U[j, i]
                 UR[j, left_edge(i)]  = U[j, i]
@@ -216,6 +213,7 @@ end
 
 function compute_fluxes!(F, UL, UR, U, params)
     (;config, index, fluids) = params
+    λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme) = config
     nvars, ncells = size(U)
 
@@ -228,8 +226,6 @@ function compute_fluxes!(F, UL, UR, U, params)
     nedges = ncells-1
 
     compute_edge_states!(UL, UR, U, scheme)
-    λ_global = zeros(ncharge+1) #max global wavespeed
-
 
     @inbounds for i in 1:nedges
         # Compute number density
