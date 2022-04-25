@@ -62,7 +62,6 @@
         @series begin
             y := sol[:ui, Z][frame] ./ 1000
             ylabel := "Ion velocity (km/s)"
-            legend := :bottomright
             label := ifelse(!isempty(label_user),  label_user * ", Z = $Z", "")
             yscale := :identity
             title := "Ion velocity"
