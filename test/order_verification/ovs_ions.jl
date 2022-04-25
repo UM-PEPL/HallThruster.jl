@@ -17,8 +17,8 @@ const Ti = 300
 const L = 0.05
 
 ϕ = 0.0 * sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.5)
-ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 1, offset = 6e13)
-nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 0.5, offset = 6e18)
+ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 2, offset = 6e13)
+nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 4, offset = 6e18)
 ui = sin_wave(x/L, amplitude = 2000, phase = -π/2, nwaves = 0.5, offset = 3000)
 μ = sin_wave(x/L, amplitude = 1e2, phase = 3π/2, nwaves = 0.6, offset = 1.1e2)
 ϵ = sin_wave(x/L, amplitude = 3, phase = -π/2, nwaves = 1, offset = 6)
@@ -185,14 +185,14 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     if plot_results
 
-        p1 = plot(z_cell, ρn_sim, label = "sim", title = "Neutral density", legend = :outertop)
-        plot!(p1, z_cell, ρn_exact, label = "exact")
+        p1 = plot(z_cell, ρn_sim, label = "Numeric solution", title = "Neutral density", legend = :outertop)
+        plot!(p1, z_cell, ρn_exact, label = "Manufactured solution")
 
-        p2 = plot(z_cell, ρi_sim, label = "sim", title = "Ion density", legend = :outertop)
-        plot!(p2, z_cell, ρi_exact, label = "exact")
+        p2 = plot(z_cell, ρi_sim, label = "Numeric solution", title = "Ion density", legend = :outertop)
+        plot!(p2, z_cell, ρi_exact, label = "Manufactured solution")
 
-        p3 = plot(z_cell, ui_sim, label = "sim", title = "Ion velocity", legend = :outertop)
-        plot!(p3, z_cell, ui_exact, label = "exact")
+        p3 = plot(z_cell, ui_sim, label = "Numeric solution", title = "Ion velocity", legend = :outertop)
+        plot!(p3, z_cell, ui_exact, label = "Manufactured solution")
 
         p = plot(p1, p2, p3, layout = (1, 3), size = (1800, 700), margin = 5Plots.mm)
         display(p)

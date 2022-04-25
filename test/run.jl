@@ -13,7 +13,7 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
 
     un = 150.0
     Tn = 300.0
-    Ti = 1000.0
+    Ti = 0.0
 
     domain = (0.0, L)
 
@@ -42,7 +42,7 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         cathode_Te = 2/3 * ϵ_cathode,
         discharge_voltage = 300.0,
         excitation_model = HallThruster.LandmarkExcitationLookup(),
-        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
+        wall_loss_model = HallThruster.ConstantSheathPotential(-20, αϵ_in, αϵ_out),
         wall_collision_freq = αw * 1e7,
         implicit_energy = implicit_energy,
         transition_function = transition,
@@ -55,7 +55,7 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         anode_mass_flow_rate = 5e-6,
         scheme,
         electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
-        electron_ion_collisions = true,
+        electron_ion_collisions = false,
         ionization_model,
         domain,
         LANDMARK,

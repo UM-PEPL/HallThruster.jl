@@ -18,7 +18,7 @@ struct NoWallLosses <: WallLossModel end
 @inline (model::NoWallLosses)(U, params ,i) = 0.0
 
 Base.@kwdef struct ConstantSheathPotential <: WallLossModel
-    sheath_potential::Float64 = 20.0
+    sheath_potential::Float64 = -20.0
     inner_loss_coeff::Float64
     outer_loss_coeff::Float64
 end
