@@ -61,7 +61,7 @@ function plot_quantity(u, z = nothing, zmin = 0.0, zmax = 0.05; normalize_z_fact
     end
 
     plot!(
-        p, z, u; label = label, legend = :outertop, #=margin = 12Plots.mm,=# lw = 2,
+        p, z, u; label = label, legend = :outertop, margin = 6mm, left_margin = 20mm, lw = 2,
         color = :black, linestyle = :solid, xlabel = "z (m)"
     )
     return p
@@ -133,7 +133,7 @@ function plot_solution(u, saved_values, z, case = 1)
 
     #p_pe  = plot_quantity(HallThruster.e * pe, z; title = "Electron pressure", ylabel = "∇pe (Pa)")
     #p_∇pe  = plot_quantity(HallThruster.e * ∇pe, z; title = "Pressure gradient", ylabel = "∇pe (Pa/m)")
-    plot(p_nn, p_ne, p_ui, p_ϕ, #=p_pe,=# p_iz, p_ϵ, p_ue, p_E, #=p_∇pe,=# layout = (2, 4), size = (2500, 1000))
+    plot(p_nn, p_ne, p_ui, p_ϕ, #=p_pe,=# p_iz, p_ϵ, p_ue, p_E, #=p_∇pe,=# layout = (4, 2), size = (1250, 1800)) #2500, 1000
 end
 
 function plot_solution_hallis_and_2D(u, saved_values, z, case = 1, hallis = nothing, slicezr = nothing, slice = nothing)
@@ -279,7 +279,7 @@ function plot_solution_OVS(u, z = nothing, case = 1)
     p_ue = plot_quantity(u[10, :] ./ 1000, z; title = "Electron velocity", ylabel = "ue (km/s)")
     p_ϕ  = plot_quantity(u[8, :], z; title = "Potential", ylabel = "ϕ (V)", hallis = hallis, hallisvar = hallis.ϕ)
     p_E  = plot_quantity(-u[9, :], z; title = "Electric field", ylabel = "E (V/m)", hallis = hallis, hallisvar = hallis.Ez)
-    p = plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (2, 4), size = (2000, 1000))
+    p = plot(p_nn, p_ne, p_ui, p_nϵ, p_ϵ, p_ue, p_ϕ, p_E, layout = (4, 2), size = (1000, 2000))
     png(p, "last")
     return p
 end
@@ -397,8 +397,8 @@ end
 #plot(sol::HallThruster.Solution, frame = length(sol.savevals); case = 43) = plot_solution(sol.u[frame], sol.savevals[frame], sol.params.z_cell, case)
 
 function plot_timeaveraged(sol, start_ind = 1; case = 4)
-    avg, avg_savevals = HallThruster.timeaveraged(sol, start_ind)
-    plot_solution(avg, avg_savevals, sol.params.z_cell, case)
+    solavg = HallThruster.time_average(sol, start_ind)
+    plot_solution(solavg.u[1], solavg.savevals[1], sol.params.z_cell, case)
 end
 
 function plot_thrust(thrust, sol)
