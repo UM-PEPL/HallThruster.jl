@@ -181,8 +181,6 @@
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, scheme)
             @test edge_L[:, 1] == euler_state_L
             @test edge_R[:, end] == euler_state_R
-            @test edge_L[:, 2] == 1.5 * euler_state
-            @test edge_R[:, 1] == 0.75 * euler_state
 
             # check that if slopes have different signs, the avg slope resets to zero with any flux limiter
             euler_state_L2 = 2 * euler_state

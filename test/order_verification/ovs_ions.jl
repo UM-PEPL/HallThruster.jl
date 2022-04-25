@@ -18,7 +18,7 @@ const L = 0.05
 
 ϕ = 0.0 * sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.5)
 ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 2, offset = 6e13)
-nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 4, offset = 6e18)
+nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 1, offset = 6e18)
 ui = sin_wave(x/L, amplitude = 2000, phase = -π/2, nwaves = 0.5, offset = 3000)
 μ = sin_wave(x/L, amplitude = 1e2, phase = 3π/2, nwaves = 0.6, offset = 1.1e2)
 ϵ = sin_wave(x/L, amplitude = 3, phase = -π/2, nwaves = 1, offset = 6)

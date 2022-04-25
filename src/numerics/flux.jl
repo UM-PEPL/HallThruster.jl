@@ -31,7 +31,7 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function upwind(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
+    function upwind(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
 
@@ -48,7 +48,7 @@ for NUM_CONSERVATIVE in 1:3
         end
     end
 
-    function rusanov(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
+    function rusanov(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -79,7 +79,7 @@ for NUM_CONSERVATIVE in 1:3
         return @SVector [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
-    function HLLE(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0) where T
+    function HLLE(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -112,6 +112,27 @@ for NUM_CONSERVATIVE in 1:3
             0.5 * (FL[j] + FR[j]) -
             0.5 * (smax + smin) / (smax - smin) * (FR[j] - FL[j]) +
             smax * smin / (smax - smin) * (UR[j] - UL[j])
+            for j in 1:$(NUM_CONSERVATIVE)
+        ]
+    end
+
+    function global(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0) where T
+        γ = fluid.species.element.γ
+        Z = fluid.species.Z
+
+        uL = velocity(UL, fluid)
+        uR = velocity(UR, fluid)
+
+        peL = TeL * neL
+        peR = TeR * neR
+
+        charge_factor = Z * e * coupled
+
+        FL = flux(UL, fluid, charge_factor * peL)
+        FR = flux(UR, fluid, charge_factor * peR)
+
+        return @SVector[
+            0.5 * (FL[j] + FR[j]) + 0.5*λ_global*UL[j] - 0.5*λ_global*UR[j]
             for j in 1:$(NUM_CONSERVATIVE)
         ]
     end
@@ -153,6 +174,24 @@ function compute_edge_states!(UL, UR, U, scheme)
     Ψ = scheme.limiter
     # compute left and right edge states
     @inbounds for i in 2:ncells-1
+        #=if scheme.reconstruct
+            u₋ = U[1, i-1]
+            uᵢ = U[1, i]
+            u₊ = U[1, i+1]
+            Δu = u₊ - uᵢ
+            ∇u = uᵢ - u₋
+            r = Δu / ∇u
+
+             UL[1, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
+             UR[1, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+        else
+            UL[1, right_edge(i)] = U[1, i]
+            UR[1, left_edge(i)]  = U[1, i]
+        end
+        for j in 2:nvars
+            UL[j, right_edge(i)] = U[j, i]
+            UR[j, left_edge(i)]  = U[j, i]
+        end=#
         for j in 1:nvars
             if scheme.reconstruct
                 u₋ = U[j, i-1]
@@ -162,8 +201,8 @@ function compute_edge_states!(UL, UR, U, scheme)
                 ∇u = uᵢ - u₋
                 r = Δu / ∇u
 
-                 UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-                 UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+                UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
+                UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
             else
                 UL[j, right_edge(i)] = U[j, i]
                 UR[j, left_edge(i)]  = U[j, i]
@@ -189,6 +228,47 @@ function compute_fluxes!(F, UL, UR, U, params)
     nedges = ncells-1
 
     compute_edge_states!(UL, UR, U, scheme)
+    λ_global = zeros(ncharge+1) #max global wavespeed
+
+
+    @inbounds for i in 1:nedges
+        # Compute number density
+        ne = 0.0
+        for Z in 1:ncharge
+            ni = U[index.ρi[Z], i] / mi
+            ne = ne + Z * ni
+        end
+
+        # Compute electron temperature
+        Te = max(params.config.min_electron_temperature, U[index.nϵ, i] / ne)
+
+        fluid = fluids[1]
+        γ = fluid.species.element.γ
+        U_neutrals = SA[U[index.ρn, i]]
+        u = velocity(U_neutrals, fluid)
+        T = temperature(U_neutrals, fluid)
+        λ_global[1] = sqrt((γ * kB * T) / mi)
+
+        for Z in 1:ncharge
+
+            fluid = fluids[Z+1]
+            γ = fluid.species.element.γ
+            U_ions = SA[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
+
+            u = velocity(U_ions, fluid)
+
+            pe = Te* ne
+
+            T = temperature(U_ions, fluid)
+            charge_factor = Z * e * coupled
+
+            a = sqrt((charge_factor * Te + γ * kB * T) / mi)
+            s_max = max(abs(u - a), abs(u + a))
+            if s_max > λ_global[ncharge+1]
+                λ_global[ncharge+1] = s_max
+            end
+        end
+    end
 
     @inbounds for i in 1:nedges
 
@@ -210,13 +290,13 @@ function compute_fluxes!(F, UL, UR, U, params)
         left_state_n  = SA[UL[index.ρn, i]]
         right_state_n = SA[UR[index.ρn, i]]
 
-        F[index.ρn, i] = scheme.flux_function(left_state_n, right_state_n, fluids[1])[1]
+        F[index.ρn, i] = scheme.flux_function(left_state_n, right_state_n, fluids[1], coupled, ϵL, ϵR, neL, neR, λ_global[1])[1]
 
         # Ion fluxes at edge i
         for Z in 1:ncharge
             left_state_i  = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
             right_state_i = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
-            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[Z+1], coupled, ϵL, ϵR, neL, neR)
+            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[Z+1], coupled, ϵL, ϵR, neL, neR, λ_global[Z+1])
             F[index.ρi[Z],   i] = F_mass
             F[index.ρiui[Z], i] = F_momentum
         end
