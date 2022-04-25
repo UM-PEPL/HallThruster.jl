@@ -11,56 +11,6 @@ function Solution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractO
     return Solution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
 end
 
-"""
-    write_restart(path::AbstractString, sol)
-
-Write a restart file to `path``.
-
-This can be reloaded to resume a simulation. The filetype can be anything supported by FileIO, though JLD2 is preferred.
-"""
-function write_restart(path::AbstractString, sol)
-    save(path, Dict(
-        "t" => sol.t,
-        "u" =>  sol.u,
-        "savevals" => sol.savevals,
-        "z_edge" => sol.params.z_edge,
-        "z_cell" => sol.params.z_cell,
-        "L_ch" => sol.params.L_ch,
-        "A_ch" => sol.params.A_ch,
-        "B" => sol.params.cache.B,
-        "index" => sol.params.index,
-        "ncharge" => sol.params.ncharge,
-        "mi" => sol.params.mi
-    ))
-end
-
-"""
-    read_restart(path::AbstractString)
-
-Load a restart file from `path`.
-
-The filetype can be anything supported by FileIO, though JLD2 is preferred.
-"""
-function read_restart(path::AbstractString)
-    dict = load(path)
-
-    params = (;
-        ncharge = dict["ncharge"],
-        cache = (;B = dict["B"]),
-        A_ch = dict["A_ch"],
-        z_edge = dict["z_edge"],
-        z_cell = dict["z_cell"],
-        index = dict["index"],
-        L_ch = dict["L_ch"],
-        ionization_reactions = IonizationReaction{nothing}[],
-        mi = dict["mi"]
-    )
-
-    return Solution(
-        dict["t"], dict["u"], dict["savevals"], :Restart, nothing, params
-    )
-end
-
 function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
     println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
     println(io, "Retcode: $(string(sol.retcode))")
@@ -178,4 +128,86 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
     else
         return [getproperty(saved, field) for saved in sol.savevals]
     end
+end
+
+function load_landmark_data(case; ncells = 100)
+    fluid_1 = load_landmark_data(case, "fluid_1"; ncells)
+    fluid_2 = load_landmark_data(case, "fluid_2"; ncells)
+    hybrid  = load_landmark_data(case, "hybrid"; ncells)
+    return (fluid_1, fluid_2, hybrid)
+end
+
+function load_landmark_data(case, suffix; ncells = 100)
+    folder = joinpath(PACKAGE_ROOT, "landmark", "case_$case")
+
+    E_file = readdlm(joinpath(folder, "electric_field_$(suffix).csv"), ',')
+    z_E, E = E_file[:, 1], E_file[:, 2]
+    E_itp = LinearInterpolation(z_E, E)
+
+    energy_file = readdlm(joinpath(folder, "energy_$(suffix).csv"), ',')
+    z_ϵ, ϵ = energy_file[:, 1], energy_file[:, 2]
+    ϵ_itp = LinearInterpolation(z_ϵ, ϵ)
+
+    neutral_density_file = readdlm(joinpath(folder, "neutral_density_$(suffix).csv"), ',')
+    z_nn, nn = neutral_density_file[:, 1], neutral_density_file[:, 2]
+    nn_itp = LinearInterpolation(z_nn, nn)
+
+    plasma_density_file = readdlm(joinpath(folder, "plasma_density_$(suffix).csv"), ',')
+    z_ne, ne = plasma_density_file[:, 1], plasma_density_file[:, 2]
+    ne_itp = LinearInterpolation(z_ne, ne)
+
+    potential_file = readdlm(joinpath(folder, "potential_$(suffix).csv"), ',')
+    z_ϕ, ϕ = potential_file[:, 1], potential_file[:, 2]
+    ϕ_itp = LinearInterpolation(z_ϕ, ϕ)
+
+    zs = LinRange(0, 0.05, ncells)
+
+    ui = fill(NaN, length(zs))
+    ue = fill(NaN, length(zs))
+
+    cache = (;
+        ue = ue,
+        Tev = 2/3 * ϵ_itp.(zs),
+        pe = ϵ_itp.(zs),
+        ne = ne_itp.(zs),
+        ∇ϕ = -E_itp.(zs),
+        ϕ = ϕ_itp.(zs),
+        ϕ_cell = ϕ_itp.(zs),
+    )
+
+    ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);
+
+    params = (;
+        ncharge = 1,
+        z_cell = zs,
+        z_edge = zs,
+        L_ch = 0.025,
+        cache,
+        mi = Xenon.m,
+        index = (;
+            ρn = 1,
+            ρi = [2],
+            ρiui = [3],
+            nϵ = 4,
+        ),
+        ionization_reactions,
+    )
+
+    retcode = :LANDMARK
+    destats = nothing
+
+    u = zeros(4, length(zs))
+    mi = Xenon.m
+
+    ρn = nn_itp.(zs) * mi
+    ρi = ne_itp.(zs) * mi
+    ρiui = ρi .* ui
+    nϵ = ne_itp.(zs) .* ϵ_itp.(zs)
+
+    u[1, :] = ρn
+    u[2, :] = ρi
+    u[3, :] = ρiui
+    u[4, :] = nϵ
+
+    return Solution([0.0], [u], [cache], retcode, destats, params)
 end

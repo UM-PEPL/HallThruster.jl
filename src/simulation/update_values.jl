@@ -34,9 +34,6 @@ function update_values!(U, params, t = 0)
     # Update the current iteration
     params.iteration[1] += 1
 
-    # Update the progress bar
-    update_progress_bar!(params.progress_bar, params, t)
-
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
