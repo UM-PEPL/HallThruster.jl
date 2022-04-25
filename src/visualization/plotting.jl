@@ -1,4 +1,4 @@
-using Plots, @gif, png, savefig, mm
+using Plots: @gif, png, savefig, mm
 
 function landmark_references(case, variable)
     if case > 3
