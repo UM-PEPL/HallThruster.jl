@@ -132,8 +132,9 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     F = zeros(4, nedges)
     UL = zeros(4, nedges)
     UR = zeros(4, nedges)
+    λ_global = zeros(2)
 
-    cache = (;ue, μ, F, UL, UR, ∇ϕ)
+    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global)
 
     U = zeros(4, ncells+2)
     z_end = z_cell[end]
