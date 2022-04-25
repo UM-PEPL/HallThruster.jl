@@ -11,6 +11,7 @@ include("unit_tests/test_electrons.jl")
 include("unit_tests/test_boundary_conditions.jl")
 include("unit_tests/test_walls.jl")
 include("unit_tests/test_initialization.jl")
+include("unit_tests/test_restarts.jl")
 
 @testset "Order verification (potential and gradients)" begin
     include("order_verification/ovs_funcs.jl")

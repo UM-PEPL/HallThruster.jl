@@ -4,7 +4,7 @@ using OrdinaryDiffEq, PartialFunctions, SpecialFunctions
 
 function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = 1.0, reconstruct = false, limiter = HallThruster.osher,
-        restart_file = nothing, case = 1,
+        restart = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
         coupled = true, LANDMARK = true,
@@ -61,7 +61,7 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         LANDMARK,
     )
 
-    @time sol = HallThruster.run_simulation(config; dt, duration, ncells, nsave, restart_file, alg)
+    @time sol = HallThruster.run_simulation(config; dt, duration, ncells, nsave, restart, alg)
 
     #=if sol.t[end] != 0.0 || sol.retcode ∉ (:NaNDetected, :InfDetected)
         p = plot(sol; case)
@@ -71,4 +71,4 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
     return sol
 end
 
-sol = run_sim(1e-6; ncells=200, nsave=1000, case = 3, dt = 0.7e-8);
+sol = run_sim(1e-3; ncells=200, nsave=1000, case = 3, dt = 0.7e-8);

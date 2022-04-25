@@ -54,13 +54,14 @@ Run a Hall thruster simulation using the provided Config object.
 - `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
 - `nsave`: How many frames to save.
 - `alg`: Explicit timestepping algorithm to use. Defaults to second-order strong-stability preserving Runge-Kutta with a stage limiter and a step limiter(`SSPRK22(stage_limiter = stage_limiter!)`), but will work with any explicit timestepping algorithm provided by `OrdinaryDiffEq`.
-- `restart_file`: path to restart file. Defaults to `nothing`.
+- `restart`: path to restart file or a HallThrusterSolution object. Defaults to `nothing`.
 """
 function run_simulation(config::Config;
     dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
-    restart_file = nothing, num_subiterations = 1, electron_energy_order = 2)
+    restart = nothing, num_subiterations = 1, electron_energy_order = 2)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
+    grid = generate_grid(config.thruster.geometry, ncells, config.domain)
 
     # load collisions and reactions
     ionization_reactions = _load_reactions(config.ionization_model, species)
@@ -74,14 +75,11 @@ function run_simulation(config::Config;
 
     index = configure_index(fluid_ranges)
 
-    use_restart = restart_file !== nothing
+    use_restart = restart !== nothing
 
     if use_restart
-        U, grid, B = read_restart(restart_file)
-        _, cache = allocate_arrays(grid, fluids)
-        cache.B .= B
+        U, cache = load_restart(grid, fluids, config, restart)
     else
-        grid = generate_grid(config.thruster.geometry, ncells, config.domain)
         U, cache = allocate_arrays(grid, fluids)
     end
 
