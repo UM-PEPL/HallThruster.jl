@@ -29,7 +29,6 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
-Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [extras]

@@ -106,10 +106,6 @@ function run_simulation(config::Config;
     )
     saving_callback = SavingCallback(save_func, saved_values; saveat)
 
-    niters = round(Int, tspan[2] / dt)
-
-    progress_bar = make_progress_bar(niters, dt, config)
-
     # Assemble callback set
     if config.callback !== nothing
         callbacks = CallbackSet(update_callback, saving_callback, config.callback)
@@ -131,7 +127,6 @@ function run_simulation(config::Config;
         z_cell=grid.cell_centers,
         z_edge=grid.edges,
         dt,
-        progress_bar,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
         ionization_reactions,
@@ -155,16 +150,10 @@ function run_simulation(config::Config;
 
     # Set up ODE problem and solve
     prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
-	sol = try
-        solve(
+	sol = solve(
             prob, alg; saveat, callback=callbacks,
             adaptive=false, dt=dt, dtmax=10*dt, dtmin = dt/10, maxiters = maxiters,
 	    )
-    catch e
-        stop_progress_bar!(progress_bar, params)
-        println("There was an error")
-        throw(e)
-    end
 
     # Print some diagnostic information
     if sol.retcode == :NaNDetected
@@ -172,8 +161,6 @@ function run_simulation(config::Config;
     elseif sol.retcode == :InfDetected
         println("Simulation failed with Inf detected at t = $(sol.t[end])")
     end
-
-    stop_progress_bar!(progress_bar, params)
 
     # Return the solution
     return Solution(sol, params, saved_values.saveval)

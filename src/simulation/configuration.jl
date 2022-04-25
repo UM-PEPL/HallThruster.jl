@@ -27,7 +27,6 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     min_number_density::Float64
     min_electron_temperature::Float64
     transition_function::T
-    progress_interval::Int
     initial_condition::IC
     callback::CB
     magnetic_field_scale::Float64
@@ -66,7 +65,6 @@ function Config(;
         min_number_density                  = 1e6,
         min_electron_temperature            = 1.0,
         transition_function::TransitionFunction = LinearTransition(0.001, 0.0),
-        progress_interval::Int              = 0,
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
@@ -114,7 +112,7 @@ function Config(;
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_collision_freq,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
-        progress_interval, initial_condition, callback, magnetic_field_scale, source_neutrals,
+        initial_condition, callback, magnetic_field_scale, source_neutrals,
         source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, electron_cond_lookup
     )
 end

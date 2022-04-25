@@ -10,12 +10,7 @@ using LinearAlgebra
 using FileIO
 using DiffEqCallbacks
 using SparseArrays
-using Term
 using PartialFunctions
-import Term.progress: track, ProgressBar, update, start, stop
-import Term.progress: AbstractColumn, DescriptionColumn, BarColumn
-import Term.style: apply_style  # to style strings
-import Term.measure: Measure  # to define the column's size
 using QuadGK
 using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions
@@ -33,7 +28,6 @@ const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 
 include("utilities/utility_functions.jl")
 include("utilities/transition_functions.jl")
-include("visualization/progressbar.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")

@@ -7,8 +7,7 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         restart = nothing, case = 1,
         alg = SSPRK22(stage_limiter! = HallThruster.stage_limiter!, step_limiter! = HallThruster.stage_limiter!),
         flux = HallThruster.rusanov, ionization_model = HallThruster.LandmarkIonizationLookup(), transition = HallThruster.LinearTransition(0.001, 0.0),
-        coupled = true, LANDMARK = true,
-        progress_interval = 0, WENO = false, L = 0.05
+        coupled = true, LANDMARK = true, WENO = false, L = 0.05
     )
 
     un = 150.0
@@ -47,7 +46,6 @@ function run_sim(duration = 0.0002; ncells = 50, nsave = 2, dt = 1e-8,
         implicit_energy = implicit_energy,
         transition_function = transition,
         electron_pressure_coupled = coupled,
-        progress_interval = progress_interval,
         neutral_velocity = un,
         neutral_temperature = Tn,
         ion_temperature = Ti,
