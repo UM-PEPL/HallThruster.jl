@@ -49,33 +49,8 @@
 
     @test abs(2/3 * ϵ[1] - config.anode_Te) < 0.1
     @test abs(2/3 * ϵ[end] - config.cathode_Te) < 0.1
-    
+
     struct NewInitialization <: HallThruster.InitialCondition end
     @test_throws ArgumentError HallThruster.initialize!(U, params, NewInitialization())
-
-    #=
-    z_cell = params.z_cell
-    xlabel = "z (cm)"
-    p1 = plot(z_cell * 100, U[index.ρn, :] ./ mi; xlabel, label = "", title = "Neutral number density (m⁻³)")
-    p2 = plot(;xlabel, yaxis = :log, title = "Ion and electron density (m⁻³)")
-    p3 = plot(;xlabel, title = "Ion velocity (km/s)")
-    p4 = plot(z_cell * 100, ϵ; xlabel, title = "Electron energy (3/2 Te, eV)", label = "")
-
-    for Z in 1:config.ncharge
-        plot!(p2, z_cell * 100, U[index.ρi[Z], :] / mi, label = "Z = $Z")
-        plot!(p3, z_cell * 100, ui[Z] / 1000, label = "")
-    end
-
-    plot!(p2, z_cell * 100, ne, label = "Electrons", lw = 2)
-
-    plots = (p1, p2, p3, p4)
-
-    foreach(plots) do p
-        vline!(p, [config.thruster.geometry.channel_length * 100], lw = 2, lc = :red, ls = :dash, label = "")
-    end
-
-    p = plot(p1, p2, p3, p4, layout = (2, 2), size = (1000, 600))
-    savefig(p, "docs/src/assets/intialization.")
-    display(p)=#
 end
 
