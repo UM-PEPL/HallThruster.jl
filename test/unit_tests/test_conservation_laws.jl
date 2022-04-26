@@ -25,6 +25,8 @@
         flux = HallThruster.flux,
         HLLE = HallThruster.HLLE,
         upwind = HallThruster.upwind,
+        rusanov = HallThruster.rusanov,
+        global_lax_friedrichs = HallThruster.global_lax_friedrichs,
         Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
 
         R = Xenon.R
@@ -145,6 +147,14 @@
             @test upwind(euler_state, euler_state_3, euler_eq) == flux(euler_state_3, euler_eq)
 
             # rusanov flux
+            @test rusanov(continuity_state, continuity...) == flux(continuity...)
+            @test rusanov(isothermal_state, isothermal...) == flux(isothermal...)
+            @test rusanov(euler_state, euler...) == flux(euler...)
+
+            #global_lax_friedrichs
+            @test global_lax_friedrichs(continuity_state, continuity...) == flux(continuity...)
+            @test global_lax_friedrichs(isothermal_state, isothermal...) == flux(isothermal...)
+            @test global_lax_friedrichs(euler_state, euler...) == flux(euler...)
 
             # HLLE flux
             @test HLLE(continuity_state, continuity...) == flux(continuity...)
