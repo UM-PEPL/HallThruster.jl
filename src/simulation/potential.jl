@@ -53,7 +53,7 @@ function solve_potential_edge!(U, params)
         #source term, h/2 to each side
         b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - (μ⁺ + μ⁻) * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + ∇_neue
 
-        #for order verification, change to simpler source term
+        # Add user-provided source term
         b[i] += params.config.source_potential(U, params, i)
 
     end
