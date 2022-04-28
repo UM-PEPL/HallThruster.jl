@@ -100,7 +100,7 @@ function (model::WallSheath)(U, params, i)
     Tev = config.transition_function(z_cell[i], L_ch, Tev_in, Tev_out)
 
     γ = SEE_yield(model.material, Tev)
-    ϕ_s = compute_wall_sheath_potential(Tev, γ, params.config.propellant.m)
+    ϕ_s = sheath_potential(Tev, γ, params.config.propellant.m)
     νₑ = effective_loss_frequency(Tev)
     W = νₑ*Tev*exp(ϕ_s/Tev)
     return W
@@ -119,15 +119,17 @@ function effective_loss_frequency(Tev)
 end
 
 """
-    compute_wall_sheath_potential(Tev, γ, mi))
+    sheath_potential(Tev, γ, mi))
 compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
-Space charge limited above γ = 0.99. Currently only strictly valid for Xenon
+Space charge limited above γ = 0.99.
 """
-function compute_wall_sheath_potential(Tev, γ, mi)
+function sheath_potential(Tev, γ, mi)
     if γ < 1 - 8.3*sqrt(me/mi)
+        # Sheath is not space charge limited
         ϕ_w = -Tev*log(0.5*(1-γ)*sqrt(2*mi/π/me))
     else
+        # Sheath is space charge limited
         ϕ_w = -1.02*Tev
     end
     return ϕ_w

@@ -15,6 +15,7 @@ using QuadGK
 using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions
 using Unitful
+using SpecialFunctions
 
 # Packages used for making plots
 using Measures: mm
@@ -61,5 +62,7 @@ include("simulation/restart.jl")
 include("simulation/simulation.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
+
+export time_average
 
 end # module

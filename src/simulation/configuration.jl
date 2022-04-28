@@ -63,7 +63,7 @@ function Config(;
         electron_ion_collisions::Bool       = true,
         electron_pressure_coupled::Number   = 1.0,
         min_number_density                  = 1e6,
-        min_electron_temperature            = 1.0,
+        min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.001, 0.0),
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,

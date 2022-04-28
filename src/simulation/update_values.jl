@@ -26,8 +26,8 @@ end
 
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
-    (;z_cell, fluids, fluid_ranges, index, A_ch) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff) = params.cache
+    (;z_cell, index, num_subiterations) = params
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νe) = params.cache
 
     mi = params.config.propellant.m
 
@@ -39,34 +39,42 @@ function update_values!(U, params, t = 0)
     @views right_boundary_state!(U[:, end], U, params)
 
     ncells = size(U, 2) - 2
-    # Update electron quantities
-    @inbounds for i in 1:(ncells + 2)
-        z = z_cell[i]
 
-        ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
-        Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
-        pe[i] = 3/2 * ne[i] * Tev[i] #U[index.nϵ, i]
-        νen[i] = freq_electron_neutral(U, params, i)
-        νei[i] = freq_electron_ion(U, params, i)
-        νw[i] = freq_electron_wall(U, params, i)
-        νan[i] = freq_electron_anom(U, params, i)
-        νc[i] = νen[i] + νei[i]
-        μ[i] = electron_mobility(νan[i] + νw[i], νc[i], B[i])
-        Z_eff[i] = compute_Z_eff(U, params, i)
+    for i in 1:num_subiterations
+        # Update electron quantities
+        @inbounds for i in 1:(ncells + 2)
+            z = z_cell[i]
+
+            ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
+            Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
+            pe[i] = if params.config.LANDMARK
+                3/2 * ne[i] * Tev[i]
+            else
+                ne[i] * Tev[i]
+            end #U[index.nϵ, i]
+            νen[i] = freq_electron_neutral(U, params, i)
+            νei[i] = freq_electron_ion(U, params, i)
+            νw[i] = freq_electron_wall(U, params, i)
+            νan[i] = freq_electron_anom(U, params, i)
+            νc[i] = νen[i] + νei[i]
+            νe[i] = νc[i] + νan[i] + νw[i]
+            μ[i] = electron_mobility(νe[i], B[i])
+            Z_eff[i] = compute_Z_eff(U, params, i)
+        end
+
+        # update electrostatic potential and potential gradient on edges
+        solve_potential_edge!(U, params)
+        # Compute potential gradient, pressure gradient, and electron velocity
+        compute_gradients!(∇ϕ, ∇pe, ue, U, params)
+
+        # Fix electron velocity on left and right cells
+        ueL = ue[3]
+        ue[1] = ue[2] = ueL
+        ueR = ue[end-2]
+        ue[end] = ue[end-1] = ueR
+
+        update_electron_energy!(U, params)
     end
-
-    # update electrostatic potential and potential gradient on edges
-    solve_potential_edge!(U, params)
-    # Compute potential gradient, pressure gradient, and electron velocity
-    compute_gradients!(∇ϕ, ∇pe, ue, U, params)
-
-    # Fix electron velocity on left and right cells
-    ueL = ue[3]
-    ue[1] = ue[2] = ueL
-    ueR = ue[end-2]
-    ue[end] = ue[end-1] = ueR
-
-    update_electron_energy!(U, params)
 
 end
 
@@ -93,8 +101,10 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
     # Centered difference in interior cells
     @inbounds for j in 2:ncells-1
+
         # Compute potential gradient
         ∇ϕ[j] = (ϕ[j] - ϕ[j-1]) / (z_edge[j] - z_edge[j-1])
+
         # Compute pressure gradient
         ∇pe[j] = central_difference(pe[j-1], pe[j], pe[j+1], z_cell[j-1], z_cell[j], z_cell[j+1])
         # Compute electron velocity

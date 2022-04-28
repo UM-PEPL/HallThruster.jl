@@ -38,8 +38,8 @@
 
     γ1 = 0.5
     γ2 = 1.0
-    @test HallThruster.compute_wall_sheath_potential(Tev, γ1, mi) == -Tev*log(0.5*(1-γ1)*sqrt(2*mi/π/me))
-    @test HallThruster.compute_wall_sheath_potential(Tev, γ2, mi) == -1.02 * Tev
+    @test HallThruster.sheath_potential(Tev, γ1, mi) == -Tev*log(0.5*(1-γ1)*sqrt(2*mi/π/me))
+    @test HallThruster.sheath_potential(Tev, γ2, mi) == -1.02 * Tev
 
     ideal_dielectric = HallThruster.IdealDielectric
     @test HallThruster.SEE_yield(ideal_dielectric, 100.0) == 0.0
@@ -47,7 +47,7 @@
     @test HallThruster.SEE_yield(BN, 10.0) ≈ BN.Γ * 10.0^BN.b * BN.a
 
     γ = HallThruster.SEE_yield(BN, Tev)
-    Vs = HallThruster.compute_wall_sheath_potential(Tev, γ, mi)
+    Vs = HallThruster.sheath_potential(Tev, γ, mi)
     νe = HallThruster.effective_loss_frequency(Tev)
     sheath_model = HallThruster.WallSheath(BN)
 
