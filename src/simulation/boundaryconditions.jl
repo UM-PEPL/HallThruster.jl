@@ -58,8 +58,6 @@ function left_boundary_state!(bc_state, U, params)
 
         ne += Z * boundary_density / mi
     end
-
-    #bc_state[index.nϵ] = ne * 3/2 * Tev[1];
 end
 
 function right_boundary_state!(bc_state, U, params)
@@ -77,6 +75,4 @@ function right_boundary_state!(bc_state, U, params)
 
         ne += Z * boundary_density / mi
     end
-
-    #bc_state[index.nϵ] = ne * 3/2 * Te_R
 end

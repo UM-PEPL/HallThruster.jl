@@ -72,8 +72,6 @@ function source_electron_energy(U, params, i)
     ne = params.cache.ne[i]
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
-    νe = params.cache.νe[i]
-    B  = params.cache.B[i]
 
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal inergy
@@ -83,6 +81,9 @@ function source_electron_energy(U, params, i)
         ohmic_heating  = ne * ue * ∇ϕ
     else
         # Do not neglect kinetic energy, so ohmic heating term is -mₑnₑ|uₑ|²νₑ
+        νe = params.cache.νe[i]
+        B  = params.cache.B[i]
+
         Ωe = e * B / me / νe
         ohmic_heating = me * (1 + Ωe^2) * ue^2 * ne / e * νe
     end

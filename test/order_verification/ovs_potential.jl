@@ -10,7 +10,7 @@ Dx = Differential(x)
 
 L = 0.05
 
-ϕ = sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.75, offset = 300.0)
+ϕ = sin_wave(x/L, amplitude = 250, phase = π/2, nwaves = 0.75, offset = 500.0)
 ne = sin_wave(x/L, amplitude = 1e18, phase = π/4, nwaves = 0.5, offset = 1.1e18)
 ui = sin_wave(x/L, amplitude = 13000, phase = π/4, nwaves = 0.83, offset = 10000)
 μ = sin_wave(x/L, amplitude = 1e4, phase = π/2, nwaves = 4, offset = 1.1e4)
@@ -54,7 +54,7 @@ function verify_potential(ncells, plot_results = false)
 
     source_func = (U, params, i) -> source_potential(params.z_edge[i])
 
-    config = (propellant = HallThruster.Xenon, ncharge = 1, source_potential = source_func)
+    config = (propellant = HallThruster.Xenon, ncharge = 1, source_potential = source_func, LANDMARK = true)
     cache = (;A, b, μ, ϕ, pe, ne)
     params = (;z_cell, z_edge, index, ϕ_L, ϕ_R, cache, config)
 
@@ -100,7 +100,7 @@ function verify_gradients(ncells, plot_results = false)
     ue_exact  = ue_func.(z_cell)
 
     cache = (;μ, ne, pe, ϕ, ϕ_cell, ∇ϕ, ∇pe, ue)
-    params = (;z_cell, cache, z_edge)
+    params = (;z_cell, cache, z_edge, config = (;LANDMARK = true))
     U = nothing
 
     HallThruster.compute_gradients!(∇ϕ, ∇pe, ue, U, params)

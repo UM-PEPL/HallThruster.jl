@@ -60,7 +60,7 @@ Run a Hall thruster simulation using the provided Config object.
 """
 function run_simulation(config::Config;
     dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
-    restart = nothing, electron_energy_order = 2, dirichlet_electron_BC = true, num_subiterations = 1)
+    restart = nothing, electron_energy_order = 2, dirichlet_electron_BC = true)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
     grid = generate_grid(config.thruster.geometry, ncells, config.domain)
@@ -139,7 +139,6 @@ function run_simulation(config::Config;
         electron_neutral_collisions,
         electron_energy_order,
         dirichlet_electron_BC,
-        num_subiterations
     )
 
     # Compute maximum allowed iterations

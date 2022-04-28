@@ -14,10 +14,10 @@ in either electron mobility or electron density.
 function solve_potential_edge!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-    (;z_cell, config, index, ϕ_L, ϕ_R, A_ch) = params
+    (;z_cell, config, index, ϕ_L, ϕ_R) = params
     nedges = length(z_cell) - 1
 
-    (;pe, ne, μ, A, b, ϕ, νen, νei, Tev, ue) = params.cache
+    (;pe, ne, μ, A, b, ϕ) = params.cache
     mi = params.config.propellant.m
 
     # Compute anode sheath potential
@@ -26,12 +26,12 @@ function solve_potential_edge!(U, params)
     else
         #see_coeff = 1.0
         #-sheath_potential(Tev[1], see_coeff, config.propellant.m)
-        ce = sqrt(8 * e * Tev[1] / π / me)
+        ce = sqrt(8 * e * params.cache.Tev[1] / π / me)
         je_sheath = e * ne[1] * ce / 4
 
         # discharge current density
         interior_cell = 3
-        je_interior = - e * ne[interior_cell] * ue[interior_cell]
+        je_interior = - e * ne[interior_cell] * params.cache.ue[interior_cell]
         ji_interior = e * sum(Z * U[index.ρiui[Z], interior_cell] for Z in 1:params.config.ncharge) / mi
         jd = ji_interior + je_interior
 
@@ -67,9 +67,7 @@ function solve_potential_edge!(U, params)
 
         # charge conservation: ∇⋅(nₑuₑ) = ∑ ∇⋅(nᵢⱼuᵢⱼ)
         ∇_neue = 0.0
-        niui = 0.0
         @inbounds for Z in 1:params.config.ncharge
-            niui += Z * (U[index.ρiui[Z], i + 1] + U[index.ρiui[Z], i]) / 2 / mi
             ∇_neue += Z * (U[index.ρiui[Z], i + 1] - U[index.ρiui[Z], i]) / Δz / mi
         end
 
@@ -81,27 +79,6 @@ function solve_potential_edge!(U, params)
         #source term, h/2 to each side
         b[i] = (μ⁻ * (pe[i - 1] + pe[i])/2 - 2 * μ0 * (pe[i] + pe[i + 1])/2 + μ⁺ * (pe[i + 1] + pe[i + 2])/2) / Δz² + ∇_neue
 
-        if !(params.config.LANDMARK)
-
-            # Add contributions to RHS from neutral velocity
-            un = params.config.neutral_velocity
-            ∇_neun = un * (ne⁺ - ne⁻) / Δz
-            μ_μn⁺ = μ⁺ * me/e * νen[i+1]
-            μ_μn⁻ = μ⁻ * me/e * νen[i]
-            ∇_μ_μn = (μ_μn⁺ - μ_μn⁻) / Δz
-
-            b[i] -= (μ_μn⁺ + μ_μn⁻)/2 * ∇_neun + un * ne0 * ∇_μ_μn
-
-            # Add contributions to RHS from ion velocity
-            ∇_niui = ∇_neue
-            μ_μi⁺ = μ⁺ * me/e * νei[i+1]
-            μ_μi⁻ = μ⁺ * me/e * νei[i]
-            ∇_μ_μi = (μ_μi⁺ - μ_μi⁻) / Δz
-
-            b[i] -= (μ_μi⁺ + μ_μi⁻)/2 * ∇_niui + niui * ∇_μ_μi
-
-        end
-
         # Add user-provided source term
         b[i] += params.config.source_potential(U, params, i)
 
@@ -110,7 +87,9 @@ function solve_potential_edge!(U, params)
     tridiagonal_solve!(ϕ, A, b)
 
     # Prevent potential from dropping too low
-    ϕ .= max.(ϕ, min(ϕ_R, ϕ_L))
+    if !params.config.LANDMARK
+        ϕ .= max.(ϕ, min(ϕ_R, ϕ_L))
+    end
 
     return ϕ
 end

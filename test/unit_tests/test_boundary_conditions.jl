@@ -16,7 +16,8 @@
         neutral_velocity = 100,
         thruster = HallThruster.SPT_100,
         min_number_density = 1e6,
-        min_electron_temperature = 1.0
+        min_electron_temperature = 1.0,
+        LANDMARK = true
     )
 
     params = (;
@@ -25,7 +26,12 @@
         A_ch = config.thruster.geometry.channel_area,
         config,
         index,
-        z_cell = [0., 1., 2.]
+        z_cell = [0., 1., 2.],
+        cache = (
+            Tev = [3.0, 3.0],
+            ϕ = [300.0, 300.0]
+        ),
+        dirichlet_electron_BC = true,
     )
 
     mi = config.propellant.m
@@ -74,7 +80,6 @@
     #@test U_b[index.ρiui[2]] == U_1[index.ρiui[2]]
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -u_bohm_1
     @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -u_bohm_2
-    @test U_b[index.nϵ] == HallThruster.electron_density([U_b;;], params, 1) * params.Te_L
 
     HallThruster.left_boundary_state!(U_b, U2, params)
     @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity
@@ -82,13 +87,10 @@
     @test U_b[index.ρiui[2]] == U_2[index.ρiui[2]]
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -2 * u_bohm_1
     @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -2 * u_bohm_2
-    @test U_b[index.nϵ] == HallThruster.electron_density([U_b;;], params, 1) * params.Te_L
 
     HallThruster.right_boundary_state!(U_b, U1, params)
     @test all(U_b[1:end-1] .≈ U_1[1:end-1])
-    @test U_b[index.nϵ] == HallThruster.electron_density([U_b;;], params, 1) * params.Te_R
 
     HallThruster.right_boundary_state!(U_b, U2, params)
     @test all(U_b[1:end-1] .≈ U_2[1:end-1])
-    @test U_b[index.nϵ] == HallThruster.electron_density([U_b;;], params, 1) * params.Te_R
 end
