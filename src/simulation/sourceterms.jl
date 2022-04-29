@@ -73,7 +73,21 @@ function source_electron_energy(U, params, i)
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
 
-    ohmic_heating  = ne * ue * ∇ϕ
+    # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
+    # drift (kinetic energy) into thermal inergy
+    if params.config.LANDMARK
+        # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
+        # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
+        ohmic_heating  = ne * ue * ∇ϕ
+    else
+        # Do not neglect kinetic energy, so ohmic heating term is -mₑnₑ|uₑ|²νₑ
+        νe = params.cache.νe[i]
+        B  = params.cache.B[i]
+
+        Ωe = e * B / me / νe
+        ohmic_heating = me * (1 + Ωe^2) * ue^2 * ne / e * νe
+    end
+
     wall_loss      = ne * params.config.wall_loss_model(U, params, i)
     inelastic_loss = inelastic_losses(U, params, i)
 

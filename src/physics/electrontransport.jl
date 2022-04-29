@@ -84,6 +84,10 @@ and the magnetic field.
 """
 @inline function electron_mobility(νan, νc, B)
     νe = νan + νc
+    return electron_mobility(νe, B)
+end
+
+@inline function electron_mobility(νe, B)
     Ω = e * B / (me * νe)
     return e / (me * νe * (1 + Ω^2))
 end

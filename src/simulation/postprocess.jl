@@ -19,10 +19,10 @@ end
 
 """
     time_average(sol, tstampstart)
-compute timeaveraged solution, input Solution type and the frame at which averaging starts. 
+compute time-averaged solution, input Solution type and the frame at which averaging starts. 
 Returns a Solution object with a single frame.
 """
-function time_average(sol, tstampstart = 1)
+function time_average(sol::Solution, tstampstart = 1)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
     (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen) = avg_savevals

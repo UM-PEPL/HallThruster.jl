@@ -19,8 +19,18 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    bϵ[1] = 1.5 * params.Te_L * ne[1]
+    if params.dirichlet_electron_BC
+        bϵ[1] = 1.5 * params.Te_L * ne[1]
+    else
+        # Zero derivative of temperature at left boundary
+        bϵ[1] = 0
+        Aϵ.d[1] = 1.0 / ne[1]
+        Aϵ.du[1] = -1.0 / ne[2]
+    end
+
     bϵ[end] = 1.5 * params.Te_R * ne[end]
+
+    Δt = dt
 
     @inbounds for i in 2:ncells-1
         Q = source_electron_energy(U, params, i)
@@ -56,6 +66,8 @@ function update_electron_energy!(U, params)
             κL = μnϵL
             κ0 = μnϵ0
             κR = μnϵR
+
+            flux_factor = 5/3
         else
             #get adjusted coeffient for higher charge states
             κ_charge = params.config.electron_cond_lookup(params.cache.Z_eff[i])
@@ -64,6 +76,7 @@ function update_electron_energy!(U, params)
             κL = 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
             κ0 = 24/25 * (1 / (1 + params.cache.νei[i]   / √(2) / params.cache.νc[i]))   * μnϵ0 * correction_factor
             κR = 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR * correction_factor
+            flux_factor = 1.0
         end
 
         # coefficients for centered three-point finite difference stencils
@@ -86,7 +99,7 @@ function update_electron_energy!(U, params)
         ∇²ϵ = d2_cL * ϵL + d2_c0 * ϵ0 + d2_cR * ϵR
 
         # Explicit flux term
-        F_explicit = 5/3 * ∇nϵue - 10/9 * (κ0 * ∇²ϵ + ∇κ * ∇ϵ)
+        F_explicit = flux_factor * ∇nϵue - 10/9 * (κ0 * ∇²ϵ + ∇κ * ∇ϵ)
 
         # Contribution to implicit part from μnϵ * d²ϵ/dz² term
         Aϵ.d[i]    = -10/9 * κ0 * d2_c0 / ne0
@@ -99,21 +112,25 @@ function update_electron_energy!(U, params)
         Aϵ.du[i]   -= 10/9 * ∇κ / neR * d_cR
 
         # Contribution to implicit part from advection term
-        Aϵ.d[i]    += 5/3 * ue0 * d_c0
-        Aϵ.dl[i-1] += 5/3 * ueL * d_cL
-        Aϵ.du[i]   += 5/3 * ueR * d_cR
+        Aϵ.d[i]    += flux_factor * ue0 * d_c0
+        Aϵ.dl[i-1] += flux_factor * ueL * d_cL
+        Aϵ.du[i]   += flux_factor * ueR * d_cR
 
         # Contribution to implicit part from timestepping
-        Aϵ.d[i]    = 1.0 + implicit * dt * Aϵ.d[i]
-        Aϵ.dl[i-1] = implicit * dt * Aϵ.dl[i-1]
-        Aϵ.du[i]   = implicit * dt * Aϵ.du[i]
+        Aϵ.d[i]    = 1.0 + implicit * Δt * Aϵ.d[i]
+        Aϵ.dl[i-1] = implicit * Δt * Aϵ.dl[i-1]
+        Aϵ.du[i]   = implicit * Δt * Aϵ.du[i]
 
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
+        bϵ[i] = nϵ[i] + Δt * (Q - explicit * F_explicit)
     end
 
     # Solve equation system using Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
+
+    #println("test")
+    #@show nϵ[1] / ne[1]
+   # @show nϵ[2] / ne[2]
 
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     for i in 2:ncells-1
