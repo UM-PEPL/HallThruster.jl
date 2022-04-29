@@ -26,7 +26,7 @@ function left_boundary_state!(bc_state, U, params)
         end
     end
 
-    if params.dirichlet_electron_BC
+    if params.LANDMARK
         bohm_velocity = bohm_factor * sqrt(e * Te_L / mi)
     else
         bohm_velocity = bohm_factor * sqrt(e * Tev[1] / mi)
@@ -42,13 +42,13 @@ function left_boundary_state!(bc_state, U, params)
         # Enforce Bohm condition
         boundary_velocity = min(-sqrt(Z) * bohm_velocity, boundary_velocity)
 
-        if boundary_velocity < 0
+        #=if boundary_velocity < 0
             # Flux of density to the left boundary is conserved
             boundary_density = max(mi * params.config.min_number_density, boundary_flux / boundary_velocity)
         else
             # Second derivative of density is zero at the boundary
             boundary_density = -(c1 * ρ1 + c2 * ρ2) / c0
-        end
+        end=#
 
         recombination_density = -(boundary_density * boundary_velocity) / un
 

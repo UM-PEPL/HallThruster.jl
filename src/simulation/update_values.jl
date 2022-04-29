@@ -26,10 +26,8 @@ end
 
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
-    (;z_cell, index, num_subiterations) = params
+    (;z_cell, index) = params
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νe) = params.cache
-
-    mi = params.config.propellant.m
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -67,10 +65,12 @@ function update_values!(U, params, t = 0)
     compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
     # Fix electron velocity on left and right cells
-    ueL = ue[3]
-    ue[1] = ue[2] = ueL
-    ueR = ue[end-2]
-    ue[end] = ue[end-1] = ueR
+    if params.config.LANDMARK
+        ueL = ue[3]
+        ue[1] = ue[2] = ueL
+        ueR = ue[end-2]
+        ue[end] = ue[end-1] = ueR
+    end
 
     update_electron_energy!(U, params)
 

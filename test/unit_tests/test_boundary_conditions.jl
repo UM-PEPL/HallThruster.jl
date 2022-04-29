@@ -31,7 +31,6 @@
             Tev = [3.0, 3.0],
             ϕ = [300.0, 300.0]
         ),
-        dirichlet_electron_BC = true,
     )
 
     mi = config.propellant.m

@@ -132,7 +132,6 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
         excitation_reactions,
         excitation_reactant_indices,
         electron_energy_order = order,
-        dirichlet_electron_BC = true,
     )
 
     solve_energy!(U, params, niters, dt)
@@ -159,7 +158,6 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
         excitation_reactions,
         excitation_reactant_indices,
         electron_energy_order = order,
-        dirichlet_electron_BC = true
     )
 
     solve_energy!(U, params, niters, dt)
