@@ -86,6 +86,8 @@ end
 
 function (model::WallSheath)(U, params, i)
     (;config, z_cell) = params
+    mi = config.propellant.m
+    Δr = config.thruster.geometry.outer_radius - config.thruster.geometry.inner_radius
 
     Tev_in = if config.thruster.shielded
         params.cache.Tev[1]
@@ -100,9 +102,14 @@ function (model::WallSheath)(U, params, i)
     Tev = config.transition_function(z_cell[i], L_ch, Tev_in, Tev_out)
 
     γ = SEE_yield(model.material, Tev)
-    ϕ_s = sheath_potential(Tev, γ, params.config.propellant.m)
+    ϕ_s = sheath_potential(Tev, γ, mi)
     νₑ = effective_loss_frequency(Tev)
     W = νₑ*Tev*exp(ϕ_s/Tev)
+
+    #u_bohm = sqrt(e * Tev / mi)
+    #νew = 2 * u_bohm / Δr / (1 - γ)
+    #W = νew * (2Tev  - (1 - γ) * ϕ_s)
+
     return W
 end
 

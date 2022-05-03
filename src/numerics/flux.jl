@@ -258,8 +258,8 @@ function compute_fluxes!(F, UL, UR, U, params)
 
             a = sqrt((charge_factor * Te + γ * kB * T) / mi)
             s_max = max(abs(u - a), abs(u + a))
-            if s_max > λ_global[ncharge+1]
-                λ_global[ncharge+1] = s_max
+            if s_max > λ_global[Z+1]
+                λ_global[Z+1] = s_max
             end
         end
     end

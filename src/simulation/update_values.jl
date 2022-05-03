@@ -90,8 +90,8 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    #∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    ∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
+    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    #∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
     # Compute electron velocity
@@ -110,8 +110,8 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
     end
 
     # Potential gradient (centered)
-    #∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
-    ∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
+    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
+    #∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
     # Compute electron velocity
