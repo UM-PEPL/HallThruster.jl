@@ -1,13 +1,12 @@
 function ElectronCondLookup()
-    rates = HallThruster.readdlm(joinpath(PACKAGE_ROOT, "reactions/e_conduccoeff.dat"), skipstart = 1)
-    Z = rates[:, 1]
-    cond_coeff = rates[:, 2]
+    Z = [1.0, 2.0, 3.0, 4.0, 5.0]
+    cond_coeff = [4.66, 4.0, 3.7, 3.6, 3.2]
     coeff = LinearInterpolation(Z, cond_coeff)
     return coeff
 end
 
 function update_electron_energy!(U, params)
-    (;Aϵ, bϵ, μ, ue, ne) = params.cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev) = params.cache
     (;z_cell, dt, index) = params
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -19,7 +18,7 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    if params.LANDMARK
+    if params.config.LANDMARK
         bϵ[1] = 1.5 * params.Te_L * ne[1]
     else
         # Neumann BC for internal energy
@@ -170,9 +169,15 @@ function update_electron_energy!(U, params)
    # @show nϵ[2] / ne[2]
 
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
-    for i in 2:ncells-1
+    @inbounds for i in 1:ncells
         if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < params.config.min_electron_temperature || nϵ[i] < params.config.min_electron_temperature
-            nϵ[i] = params.config.min_electron_temperature * ne[i]
+            nϵ[i] = 3/2 *  params.config.min_electron_temperature * ne[i]
+        end
+        Tev[i] = 2/3 * nϵ[i] / ne[i]
+        if params.config.LANDMARK
+            params.cache.pe[i] = nϵ[i]
+        else
+            params.cache.pe[i] = 2/3 * nϵ[i]
         end
     end
 end

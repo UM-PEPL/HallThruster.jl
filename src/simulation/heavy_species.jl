@@ -6,10 +6,10 @@ function update_heavy_species!(dU, U, params, t)
     (;index, z_edge) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
-        electron_pressure_coupled, propellant, scheme
+        propellant, scheme
     ) = params.config
 
-    (;ue, μ, F, UL, UR) = params.cache
+    (;F, UL, UR) = params.cache
 
     ncells = size(U, 2)
 

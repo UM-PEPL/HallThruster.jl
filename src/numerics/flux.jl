@@ -253,8 +253,6 @@ function compute_fluxes!(F, UL, UR, U, params)
 
             u = velocity(U_ions, fluid)
 
-            pe = Te* ne
-
             T = temperature(U_ions, fluid)
             charge_factor = Z * e * coupled
 

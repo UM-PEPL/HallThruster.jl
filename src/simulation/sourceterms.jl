@@ -6,7 +6,9 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         ρ_reactant = U[reactant_index, i]
+
         ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
+
         # Change in density due to ionization
         dU[reactant_index, i] -= ρdot
         dU[product_index, i]  += ρdot
@@ -34,9 +36,19 @@ function apply_ion_acceleration!(dU, U, params, i)
     mi = params.config.propellant.m
 
     @inbounds for Z in 1:params.config.ncharge
+        # Ion acceleration
         Q_accel = coupled * ue[i] / μ[i] + (1 - coupled) * ∇ϕ[i]
         Q_accel = -Z * e * U[index.ρi[Z], i] / mi * Q_accel
         dU[index.ρiui[Z], i] += Q_accel
+
+        # Radial ion loss
+        #=
+        geometry = params.config.thruster.geometry
+        Δr = geometry.outer_radius - geometry.inner_radius
+        u_bohm = sqrt(e * params.cache.Tev[i] / mi)
+        dU[index.ρi[Z], i]   -= u_bohm / Δr * U[index.ρi[Z], i]
+        dU[index.ρiui[Z], i] -= u_bohm / Δr * U[index.ρiui[Z], i]
+        =#
     end
 end
 
