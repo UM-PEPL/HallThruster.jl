@@ -52,7 +52,7 @@ Despite their usefulness, there are no fully open-source 1D Hall thruster codes 
 
 In \autoref{fig:domain}, we depict the one-dimensional simulation domain. A radial magnetic field is applied in the thruster channel, crossed with an axial electric field between anode and cathode. Electrons drift primarily in the $\hat{\theta} = \hat{z} \times \hat{r}$ direction.
 
-![1D simulation domain of HallThruster.jl\label{fig:domain}](paper/figure1D_code.PNG)
+![1D simulation domain of HallThruster.jl\label{fig:domain}](domain.png)
 
 
 In HallThruster.jl, we treat all species as fluids, with different models for neutrals, ions, and electrons. We assume quasineutrality in the entire domain. Neutrals are assumed to have constant temperature and velocity and are solved using the continuity equation, while ions are assumed isothermal and are modeled using the isothermal euler equations. Electron inertia is neglected, so the electron momentum equation reduces to a generalized Ohm's law. We can combine this with current conservation to obtain a second-order partial differential equation for the electrostatic potential. Lastly, we solve a partial differential equation for the transport of electron internal energy, taking into account losses due to ionization, excitation, and wall losses. A detailed listing of the equations employed in the physics model is available in the code documentation.
@@ -61,7 +61,7 @@ In HallThruster.jl, we treat all species as fluids, with different models for ne
 
 The finite volume method is applied to discretize the ion and neutral equations, transforming them into a system of ordinary differential equations. These are integrated in time using `DifferentialEquations.jl` [@rackauckas2017differentialequations]. This gives the end-user significant flexibility in their choice of time integration method, as all explicit integrators that work with `DifferentialEquations.jl` will work in `HallThruster.jl`. Several choice of numerical flux are available, including upwind, Rusanov, a global Lax-Friedrichs flux-splitting scheme, and HLLE.  The elliptic equation for the potential is transformed by finite differences into a tridiagonal linear system $A x = b$, which is solved using the Thomas' algorithm. This is done on a staggered grid to prevent odd-even decoupling. The electron energy equation is solved semi-implicitly to ease timestep restrictions, and is discretized in space using finite differences. The user may choose whether to use upwind (first-order) or central (second-order) differences depending on the application. Reactions and collisions are modelled as a function of the electron energy, and rate coefficients have computed using cross sections tables available in literature.
 
-We use the method of manufactured solutions to verify that the PDEs are discretized correctly and obtain the design order of accuracy. We are aided in this by the `Symbolics.jl`[@gowda2021high] , which makes computation of the needed source terms simple. 
+We use the method of manufactured solutions to verify that the PDEs are discretized correctly and obtain the design order of accuracy. We are aided in this by the `Symbolics.jl` [@gowda2021high], which makes computation of the needed source terms simple.
 
 # Functionality
 
@@ -82,7 +82,7 @@ Detailed documentation about all of these features and more is available at the 
 
 # Example simulations
 
-We show comparisons of our results to case 3 of the [LANDMARK benchmark suite](https://www.landmark-plasma.com/test-case-3), which itself has 3 cases. We show all results with 1024 cells, time averaged after 2 ms of simulation time. We compare three included fluxes: HLLE, local Lax-Friedrichs / Rusanov (LLF), and global Lax-Friedrichs (GLF) to the three sub-cases of the LANDMARK benchmark - two fluid models with adjustable viscosity parameter $\delta$ and a hybid-particle-in-cell case.
+We show comparisons of our results to case 3 of the LANDMARK benchmark suite, which itself has 3 cases. We show all results with 1024 cells, time averaged after 2 ms of simulation time. We compare three included fluxes: HLLE, local Lax-Friedrichs / Rusanov (LLF), and global Lax-Friedrichs (GLF) to the three sub-cases of the LANDMARK benchmark - two fluid models with adjustable viscosity parameter $\delta$ and a hybid-particle-in-cell case.
 
 ## LANDMARK case 1:
 
