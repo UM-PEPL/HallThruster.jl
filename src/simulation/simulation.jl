@@ -154,7 +154,7 @@ function run_simulation(config::Config;
     prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
 	sol = solve(
             prob, alg; saveat, callback=callbacks,
-            adaptive=false, dt=dt, dtmax=10*dt, dtmin = dt/10, maxiters = maxiters,
+            dt=dt, dtmax=10*dt, dtmin = dt/100, maxiters = maxiters,
 	    )
 
     # Print some diagnostic information

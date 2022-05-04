@@ -18,14 +18,14 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    if params.config.LANDMARK
+    #if params.config.LANDMARK
         bϵ[1] = 1.5 * params.Te_L * ne[1]
-    else
+    #=else
         # Neumann BC for internal energy
         bϵ[1] = 0
         Aϵ.d[1] = 1.0
         Aϵ.du[1] = -1.0
-    end
+    end=#
 
     bϵ[end] = 1.5 * params.Te_R * ne[end]
 
@@ -93,7 +93,7 @@ function update_electron_energy!(U, params)
 
         Vs = 0.0
 
-        if params.config.LANDMARK || i > 2
+        #if params.config.LANDMARK || i > 2
             # finite difference derivatives
             ∇nϵue = d_cL * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
             ∇κ  = d_cL * κL  + d_c0 * κ0  + d_cR * κR
@@ -117,7 +117,8 @@ function update_electron_energy!(U, params)
             Aϵ.d[i]    += flux_factor * ue0 * d_c0
             Aϵ.dl[i-1] += flux_factor * ueL * d_cL
             Aϵ.du[i]   += flux_factor * ueR * d_cR
-        else
+
+        if !params.config.LANDMARK && i == 2
             # need to compute heat flux to anode
 
             mi = params.config.propellant.m
@@ -138,18 +139,18 @@ function update_electron_energy!(U, params)
             ueL = je_sheath_edge / neL / e
 
             # finite difference derivatives
-            ∇nϵue = d_cL * 2/3 * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
+            #∇nϵue = d_cL * 2/3 * ueL * nϵL + d_c0 * ue0 * nϵ0 + d_cR * ueR * nϵR
 
             # Explicit flux term
-            F_explicit = flux_factor * ∇nϵue
+            #F_explicit = flux_factor * ∇nϵue
 
             # No conduction to anode, compute heat loss due to anode sheath
             Q += d_cL * neL * ueL * Vs
 
             # Contribution to implicit part from advection term
-            Aϵ.d[i]    = flux_factor * ue0 * d_c0
-            Aϵ.dl[i-1] = flux_factor * 2/3 * ueL * d_cL
-            Aϵ.du[i]   = flux_factor * ueR * d_cR
+            # Aϵ.d[i]    = flux_factor * ue0 * d_c0
+            # Aϵ.dl[i-1] = flux_factor * 2/3 * ueL * d_cL
+            # Aϵ.du[i]   = flux_factor * ueR * d_cR
         end
 
         # Contribution to implicit part from timestepping
