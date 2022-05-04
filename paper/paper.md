@@ -52,7 +52,7 @@ Despite their usefulness, there are no fully open-source 1D Hall thruster codes 
 
 In \autoref{fig:domain}, we depict the one-dimensional simulation domain. A radial magnetic field is applied in the thruster channel, crossed with an axial electric field between anode and cathode. Electrons drift primarily in the $\hat{\theta} = \hat{z} \times \hat{r}$ direction.
 
-![1D simulation domain of HallThruster.jl\label{fig:domain}](paper\figure1D_code.PNG)
+![1D simulation domain of HallThruster.jl\label{fig:domain}](paper/figure1D_code.PNG)
 
 
 In HallThruster.jl, we treat all species as fluids, with different models for neutrals, ions, and electrons. We assume quasineutrality in the entire domain. Neutrals are assumed to have constant temperature and velocity and are solved using the continuity equation, while ions are assumed isothermal and are modeled using the isothermal euler equations. Electron inertia is neglected, so the electron momentum equation reduces to a generalized Ohm's law. We can combine this with current conservation to obtain a second-order partial differential equation for the electrostatic potential. Lastly, we solve a partial differential equation for the transport of electron internal energy, taking into account losses due to ionization, excitation, and wall losses. A detailed listing of the equations employed in the physics model is available in the code documentation.
