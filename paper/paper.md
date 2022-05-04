@@ -1,5 +1,5 @@
 ---
-title: 'HallThruster.jl: A Julia package for 1D fluid Hall Thruster discharges'
+title: 'HallThruster.jl: a Julia package for 1D Hall thruster discharge simulation'
 tags:
   - Plasma physics
   - Low temperature magnetized plasma
@@ -9,10 +9,13 @@ tags:
   - Julia
 authors:
   - name: Thomas Marks
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0003-3614-6127
     affiliation: 1
   - name: Paul Schedler
     affiliation: 2
+  - name: Benjamin Jorns
+    orcid: 0000-0001-9296-2044
+    affiliation: 1
 affiliations:
   - name: Plasmadynamics and Electric Propulsion Laboratory, University of Michigan, Ann Arbor, USA
     index: 1
@@ -40,7 +43,7 @@ To be useful in model discovery and calibration, the code must run quickly. Stat
 
 # Physics model
 
-In \autoref{fig:domain}, we depict the one-dimensional simulation domain. A radial magnetic field is applied in the thruster channel, crossed with an axial electric field between anode and cathode. Electrons drift primarily in the $\hat{\theta} = \hat{z} \times \hat{r}$ direction.
+In \autoref{fig:domain}, we depict the one-dimensional simulation domain. A radial magnetic field is applied in the thruster channel, crossed with an axial electric field between anode and cathode. Electrons drift primarily in the $\hat{\theta} = \hat{z} \times \hat{r}$ direction, but have a small axial drift enabled by collisions. The cross-field electron current observed in experiment is much higher than that which would be predicted from classical collisions alone, so we apply an additional "anomalous" collision frequency to make simulations better match experiment.
 
 ![1D simulation domain of HallThruster.jl\label{fig:domain}](domain.png)
 
@@ -49,9 +52,7 @@ In HallThruster.jl, we treat all species as fluids, with different models for ne
 
 # Numerics
 
-The finite volume method is applied to discretize the ion and neutral equations, transforming them into a system of ordinary differential equations. These are integrated in time using `DifferentialEquations.jl` [@rackauckas2017differentialequations]. This gives the end-user significant flexibility in their choice of time integration method, as all explicit integrators that work with `DifferentialEquations.jl` will work in `HallThruster.jl`. Several choice of numerical flux are available, including upwind, Rusanov, a global Lax-Friedrichs flux-splitting scheme, and HLLE.  The elliptic equation for the potential is transformed by finite differences into a tridiagonal linear system $A x = b$, which is solved using the Thomas' algorithm. This is done on a staggered grid to prevent odd-even decoupling. The electron energy equation is solved semi-implicitly to ease timestep restrictions, and is discretized in space using finite differences. The user may choose whether to use upwind (first-order) or central (second-order) differences depending on the application. Reactions and collisions are modelled as a function of the electron energy, and rate coefficients have computed using cross sections tables available in literature.
-
-We use the method of manufactured solutions to verify that the PDEs are discretized correctly and obtain the design order of accuracy. We are aided in this by the `Symbolics.jl` [@gowda2021high], which makes computation of the needed source terms simple.
+The finite volume method is applied to discretize the ion and neutral equations, transforming them into a system of ordinary differential equations. These are integrated in time using `DifferentialEquations.jl` [@rackauckas2017differentialequations]. This gives the end-user significant flexibility in their choice of time integration method, as all explicit integrators that work with `DifferentialEquations.jl` will work in `HallThruster.jl`. Several choice of numerical flux are available, including upwind, Rusanov, a global Lax-Friedrichs flux-splitting scheme, and HLLE.  The elliptic equation for the potential is transformed by finite differences into a tridiagonal linear system and solved using Thomas' algorithm. The electron energy equation is solved semi-implicitly to ease timestep restrictions, and is discretized in space using finite differences. The user may choose whether to use upwind (first-order) or central (second-order) differences depending on the application. We compute reaction and collision rate coefficients using look-up tables. We use the method of manufactured solutions to verify that the PDEs are discretized correctly and obtain the design order of accuracy. We are aided in this by the `Symbolics.jl` [@gowda2021high], which makes computation of the needed source terms simple.
 
 # Functionality
 
@@ -85,6 +86,8 @@ We show comparisons of our results to case 3 of the LANDMARK benchmark suite, wh
 ## LANDMARK case 3:
 
 ![LANDMARK case 3, 1024 cells\label{fig:landmark_3}](landmark_3.png)
+
+# Acknowledgements
 
 
 # References
