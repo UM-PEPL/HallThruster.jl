@@ -52,76 +52,10 @@ Despite their usefulness, there are no fully open-source 1D Hall thruster codes 
 
 In \autoref{fig:domain}, we depict the one-dimensional simulation domain. A radial magnetic field is applied in the thruster channel, crossed with an axial electric field between anode and cathode. Electrons drift primarily in the $\hat{\theta} = \hat{z} \times \hat{r}$ direction.
 
-![1D simulation domain of HallThruster.jl\label{fig:domain}](C:\Users\thoma\HallThruster.jl\paper\figure1D_code.PNG)
+![1D simulation domain of HallThruster.jl\label{fig:domain}](paper\figure1D_code.PNG)
 
 
-
-In HallThruster.jl, we treat all species as fluids, with different models for neutrals, ions, and electrons. Quasineutrality ($n_e = \sum_{Z=1}^N Z \;n_{iZ}$, where $n_e$ is the plasma density and $n_{iZ}$ is the number density of atoms with charge state $Z$) is assumed in the entire domain. Neutrals are assumed to have constant temperature and density, so only the continuity equation is solved. 
-
-\begin{equation}
-    \frac{\partial n_n}{\partial t} + \frac{\partial}{\partial z} (n_n u_n) = -n_e n_n \sum{r} k_r\left(\frac{3}{2} T_{eV}\right)
-\label{eq:neutrals}
-\end{equation}
-
-Here, $n_n$ is the neutral number density, $u_n$ is the neutral velocity, $T_{eV}$ is the electron temperature in electron-volts, and $k_r$ is the rate coefficient of ionization reaction $r$ as a function of the mean electron energy ($\epsilon = \frac{3}{2} T_{eV}$). The source term in \autoref{eq:neutrals} is a loss term corresponding to the rate at which neutrals are ionized. Recombination in the domain is neglected in this model, and currently, charge exchange collisions are not modeled. 
-
-Ions are approximated as isothermal, so both the ion continuity and momentum equation are solved. 
-
-\begin{equation}
-    \frac{\partial}{\partial t} n_{iZ} + \frac{\partial}{\partial z} (n_{iZ} u_{iZ}) = \dot{n}_{iZ}
-\label{eq:ioncontinuity}
-\end{equation}
-
-\begin{equation}
-    \frac{\partial}{\partial t} (n_{iZ} u_{iZ}) + \frac{\partial}{\partial z} (n_{iZ} u_{iZ}^2 + \frac{p_{iZ}}{m_i}) = -\frac{Z e}{m_i} n_{iZ} \frac{\partial \phi}{\partial z} + \dot{n}_{iZ} u_n
-\label{eq:ionmomentum}
-\end{equation}
-
-where $Z$ is the ion charge state, $\phi $  is the plasma potential,  $e$ is the fundamental charge, $1.6\times 10^{-19}$ Coulombs, $m_i$ is the ion mass in kilograms, $n_{iZ}$ and $u_{iZ}$ are the number density and velocity, respectively, of ions with charge $Z$, $p_{iZ} = n_{iZ} k_B T_i$ is the pressure of ions with charge $Z$, $T_i$ is the constant (user-configurable) ion temperature in Kelvins, and $\dot{n}_{iZ}$ is the rate of production of ions with charge $Z$  Up to three ion fluids with different charge states are supported in `HallThruster.jl`. 
-
-Electrons are assumed massless and their inertia is neglected. Additionally, the electric field is assumed purely axial $\left(-\nabla\phi = -\frac{\partial \phi}{\partial z} \hat{z}\right) $and the magnetic field purely radial $\left(\vec{B} = B_r \hat{r}\right)$. This leads to the 1D generalized Ohm's law in the for the axial (cross-field) electron current $j_{ez}$:
-
-\begin{equation}
-    j_{ez} = \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)
-\label{eq:eleccurrentaxial}
-\end{equation}
-
-The electron current in the azimuthal direction (the Hall current) is:
-
-\begin{equation}
-j_{e\theta} = \Omega_e j_{ez}
-\label{eq:eleccurrentazimuthal}
-\end{equation}
-
-Here, $\nu_e$ is the total electron momentum transfer collision frequency, $m_e$ is the electron mass, and $\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e$ is the Hall parameter, or the ratio of electron cyclotron frequency to collision frequency. This is a measure of how magnetized the electrons are and is typically greater than 1 in a Hall thruster discharge. $\nu_{e}$ is the sum of several component collision frequencies, $\nu_{e} = \nu_{ei} + \nu_{en} + \nu_{wall} + \nu_{AN}$, where $\nu_{en}$ is the electron-neutral collision frequency, $\nu_{ei}$ is the electron-ion collision frequency, $\nu_{wall}$ is the electron-wall collision frequency, and $\nu_{AN}$ is the electron anomalous collision frequency. Different models are available for each of these collision frequencies, and `HallThruster.jl` is designed in such a way that the user may easily implement new models.
-
-Current conservation is given by:
-
-\begin{equation}
-   \nabla \cdot j_e + \nabla \cdot j_i = 0
-\label{eq:current_cons}
-\end{equation}
-
-Taking the divergence of \autoref{eq:eleccurrentaxial}, and incorporating current conservation, we arrive at an elliptic equation which can be solved for the electrostatic potential:
-
-\begin{equation}
-    \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right) = \frac{\partial}{\partial z}\left(\mu_{\perp}\frac{\partial p_{eV}}{\partial z} - \frac{j_{iz}}{e}\right)
-\label{eq:potential}
-\end{equation}
-
-Here, we have defined the cross-field electron mobility $\mu_\perp = \frac{e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}$ and the electron pressure in $p_{eV} = n_e T_{eV}$ in $eV / m^{3}$. Lastly, we have an equation for the transport of electron internal energy:
-
-\begin{equation}
-\frac{\partial}{\partial t}\left(\frac{3}{2} n_e T_{eV}\right) + \frac{\partial}{\partial x}\left(\frac{5}{2} n_e T_{eV} u_{ez} + \kappa_e \frac{\partial T_{eV}}{\partial z}\right) = m_e n_e \nu_e |u_e|^2 + \nabla p_{eV} u_{ez} - S_{inelastic} - S_{wall}
-\label{eq:electronenergy}
-\end{equation}
-
-In the above, $\kappa_e$ is the electron thermal conductivity, $|u_e| = \sqrt{u_{ez}^2 + u_{e\theta}^2}$ is the total electron speed, $S_{inelastic}$ represents energy losses due to inelastic collisions (including ionization and excitation), and $S_{wall}$ represents power loss to the walls in the radial direction. HallThruster.jl has multiple models for the thermal conductivity and the wall loss terms, while the inelastic loss term is given by
-
-$S_{inelastic} = n_e \sum_{r} \Delta \epsilon_r n_{reactant} k_{r}\left(\frac{3}{2} T_{eV}\right)$
-
-where for an ionization or excitation reaction $r$, $\Delta \epsilon_r$ is the activation/threshold energy, $n_{reactant}$ is the number density of the reactant, and $k_r$ is the rate coefficient as a function of electron energy.  
-
+In HallThruster.jl, we treat all species as fluids, with different models for neutrals, ions, and electrons. We assume quasineutrality in the entire domain. Neutrals are assumed to have constant temperature and velocity and are solved using the continuity equation, while ions are assumed isothermal and are modeled using the isothermal euler equations. Electron inertia is neglected, so the electron momentum equation reduces to a generalized Ohm's law. We can combine this with current conservation to obtain a second-order partial differential equation for the electrostatic potential. Lastly, we solve a partial differential equation for the transport of electron internal energy, taking into account losses due to ionization, excitation, and wall losses. A detailed listing of the equations employed in the physics model is available in the code documentation.
 
 # Numerics
 
@@ -152,41 +86,16 @@ We show comparisons of our results to case 3 of the [LANDMARK benchmark suite](h
 
 ## LANDMARK case 1:
 
-![LANDMARK case 1, 1024 cells.\label{fig:landmark_1}](landmark_1.png)
+![LANDMARK case 1, 1024 cells.\label{fig:landmark_1}](paper/landmark_1.png)
 
 ## LANDMARK case 2:
 
-![LANDMARK case 2, 1024 cells\label{fig:landmark_2}](landmark_2.png)
+![LANDMARK case 2, 1024 cells\label{fig:landmark_2}](paper/landmark_2.png)
 
 ## LANDMARK case 3:
 
-![LANDMARK case 3, 1024 cells\label{fig:landmark_3}](landmark_3.png)
+![LANDMARK case 3, 1024 cells\label{fig:landmark_3}](paper/landmark_3.png)
 
 
 # References
 
-
-
-
-# Statement of need
-
-# Physics model
-
-
-# Numerics
-
-
-
-# Functionality
-
-
-
-# Example simulations
-
-
-
-# Acknowledgements
-
-
-
-# References
