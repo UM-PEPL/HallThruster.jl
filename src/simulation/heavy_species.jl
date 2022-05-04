@@ -13,8 +13,6 @@ function update_heavy_species!(dU, U, params, t)
 
     ncells = size(U, 2)
 
-    mi = propellant.m
-
     ##############################################################
     #FLUID MODULE
 

@@ -132,7 +132,7 @@ for NUM_CONSERVATIVE in 1:3
         FR = flux(UR, fluid, charge_factor * peR)
 
         return @SVector[
-            0.5 * (FL[j] + FR[j]) + 0.5*λ_global*UL[j] - 0.5*λ_global*UR[j]
+            0.5 * (FL[j] + FR[j]) + 0.5 * λ_global * (UL[j] - UR[j])
             for j in 1:$(NUM_CONSERVATIVE)
         ]
     end
@@ -212,7 +212,7 @@ function compute_edge_states!(UL, UR, U, scheme)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids) = params
+    (;config, index, fluids, z_edge, z_cell) = params
     λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme) = config
     nvars, ncells = size(U)
@@ -225,42 +225,65 @@ function compute_fluxes!(F, UL, UR, U, params)
 
     nedges = ncells-1
 
+    params.max_timestep[1] = Inf
+
     compute_edge_states!(UL, UR, U, scheme)
 
     @inbounds for i in 1:nedges
         # Compute number density
-        ne = 0.0
+        neL = 0.0
+        neR = 0.0
         for Z in 1:ncharge
-            ni = U[index.ρi[Z], i] / mi
-            ne = ne + Z * ni
+            niL = UL[index.ρi[Z], i] / mi
+            niR = UR[index.ρi[Z], i] / mi
+            neL = neL + Z * niL
+            neR = neR + Z * niR
         end
 
         # Compute electron temperature
-        Te = max(params.config.min_electron_temperature, U[index.nϵ, i] / ne)
+        TeL = max(params.config.min_electron_temperature, UL[index.nϵ, i] / neL)
+        TeR = max(params.config.min_electron_temperature, UR[index.nϵ, i] / neR)
 
         fluid = fluids[1]
         γ = fluid.species.element.γ
         U_neutrals = SA[U[index.ρn, i]]
         u = velocity(U_neutrals, fluid)
-        T = temperature(U_neutrals, fluid)
-        λ_global[1] = sqrt((γ * kB * T) / mi)
+
+        λ_global[1] = abs(u)
+
+        Δz = z_cell[i+1] - z_cell[i]
 
         for Z in 1:ncharge
 
             fluid = fluids[Z+1]
             γ = fluid.species.element.γ
-            U_ions = SA[U[index.ρi[Z], i], U[index.ρiui[Z], i]]
+            UL_ions = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
+            UR_ions = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
 
-            u = velocity(U_ions, fluid)
+            uL = velocity(UL_ions, fluid)
+            TL = temperature(UL_ions, fluid)
+            uR = velocity(UR_ions, fluid)
+            TR = temperature(UR_ions, fluid)
 
-            T = temperature(U_ions, fluid)
             charge_factor = Z * e * coupled
 
-            a = sqrt((charge_factor * Te + γ * kB * T) / mi)
-            s_max = max(abs(u - a), abs(u + a))
-            if s_max > λ_global[Z+1]
-                λ_global[Z+1] = s_max
-            end
+            aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+            aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+
+            λ₁₂⁺ = 0.5 * (uR + abs(uR))
+            λ₁₂⁻ = 0.5 * (uL - abs(uL))
+            λ₃⁺  = 0.5 * (uR + aR  + abs(uR + aR))
+            λ₃⁻  = 0.5 * (uL + aL - abs(uL + aL))
+            λ₄⁺  = 0.5 * (uR - aR  + abs(uR - aR))
+            λ₄⁻  = 0.5 * (uL - aL  - abs(uL - aL))
+
+            s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
+
+            dt_max = Δz / s_max
+            #@show dt_max, s_max
+
+            λ_global[Z+1] = max(s_max, λ_global[Z+1])
+            params.max_timestep[1] = min(dt_max, params.max_timestep[1])
         end
     end
 

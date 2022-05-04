@@ -1,9 +1,13 @@
-
 function update_values!(integrator)
     (nvars, ncells) = size(integrator.u)
 
     nandetected = false
     infdetected = false
+
+    # Update the timestep
+    if integrator.p.adaptive
+        SciMLBase.set_proposed_dt!(integrator, integrator.p.CFL * integrator.p.max_timestep[1])
+    end
 
     @inbounds for j in 1:ncells, i in 1:nvars
         if isnan(integrator.u[i, j])
@@ -32,6 +36,8 @@ function update_values!(U, params, t = 0)
     # Update the current iteration
     params.iteration[1] += 1
 
+    #@show params.max_timestep[]
+
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
@@ -40,15 +46,13 @@ function update_values!(U, params, t = 0)
 
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
-        z = z_cell[i]
-
         ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = if params.config.LANDMARK
             3/2 * ne[i] * Tev[i]
         else
             ne[i] * Tev[i]
-        end #U[index.nϵ, i]
+        end
         νen[i] = freq_electron_neutral(U, params, i)
         νei[i] = freq_electron_ion(U, params, i)
         νw[i] = freq_electron_wall(U, params, i)
