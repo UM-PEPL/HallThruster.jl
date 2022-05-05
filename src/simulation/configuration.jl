@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC<:InitialCondition, CB, HS<:HyperbolicScheme, ECL}
+struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC<:InitialCondition, CB, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -40,7 +40,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     domain::Tuple{Float64, Float64}
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
-    electron_cond_lookup::ECL
+    plume_ion_losses::Bool
 end
 
 function Config(;
@@ -77,8 +77,8 @@ function Config(;
         thruster::Thruster,                 # MANDATORY ARGUMENT
         domain,                             # MANDATORY ARGUMENT
         LANDMARK                            = false,
-        anode_mass_flow_rate,               # MANDATORY ARGUMENT,
-        electron_cond_lookup                = ElectronCondLookup(),
+        anode_mass_flow_rate,               # MANDATORY ARGUMENT
+        plume_ion_losses                    = true,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -113,7 +113,7 @@ function Config(;
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         initial_condition, callback, magnetic_field_scale, source_neutrals,
-        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, electron_cond_lookup
+        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, plume_ion_losses
     )
 end
 

@@ -40,15 +40,28 @@ function apply_ion_acceleration!(dU, U, params, i)
         Q_accel = coupled * ue[i] / μ[i] + (1 - coupled) * ∇ϕ[i]
         Q_accel = -Z * e * U[index.ρi[Z], i] / mi * Q_accel
         dU[index.ρiui[Z], i] += Q_accel
+    end
+end
 
-        # Radial ion loss
-        #=
-        geometry = params.config.thruster.geometry
-        Δr = geometry.outer_radius - geometry.inner_radius
+function apply_plume_losses!(dU, U, params, i)
+    (;index, config, z_cell, L_ch, fluids) = params
+    (;ncharge, propellant, thruster) = config
+
+    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
+    mi = propellant.m
+
+    if z_cell[i] > L_ch
+        # Radial neutral losses
+        Tn = temperature(SA[U[index.ρn, i]], fluids[1])
+        dU[index.ρn, i] -= U[index.ρn, i] * sqrt(kB * Tn / 2 / π / mi) / Δr
+
+        # Radial ion losses
         u_bohm = sqrt(e * params.cache.Tev[i] / mi)
-        dU[index.ρi[Z], i]   -= u_bohm / Δr * U[index.ρi[Z], i]
-        dU[index.ρiui[Z], i] -= u_bohm / Δr * U[index.ρiui[Z], i]
-        =#
+
+        @inbounds for Z in 1:ncharge
+            dU[index.ρi[Z],   i] -= U[index.ρi[Z],   i] * sqrt(Z) * u_bohm / Δr
+            dU[index.ρiui[Z], i] -= U[index.ρiui[Z], i] * sqrt(Z) * u_bohm / Δr
+        end
     end
 end
 

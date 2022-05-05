@@ -106,6 +106,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         scheme,
         ionization_model = OVS_Ionization(),
         LANDMARK = true,
+        plume_ion_losses = false,
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]

@@ -70,8 +70,6 @@
     @test HallThruster.freq_electron_wall(U, params_landmark, 1) == 1e7
     @test HallThruster.freq_electron_wall(U, params_none, 1) == 0.0
 
-    electron_cond_lookup = HallThruster.ElectronCondLookup()
-
-    @test electron_cond_lookup(1) == 4.66
-    @test electron_cond_lookup(1.5) == 4.33
+    @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
+    @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
 end

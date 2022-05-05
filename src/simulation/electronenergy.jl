@@ -1,8 +1,7 @@
-function ElectronCondLookup()
+const ELECTRON_CONDUCTIVITY_LOOKUP = let
     Z = [1.0, 2.0, 3.0, 4.0, 5.0]
     cond_coeff = [4.66, 4.0, 3.7, 3.6, 3.2]
-    coeff = LinearInterpolation(Z, cond_coeff)
-    return coeff
+    LinearInterpolation(Z, cond_coeff)
 end
 
 function update_electron_energy!(U, params)
@@ -75,7 +74,7 @@ function update_electron_energy!(U, params)
             flux_factor = 5/3
         else
             #get adjusted coeffient for higher charge states
-            κ_charge = params.config.electron_cond_lookup(params.cache.Z_eff[i])
+            κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
             correction_factor = κ_charge/4.7
             # Adjust thermal conductivity to be slightly more accurate
             κL = 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
