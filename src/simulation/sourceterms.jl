@@ -56,24 +56,29 @@ function source_electron_energy!(Q, U, params, i)
     Q[params.index.nϵ] = source_electron_energy(U, params, i)
 end
 
-function inelastic_losses(U, params, i)
+function inelastic_losses!(U, params, i)
     (;ionization_reactions, excitation_reactions, cache, ionization_reactant_indices, excitation_reactant_indices) = params
-
+    (;νex, νiz) = cache
     inelastic_loss = 0.0
     mi = params.config.propellant.m
     ne = cache.ne[i]
     ϵ  = 3/2 * cache.Tev[i]
 
+    νiz[i] = 0.0
+    νex[i] = 0.0
+
     @inbounds for (reactant_index, rxn) in zip(ionization_reactant_indices, ionization_reactions)
         n_reactant = U[reactant_index, i] / mi
         ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
         inelastic_loss += ndot * rxn.energy
+        νiz[i] += ndot / ne
     end
 
     @inbounds for (reactant_index, rxn) in zip(excitation_reactant_indices, excitation_reactions)
         n_reactant = U[reactant_index, i] / mi
         ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
         inelastic_loss += ndot * rxn.energy
+        νex[i] += ndot / ne
     end
 
     return inelastic_loss
@@ -101,7 +106,7 @@ function source_electron_energy(U, params, i)
     end
 
     wall_loss      = ne * params.config.wall_loss_model(U, params, i)
-    inelastic_loss = inelastic_losses(U, params, i)
+    inelastic_loss = inelastic_losses!(U, params, i)
 
     return ohmic_heating - wall_loss - inelastic_loss
 end

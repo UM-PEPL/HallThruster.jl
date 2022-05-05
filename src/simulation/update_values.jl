@@ -31,7 +31,7 @@ end
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
     (;z_cell, index) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νe) = params.cache
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νiz, νex, νe) = params.cache
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -58,6 +58,9 @@ function update_values!(U, params, t = 0)
         νw[i] = freq_electron_wall(U, params, i)
         νan[i] = freq_electron_anom(U, params, i)
         νc[i] = νen[i] + νei[i]
+        if params.config.LANDMARK
+            νc[i] += νiz[i] + νex[i]
+        end
         νe[i] = νc[i] + νan[i] + νw[i]
         μ[i] = electron_mobility(νe[i], B[i])
         Z_eff[i] = compute_Z_eff(U, params, i)

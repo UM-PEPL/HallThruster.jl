@@ -158,7 +158,8 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         A_ch,
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
-        ionization_product_indices = [index.ρi[1]]
+        ionization_product_indices = [index.ρi[1]],
+        max_timestep = [Inf],
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))

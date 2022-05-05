@@ -31,6 +31,12 @@ function update_electron_energy!(U, params)
 
     Δt = dt
 
+    # Needed to compute excitation and ionization frequencies in first and last cells,
+    # Need a better solution, because the signature of this function doesn't make it clear
+    # That params.cache.νex and params.cache.νei are being modified
+    _ = source_electron_energy(U, params, 1)
+    _ = source_electron_energy(U, params, ncells)
+
     @inbounds for i in 2:ncells-1
         Q = source_electron_energy(U, params, i)
         # User-provided source term

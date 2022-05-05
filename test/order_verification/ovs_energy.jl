@@ -74,6 +74,8 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
     ρn = ρn_func.(z_cell)
     U = zeros(2, ncells)
     Tev = ϵ_func.(z_cell) * 2/3
+    νex = zeros(ncells)
+    νiz = zeros(ncells)
 
     nϵ_exact = nϵ_func.(z_cell)
     pe = copy(nϵ_exact)
@@ -122,7 +124,7 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, species)
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
 
-    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe)
+    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz)
 
     params = (;
         z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
