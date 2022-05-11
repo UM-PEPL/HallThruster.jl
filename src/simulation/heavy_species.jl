@@ -3,24 +3,25 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge) = params
+    (;index, z_edge, config, cache) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
-        electron_pressure_coupled, propellant, scheme
-    ) = params.config
+        propellant, scheme, thruster, ncharge, LANDMARK, plume_ion_losses
+    ) = config
 
-    (;ue, μ, F, UL, UR) = params.cache
+    (;F, UL, UR) = cache
+
+    mi = propellant.m
+
 
     ncells = size(U, 2)
 
-    mi = propellant.m
+    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
 
     ##############################################################
     #FLUID MODULE
 
     #fluid BCs now in update_values struct
-
-    ncharge = params.config.ncharge
 
     compute_fluxes!(F, UL, UR, U, params)
 
@@ -53,6 +54,7 @@ function update_heavy_species!(dU, U, params, t)
         # User-provided neutral source term
         dU[index.ρn, i] += source_neutrals(U, params, i)
 
+
         for Z in 1:ncharge
 
             dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
@@ -64,6 +66,10 @@ function update_heavy_species!(dU, U, params, t)
 
         apply_ion_acceleration!(dU, U, params, i)
         apply_reactions!(dU, U, params, i)
+
+        if plume_ion_losses
+            apply_plume_losses!(dU, U, params, i)
+        end
 
         dU[index.nϵ, i] = 0.0
     end

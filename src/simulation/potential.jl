@@ -24,8 +24,6 @@ function solve_potential_edge!(U, params)
     if config.LANDMARK
         Vs = 0.0
     else
-        #see_coeff = 1.0
-        #-sheath_potential(Tev[1], see_coeff, config.propellant.m)
         ce = sqrt(8 * e * params.cache.Tev[1] / π / me)
         je_sheath = e * ne[1] * ce / 4
 
@@ -35,11 +33,16 @@ function solve_potential_edge!(U, params)
         ji_interior = e * sum(Z * U[index.ρiui[Z], interior_cell] for Z in 1:params.config.ncharge) / mi
         jd = ji_interior + je_interior
 
-        # current densities at sheath_edge
+        # current densities at sheath edge
         ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
         je_sheath_edge = jd - ji_sheath_edge
 
-        Vs = -Tev[1] * log(je_sheath_edge / je_sheath)
+        current_ratio = je_sheath_edge / je_sheath
+        if current_ratio ≤ 0.0
+            Vs = 0.0
+        else
+            Vs = -params.cache.Tev[1] * log(min(1.0, je_sheath_edge / je_sheath))
+        end
     end
 
     b[1] = ϕ_L + Vs

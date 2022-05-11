@@ -74,8 +74,11 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
     ρn = ρn_func.(z_cell)
     U = zeros(2, ncells)
     Tev = ϵ_func.(z_cell) * 2/3
+    νex = zeros(ncells)
+    νiz = zeros(ncells)
 
     nϵ_exact = nϵ_func.(z_cell)
+    pe = copy(nϵ_exact)
 
     Te_L = nϵ_exact[1] / ne[1]
     Te_R = nϵ_exact[end] / ne[end]
@@ -121,7 +124,7 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, species)
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
 
-    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev)
+    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz)
 
     params = (;
         z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
@@ -132,7 +135,6 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
         excitation_reactions,
         excitation_reactant_indices,
         electron_energy_order = order,
-        dirichlet_electron_BC = true,
     )
 
     solve_energy!(U, params, niters, dt)
@@ -159,7 +161,6 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
         excitation_reactions,
         excitation_reactant_indices,
         electron_energy_order = order,
-        dirichlet_electron_BC = true
     )
 
     solve_energy!(U, params, niters, dt)

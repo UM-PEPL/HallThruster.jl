@@ -150,3 +150,84 @@
         ()
     end
 end
+
+@userplot CollisionPlot
+
+@recipe function f(c::CollisionPlot)
+    cond1 = length(c.args) > 2
+    cond2 = !(typeof(c.args[1]) <: Solution)
+    cond3 = (length(c.args) == 2 && !(typeof(c.args[2]) <: Integer))
+    if  cond1 || cond2 || cond3
+        error("Collision plot takes a Hall thruster Solution as a first argument and an optional integer as a second argument.\nGot: $(typeof(c.args))")
+    end
+
+    sol = c.args[1]
+
+    if length(c.args) == 2
+        frame = c.args[2]
+    else
+        frame = length(sol.u)
+    end
+
+    yaxis := :log
+    xlabel := "z/L"
+    ylabel := "Frequency (Hz)"
+    legend := :outertop
+    framestyle := :box
+    ylims := (1, 1e10)
+
+    zs = sol.params.z_cell ./ sol.params.L_ch
+
+    @series begin
+        label := "Electron cyclotron frequency"
+        lw := 2
+        ls := :dash
+        zs, sol[:ωce][1]
+    end
+
+    @series begin
+        label := "Anomalous"
+        zs, sol[:νan][frame]
+    end
+
+    @series begin
+        label := "Electron-neutral"
+        zs, sol[:νen][frame]
+    end
+
+    @series begin
+        label := "Electron-ion"
+        zs, sol[:νei][frame]
+    end
+
+    @series begin
+        label := "Ionization"
+        ys = sol[:νiz][frame]
+        inds = findall(==(0), ys)
+        ys[inds] .= NaN
+        zs, ys
+    end
+
+    @series begin
+        label := "Excitation"
+        ys = sol[:νex][frame]
+        inds = findall(==(0), ys)
+        ys[inds] .= NaN
+        zs, ys
+    end
+
+    @series begin
+        label := "Wall"
+        ys = sol[:νw][frame]
+        inds = findall(==(0), ys)
+        ys[inds] .= NaN
+        zs, ys
+    end
+
+    @series begin
+        lc := :black
+        lw := 2
+        label := "Total collision freq"
+        zs, sol[:νe][frame]
+    end
+end

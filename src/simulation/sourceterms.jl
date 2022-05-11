@@ -6,7 +6,9 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         ρ_reactant = U[reactant_index, i]
+
         ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
+
         # Change in density due to ionization
         dU[reactant_index, i] -= ρdot
         dU[product_index, i]  += ρdot
@@ -34,9 +36,32 @@ function apply_ion_acceleration!(dU, U, params, i)
     mi = params.config.propellant.m
 
     @inbounds for Z in 1:params.config.ncharge
+        # Ion acceleration
         Q_accel = coupled * ue[i] / μ[i] + (1 - coupled) * ∇ϕ[i]
         Q_accel = -Z * e * U[index.ρi[Z], i] / mi * Q_accel
         dU[index.ρiui[Z], i] += Q_accel
+    end
+end
+
+function apply_plume_losses!(dU, U, params, i)
+    (;index, config, z_cell, L_ch, fluids) = params
+    (;ncharge, propellant, thruster) = config
+
+    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
+    mi = propellant.m
+
+    if z_cell[i] > L_ch
+        # Radial neutral losses
+        Tn = temperature(SA[U[index.ρn, i]], fluids[1])
+        dU[index.ρn, i] -= U[index.ρn, i] * sqrt(kB * Tn / 2 / π / mi) / Δr
+
+        # Radial ion losses
+        u_bohm = sqrt(e * params.cache.Tev[i] / mi)
+
+        @inbounds for Z in 1:ncharge
+            dU[index.ρi[Z],   i] -= U[index.ρi[Z],   i] * sqrt(Z) * u_bohm / Δr
+            dU[index.ρiui[Z], i] -= U[index.ρiui[Z], i] * sqrt(Z) * u_bohm / Δr
+        end
     end
 end
 
@@ -44,24 +69,29 @@ function source_electron_energy!(Q, U, params, i)
     Q[params.index.nϵ] = source_electron_energy(U, params, i)
 end
 
-function inelastic_losses(U, params, i)
+function inelastic_losses!(U, params, i)
     (;ionization_reactions, excitation_reactions, cache, ionization_reactant_indices, excitation_reactant_indices) = params
-
+    (;νex, νiz) = cache
     inelastic_loss = 0.0
     mi = params.config.propellant.m
     ne = cache.ne[i]
     ϵ  = 3/2 * cache.Tev[i]
 
+    νiz[i] = 0.0
+    νex[i] = 0.0
+
     @inbounds for (reactant_index, rxn) in zip(ionization_reactant_indices, ionization_reactions)
         n_reactant = U[reactant_index, i] / mi
         ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
         inelastic_loss += ndot * rxn.energy
+        νiz[i] += ndot / ne
     end
 
     @inbounds for (reactant_index, rxn) in zip(excitation_reactant_indices, excitation_reactions)
         n_reactant = U[reactant_index, i] / mi
         ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
         inelastic_loss += ndot * rxn.energy
+        νex[i] += ndot / ne
     end
 
     return inelastic_loss
@@ -89,7 +119,7 @@ function source_electron_energy(U, params, i)
     end
 
     wall_loss      = ne * params.config.wall_loss_model(U, params, i)
-    inelastic_loss = inelastic_losses(U, params, i)
+    inelastic_loss = inelastic_losses!(U, params, i)
 
     return ohmic_heating - wall_loss - inelastic_loss
 end

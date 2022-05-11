@@ -63,6 +63,6 @@ include("simulation/simulation.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
-export time_average
+export time_average, Xenon, Krypton
 
 end # module

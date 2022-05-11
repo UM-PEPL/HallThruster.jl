@@ -40,8 +40,10 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Z_eff = zeros(ncells)
     λ_global = zeros(length(fluids))
     νe = zeros(ncells)
+    νiz = zeros(ncells)
+    νex = zeros(ncells)
 
-    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, νe, F, UL, UR, Z_eff, λ_global)
+    cache = (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex)
     return U, cache
 end
 
@@ -60,7 +62,7 @@ Run a Hall thruster simulation using the provided Config object.
 """
 function run_simulation(config::Config;
     dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
-    restart = nothing, electron_energy_order = 2, dirichlet_electron_BC = true)
+    restart = nothing, electron_energy_order = 2, CFL = 1.0, adaptive = true)
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
     grid = generate_grid(config.thruster.geometry, ncells, config.domain)
@@ -96,11 +98,11 @@ function run_simulation(config::Config;
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
 
     # Choose which cache variables to save and set up saving callback
-    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :νe, :ϕ_cell)
+    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :νiz, :νex, :νe, :ϕ_cell)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νe, ϕ_cell) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νe, ϕ_cell))
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νiz, νex, νe, ϕ_cell) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νiz, νex, νe, ϕ_cell))
     end
 
     saved_values = SavedValues(
@@ -138,7 +140,9 @@ function run_simulation(config::Config;
         excitation_reactant_indices,
         electron_neutral_collisions,
         electron_energy_order,
-        dirichlet_electron_BC,
+        max_timestep = [dt],
+        CFL,
+        adaptive
     )
 
     # Compute maximum allowed iterations
@@ -155,7 +159,7 @@ function run_simulation(config::Config;
     prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
 	sol = solve(
             prob, alg; saveat, callback=callbacks,
-            adaptive=false, dt=dt, dtmax=10*dt, dtmin = dt/10, maxiters = maxiters,
+            dt=dt, dtmax=10*dt, dtmin = dt/100, maxiters = maxiters,
 	    )
 
     # Print some diagnostic information

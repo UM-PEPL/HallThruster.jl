@@ -1,14 +1,3 @@
-"""
-    lerp(x, x0, x1, y0, y1)
-Interpolate between two points (x0, y0) and (x1, y1)
-```jldoctest;setup = :(using HallThruster: lerp)
-julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
-1.0
-"""
-@inline function lerp(x, x0, x1, y0, y1)
-    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-end
-
 abstract type TransitionFunction end
 
 Base.@kwdef struct SmoothIf <: TransitionFunction

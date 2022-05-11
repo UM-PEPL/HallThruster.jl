@@ -177,13 +177,15 @@ function load_landmark_data(case, suffix; ncells = 100)
 
     ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);
 
+    mi = Xenon.m
+
     params = (;
         ncharge = 1,
         z_cell = zs,
         z_edge = zs,
         L_ch = 0.025,
         cache,
-        mi = Xenon.m,
+        mi,
         index = (;
             ρn = 1,
             ρi = [2],
@@ -197,7 +199,6 @@ function load_landmark_data(case, suffix; ncells = 100)
     destats = nothing
 
     u = zeros(4, length(zs))
-    mi = Xenon.m
 
     ρn = nn_itp.(zs) * mi
     ρi = ne_itp.(zs) * mi

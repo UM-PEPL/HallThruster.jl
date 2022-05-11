@@ -1,9 +1,13 @@
-
 function update_values!(integrator)
     (nvars, ncells) = size(integrator.u)
 
     nandetected = false
     infdetected = false
+
+    # Update the timestep
+    if integrator.p.adaptive
+        SciMLBase.set_proposed_dt!(integrator, integrator.p.CFL * integrator.p.max_timestep[1])
+    end
 
     @inbounds for j in 1:ncells, i in 1:nvars
         if isnan(integrator.u[i, j])
@@ -26,13 +30,13 @@ end
 
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
-    (;z_cell, index, num_subiterations) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νe) = params.cache
-
-    mi = params.config.propellant.m
+    (;z_cell, index) = params
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νiz, νex, νe) = params.cache
 
     # Update the current iteration
     params.iteration[1] += 1
+
+    #@show params.max_timestep[]
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
@@ -42,20 +46,21 @@ function update_values!(U, params, t = 0)
 
     # Update electron quantities
     @inbounds for i in 1:(ncells + 2)
-        z = z_cell[i]
-
         ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
         pe[i] = if params.config.LANDMARK
             3/2 * ne[i] * Tev[i]
         else
             ne[i] * Tev[i]
-        end #U[index.nϵ, i]
+        end
         νen[i] = freq_electron_neutral(U, params, i)
         νei[i] = freq_electron_ion(U, params, i)
         νw[i] = freq_electron_wall(U, params, i)
         νan[i] = freq_electron_anom(U, params, i)
         νc[i] = νen[i] + νei[i]
+        if params.config.LANDMARK
+            νc[i] += νiz[i] + νex[i]
+        end
         νe[i] = νc[i] + νan[i] + νw[i]
         μ[i] = electron_mobility(νe[i], B[i])
         Z_eff[i] = compute_Z_eff(U, params, i)
@@ -67,10 +72,12 @@ function update_values!(U, params, t = 0)
     compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
     # Fix electron velocity on left and right cells
-    ueL = ue[3]
-    ue[1] = ue[2] = ueL
-    ueR = ue[end-2]
-    ue[end] = ue[end-1] = ueR
+    #if params.config.LANDMARK
+        ueL = ue[3]
+        ue[1] = ue[2] = ueL
+        ueR = ue[end-2]
+        ue[end] = ue[end-1] = ueR
+    #end
 
     update_electron_energy!(U, params)
 

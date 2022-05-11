@@ -53,7 +53,7 @@ end
         # Check that electron energy is solved to at least first order
         for slope in slopes_nϵ
             @show slope
-            @test abs(slope - order) < 0.1 || slope ≥ order
+            @test abs(slope - order) < 0.2 || slope ≥ order
         end
     end
 end
@@ -64,8 +64,8 @@ end
     refinements = refines(5, 40, 2)
 
     limiter = HallThruster.minmod
-    flux_names = ("HLLE", "Rusanov")
-    fluxes = (HallThruster.HLLE, HallThruster.rusanov)
+    flux_names = ("HLLE", "Rusanov", "Global Lax-Friedrichs")
+    fluxes = (HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,)
     WENO_names = ("WENO off", "WENO on")
     WENOs = (false, true)
 

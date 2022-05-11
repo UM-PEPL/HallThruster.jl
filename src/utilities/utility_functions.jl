@@ -10,20 +10,37 @@ struct LinearInterpolation{X<:Number,Y<:Number}
     end
 end
 
-function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
-    xs, ys = itp.xs, itp.ys
+function interpolate(x::T, xs, ys; use_log = false) where {T}
     if x ≤ xs[1]
         return ys[1] / oneunit(T)
     elseif x ≥ xs[end]
         return ys[end] / oneunit(T)
     end
     i = find_left_index(x, xs)
-    if use_log
-        return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
+    itp = if use_log
+        exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
     else
-        return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+        lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
     end
+    return itp
 end
+
+function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
+    xs, ys = itp.xs, itp.ys
+    interpolate(x, xs, ys; use_log)
+end
+
+"""
+    lerp(x, x0, x1, y0, y1)
+Interpolate between two points (x0, y0) and (x1, y1)
+```jldoctest;setup = :(using HallThruster: lerp)
+julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
+1.0
+"""
+@inline function lerp(x, x0, x1, y0, y1)
+    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+end
+
 
 function find_left_index(value, array)
     N = length(array)
