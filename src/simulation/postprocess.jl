@@ -96,6 +96,7 @@ function compute_thrust(sol)
     for i in 1:length(sol.t)
         for Z in 1:sol.params.config.ncharge
             thrust[i] += area * sol.u[i][index.ρiui[Z], end]^2 / sol.u[i][index.ρi[Z], end]
+            thrust[i] -= area * sol.u[i][index.ρiui[Z], 1]^2 / sol.u[i][index.ρi[Z], 1]
         end
     end
     return thrust

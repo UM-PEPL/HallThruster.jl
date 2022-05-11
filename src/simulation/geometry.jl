@@ -34,10 +34,10 @@ Base.@kwdef struct Thruster{B}
     shielded::Bool         # Whether the thruster is magnetically-shielded
 end
 
-struct Grid1D
+struct Grid1D{E, C}
     ncells::Int64
-    edges::Vector{Float64}
-    cell_centers::Vector{Float64}
+    edges::E
+    cell_centers::C
     cell_volume::Float64
 end
 

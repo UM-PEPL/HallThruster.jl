@@ -169,23 +169,32 @@ end
     return f_hat
 end
 
-function compute_edge_states!(UL, UR, U, scheme)
+function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
+    r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
+    slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁) / 2
+
+    uⱼ₋½ᴿ = uⱼ - 0.5 * slope
+    uⱼ₊½ᴸ = uⱼ + 0.5 * slope
+
+    return uⱼ₋½ᴿ, uⱼ₊½ᴸ
+end
+
+function compute_edge_states!(UL, UR, U, params)
     (nvars,  ncells) = size(U)
-    Ψ = scheme.limiter
+    (;config, index) = params
+    (;scheme) = config
+
     # compute left and right edge states
     @inbounds for i in 2:ncells-1
         for j in 1:nvars
             if scheme.reconstruct
-                if j == 3 || j == 5 || j == 7 #do primitive variable reconstruction
+                if j == index.ρiui[1] || j == index.ρiui[2] || j == index.ρiui[3] # reconstruct velocity as primitive variable instead of momentum density
                     u₋ = U[j, i-1]/U[j-1, i-1]
                     uᵢ = U[j, i]/U[j-1, i]
                     u₊ = U[j, i+1]/U[j-1, i+1]
-                    Δu = u₊ - uᵢ
-                    ∇u = uᵢ - u₋
-                    r = Δu / ∇u
-                    uL = uᵢ + 0.5 * Ψ(r) * ∇u
-                    uR = uᵢ - 0.5 * Ψ(1/r) * Δu
-                    ρL = UL[j-1, right_edge(i)] #use previously computed rho 
+                    uR, uL = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
+
+                    ρL = UL[j-1, right_edge(i)] #use previously-reconstructed edge density to compute momentum
                     ρR = UR[j-1, left_edge(i)]
                     UL[j, right_edge(i)] = uL*ρL
                     UR[j, left_edge(i)] = uR*ρR
@@ -193,12 +202,8 @@ function compute_edge_states!(UL, UR, U, scheme)
                     u₋ = U[j, i-1]
                     uᵢ = U[j, i]
                     u₊ = U[j, i+1]
-                    Δu = u₊ - uᵢ
-                    ∇u = uᵢ - u₋
-                    r = Δu / ∇u
 
-                    UL[j, right_edge(i)] = uᵢ + 0.5 * Ψ(r) * ∇u
-                    UR[j, left_edge(i)]  = uᵢ - 0.5 * Ψ(1/r) * Δu
+                    UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
                 end
             else
                 UL[j, right_edge(i)] = U[j, i]
@@ -227,7 +232,7 @@ function compute_fluxes!(F, UL, UR, U, params)
 
     params.max_timestep[1] = Inf
 
-    compute_edge_states!(UL, UR, U, scheme)
+    compute_edge_states!(UL, UR, U, params)
 
     @inbounds for i in 1:nedges
         # Compute number density
@@ -317,6 +322,7 @@ function compute_fluxes!(F, UL, UR, U, params)
             F[index.ρi[Z],   i] = F_mass
             F[index.ρiui[Z], i] = F_momentum
         end
+
     end
 
     return F

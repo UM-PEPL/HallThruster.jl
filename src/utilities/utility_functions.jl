@@ -75,6 +75,38 @@ right_edge(i) = i
 
 @inline inlet_neutral_density(config) = config.anode_mass_flow_rate / config.neutral_velocity / config.thruster.geometry.channel_area
 
+@inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
+
+function discharge_current(U, params)
+    (;z_cell, A_ch, cache, z_cell) = params
+    (;∇pe, μ, ne, ϕ, ji) = cache
+
+    ncells = size(U, 2)
+
+    int1 = 0.0
+    int2 = 0.0
+
+    @inbounds for i in 1:ncells-1
+        Δz = z_cell[i+1] - z_cell[i]
+
+        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
+        int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
+
+        int1 += 0.5 * Δz * (int1_1 + int1_2)
+
+        int2_1 = inv(e * ne[i] * μ[i])
+        int2_2 = inv(e * ne[i+1] * μ[i+1])
+
+        int2 += 0.5 * Δz * (int2_1 + int2_2)
+    end
+
+    ΔV = ϕ[1] - ϕ[end]
+
+    I = A_ch * (ΔV + int1) / int2
+
+    return I
+end
+
 function tridiagonal_forward_sweep!(A::Tridiagonal, b)
     n = length(A.d)
 

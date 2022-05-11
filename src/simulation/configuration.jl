@@ -104,7 +104,7 @@ function Config(;
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
     if ncharge > 1 && electron_pressure_coupled
-        warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
+        @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
         electron_pressure_coupled = false
     end
 

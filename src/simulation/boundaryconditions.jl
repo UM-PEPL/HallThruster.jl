@@ -11,7 +11,8 @@ function left_boundary_state!(bc_state, U, params)
     else
         # Compute sheath potential
         Vs = params.ϕ_L - ϕ[1]
-        if Vs < 0
+        electron_repelling_sheath = Vs < 0
+        if electron_repelling_sheath
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
             Vs_norm = Vs / Tev[1]
             # Compute correction factor (see Hara, PSST 28 (2019))

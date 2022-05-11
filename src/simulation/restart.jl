@@ -94,9 +94,11 @@ function load_restart(grid, fluids, config, sol::Solution)
     sv = sol.savevals[end]
     # Interpolate cell-centered cache variables
     for field in fieldnames(typeof(sv))
-        if field != :ϕ
+        if field != :ϕ && field != :Id
             itp = LinearInterpolation(z_cell, sv[field])
             cache[field] .= itp.(grid.cell_centers)
+        elseif field == :Id
+            cache[field] .= sv[field]
         end
     end
 
