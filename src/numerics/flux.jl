@@ -234,6 +234,12 @@ function compute_fluxes!(F, UL, UR, U, params)
 
     compute_edge_states!(UL, UR, U, params)
 
+    if params.config.LANDMARK
+        Te_fac = 1.0
+    else
+        Te_fac = 2/3
+    end
+
     @inbounds for i in 1:nedges
         # Compute number density
         neL = 0.0
@@ -246,8 +252,8 @@ function compute_fluxes!(F, UL, UR, U, params)
         end
 
         # Compute electron temperature
-        TeL = max(params.config.min_electron_temperature, UL[index.nϵ, i] / neL)
-        TeR = max(params.config.min_electron_temperature, UR[index.nϵ, i] / neR)
+        TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
+        TeR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
 
         fluid = fluids[1]
         γ = fluid.species.element.γ
@@ -305,8 +311,8 @@ function compute_fluxes!(F, UL, UR, U, params)
         end
 
         # Compute electron temperature
-        ϵL = max(params.config.min_electron_temperature, UL[index.nϵ, i] / neL)
-        ϵR = max(params.config.min_electron_temperature, UR[index.nϵ, i] / neR)
+        ϵL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
+        ϵR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
 
         # Neutral flux at edge i
         left_state_n  = SA[UL[index.ρn, i]]

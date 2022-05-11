@@ -30,17 +30,20 @@ end
 @inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
 
 function apply_ion_acceleration!(dU, U, params, i)
-    index = params.index
-    (;∇ϕ, ue, μ) = params.cache
-    coupled = params.config.electron_pressure_coupled
+    (;cache, config, index) = params
+    (;∇ϕ, ue, μ, ∇pe, ne) = cache
+    coupled = config.electron_pressure_coupled
     mi = params.config.propellant.m
 
-    @inbounds for Z in 1:params.config.ncharge
-        # Ion acceleration
-        Q_accel = coupled * ue[i] / μ[i] + (1 - coupled) * ∇ϕ[i]
-        Q_accel = -Z * e * U[index.ρi[Z], i] / mi * Q_accel
+    @inbounds for Z in 1:config.ncharge
+
+        Q_coupled = ue[i] / μ[i]
+        Q_uncoupled = ∇ϕ[i]
+
+        Q_accel = -Z * e * U[index.ρi[Z], i] / mi * (coupled * Q_coupled + (1 - coupled) * Q_uncoupled)
         dU[index.ρiui[Z], i] += Q_accel
     end
+
 end
 
 function apply_plume_losses!(dU, U, params, i)
