@@ -107,7 +107,6 @@ function electron_kinetic_energy(U, params, i)
 end
 
 function source_electron_energy(U, params, i)
-
     ne = params.cache.ne[i]
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
@@ -119,10 +118,22 @@ function source_electron_energy(U, params, i)
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
         ohmic_heating  = ne * ue * ∇ϕ
     else
-        # Do not neglect kinetic energy, so ohmic heating term is -mₑnₑ|uₑ|²νₑ = -2nₑKνₑ, where K is the electron bulk kinetic energy
+        # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
+        # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
         K = params.cache.K[i]
         νe = params.cache.νe[i]
-        ohmic_heating = 2 * ne * K * νe
+
+        z = params.z_cell
+        pe = params.cache.pe
+
+        # Upwind difference for pressure gradient
+        if ue > 0
+            ∇pe = (pe[i] - pe[i-1]) / (z[i] - z[i-1])
+        else
+            ∇pe = (pe[i+1] - pe[i]) / (z[i+1] - z[i])
+        end
+
+        ohmic_heating = 2 * ne * K * νe + ue * ∇pe
     end
 
     wall_loss      = ne * params.config.wall_loss_model(U, params, i)
