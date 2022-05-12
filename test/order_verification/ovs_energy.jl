@@ -2,7 +2,7 @@ module OVS_Energy
 
 include("ovs_funcs.jl")
 
-using Symbolics, HallThruster, Plots, LinearAlgebra
+using Symbolics, HallThruster, LinearAlgebra
 
 @variables x t
 
@@ -58,7 +58,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(ncells; niters = 20000, plot_results = false)
+function verify_energy(ncells; niters = 20000)
     index = (; ρn = 1, nϵ = 2)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
@@ -164,15 +164,6 @@ function verify_energy(ncells; niters = 20000, plot_results = false)
 
     solve_energy!(U, params, niters, dt)
     results_crank_nicholson = (;z = z_cell, exact = nϵ_exact, sim = U[2, :])
-
-    if plot_results
-        p1 = plot(z_cell, results_implicit.exact, label = "exact", title = "Implicit")
-        plot!(p1, z_cell, results_implicit.sim, label = "sim")
-        p2 = plot(z_cell, results_crank_nicholson.exact, label = "exact", title = "Crank-Nicholson")
-        plot!(p2, z_cell, results_crank_nicholson.sim, label = "sim")
-        p = plot(p1, p2, layout = (1, 2), size = (1000, 500))
-        display(p)
-    end
 
     return (results_implicit, results_crank_nicholson)
 end

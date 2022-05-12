@@ -2,7 +2,7 @@ module OVS_Ions
 
 include("ovs_funcs.jl")
 
-using Symbolics, HallThruster, Plots, LinearAlgebra, OrdinaryDiffEq
+using Symbolics, HallThruster, LinearAlgebra, OrdinaryDiffEq
 
 @variables x t
 
@@ -186,21 +186,6 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     ρi_sim = sol.u[end][index.ρi[1], :]
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim
-
-    if plot_results
-
-        p1 = plot(z_cell, ρn_sim, label = "Numeric solution", title = "Neutral density", legend = :outertop)
-        plot!(p1, z_cell, ρn_exact, label = "Manufactured solution")
-
-        p2 = plot(z_cell, ρi_sim, label = "Numeric solution", title = "Ion density", legend = :outertop)
-        plot!(p2, z_cell, ρi_exact, label = "Manufactured solution")
-
-        p3 = plot(z_cell, ui_sim, label = "Numeric solution", title = "Ion velocity", legend = :outertop)
-        plot!(p3, z_cell, ui_exact, label = "Manufactured solution")
-
-        p = plot(p1, p2, p3, layout = (1, 3), size = (1800, 700), margin = 5Plots.mm)
-        display(p)
-    end
 
     return (
         ρn = (;z_cell, sim = ρn_sim, exact = ρn_exact),

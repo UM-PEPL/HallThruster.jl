@@ -40,4 +40,4 @@ Aside from these arguments, all others have  default values provided. These are 
 - `source_potential`: Extra source term for potential equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
 - `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
 - `LANDMARK`: Whether we are using the LANDMARK physics model. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. Also affects whether we use an anode sheath model. Defaults to `false`.
-- `plume_ion_losses`: Whether we model ion losses in the radial direction in the plume. Defaults to `true`.
+- `plume_ion_losses`: Whether we model ion losses in the radial direction in the plume. Defaults to `false`.
