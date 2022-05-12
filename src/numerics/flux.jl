@@ -188,7 +188,16 @@ function compute_edge_states!(UL, UR, U, params)
     @inbounds for i in 2:ncells-1
         for j in 1:nvars
             if scheme.reconstruct
-                if j == index.ρiui[1] || j == index.ρiui[2] || j == index.ρiui[3] # reconstruct velocity as primitive variable instead of momentum density
+
+                is_velocity_index = false
+                for Z in 1:params.config.ncharge
+                    if j == index.ρiui[Z]
+                        is_velocity_index = true
+                        break
+                    end
+                end
+
+                if is_velocity_index # reconstruct velocity as primitive variable instead of momentum density
                     u₋ = U[j, i-1]/U[j-1, i-1]
                     uᵢ = U[j, i]/U[j-1, i]
                     u₊ = U[j, i+1]/U[j-1, i+1]

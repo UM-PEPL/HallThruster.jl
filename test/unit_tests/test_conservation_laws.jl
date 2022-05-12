@@ -181,7 +181,7 @@
 
             index = (ρi = [1], ρiui = [2])
             scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false, false)
-            config = (;scheme)
+            config = (;scheme, ncharge = 1)
             params = (;index, config)
 
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
