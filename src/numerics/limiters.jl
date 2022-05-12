@@ -12,7 +12,7 @@ function (L::SlopeLimiter)(r)
 end
 
 const piecewise_constant = SlopeLimiter(Returns(0.0))
-#const superbee = SlopeLimiter(r -> max(0.0, min(2r, 1), min(r, 2)))
+const superbee = SlopeLimiter(r -> max(0.0, min(2r, 1), min(r, 2)))
 const van_leer = SlopeLimiter(r -> 4r / (r + 1)^2)
 const van_albada = SlopeLimiter(r -> 2r / (r^2 + 1))
 const no_limiter = SlopeLimiter(Returns(1.0))

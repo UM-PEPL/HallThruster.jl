@@ -203,7 +203,6 @@
                 HallThruster.koren,
                 HallThruster.minmod,
                 HallThruster.osher,
-                HallThruster.superbee,
                 HallThruster.van_albada,
                 HallThruster.van_leer
             ]
