@@ -179,16 +179,19 @@
             edge_R = zeros(length(euler_state), 2)
             U_euler = hcat(euler_state_L, euler_state, euler_state_R)
 
+            index = (ρi = [1], ρiui = [2])
             scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false, false)
+            config = (;scheme)
+            params = (;index, config)
 
-            HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, scheme)
+            HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L
             @test edge_R[:, end] == euler_state_R
             @test edge_L[:, 2] == euler_state
             @test edge_R[:, 1] == euler_state
 
             scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, true, false)
-            HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, scheme)
+            HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L
             @test edge_R[:, end] == euler_state_R
 
@@ -207,7 +210,7 @@
 
             for limiter in limiters
                 scheme = HallThruster.HyperbolicScheme(identity, limiter, true, false)
-                HallThruster.compute_edge_states!(edge_L, edge_R, U_euler_2, scheme)
+                HallThruster.compute_edge_states!(edge_L, edge_R, U_euler_2, params)
                 @test edge_L[:, 1] == euler_state_L2
                 @test edge_R[:, end] == euler_state_R
                 @test edge_L[:, 2] == euler_state

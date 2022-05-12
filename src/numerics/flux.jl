@@ -219,27 +219,27 @@ end
 function compute_fluxes!(F, UL, UR, U, params)
     (;config, index, fluids, z_edge, z_cell) = params
     λ_global = params.cache.λ_global
-    (;propellant, electron_pressure_coupled, scheme) = config
-    nvars, ncells = size(U)
+    (;propellant, electron_pressure_coupled, scheme, ncharge) = config
+    ncells = size(U, 2)
 
     coupled = electron_pressure_coupled
-
-    ncharge = config.ncharge
-
     mi = propellant.m
-
     nedges = ncells-1
 
+    # Initialize the maximum allowable timestep. It will only decrease from here
     params.max_timestep[1] = Inf
 
+    # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(UL, UR, U, params)
 
+    # The contribution to the electron-pressure-coupled method will be 3/2 Te if we're using LANDMARK, since pe = nϵ in that benchmark
     if params.config.LANDMARK
         Te_fac = 1.0
     else
         Te_fac = 2/3
     end
 
+    # Compute maximum wave speed in domain and use this to update the max allowable timestep, if using adaptive timestepping
     @inbounds for i in 1:nedges
         # Compute number density
         neL = 0.0
@@ -251,21 +251,22 @@ function compute_fluxes!(F, UL, UR, U, params)
             neR = neR + Z * niR
         end
 
+        Δz = z_cell[i+1] - z_cell[i]
+
         # Compute electron temperature
         TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
         TeR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
 
-        fluid = fluids[1]
-        γ = fluid.species.element.γ
+        # Compute wave speeds for each component of the state vector.
+        # The only wave speed for neutrals is the neutral convection velocity
+        neutral_fluid = fluids[1]
         U_neutrals = SA[U[index.ρn, i]]
-        u = velocity(U_neutrals, fluid)
+        u = velocity(U_neutrals, neutral_fluid)
 
         λ_global[1] = abs(u)
 
-        Δz = z_cell[i+1] - z_cell[i]
-
+        # Ion wave speeds
         for Z in 1:ncharge
-
             fluid = fluids[Z+1]
             γ = fluid.species.element.γ
             UL_ions = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
@@ -276,11 +277,15 @@ function compute_fluxes!(F, UL, UR, U, params)
             uR = velocity(UR_ions, fluid)
             TR = temperature(UR_ions, fluid)
 
+            # If we're using the electron-pressure-coupled method, then the sound speed includes a contribution from
+            # the electron temperature and approaches the ion acoustic speed
             charge_factor = Z * e * coupled
 
+            # Sound speeds
             aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
             aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
+            # There are several possible waves, with speeds, u-a, u+a, and u, both left- and right-running
             λ₁₂⁺ = 0.5 * (uR + abs(uR))
             λ₁₂⁻ = 0.5 * (uL - abs(uL))
             λ₃⁺  = 0.5 * (uR + aR  + abs(uR + aR))
@@ -288,11 +293,13 @@ function compute_fluxes!(F, UL, UR, U, params)
             λ₄⁺  = 0.5 * (uR - aR  + abs(uR - aR))
             λ₄⁻  = 0.5 * (uL - aL  - abs(uL - aL))
 
+            # Maximum of all of these wave speeds
             s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
 
+            # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
             dt_max = Δz / s_max
-            #@show dt_max, s_max
 
+            # Update maximum wavespeeds and maximum allowable timestep
             λ_global[Z+1] = max(s_max, λ_global[Z+1])
             params.max_timestep[1] = min(dt_max, params.max_timestep[1])
         end

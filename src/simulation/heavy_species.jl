@@ -15,6 +15,7 @@ function update_heavy_species!(dU, U, params, t)
 
 
     ncells = size(U, 2)
+    nedges = length(z_edge)
 
     Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
 
@@ -26,18 +27,27 @@ function update_heavy_species!(dU, U, params, t)
     compute_fluxes!(F, UL, UR, U, params)
 
     if scheme.WENO #with WENO 5 only going up to 2nd last to boundary cells
-        @inbounds for i in 3:ncells-3 #only fluxes ncells - 1
+        @inbounds for i in 1:nedges #only fluxes ncells - 1
+
+            # If stencil goes past boundary, we have ghost edges
+            # Where the boundary flux is 
+            i_minus_2 = max(1, i - 2)
+            i_minus_1 = max(1, i - 1)
+            i_plus_1 = min(nedges, i+1)
+            i_plus_2 = min(nedges, i+2)
+
             # Handle neutrals
             F[index.ρn, i] = WENO5_compute_fluxes(
-                F[index.ρn, i-2], F[index.ρn, i-1], F[index.ρn, i], F[index.ρn, i+1], F[index.ρn, i+2])
+                F[index.ρn, i_minus_2], F[index.ρn, i_minus_1], F[index.ρn, i], F[index.ρn, i_plus_1], F[index.ρn, i_plus_2])
+
             #Handle ions
             for Z in 1:ncharge
                 @views @. F[index.ρi[Z]:index.ρiui[Z], i] = WENO5_compute_fluxes(
-                    SA[F[index.ρi[Z], i-2], F[index.ρiui[Z], i-2]],
-                    SA[F[index.ρi[Z], i-1], F[index.ρiui[Z], i-1]],
+                    SA[F[index.ρi[Z], i_minus_2], F[index.ρiui[Z], i_minus_2]],
+                    SA[F[index.ρi[Z], i_minus_1], F[index.ρiui[Z], i_minus_1]],
                     SA[F[index.ρi[Z], i],   F[index.ρiui[Z], i]],
-                    SA[F[index.ρi[Z], i+1], F[index.ρiui[Z], i+1]],
-                    SA[F[index.ρi[Z], i+2], F[index.ρiui[Z], i+2]],
+                    SA[F[index.ρi[Z], i_plus_1], F[index.ρiui[Z], i_plus_1]],
+                    SA[F[index.ρi[Z], i_plus_2], F[index.ρiui[Z], i_plus_2]],
                 )
             end
         end

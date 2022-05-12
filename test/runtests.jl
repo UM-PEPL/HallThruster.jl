@@ -21,18 +21,16 @@ include("unit_tests/test_restarts.jl")
 
     for p in (1, 2, Inf)
         (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
-        (slope_∇ϕ, slope_∇pe, slope_ue), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
+        (slope_∇ϕ, slope_∇pe), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
 
         tol = 0.1
 
-        @show slope_ϕ, slope_∇ϕ, slope_∇pe, slope_ue
+        @show slope_ϕ, slope_∇ϕ, slope_∇pe
 
-        # Check that potential and gradients are first order or better
+        # Check that potential is computed with second-order accuracy or better
         @test abs(slope_ϕ - 2.0) < tol || slope_ϕ > 2.0
-        # Check that potential gradient and ue are first order or better
+        # Check that potential and pressure gradients are second-order
         @test abs(slope_∇ϕ - 2.0) < tol || slope_∇ϕ > 2.0
-        @test abs(slope_ue - 2.0) < tol || slope_ue > 2.0
-        # Check that pressure gradient is second order or better
         @test abs(slope_∇pe - 2.0) < tol || slope_∇pe > 2.0
     end
 end
@@ -41,20 +39,19 @@ end
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_energy.jl")
 
-    vfunc = order -> x -> OVS_Energy.verify_energy(order, x)
+    vfunc = x -> OVS_Energy.verify_energy(x)
     refinements = refines(6, 20, 2)
 
+    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
+    slopes_nϵ, norms_nϵ = test_refinements(vfunc, refinements, [1, 2, Inf])
 
-    for order in [1, 2]
-        println("Energy, order = $order")
-        # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
-        slopes_nϵ, norms_nϵ = test_refinements(vfunc(order), refinements, [1, 2, Inf])
+    tol = 0.15
+    order = 1.0
 
-        # Check that electron energy is solved to at least first order
-        for slope in slopes_nϵ
-            @show slope
-            @test abs(slope - order) < 0.2 || slope ≥ order
-        end
+    # Check that electron energy is solved to at least first order
+    for slope in slopes_nϵ
+        @show slope
+        @test abs(slope - order) < tol || slope ≥ order
     end
 end
 
@@ -63,25 +60,38 @@ end
     include("order_verification/ovs_ions.jl")
     refinements = refines(5, 40, 2)
 
-    limiter = HallThruster.minmod
+    limiter = HallThruster.van_leer
     flux_names = ("HLLE", "Rusanov", "Global Lax-Friedrichs")
     fluxes = (HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,)
     WENO_names = ("WENO off", "WENO on")
     WENOs = (false, true)
 
     for (flux, flux_name) in zip(fluxes, flux_names)
-        for (WENO, WENO_name) in zip(WENOs, WENO_names)
-            for reconstruct in (false, )
+        for reconstruct in (false, true)
+            for (WENO, WENO_name) in zip(WENOs, WENO_names)
+
+                if WENO && reconstruct || reconstruct && flux_name == "HLLE" || WENO && flux_name == "HLLE"
+                    # Reconstruction and WENO do similar things, no point in running them simulataneously
+                    # and HLLE is not diffusive enough with reconstruction, tends to break quickly
+                    continue
+                end
                 scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct, WENO)
 
                 slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
 
+                # Check that gradient reconstruction gets us to at least ~1.75-order accuracy
                 theoretical_order = 1 + reconstruct
                 for slope in slopes
                     if WENO
                         println("WENO slope: ", slope)
                     else
-                        @test abs(slope - theoretical_order) < 0.2 || slope > theoretical_order
+                        if !reconstruct
+                            println("No reconstruction, $flux_name: ", slope)
+                        else
+                            println("With reconstruction, $flux_name: ", slope)
+                        end
+
+                        @test abs(slope - theoretical_order) < 0.25 || slope > theoretical_order
                     end
                 end
             end

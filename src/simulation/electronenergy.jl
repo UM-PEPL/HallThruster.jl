@@ -73,12 +73,14 @@ function update_electron_energy!(U, params)
             κR = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR * correction_factor
         end
 
+        # Weighted average of the electron velocities in the three stencil cells
         ue_avg = 0.25 * (ueL + 2 * ue0 + ueR)
 
         ΔzL = z_cell[i] - z_cell[i-1]
         ΔzR = z_cell[i+1] - z_cell[i]
         Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
 
+        # Upwind differences
         if ue_avg > 0
             FR_factor_L = 0.0
             FR_factor_C = 5/3 * ue0 + κ0 / ΔzR / ne0
@@ -136,15 +138,14 @@ function update_electron_energy!(U, params)
     # Solve equation system using Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    #println("test")
-    #@show nϵ[1] / ne[1]
-   # @show nϵ[2] / ne[2]
-
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     @inbounds for i in 1:ncells
-        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < params.config.min_electron_temperature || nϵ[i] < params.config.min_electron_temperature
+
+        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < params.config.min_electron_temperature
             nϵ[i] = 3/2 *  params.config.min_electron_temperature * ne[i]
         end
+
+        # update Tev and pe
         Tev[i] = 2/3 * nϵ[i] / ne[i]
         if params.config.LANDMARK
             params.cache.pe[i] = nϵ[i]

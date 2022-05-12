@@ -93,21 +93,17 @@ function verify_gradients(ncells, plot_results = false)
     ϕ_cell = zeros(ncells)
     ∇ϕ  = zeros(ncells)
     ∇pe = zeros(ncells)
-    ue  = zeros(ncells)
 
     ∇ϕ_exact  = ∇ϕ_func.(z_cell)
     ∇pe_exact = ∇pe_func.(z_cell)
-    ue_exact  = ue_func.(z_cell)
 
-    cache = (;μ, ne, pe, ϕ, ϕ_cell, ∇ϕ, ∇pe, ue)
+    cache = (;μ, ne, pe, ϕ, ϕ_cell, ∇ϕ, ∇pe)
     params = (;z_cell, cache, z_edge, config = (;LANDMARK = true))
-    U = nothing
 
-    HallThruster.compute_gradients!(∇ϕ, ∇pe, ue, U, params)
+    HallThruster.compute_gradients!(∇ϕ, ∇pe, params)
 
     result_∇ϕ = (;z = z_cell, exact = ∇ϕ_exact, sim = ∇ϕ)
     result_∇pe = (;z = z_cell, exact = ∇pe_exact, sim = ∇pe)
-    result_ue = (;z = z_cell, exact = ue_exact, sim = ue)
 
     if plot_results
         p1 = plot(result_∇ϕ.z, result_∇ϕ.exact, label = "exact",   title = "Potential gradient")
@@ -120,7 +116,7 @@ function verify_gradients(ncells, plot_results = false)
         plot(p1, p2, p3, layout = (3, 1)) |> display
     end
 
-    return (result_∇ϕ, result_∇pe, result_ue)
+    return (result_∇ϕ, result_∇pe)
 end
 
 

@@ -36,8 +36,6 @@ function update_values!(U, params, t = 0)
     # Update the current iteration
     params.iteration[1] += 1
 
-    #@show params.max_timestep[]
-
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
@@ -67,23 +65,30 @@ function update_values!(U, params, t = 0)
         ji[i] = ion_current_density(U, params, i)
     end
 
+    # Compute the discharge current by integrating the momentum equation over the whole domain
     Id[] = discharge_current(U, params)
 
+    # Compute the electron velocity and electron kinetic energy
     @inbounds for i in 1:ncells
+        # je + ji = Id / A_ch
         ue[i] = (ji[i] - Id[] / A_ch) / e / ne[i]
+
+        # Kinetic energy in both axial and azimuthal directions is accounted for
         params.cache.K[i] = electron_kinetic_energy(U, params, i)
     end
 
     # update electrostatic potential and potential gradient on edges
     solve_potential_edge!(U, params)
-    # Compute potential gradient, pressure gradient, and electron velocity
-    compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
+    # Compute potential gradient and pressure gradient
+    compute_gradients!(∇ϕ, ∇pe, params)
+
+    # Update the electron temperature and pressure
     update_electron_energy!(U, params)
 end
 
-function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
-    (; ϕ, μ, ne, pe, ϕ_cell) = params.cache
+function compute_gradients!(∇ϕ, ∇pe, params)
+    (; ϕ, pe, ϕ_cell) = params.cache
     (;z_cell, z_edge) = params
 
     ncells = length(z_cell)
@@ -97,31 +102,23 @@ function compute_gradients!(∇ϕ, ∇pe, ue, U, params)
 
     # Potential gradient (centered)
     ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
-    #∇ϕ[1] = (ϕ[2] - ϕ[1]) / (z_edge[2] - z_edge[1])
+
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
-    # Compute electron velocity
-    #ue[1] = μ[1] * (∇ϕ[1] - ∇pe[1]/ne[1])
 
     # Centered difference in interior cells
     @inbounds for j in 2:ncells-1
-
         # Compute potential gradient
         ∇ϕ[j] = (ϕ[j] - ϕ[j-1]) / (z_edge[j] - z_edge[j-1])
 
         # Compute pressure gradient
         ∇pe[j] = central_difference(pe[j-1], pe[j], pe[j+1], z_cell[j-1], z_cell[j], z_cell[j+1])
-        # Compute electron velocity
-        #ue[j] = μ[j] * (∇ϕ[j] - ∇pe[j]/ne[j])
     end
 
     # Potential gradient (centered)
     ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
-    #∇ϕ[end] = (ϕ[end] - ϕ[end-1]) / (z_edge[end] - z_edge[end-1])
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
-    # Compute electron velocity
-    #ue[end] = μ[end] * (∇ϕ[end] - ∇pe[end]/ne[end])
 
     return nothing
 end

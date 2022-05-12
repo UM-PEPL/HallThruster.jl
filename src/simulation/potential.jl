@@ -17,7 +17,7 @@ function solve_potential_edge!(U, params)
     (;z_cell, config, index, ϕ_L, ϕ_R) = params
     nedges = length(z_cell) - 1
 
-    (;pe, ne, μ, A, b, ϕ, Id) = params.cache
+    (;pe, ne, μ, A, b, ϕ) = params.cache
     mi = params.config.propellant.m
 
     # Compute anode sheath potential
@@ -28,7 +28,7 @@ function solve_potential_edge!(U, params)
         je_sheath = e * ne[1] * ce / 4
 
         # discharge current density
-        jd = Id[] / params.A_ch
+        jd = params.cache.Id[] / params.A_ch
 
         # current densities at sheath edge
         ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi

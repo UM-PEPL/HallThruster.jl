@@ -78,7 +78,7 @@ function Config(;
         domain,                             # MANDATORY ARGUMENT
         LANDMARK                            = false,
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
-        plume_ion_losses                    = true,
+        plume_ion_losses                    = false,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both

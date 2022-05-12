@@ -58,12 +58,13 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(order, ncells; niters = 20000, plot_results = false)
+function verify_energy(ncells; niters = 20000, plot_results = false)
     index = (; ρn = 1, nϵ = 2)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
     z_cell = grid.cell_centers
+    z_edge = grid.edges
     ncells = length(z_cell)
 
     μ = μ_func.(z_cell)
@@ -127,14 +128,13 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz)
 
     params = (;
-        z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
+        z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
         dt, L_ch, propellant,
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        electron_energy_order = order,
     )
 
     solve_energy!(U, params, niters, dt)
@@ -153,14 +153,13 @@ function verify_energy(order, ncells; niters = 20000, plot_results = false)
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
     params = (;
-        z_cell, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R , cache, config,
+        z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R , cache, config,
         dt, L_ch, propellant,
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        electron_energy_order = order,
     )
 
     solve_energy!(U, params, niters, dt)

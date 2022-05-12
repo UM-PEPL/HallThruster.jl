@@ -10,7 +10,7 @@ function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Numb
     return νen
 end
 
-function freq_electron_neutral(U::AbstractArray, params, i::Int)
+function freq_electron_neutral(U::AbstractArray, params::NamedTuple, i::Int)
     (;index) = params
     nn = U[index.ρn, i] / params.config.propellant.m
     Tev = params.cache.Tev[i]
