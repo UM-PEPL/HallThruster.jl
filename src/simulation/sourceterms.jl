@@ -58,19 +58,40 @@ function apply_plume_losses!(dU, U, params, i)
 
     Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
     mi = propellant.m
+    Tn = params.config.neutral_temperature
 
-    if z_cell[i] > L_ch
-        # Radial neutral losses
-        Tn = temperature(SA[U[index.ρn, i]], fluids[1])
-        dU[index.ρn, i] -= U[index.ρn, i] * sqrt(kB * Tn / 2 / π / mi) / Δr
+    Tev_channel = if config.thruster.shielded
+        params.cache.Tev[1]
+    else
+        params.cache.Tev[i]
+    end
 
-        # Radial ion losses
-        u_bohm = sqrt(e * params.cache.Tev[i] / mi)
+    Tev_plume = params.cache.Tev[i]
 
-        @inbounds for Z in 1:ncharge
-            dU[index.ρi[Z],   i] -= U[index.ρi[Z],   i] * sqrt(Z) * u_bohm / Δr
-            dU[index.ρiui[Z], i] -= U[index.ρiui[Z], i] * sqrt(Z) * u_bohm / Δr
-        end
+    L_ch = config.thruster.geometry.channel_length
+
+    α_channel = 1.0
+    α_plume = 0.0
+
+    in_channel = config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+    in_plume = 1 - in_channel
+    Tev = in_channel * Tev_channel + in_plume * Tev_plume
+    α = in_channel * α_channel + in_plume * α_plume
+
+    u_bohm = sqrt(e * Tev / mi)
+
+    @inbounds for Z in 1:ncharge
+        # Ion-wall collision frequency
+        νiw = α * 2 * sqrt(Z) * u_bohm / Δr
+
+        ion_density_flux = νiw * U[index.ρi[Z],   i]
+        ion_momentum_flux = νiw * U[index.ρiui[Z], i]
+
+        dU[index.ρi[Z],   i] -= ion_density_flux
+        dU[index.ρiui[Z], i] -= ion_momentum_flux
+
+        # Neutrals gain density due to ion recombination at the walls
+        dU[index.ρn[Z], i] += ion_density_flux
     end
 end
 

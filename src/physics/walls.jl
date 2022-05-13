@@ -89,26 +89,32 @@ function (model::WallSheath)(U, params, i)
     mi = config.propellant.m
     Δr = config.thruster.geometry.outer_radius - config.thruster.geometry.inner_radius
 
-    Tev_in = if config.thruster.shielded
+    Tev_channel = if config.thruster.shielded
         params.cache.Tev[1]
     else
         params.cache.Tev[i]
     end
 
-    Tev_out = params.cache.Tev[i]
+    Tev_plume = params.cache.Tev[i]
 
     L_ch = config.thruster.geometry.channel_length
 
-    Tev = config.transition_function(z_cell[i], L_ch, Tev_in, Tev_out)
+    α_channel = 1.0
+    α_plume = 0.0
 
+    in_channel = config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+    in_plume = 1 - in_channel
+    Tev = in_channel * Tev_channel + in_plume * Tev_plume
+    α = in_channel * α_channel + in_plume * α_plume
     γ = SEE_yield(model.material, Tev)
     ϕ_s = sheath_potential(Tev, γ, mi)
-    νₑ = effective_loss_frequency(Tev)
-    W = νₑ*Tev*exp(ϕ_s/Tev)
 
-    #u_bohm = sqrt(e * Tev / mi)
-    #νew = 2 * u_bohm / Δr / (1 - γ)
-    #W = νew * (2Tev  - (1 - γ) * ϕ_s)
+    #νₑ = effective_loss_frequency(Tev)
+    #W = νₑ*Tev*exp(ϕ_s/Tev)
+
+    u_bohm = sqrt(e * params.cache.Z_eff[i] * Tev / mi)
+    νew = 2 * u_bohm / Δr / (1 - γ)
+    W = α * νew * (2Tev + (1 - γ) * ϕ_s)
 
     return W
 end
@@ -129,15 +135,18 @@ end
     sheath_potential(Tev, γ, mi))
 compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
-Space charge limited above γ = 0.99.
+Space charge limited when γ > 1 - 8.3 √(mᵢ/mₑ).
 """
 function sheath_potential(Tev, γ, mi)
-    if γ < 1 - 8.3*sqrt(me/mi)
-        # Sheath is not space charge limited
-        ϕ_w = -Tev*log(0.5*(1-γ)*sqrt(2*mi/π/me))
-    else
-        # Sheath is space charge limited
-        ϕ_w = -1.02*Tev
-    end
+
+    sqrt_me_mi = sqrt(me/mi)
+
+    # space charge limited SEE coefficient
+    γ_limited = min(γ, 1 - 8.3 * sqrt_me_mi)
+
+    # space charge-limited sheath potential.
+    # by convention in HallThruster.jl, sheath potentials are positive when ion-attracting
+    ϕ_w = Tev*log((1 - γ_limited) * sqrt(mi/π/me/2))
+
     return ϕ_w
 end
