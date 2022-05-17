@@ -66,7 +66,7 @@ Detailed documentation about all of these features is available at the Github re
 
 # Example simulations
 
-We show comparisons of our results to case 3 of the LANDMARK benchmark [@landmarkplasma], which provides reference 1D Hall thruster simulations to which code authors can compare their own simulations. This benchmark has three cases, distinguished by the amount of electron energy lost to the walls. We show all results with 1024 cells, time averaged after 2 ms of simulation time. We compare three included fluxes: HLLE, local Lax-Friedrichs / Rusanov (LLF), and global Lax-Friedrichs (GLF) to the three sub-cases of the LANDMARK benchmark - two fluid models with adjustable viscosity parameter $\delta$ and a hybid-particle-in-cell case. Note that the benchmark does not include plots of the ion and electron velocities to compare to.
+We show comparisons of our results to case 3 of the LANDMARK benchmark [@landmarkplasma], which provides reference 1D Hall thruster simulations to which code authors can compare their own simulations. This benchmark has three cases, distinguished by the amount of electron energy lost to the walls. We show all results with 1024 cells, time averaged after 2 ms of simulation time. We compare three included fluxes: HLLE, local Lax-Friedrichs / Rusanov (LLF), and global Lax-Friedrichs (GLF) to the three sub-cases of the LANDMARK benchmark - two fluid models with adjustable viscosity parameter $\delta$ and a hybid-particle-in-cell case. Note that the benchmark does not include plots of the ion and electron velocities.
 
 ## LANDMARK case 1:
 
