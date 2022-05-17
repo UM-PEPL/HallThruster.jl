@@ -6,7 +6,7 @@ function update_heavy_species!(dU, U, params, t)
     (;index, z_edge, config, cache) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
-        propellant, scheme, thruster, ncharge, LANDMARK, plume_ion_losses
+        propellant, scheme, thruster, ncharge, ion_wall_losses
     ) = config
 
     (;F, UL, UR) = cache
@@ -64,7 +64,6 @@ function update_heavy_species!(dU, U, params, t)
         # User-provided neutral source term
         dU[index.ρn, i] += source_neutrals(U, params, i)
 
-
         for Z in 1:ncharge
 
             dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
@@ -77,8 +76,8 @@ function update_heavy_species!(dU, U, params, t)
         apply_ion_acceleration!(dU, U, params, i)
         apply_reactions!(dU, U, params, i)
 
-        if plume_ion_losses
-            apply_plume_losses!(dU, U, params, i)
+        if ion_wall_losses
+            apply_ion_wall_losses!(dU, U, params, i)
         end
 
         dU[index.nϵ, i] = 0.0

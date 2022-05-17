@@ -218,7 +218,7 @@ end
 
     @series begin
         label := "Wall"
-        ys = sol[:νw][frame]
+        ys = sol[:νew][frame]
         inds = findall(==(0), ys)
         ys[inds] .= NaN
         zs, ys

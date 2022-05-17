@@ -5,8 +5,8 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = let
 end
 
 function update_electron_energy!(U, params)
-    (;Aϵ, bϵ, μ, ue, ne, Tev) = params.cache
-    (;z_cell, z_edge, dt, index) = params
+    (;z_cell, z_edge, dt, index, config, cache, Te_L, Te_R) = params
+    (;Aϵ, bϵ, μ, ue, ne, Tev) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
@@ -17,8 +17,8 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    if params.config.LANDMARK || ue[1] > 0
-        bϵ[1] = 1.5 * params.Te_L * ne[1]
+    if config.LANDMARK || ue[1] > 0
+        bϵ[1] = 1.5 * Te_L * ne[1]
     else
         # Neumann BC for internal energy
         bϵ[1] = 0
@@ -26,7 +26,7 @@ function update_electron_energy!(U, params)
         Aϵ.du[1] = -1.0
     end
 
-    bϵ[end] = 1.5 * params.Te_R * ne[end]
+    bϵ[end] = 1.5 * Te_R * ne[end]
 
     Δt = dt
 
@@ -39,7 +39,7 @@ function update_electron_energy!(U, params)
     @inbounds for i in 2:ncells-1
         Q = source_electron_energy(U, params, i)
         # User-provided source term
-        Q += params.config.source_energy(U, params, i)
+        Q += config.source_energy(U, params, i)
 
         neL = ne[i-1]
         ne0 = ne[i]
@@ -57,7 +57,7 @@ function update_electron_energy!(U, params)
         μnϵ0 = μ[i] * nϵ0
         μnϵR = μ[i+1] * nϵR
 
-        if params.config.LANDMARK
+        if config.LANDMARK
             # Use simplified thermal condutivity
             κL = 10/9 * μnϵL
             κ0 = 10/9 * μnϵ0
@@ -90,7 +90,7 @@ function update_electron_energy!(U, params)
             FL_factor_C = -κL / ΔzL / ne0
             FL_factor_R = 0.0
         else
-            if i == 2
+            if i == 2 && !config.LANDMARK
                 # left flux is sheath heat flux
                 Vs = params.cache.ϕ[1] - params.ϕ_L
 
@@ -103,6 +103,11 @@ function update_electron_energy!(U, params)
                 FL_factor_R = 0.0
 
                 Q += ne0 * uth * Vs / Δz
+            elseif i == 2
+                # central differences at left boundary for compatibility with dirichlet BC
+                FL_factor_L = 5/3 * ueL + κL / ΔzL / neL
+                FL_factor_C = -κL / ΔzL / ne0
+                FL_factor_R = 0.0
             else
                 FL_factor_L = κ0 / ΔzL / neL
                 FL_factor_C = 5/3 * ue0 - κ0 / ΔzL / ne0

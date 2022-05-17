@@ -35,8 +35,12 @@ include("physics/gas.jl")
 include("physics/conservationlaws.jl")
 include("physics/fluid.jl")
 include("physics/thermodynamics.jl")
-include("physics/walls.jl")
 include("physics/electrontransport.jl")
+
+include("wall_loss_models/wall_losses.jl")
+include("wall_loss_models/no_wall_losses.jl")
+include("wall_loss_models/constant_sheath_potential.jl")
+include("wall_loss_models/wall_sheath.jl")
 
 include("numerics/finite_differences.jl")
 include("numerics/limiters.jl")

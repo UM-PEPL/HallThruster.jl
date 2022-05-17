@@ -67,9 +67,6 @@
     @test model(U, params_landmark, 1) == 0.0
     @test model(U, params_gk, 1) == 0.0
 
-    @test HallThruster.freq_electron_wall(U, params_landmark, 1) == 1e7
-    @test HallThruster.freq_electron_wall(U, params_none, 1) == 0.0
-
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
 end

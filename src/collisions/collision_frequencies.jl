@@ -27,8 +27,7 @@ function compute_Z_eff(U, params, i::Int)
     (;index) = params
     mi = params.config.propellant.m
     # Compute effective charge state
-    ne = params.cache.ne[i]
-    ni_sum = 0.0
+    ne = electron_density(U, params, i)
     ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
     Z_eff = ne / ni_sum
     return Z_eff
@@ -58,8 +57,6 @@ function freq_electron_electron(U, params, i)
     Tev = params.cache.Tev[i]
     return freq_electron_electron(ne, Tev)
 end
-
-freq_electron_wall(U, params, i) = params.config.transition_function(params.z_cell[i], params.L_ch, params.config.wall_collision_freq, 0.0)
 
 freq_electron_anom(U, params, i) = params.config.anom_model(U, params, i)
 

@@ -11,7 +11,6 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     anode_Te::Float64
     cathode_Te::Float64
     wall_loss_model::W
-    wall_collision_freq::Float64
     neutral_velocity::Float64
     neutral_temperature::Float64
     implicit_energy::Float64
@@ -40,7 +39,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     domain::Tuple{Float64, Float64}
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
-    plume_ion_losses::Bool
+    ion_wall_losses::Bool
 end
 
 function Config(;
@@ -49,7 +48,6 @@ function Config(;
         anode_Te                            = 3.0,
         cathode_Te                          = 3.0,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
-        wall_collision_freq                 = 0.0,
         neutral_velocity                    = 300.0,
         neutral_temperature                 = 300.0,
         implicit_energy::Number             = 1.0,
@@ -78,7 +76,7 @@ function Config(;
         domain,                             # MANDATORY ARGUMENT
         LANDMARK                            = false,
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
-        plume_ion_losses                    = false,
+        ion_wall_losses                    = false,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -91,7 +89,6 @@ function Config(;
     cathode_potential = convert_to_float64(cathode_potential, u"V")
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
-    wall_collision_freq = convert_to_float64(wall_collision_freq, u"Hz")
     neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
     neutral_temperature = convert_to_float64(neutral_temperature, u"K")
     ion_temperature = convert_to_float64(ion_temperature, u"K")
@@ -109,11 +106,11 @@ function Config(;
     end
 
     return Config(
-        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model, wall_collision_freq,
+        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         initial_condition, callback, magnetic_field_scale, source_neutrals,
-        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, plume_ion_losses
+        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, ion_wall_losses
     )
 end
 

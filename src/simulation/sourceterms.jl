@@ -49,43 +49,31 @@ function apply_ion_acceleration!(dU, U, params, i)
         Q_accel = -Z * e * U[index.ρi[Z], i] / mi * (coupled * Q_coupled + (1 - coupled) * Q_uncoupled)
         dU[index.ρiui[Z], i] += Q_accel
     end
-
 end
 
-function apply_plume_losses!(dU, U, params, i)
-    (;index, config, z_cell, L_ch, fluids) = params
-    (;ncharge, propellant, thruster) = config
+function apply_ion_wall_losses!(dU, U, params, i)
+    (;index, config, A_ch, z_edge) = params
+    (;ncharge, propellant, wall_loss_model) = config
 
-    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
+    Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+
     mi = propellant.m
-    Tn = params.config.neutral_temperature
 
-    Tev_channel = if config.thruster.shielded
-        params.cache.Tev[1]
+    if wall_loss_model isa WallSheath
+        α = wall_loss_model.α
     else
-        params.cache.Tev[i]
+        α = 1.0
     end
 
-    Tev_plume = params.cache.Tev[i]
-
-    L_ch = config.thruster.geometry.channel_length
-
-    α_channel = 1.0
-    α_plume = 0.0
-
-    in_channel = config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
-    in_plume = 1 - in_channel
-    Tev = in_channel * Tev_channel + in_plume * Tev_plume
-    α = in_channel * α_channel + in_plume * α_plume
-
-    u_bohm = sqrt(e * Tev / mi)
-
     @inbounds for Z in 1:ncharge
-        # Ion-wall collision frequency
-        νiw = α * 2 * sqrt(Z) * u_bohm / Δr
 
-        ion_density_flux = νiw * U[index.ρi[Z],   i]
-        ion_momentum_flux = νiw * U[index.ρiui[Z], i]
+        Iiw = wall_ion_current(wall_loss_model, U, params, i, Z)
+        V_cell = A_ch * Δz
+
+        ρdot = Iiw / e / V_cell * mi
+
+        ion_density_flux = ρdot
+        ion_momentum_flux = ρdot * U[index.ρiui[Z], i] / U[index.ρi[Z], i]
 
         dU[index.ρi[Z],   i] -= ion_density_flux
         dU[index.ρiui[Z], i] -= ion_momentum_flux
@@ -175,7 +163,7 @@ function source_electron_energy(U, params, i)
         ohmic_heating = 2 * ne * K * νe + ue * ∇pe
     end
 
-    wall_loss      = ne * params.config.wall_loss_model(U, params, i)
+    wall_loss      = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
     inelastic_loss = inelastic_losses!(U, params, i)
 
     return ohmic_heating - wall_loss - inelastic_loss

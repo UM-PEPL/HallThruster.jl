@@ -31,7 +31,7 @@ end
 #update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
     (;z_cell, index, A_ch) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νw, Z_eff, νiz, νex, νe, ji, Id) = params.cache
+    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew, Z_eff, νiz, νex, νe, ji, Id, νew, νiw) = params.cache
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -53,13 +53,13 @@ function update_values!(U, params, t = 0)
         end
         νen[i] = freq_electron_neutral(U, params, i)
         νei[i] = freq_electron_ion(U, params, i)
-        νw[i] = freq_electron_wall(U, params, i)
+        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
         νan[i] = freq_electron_anom(U, params, i)
         νc[i] = νen[i] + νei[i]
         if params.config.LANDMARK
             νc[i] += νiz[i] + νex[i]
         end
-        νe[i] = νc[i] + νan[i] + νw[i]
+        νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
         Z_eff[i] = compute_Z_eff(U, params, i)
         ji[i] = ion_current_density(U, params, i)

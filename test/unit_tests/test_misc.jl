@@ -60,6 +60,12 @@ end
     @test HallThruster.B_field_SPT_100(Bmax, L_ch, L_ch / 2) ≈ Bmax * exp(-0.5 * (L_ch/2/0.011)^2)
     @test HallThruster.B_field_SPT_100(Bmax, L_ch, 2 * L_ch) ≈ Bmax * exp(-0.5 * (L_ch/0.018)^2)
 
+    @test HallThruster.channel_width(r1, r0) ≈ r1 - r0
+    @test HallThruster.channel_width(HallThruster.SPT_100) ≈ r1 - r0
+
+    @test HallThruster.channel_perimeter(r1, r0) ≈ 2π * (r1 + r0)
+    @test HallThruster.channel_perimeter(HallThruster.SPT_100) ≈ 2π * (r1 + r0)
+
 end
 
 @testset "Minor utility functions" begin
@@ -110,13 +116,13 @@ end
 
     @test size(U) == (nvars, ncells+2)
 
-    (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw, F, UL, UR) = cache
+    (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νw)
+    for arr in (bϵ, B, νan, νc, μ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew)
         @test size(arr) == (ncells+2,)
     end
 

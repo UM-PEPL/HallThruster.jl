@@ -102,7 +102,7 @@ function verify_energy(ncells; niters = 20000)
     excitation_model = OVS_Excitation()
     ionization_model = OVS_Ionization()
 
-    wall_loss_model = HallThruster.ConstantSheathPotential(-20.0, 1.0, 1.0)
+    wall_loss_model = HallThruster.ConstantSheathPotential(20.0, 1.0, 1.0)
     L_ch = 0.025
     propellant = HallThruster.Xenon
     LANDMARK = true

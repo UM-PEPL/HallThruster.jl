@@ -25,7 +25,7 @@ Returns a Solution object with a single frame.
 function time_average(sol::Solution, tstampstart = 1)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
-    (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen) = avg_savevals
+    (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen, νiz, νex, νe, Id) = avg_savevals
     Tev .= 0.0
     ue .= 0.0
     ϕ .= 0.0
@@ -51,6 +51,10 @@ function time_average(sol::Solution, tstampstart = 1)
         νc .+= sol.savevals[i].νc / Δt
         νen .+= sol.savevals[i].νen / Δt
         νei .+= sol.savevals[i].νei / Δt
+        νe .+= sol.savevals[i].νe / Δt
+        νiz .+= sol.savevals[i].νiz / Δt
+        νex .+= sol.savevals[i].νex / Δt
+        Id .+= sol.savevals[i].Id / Δt
     end
 
     return Solution(

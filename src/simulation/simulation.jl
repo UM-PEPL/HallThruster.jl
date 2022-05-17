@@ -24,7 +24,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     νc = zeros(ncells)
     νei = zeros(ncells)
     νen = zeros(ncells)
-    νw = zeros(ncells)
+    νew = zeros(ncells)
+    νiw = zeros(ncells)
     μ = zeros(ncells)
     ϕ = zeros(nedges)
     ϕ_cell = zeros(ncells)
@@ -47,7 +48,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Id  = [0.0]
     cache = (;
                 A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe,
-                νen, νei, νw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji
+                νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji
             )
 
     return U, cache
@@ -104,11 +105,11 @@ function run_simulation(config::Config;
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
 
     # Choose which cache variables to save and set up saving callback
-    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νw, :νiz, :νex, :νe, :ϕ_cell, :Id)
+    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νew, :νiz, :νex, :νe, :ϕ_cell, :Id)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νiz, νex, νe, ϕ_cell, Id) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νw, νiz, νex, νe, ϕ_cell, Id))
+        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νew, νiz, νex, νe, ϕ_cell, Id) = integrator.p.cache
+        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νew, νiz, νex, νe, ϕ_cell, Id))
     end
 
     saved_values = SavedValues(
@@ -147,7 +148,8 @@ function run_simulation(config::Config;
         electron_neutral_collisions,
         max_timestep = [dt],
         CFL,
-        adaptive
+        adaptive,
+        Bmax = maximum(cache.B),
     )
 
     # Compute maximum allowed iterations

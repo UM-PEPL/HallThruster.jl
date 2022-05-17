@@ -34,26 +34,36 @@ Base.@kwdef struct Thruster{B}
     shielded::Bool         # Whether the thruster is magnetically-shielded
 end
 
+"""
+    channel_area(outer_radius, inner_radius)
+Compute the cross-sectional area of a Hall thruster channel from its dimensions
+"""
+@inline channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2)
+@inline channel_area(geometry::Geometry1D) = geometry.channel_area
+@inline channel_area(thruster::Thruster) = thruster.geometry.channel_area
+
+"""
+    channel_perimeter(outer_radius, inner_radius)
+Compute the perimeteter of the thruster channel, equal to the sum of the inner and outer circumferences
+"""
+@inline channel_perimeter(outer_radius, inner_radius) = 2π * (outer_radius + inner_radius)
+@inline channel_perimeter(geometry::Geometry1D) = channel_perimeter(geometry.outer_radius, geometry.inner_radius)
+@inline channel_perimeter(thruster::Thruster) = channel_perimeter(thruster.geometry)
+
+"""
+    channel_width(outer_radius, inner_radius)
+Compute the thruster channel width
+"""
+@inline channel_width(outer_radius, inner_radius) = outer_radius - inner_radius
+@inline channel_width(geometry::Geometry1D) = channel_width(geometry.outer_radius, geometry.inner_radius)
+@inline channel_width(thruster::Thruster) = channel_width(thruster.geometry)
+
 struct Grid1D{E, C}
     ncells::Int64
     edges::E
     cell_centers::C
     cell_volume::Float64
 end
-
-"""
-    channel_area(geometry::Geometry1D)
-Compute the area of the Hall thruster channel from the given Geometry1D object
-"""
-@inline channel_area(geometry::Geometry1D) = geometry.channel_area
-
-@inline channel_area(thruster::Thruster) = thruster.geometry.channel_area
-
-"""
-    channel_area(outer_radius, inner_radius, length)
-Compute the area of a Hall thruster channel from its dimensions
-"""
-@inline channel_area(outer_radius, inner_radius) = π * (outer_radius^2 - inner_radius^2)
 
 """
     generate_grid(geometry, ncells)
