@@ -101,7 +101,7 @@ function wall_ion_current(model::WallSheath, U, params, i, Z)
 end
 
 function freq_electron_wall(model::WallSheath, U, params, i)
-    (;A_ch, z_edge) = params
+    (;A_ch, z_edge, z_cell) = params
 
     if firstindex(z_cell) < i < lastindex(z_cell)
         Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
