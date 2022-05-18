@@ -106,9 +106,9 @@ function freq_electron_wall(model::WallSheath, U, params, i)
     if firstindex(z_cell) < i < lastindex(z_cell)
         Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
     elseif i == firstindex(z_cell)
-        Δz = z_edge[i+1] - z_edge[i]
+        Δz = z_edge[begin+1] - z_edge[begin]
     elseif i == lastindex(z_cell)
-        Δz = z_edge[i] - z_edge[i-1]
+        Δz = z_edge[end] - z_edge[end-1]
     end
 
     V_cell = A_ch * Δz
