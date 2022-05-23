@@ -50,6 +50,7 @@ include("collisions/reactions.jl")
 include("collisions/ionization.jl")
 include("collisions/excitation.jl")
 include("collisions/elastic.jl")
+include("collisions/charge_exchange.jl")
 include("collisions/collision_frequencies.jl")
 
 include("simulation/initialization.jl")

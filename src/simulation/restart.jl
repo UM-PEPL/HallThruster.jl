@@ -17,7 +17,8 @@ function write_restart(path::AbstractString, sol)
         "B" => sol.params.cache.B,
         "index" => sol.params.index,
         "ncharge" => sol.params.ncharge,
-        "mi" => sol.params.mi
+        "mi" => sol.params.mi,
+        "retcode" => sol.retcode,
     ))
 end
 
@@ -40,11 +41,17 @@ function read_restart(path::AbstractString)
         index = dict["index"],
         L_ch = dict["L_ch"],
         ionization_reactions = IonizationReaction{nothing}[],
-        mi = dict["mi"]
+        mi = dict["mi"],
     )
 
+    retcode = if haskey(dict, "retcode")
+        dict["retcode"]
+    else
+        :Restart
+    end
+
     return Solution(
-        dict["t"], dict["u"], dict["savevals"], :Restart, nothing, params
+        dict["t"], dict["u"], dict["savevals"], retcode, nothing, params
     )
 end
 

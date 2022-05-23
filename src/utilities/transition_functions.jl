@@ -4,7 +4,28 @@ Base.@kwdef struct SmoothIf <: TransitionFunction
     transition_length::Float64
 end
 
-(s::SmoothIf)(x, cutoff, y1, y2) = ((y2 - y1)*tanh((x-cutoff)/s.transition_length) + y1 + y2) / 2
+@inline smooth_if(x, cutoff, y1, y2, L) = ((y2 - y1)*tanh((x-cutoff)/(L/4)) + y1 + y2) / 2
+
+(s::SmoothIf)(x, cutoff, y1, y2) = smooth_if(x, cutoff, y1, y2, s.transition_length)
+
+Base.@kwdef struct SmoothStep <: TransitionFunction
+    transition_length::Float64
+end
+
+@inline smoothstep(x, x1, x2, y1, y2) = let t = (x - x1) / (x2 - x1)
+    y = if t < 0
+        0.0
+    elseif t > 1
+        1.0
+    else
+        3 * t^2 - 2 * t^3
+    end
+    return (y2 - y1) * y + y1
+end
+
+(s::SmoothStep)(x, cutoff, y1, y2) = let L = s.transition_length
+    smoothstep(x, cutoff - L/2, cutoff + L/2, y1, y2)
+end
 
 Base.@kwdef struct QuadraticTransition <: TransitionFunction
     transition_length::Float64
