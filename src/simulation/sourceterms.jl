@@ -79,7 +79,7 @@ function apply_ion_wall_losses!(dU, U, params, i)
         dU[index.ρiui[Z], i] -= ion_momentum_flux
 
         # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn[Z], i] += ion_density_flux
+        dU[index.ρn, i] += ion_density_flux
     end
 end
 

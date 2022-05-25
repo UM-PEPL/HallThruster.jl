@@ -28,7 +28,7 @@ function update_values!(integrator)
     end
 end
 
-#update useful quantities relevant for potential, electron energy and fluid solve
+# update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
     (;z_cell, index, A_ch) = params
     (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew, Z_eff, νiz, νex, νe, ji, Id, νew, νiw) = params.cache
@@ -44,24 +44,42 @@ function update_values!(U, params, t = 0)
 
     # Update electron quantities
     @inbounds for i in 1:ncells
+        # Compute electron number density, making sure it is above floor
         ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
+
+        # Same with electron temperature
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
+
         pe[i] = if params.config.LANDMARK
+            # The LANDMARK benchmark uses nϵ instead of pe in the potential solver, but we use pe, so
+            # we need to define pe = 3/2 ne Tev
             3/2 * ne[i] * Tev[i]
         else
+            # Otherwise, just use typical ideal gas law.
             ne[i] * Tev[i]
         end
+        # Compute electron-neutral and electron-ion collision frequencies
         νen[i] = freq_electron_neutral(U, params, i)
         νei[i] = freq_electron_ion(U, params, i)
-        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
-        νan[i] = freq_electron_anom(U, params, i)
+
+        # Compute total classical collision frequency
         νc[i] = νen[i] + νei[i]
-        if params.config.LANDMARK
+        if !params.config.LANDMARK
+            # Add momentum transfer due to ionization and excitation
             νc[i] += νiz[i] + νex[i]
         end
+        # Compute anomalous collision frequency and wall collision frequencies
+        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
+        νan[i] = freq_electron_anom(U, params, i)
+
+        # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
+
+        # Effective ion charge state (density-weighted average charge state)
         Z_eff[i] = compute_Z_eff(U, params, i)
+
+        # Ion current
         ji[i] = ion_current_density(U, params, i)
     end
 

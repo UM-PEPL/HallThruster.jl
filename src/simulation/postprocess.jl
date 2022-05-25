@@ -25,36 +25,21 @@ Returns a Solution object with a single frame.
 function time_average(sol::Solution, tstampstart = 1)
     avg = zeros(size(sol.u[1]))
     avg_savevals = deepcopy(sol.savevals[end])
-    (;Tev, ue, ϕ, ∇ϕ, ne, ϕ_cell, νan, νc, νei, νen, νiz, νex, νe, Id) = avg_savevals
-    Tev .= 0.0
-    ue .= 0.0
-    ϕ .= 0.0
-    ∇ϕ .= 0.0
-    ne .= 0.0
-    ϕ_cell .= 0.0
-    νan .= 0.0
-    νc .= 0.0
-    νen .= 0.0
-    νei .= 0.0
+    fields = fieldnames(typeof(avg_savevals))
 
+    # Initialize avg to zero
+    for f in fields
+        avg_savevals[f] .= 0.0
+    end
+
+    # Sum over all timesteps to get average
     tstamps = length(sol.t)
     Δt = (tstamps - tstampstart + 1)
     for i in tstampstart:length(sol.t)
         avg .+= sol.u[i] / Δt
-        Tev .+= sol.savevals[i].Tev / Δt
-        ue .+= sol.savevals[i].ue  / Δt
-        ϕ .+= sol.savevals[i].ϕ / Δt
-        ϕ_cell .+= sol.savevals[i].ϕ_cell / Δt
-        ∇ϕ .+= sol.savevals[i].∇ϕ / Δt
-        ne .+= sol.savevals[i].ne / Δt
-        νan .+= sol.savevals[i].νan / Δt
-        νc .+= sol.savevals[i].νc / Δt
-        νen .+= sol.savevals[i].νen / Δt
-        νei .+= sol.savevals[i].νei / Δt
-        νe .+= sol.savevals[i].νe / Δt
-        νiz .+= sol.savevals[i].νiz / Δt
-        νex .+= sol.savevals[i].νex / Δt
-        Id .+= sol.savevals[i].Id / Δt
+        for f in fields
+            avg_savevals[f] .+= sol.savevals[i][f] / Δt
+        end
     end
 
     return Solution(
