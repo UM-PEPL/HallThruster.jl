@@ -112,7 +112,7 @@ current conservation equation
 ```
 
 
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the [`axial current equation`](@ref) into the [`current conservation equation`](@ref) and noting that ``E_z = -\partial \phi / \partial z``
+Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the axial current equation into the current conservation equation and noting that ``E_z = -\partial \phi / \partial z``
 
 ```math
     \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
@@ -182,7 +182,7 @@ above expression
     \frac{1}{2} m_i v^2 = \frac{1}{2} m_i v_0^2 - e\phi (x)
 ```
 
-Rewriting both [`energy conservation`](@ref) and [`above expression`](@ref) for ``v_0`` and ``v``, and dividing gives
+Rewriting both energy conservation and above expression for ``v_0`` and ``v``, and dividing gives
 
 ```math
     \frac{v_0}{v} = \sqrt{\frac{\phi_0}{\phi_0 - \phi}}
@@ -198,7 +198,7 @@ the density equation
     n_i = n_0 \sqrt{\frac{\phi_0}{\phi_0 - \phi}}
 ```
 
-Close to the sheath edge [`the density equation`](@ref) can be expanded as a Taylor series, as ``\phi`` is small compared to ``\phi_0``.
+Close to the sheath edge the density equation can be expanded as a Taylor series, as ``\phi`` is small compared to ``\phi_0``.
 
 ```@docs
 expanded ion density
@@ -234,7 +234,7 @@ Taking Poisson's equation of the form
     \nabla^2 \phi = - \frac{e}{k Te_0}(n_i - n_e)
 ```
 
-and substituting [`expanded Boltzmann relation`](@ref) and [`expanded ion density`](@ref) leads after rearranging to 
+and substituting expanded Boltzmann relation and expanded ion density leads after rearranging to 
 
 ```math
     \nabla^2 \phi = \frac{e n_0 \phi}{\epsilon_0}\left(\frac{1}{2\phi_0} - \frac{e}{kT_e}\right)
@@ -246,7 +246,7 @@ As the sheath is assumed to be ion attracting, it can by definition not slow or 
     \phi_0 > \frac{kT_e}{2e}
 ```
 
-By substituting [`energy conservation`](@ref) equation, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
+By substituting energy conservation equation, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
 
 ```@docs
 Bohm velocity
