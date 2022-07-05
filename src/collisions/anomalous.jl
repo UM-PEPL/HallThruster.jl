@@ -84,7 +84,7 @@ end
     Bohm(c) <: FixedAnomModel
 Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
 """
-struct Bohm <: FixedAnom
+struct Bohm <: FixedAnomModel
     c::Float64
 end
 
