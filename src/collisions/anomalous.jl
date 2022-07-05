@@ -81,7 +81,25 @@ function initialize_anom!(νan, model::NoAnom, U, params)
 end
 
 """
-    TwoZoneBohm <: FixedAnomModel
+    Bohm(c) <: FixedAnomModel
+Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
+"""
+struct Bohm <: FixedAnom
+    c::Float64
+end
+
+function initialize_anom!(νan, model::Bohm, U, params)
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = e * B / me
+        νan[i] = model.c * ωce
+    end
+
+    return νan
+end
+
+"""
+    TwoZoneBohm(c1, c2) <: FixedAnomModel
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
 Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
 """
