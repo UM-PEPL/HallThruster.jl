@@ -180,7 +180,7 @@ function run_simulation(config::Config;
     return Solution(sol, params, saved_values.saveval)
 end
 
-function run_from_json(json_path)
+function run_simulation(json_path::String)
     (;design, simulation, parameters) = JSON3.read(read(json_path, String))
 
     geometry = Geometry1D(;
