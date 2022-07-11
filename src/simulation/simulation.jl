@@ -59,7 +59,7 @@ end
 Run a Hall thruster simulation using the provided Config object.
 
 ## Arguments
-- `config`: a `Config` containing simulation parameters. 
+- `config`: a `Config` containing simulation parameters.
 - `dt`: The timestep, in seconds. Typical values are O(10 ns) (1e-8 seconds).
 - `duration`: How long to run the simulation, in seconds (simulation time, not wall time). Typical runtimes are O(1 ms) (1e-3 seconds).
 - `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
@@ -178,4 +178,70 @@ function run_simulation(config::Config;
 
     # Return the solution
     return Solution(sol, params, saved_values.saveval)
+end
+
+function run_from_json(json_path)
+    (;design, simulation, parameters) = JSON3.read(read(json_path, String))
+
+    geometry = Geometry1D(;
+        channel_length = design.channel_length,
+        outer_radius = design.outer_radius,
+        inner_radius = design.inner_radius,
+    )
+
+    bfield_data = readdlm(design.magnetic_field_file, ',')
+    bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2] / 1e4)
+
+    thruster = HallThruster.Thruster(;
+        name = design.thruster_name,
+        geometry = geometry,
+        magnetic_field = bfield_func,
+        shielded = design.magnetically_shielded
+    )
+
+    propellant = eval(Symbol(design.propellant))
+    wall_material = eval(Symbol(design.wall_material))
+
+    anom_model = if simulation.anom_model == "NoAnom"
+        NoAnom()
+    elseif simulation.anom_model == "Bohm"
+        (x -> Bohm(x[1]))(parameters.anom_model_coeffs)
+    elseif simulation.anom_model == "TwoZoneBohm"
+        (x -> TwoZoneBohm(x[1], x[2]))(parameters.anom_model_coeffs)
+    elseif simulation.anom_model == "MultiLogBohm"
+        MultiLogBohm(parameters.anom_model_coeffs)
+    end
+
+    flux_function = eval(Symbol(simulation.flux_function))
+    limiter = eval(Symbol(simulation.limiter))
+
+    config = HallThruster.Config(;
+        thruster,
+        propellant,
+        anom_model,
+        domain = (0.0, simulation.cathode_location_m),
+        discharge_voltage = design.anode_potential - design.cathode_potential,
+        anode_mass_flow_rate = design.anode_mass_flow_rate,
+        cathode_potential = design.cathode_potential,
+        ncharge = simulation.ncharge,
+        wall_loss_model = WallSheath(wall_material, parameters.sheath_loss_coefficient),
+        ion_wall_losses = simulation.ion_wall_losses,
+        cathode_Te = parameters.cathode_electron_temp_eV,
+        LANDMARK = false,
+        ion_temperature = parameters.ion_temp_K,
+        neutral_temperature = parameters.neutral_temp_K,
+        neutral_velocity = parameters.neutral_velocity_m_s,
+        electron_ion_collisions = simulation.electron_ion_collisions,
+        min_electron_temperature = parameters.cathode_electron_temp_eV,
+        transition_function = LinearTransition(parameters.inner_outer_transition_length_m, 0.0),
+        electron_pressure_coupled = false,
+        scheme = HyperbolicScheme(;
+            flux_function, limiter, reconstruct = simulation.reconstruct, WENO = false
+        ),
+    )
+
+    solution = run_simulation(config; ncells = simulation.num_cells,
+        nsave = simulation.num_save, duration = simulation.duration_s, dt = simulation.dt_s)
+
+    return solution
 end

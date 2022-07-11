@@ -19,6 +19,7 @@ The SEE yield is computed as a function of electron temperature in eV (`Tev`) as
 
 """
 Base.@kwdef struct WallMaterial
+    name::String = ""
     a::Float64
     b::Float64
     Γ::Float64
@@ -36,11 +37,11 @@ Goebel Katz equ. 7.3-30
     return γ
 end
 
-const IdealDielectric = WallMaterial(a = 0.0,   b = 0.0,   Γ = 0.0)
-const Alumina         = WallMaterial(a = 0.145, b = 0.650, Γ = 1.49)
-const BoronNitride    = WallMaterial(a = 0.150, b = 0.549, Γ = 1.38)
-const BNSiO2          = WallMaterial(a = 0.123, b = 0.528, Γ = 1.36)
-const StainlessSteel  = WallMaterial(a = 0.040, b = 0.610, Γ = 1.44)
+const IdealDielectric = WallMaterial(name = "IdealDielectric", a = 0.0,   b = 0.0,   Γ = 0.0)
+const Alumina         = WallMaterial(name = "Alumina", a = 0.145, b = 0.650, Γ = 1.49)
+const BoronNitride    = WallMaterial(name = "BoronNitride", a = 0.150, b = 0.549, Γ = 1.38)
+const BNSiO2          = WallMaterial(name = "BNSiO2", a = 0.123, b = 0.528, Γ = 1.36)
+const StainlessSteel  = WallMaterial(name = "StainlessSteel", a = 0.040, b = 0.610, Γ = 1.44)
 
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
@@ -147,5 +148,3 @@ Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Sheath potentials are positive by convention in HallThruster.jl.
 """
 sheath_potential(Tev, γ, mi) = Tev*log((1 - γ) * sqrt(mi/π/me/2))
-
-

@@ -16,6 +16,7 @@ using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions
 using Unitful
 using SpecialFunctions
+using JSON3
 
 # Packages used for making plots
 using Measures: mm
