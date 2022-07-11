@@ -3,6 +3,7 @@
     domain = (0.0, 0.08)
     thruster = HallThruster.SPT_100
     config = (;
+        anom_model = HallThruster.NoAnom(),
         ncharge = 3,
         propellant = HallThruster.Xenon,
         thruster,

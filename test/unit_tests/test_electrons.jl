@@ -22,8 +22,10 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = 1, ρi = [2], nϵ = 3)
-    cache = (;ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0])
-    anom_model = HallThruster.TwoZoneBohm(1/160, 1/16)
+    cache = (;ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0])
+    c1 = 1/160
+    c2 = 1/16
+    anom_model = HallThruster.TwoZoneBohm(c1, c2)
     thruster = HallThruster.SPT_100
     transition_function = HallThruster.StepFunction()
 
@@ -60,12 +62,15 @@
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
     @test HallThruster.freq_electron_electron(U, params_landmark, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
 
-    @test HallThruster.freq_electron_anom(U, params_landmark, 1) == e/me * 1/160
-    @test HallThruster.freq_electron_anom(U, params_none, 1) == e/me * 1/16
+    HallThruster.initialize_anom!(params_landmark.cache.νan, params_landmark.config.anom_model, U, params_landmark)
+    @test HallThruster.freq_electron_anom(U, params_landmark, 1) == e/me * c1
+
+    HallThruster.initialize_anom!(params_none.cache.νan, params_none.config.anom_model, U, params_none)
+    @test HallThruster.freq_electron_anom(U, params_none, 1) == e/me * c2
 
     model = HallThruster.NoAnom()
-    @test model(U, params_landmark, 1) == 0.0
-    @test model(U, params_gk, 1) == 0.0
+    HallThruster.initialize_anom!(params_landmark.cache.νan, model, U, params_landmark)
+    @test params_landmark.cache.νan[1] == 0.0
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33

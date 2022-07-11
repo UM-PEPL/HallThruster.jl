@@ -58,7 +58,7 @@ function freq_electron_electron(U, params, i)
     return freq_electron_electron(ne, Tev)
 end
 
-freq_electron_anom(U, params, i) = params.config.anom_model(U, params, i)
+@inline freq_electron_anom(U, params, i) = evaluate_anom(params.config.anom_model, U, params, i)
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)
@@ -75,3 +75,22 @@ charge state Z, electron number density in m^-3, and electron temperature in eV.
 
     return ln_Λ
 end
+
+"""
+    electron_mobility(νan::Float64, νc::Float64, B::Float64)
+
+calculates electron transport according to the generalized Ohm's law
+as a function of the classical and anomalous collision frequencies
+and the magnetic field.
+"""
+@inline function electron_mobility(νan, νc, B)
+    νe = νan + νc
+    return electron_mobility(νe, B)
+end
+
+@inline function electron_mobility(νe, B)
+    Ω = e * B / (me * νe)
+    return e / (me * νe * (1 + Ω^2))
+end
+
+@inline electron_sound_speed(Tev) = sqrt(8 * e * Tev / π / me)

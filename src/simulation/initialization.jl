@@ -68,5 +68,8 @@ function initialize!(U, params, ::DefaultInitialization)
         U[index.nϵ, i] = number_density_function(z) * energy_function(z)
     end
 
+    # Initialize the anomalous collision frequency
+    initialize_anom!(params.cache.νan, params.config.anom_model, U, params)
+
     return U
 end
