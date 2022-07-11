@@ -48,7 +48,7 @@ end
 Default anomalous collision frequency initialization for `ZeroEquationModel`s. Just calls evalute_anom at each grid location.
 """
 function initialize_anom!(νan, model::ZeroEquationModel, U, params)
-    for i in eachindex(z_cell)
+    for i in eachindex(params.z_cell)
         νan[i] = evaluate_anom(model, U, params, i)
     end
     return νan
