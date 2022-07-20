@@ -91,10 +91,6 @@ function compute_thrust(sol)
     return thrust
 end
 
-function compute_current(sol)
-    return reduce(vcat, sol[:Id])
-end
-
 function cut_solution(sol, tstampstart)
     sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
     return sol_cut
