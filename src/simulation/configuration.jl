@@ -59,7 +59,7 @@ function Config(;
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
-        electron_pressure_coupled::Number   = 1.0,
+        electron_pressure_coupled::Number   = 1,
         min_number_density                  = 1e6,
         min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.001, 0.0),
@@ -100,7 +100,7 @@ function Config(;
     min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
-    if ncharge > 1 && electron_pressure_coupled
+    if ncharge > 1 && electron_pressure_coupled > 0
         @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
         electron_pressure_coupled = false
     end
