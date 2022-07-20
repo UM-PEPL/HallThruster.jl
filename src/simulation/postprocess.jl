@@ -19,7 +19,7 @@ end
 
 """
     time_average(sol, tstampstart)
-compute time-averaged solution, input Solution type and the frame at which averaging starts. 
+compute time-averaged solution, input Solution type and the frame at which averaging starts.
 Returns a Solution object with a single frame.
 """
 function time_average(sol::Solution, tstampstart = 1)
@@ -54,8 +54,8 @@ end
 
 """
     compute_current(sol, location)
-compute current at anode or cathode = outflow in 
-1D code. 
+compute current at anode or cathode = outflow in
+1D code.
 """
 function compute_current(sol, location = "cathode")
     index = sol.params.index
@@ -91,6 +91,10 @@ function compute_thrust(sol)
     return thrust
 end
 
+function compute_current(sol)
+    return reduce(vcat, sol[:Id])
+end
+
 function cut_solution(sol, tstampstart)
     sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
     return sol_cut
@@ -115,6 +119,8 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
         return [sol.params.cache.B]
     elseif field == :ωce
         return [e * sol[:B, charge][1] / me]
+    elseif field == :E
+        return -sol[:∇ϕ]
     else
         return [getproperty(saved, field) for saved in sol.savevals]
     end
