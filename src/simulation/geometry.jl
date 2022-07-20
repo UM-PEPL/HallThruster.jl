@@ -13,11 +13,24 @@ struct Geometry1D
     outer_radius::Float64
     channel_area::Float64
     function Geometry1D(;channel_length, inner_radius, outer_radius)
+
+        if channel_length isa Unitful.Quantity
+            channel_length = ustrip(uconvert(u"m", channel_length))
+        end
+
+        if inner_radius isa Unitful.Quantity
+            inner_radius = ustrip(uconvert(u"m", inner_radius))
+        end
+
+        if outer_radius isa Unitful.Quantity
+            outer_radius = ustrip(uconvert(u"m", outer_radius))
+        end
+
         A_ch = channel_area(outer_radius, inner_radius)
+
         return new(channel_length, inner_radius, outer_radius, A_ch)
     end
 end
-
 
 """
     Thruster
