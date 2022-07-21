@@ -223,7 +223,6 @@ Plotting the current, we find that the solution now no longer converges to a ste
 ![](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/current_example_2.png)
 
 
-
 To compute performance, we want to average over several of the oscillations. To do this, we employ the `time_average` function
 
 ```julia
@@ -275,12 +274,13 @@ julia> HallThruster.compute_anode_eff(my_solution)
 
 !!! warning "Computing average efficiencies"
 
-​	When computing time-averaged efficiencies, it is better to first time-average the simulation and then compute the 	efficiencies from the averaged plasma properties then it is to average the instantaneous efficiencies. For example,
+    When computing time-averaged efficiencies, it is better to first time-average the simulation and then compute the
+    efficiencies    from the averaged plasma properties then it is to average the instantaneous efficiencies. For example,
 
-```julia
-avg_eff = mean(HallThruster.compute_anode_eff(my_solution))  # Wrong
-avg_eff = mean(HallThruster.compute_anode_eff(time_average(my_solution)) # Right
-```
+    ```julia
+    avg_eff = mean(HallThruster.compute_anode_eff(my_solution))  # Wrong
+    avg_eff = mean(HallThruster.compute_anode_eff(time_average(my_solution)) # Right
+    ```
 
 The mass utilization efficiency is the ratio of the ion beam mass flow rate to the total input mass flow rate and is computed with `compute_mass_eff`:
 

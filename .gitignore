@@ -3,7 +3,8 @@ docs/build
 landmark/webplotdigitizer
 output
 
-*.png
+#*.png
 *.jld2
 !test/unit_tests/test_restart.jld2
 !paper/*.png
+!docs/*.png
