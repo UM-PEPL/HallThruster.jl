@@ -1,8 +1,8 @@
 Base.@kwdef struct HyperbolicScheme{F,L}
-    flux_function::F
-    limiter::L
-    reconstruct::Bool
-    WENO::Bool
+    flux_function::F = global_lax_friedrichs
+    limiter::L = van_leer
+    reconstruct::Bool = true
+    WENO::Bool = false
 end
 
 function flux(U::SVector{1, T}, fluid, pe = 0.0) where T

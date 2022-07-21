@@ -45,6 +45,8 @@
     ne = sol[:ne][frame]
     Tev = sol[:Tev][frame]
 
+    charge_labels = [string(sol.params.config.propellant(Z)) for Z in 1:ncharge]
+
     for Z in 1:ncharge
         if sol.retcode != :LIF_data
             # Plot ion density
@@ -52,7 +54,7 @@
                 y := sol[:ni, Z][frame]
                 ylabel := "Density (m⁻³)"
                 subplot := 2
-                label := ifelse(!isempty(label_mod),  label_mod * ", Z = $Z", "")
+                label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
                 title := "Plasma density"
                 ()
             end
@@ -62,8 +64,9 @@
         @series begin
             y := sol[:ui, Z][frame] ./ 1000
             ylabel := "Ion velocity (km/s)"
-            label := ifelse(!isempty(label_user),  label_user * ", Z = $Z", "")
+            label := ifelse(!isempty(label_user),  label_user * ", ", "") * charge_labels[Z]
             yscale := :identity
+            legend:= :bottomright
             title := "Ion velocity"
             subplot := 3
             ()
@@ -89,7 +92,7 @@
             y := ionization_rate
             ylabel := "Ionization rate (m⁻³/s)"
             subplot := 5
-            label := ifelse(!isempty(label_mod), label_mod * ", Z = $Z", "")
+            label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
             title := "Ionization rate"
             ()
         end

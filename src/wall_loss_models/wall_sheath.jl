@@ -45,8 +45,13 @@ const StainlessSteel  = WallMaterial(name = "StainlessSteel", a = 0.040, b = 0.6
 
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
-    α::Float64 # scaling coefficient
+    α::Float64 = 0.15 # scaling coefficient
+    function WallSheath(material::WallMaterial)
+        return new(material, 0.15)
+    end
 end
+
+
 
 function wall_power_loss(model::WallSheath, U, params, i)
     (;config) = params

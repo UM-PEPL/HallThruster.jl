@@ -43,9 +43,12 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
 end
 
 function Config(;
+        thruster::Thruster,                 # MANDATORY ARGUMENT
+        domain,                             # MANDATORY ARGUMENT
         discharge_voltage,                  # MANDATORY ARGUMENT
+        anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential                   = 0.0,
-        anode_Te                            = 3.0,
+        anode_Te                            = cathode_Te,
         cathode_Te                          = 3.0,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
         neutral_velocity                    = 300.0,
@@ -59,10 +62,10 @@ function Config(;
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
-        electron_pressure_coupled::Number   = 1,
+        electron_pressure_coupled::Number   = ncharge == 1 ? true : false,
         min_number_density                  = 1e6,
         min_electron_temperature            = min(anode_Te, cathode_Te),
-        transition_function::TransitionFunction = LinearTransition(0.001, 0.0),
+        transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
@@ -71,11 +74,8 @@ function Config(;
         source_ion_momentum::S_IM           = nothing,
         source_potential::S_ϕ               = Returns(0.0),
         source_energy::S_E                  = Returns(0.0),
-        scheme::HyperbolicScheme            = HyperbolicScheme(flux_function = rusanov, limiter = minmod, reconstruct = false, WENO = false),
-        thruster::Thruster,                 # MANDATORY ARGUMENT
-        domain,                             # MANDATORY ARGUMENT
+        scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
-        anode_mass_flow_rate,               # MANDATORY ARGUMENT
         ion_wall_losses                    = false,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 

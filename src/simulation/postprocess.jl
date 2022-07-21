@@ -71,9 +71,11 @@ function compute_current(sol, location = "cathode")
     end
     for i in 1:length(sol.t)
         (;ue, ne) = sol.savevals[i]
-        current[1, i] = sol.u[i][index.ρiui[1], loc]*HallThruster.e/mi*area
-        current[2, i] = -ne[loc] * ue[loc]*HallThruster.e*area
-        current[3, i] = current[1, i] + current[2, i]
+        Id = sol.savevals[i].Id[]
+        Ie = -ne[loc] * ue[loc] * e * area
+        current[1, i] = Id - Ie # Ion current
+        current[2, i] = Ie      # Electron current
+        current[3, i] = Id      # Discharge current
     end
     return current
 end
@@ -89,6 +91,42 @@ function compute_thrust(sol)
         end
     end
     return thrust
+end
+
+function compute_anode_eff(sol)
+    thrust = compute_thrust(sol)
+    current = reduce(vcat, sol[:Id])
+    Vd = sol.params.config.discharge_voltage
+    mdot_a = sol.params.config.anode_mass_flow_rate
+    anode_eff = @. 0.5 * thrust^2 / current / Vd / mdot_a
+    return anode_eff
+end
+
+function compute_voltage_eff(sol)
+    Vd = sol.params.config.discharge_voltage
+    nsave = length(sol.t)
+    mi = sol.params.config.propellant.m
+
+    ui = sol[:ui, 1]
+
+    voltage_eff = [0.5 * mi * ui[i][end]^2 / e / Vd for i in 1:nsave]
+    return voltage_eff
+end
+
+function compute_current_eff(sol)
+    currents = compute_current(sol)
+    Ii = currents[1, :]
+    Id = currents[3, :]
+    return @. Ii / Id
+end
+
+function compute_mass_eff(sol)
+    mass_eff = [
+        sum(sol.u[i][sol.params.index.ρiui[Z], end] for Z in 1:sol.params.config.ncharge) * sol.params.A_ch /
+        sol.params.config.anode_mass_flow_rate
+        for i in 1:length(sol.t)
+    ]
+    return mass_eff
 end
 
 function cut_solution(sol, tstampstart)
