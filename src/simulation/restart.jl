@@ -66,7 +66,6 @@ function load_restart(grid, fluids, config, sol::Solution)
     U, cache = HallThruster.allocate_arrays(grid, fluids)
 
     z_cell = sol.params.z_cell
-    z_edge = sol.params.z_edge
 
     # Interpolate neutrals
     itp = LinearInterpolation(z_cell, sol.u[end][1, :])
@@ -101,17 +100,21 @@ function load_restart(grid, fluids, config, sol::Solution)
     sv = sol.savevals[end]
     # Interpolate cell-centered cache variables
     for field in fieldnames(typeof(sv))
-        if field != :ϕ && field != :Id
+        if field == :Id || field == :Vs
+            cache[field] .= sv[field]
+        elseif field == :ni
+            for Z in 1:config.ncharge
+                @. @views cache[field][Z, :] = U[2 * Z, :] / config.propellant.m
+            end
+        elseif field == :ui
+            for Z in 1:config.ncharge
+                @. @views cache[field][Z, :] = U[2 * Z + 1, :] / U[2 * Z, :]
+            end
+        else
             itp = LinearInterpolation(z_cell, sv[field])
             cache[field] .= itp.(grid.cell_centers)
-        elseif field == :Id
-            cache[field] .= sv[field]
         end
     end
-
-    # Interpolate edge-centered cache variables
-    itp = LinearInterpolation(z_edge, sv.ϕ)
-    cache.ϕ .= itp.(grid.edges)
 
     return U, cache
 end
