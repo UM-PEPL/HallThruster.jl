@@ -33,7 +33,7 @@ function update_values!(U, params, t = 0)
     (;z_cell, index, A_ch) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
-        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui
+        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui, Vs
     ) = params.cache
 
     # Update the current iteration
@@ -91,6 +91,9 @@ function update_values!(U, params, t = 0)
         # Ion current
         ji[i] = ion_current_density(U, params, i)
     end
+
+    # Compute anode sheath potential
+    Vs[] = anode_sheath_potential(U, params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
     Id[] = discharge_current(U, params)

@@ -14,35 +14,13 @@ in either electron mobility or electron density.
 function solve_potential_edge!(U, params)
     #directly discretising the equation, conserves properties such as negative semidefinite etc...
     #add functionality for nonuniform cell size
-    (;z_cell, config, index, ϕ_L, ϕ_R) = params
+    (;z_cell, index, ϕ_L, ϕ_R) = params
     nedges = length(z_cell) - 1
 
-    (;pe, ne, μ, A, b, ϕ) = params.cache
+    (;pe, ne, μ, A, b, ϕ, Vs) = params.cache
     mi = params.config.propellant.m
 
-    # Compute anode sheath potential
-    if config.LANDMARK
-        Vs = 0.0
-    else
-        ce = sqrt(8 * e * params.cache.Tev[1] / π / me)
-        je_sheath = e * ne[1] * ce / 4
-
-        # discharge current density
-        jd = params.cache.Id[] / params.A_ch
-
-        # current densities at sheath edge
-        ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
-        je_sheath_edge = jd - ji_sheath_edge
-
-        current_ratio = je_sheath_edge / je_sheath
-        if current_ratio ≤ 0.0
-            Vs = 0.0
-        else
-            Vs = -params.cache.Tev[1] * log(min(1.0, je_sheath_edge / je_sheath))
-        end
-    end
-
-    b[1] = ϕ_L + Vs
+    b[1] = ϕ_L + Vs[]
     b[end] = ϕ_R
 
     A.d[1] = 1.0
@@ -92,4 +70,35 @@ function solve_potential_edge!(U, params)
     #end
 
     return ϕ
+end
+
+function anode_sheath_potential(U, params)
+    (;config, index) = params
+    (;ne) = params.cache
+
+    mi = params.config.propellant.m
+
+    # Compute anode sheath potential
+    if config.LANDMARK
+        Vs = 0.0
+    else
+        ce = sqrt(8 * e * params.cache.Tev[1] / π / me)
+        je_sheath = e * ne[1] * ce / 4
+
+        # discharge current density
+        jd = params.cache.Id[] / params.A_ch
+
+        # current densities at sheath edge
+        ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
+        je_sheath_edge = jd - ji_sheath_edge
+
+        current_ratio = je_sheath_edge / je_sheath
+        if current_ratio ≤ 0.0
+            Vs = 0.0
+        else
+            Vs = -params.cache.Tev[1] * log(min(1.0, je_sheath_edge / je_sheath))
+        end
+    end
+
+    return Vs
 end

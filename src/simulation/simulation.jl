@@ -50,10 +50,12 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     ni = zeros(ncharge, ncells)
     ui = zeros(ncharge, ncells)
     Id  = [0.0]
+    Vs = [0.0]
+
     cache = (;
                 A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui
+                ni, ui, Vs
             )
 
     return U, cache

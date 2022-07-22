@@ -78,8 +78,8 @@ right_edge(i) = i
 @inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
 
 function discharge_current(U, params)
-    (;z_cell, A_ch, cache, z_cell) = params
-    (;∇pe, μ, ne, ϕ, ji) = cache
+    (;z_cell, A_ch, cache, z_cell, ϕ_L, ϕ_R) = params
+    (;∇pe, μ, ne, ji, Vs) = cache
 
     ncells = size(U, 2)
 
@@ -100,7 +100,7 @@ function discharge_current(U, params)
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
 
-    ΔV = ϕ[1] - ϕ[end]
+    ΔV = ϕ_L + Vs[] - ϕ_R
 
     I = A_ch * (ΔV + int1) / int2
 
