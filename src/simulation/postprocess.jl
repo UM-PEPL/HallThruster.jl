@@ -146,9 +146,9 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
     if field == :nn
         return [[u[index.ρn, i] / mi for i in 1:ncells] for u in sol.u]
     elseif field == :ni
-        return [[u[index.ρi[charge], i] / mi for i in 1:ncells] for u in sol.u]
+        return [saved[:ni][charge, :] for saved in sol.savevals]
     elseif field == :ui
-        return [[u[index.ρiui[charge], i] / u[index.ρi[charge], i] for i in 1:ncells] for u in sol.u]
+        return [saved[:ui][charge, :] for saved in sol.savevals]
     elseif field == :B
         return [sol.params.cache.B]
     elseif field == :ωce

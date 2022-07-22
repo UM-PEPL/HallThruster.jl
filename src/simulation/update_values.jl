@@ -31,7 +31,10 @@ end
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)
     (;z_cell, index, A_ch) = params
-    (;B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew, Z_eff, νiz, νex, νe, ji, Id, νew, νiw) = params.cache
+    (;
+        B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
+        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui
+    ) = params.cache
 
     # Update the current iteration
     params.iteration[1] += 1
@@ -44,6 +47,12 @@ function update_values!(U, params, t = 0)
 
     # Update electron quantities
     @inbounds for i in 1:ncells
+
+        for Z in 1:params.config.ncharge
+            ni[Z, i] = U[index.ρi[Z], i] / params.config.propellant.m
+            ui[Z, i] = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
+        end
+
         # Compute electron number density, making sure it is above floor
         ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
 

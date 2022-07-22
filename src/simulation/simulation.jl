@@ -45,10 +45,15 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     νex = zeros(ncells)
     K   = zeros(ncells)
     ji  = zeros(ncells)
+
+    ncharge = length(fluids) - 1
+    ni = zeros(ncharge, ncells)
+    ui = zeros(ncharge, ncells)
     Id  = [0.0]
     cache = (;
                 A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe,
-                νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji
+                νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
+                ni, ui
             )
 
     return U, cache
@@ -105,15 +110,18 @@ function run_simulation(config::Config;
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
 
     # Choose which cache variables to save and set up saving callback
-    fields_to_save = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen, :νei, :νew, :νiz, :νex, :νe, :ϕ_cell, :Id)
+    fields_to_save() = (
+        :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
+        :νei, :νew, :νiz, :νex, :νe, :ϕ_cell, :Id, :ni, :ui, :ji
+    )
+    extract_from_cache(to_save, cache) = NamedTuple{to_save}(cache)
 
     function save_func(u, t, integrator)
-        (; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νew, νiz, νex, νe, ϕ_cell, Id) = integrator.p.cache
-        return deepcopy((; μ, Tev, ϕ, ∇ϕ, ne, pe, ue, ∇pe, νan, νc, νen, νei, νew, νiz, νex, νe, ϕ_cell, Id))
+        return deepcopy(extract_from_cache(fields_to_save(), integrator.p.cache))
     end
 
     saved_values = SavedValues(
-        Float64, NamedTuple{fields_to_save, NTuple{length(fields_to_save), Vector{Float64}}}
+        Float64, typeof(extract_from_cache(fields_to_save(), cache))
     )
     saving_callback = SavingCallback(save_func, saved_values; saveat)
 
