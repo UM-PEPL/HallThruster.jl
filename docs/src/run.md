@@ -380,7 +380,7 @@ The parameters that support this sort of indexing are:
 - `νew`: Electron-wall collision frequency in Hz
 - `μ`: Electron mobility
 - `E`: Electric field
-- `ϕ_cell`: plasma potential at cell centers in V
+- `ϕ`: plasma potential at cell centers in V
 - `Tev`: Electron temperature in eV
 - `pe`: Electron pressure in eV/m^3
 - `∇pe`: Electron pressure gradient

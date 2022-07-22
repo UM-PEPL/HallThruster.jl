@@ -111,7 +111,7 @@
 
     # Plot potential
     @series begin
-        y := sol[:ϕ_cell][frame]
+        y := sol[:ϕ][frame]
         ylabel := "Potential (V)"
         yscale := :identity
         title := "Potential"

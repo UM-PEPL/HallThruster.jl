@@ -94,7 +94,7 @@ function verify_gradients(ncells)
     cache = (;μ, ne, pe, ϕ, ϕ_cell, ∇ϕ, ∇pe)
     params = (;z_cell, cache, z_edge, config = (;LANDMARK = true))
 
-    HallThruster.compute_gradients!(∇ϕ, ∇pe, params)
+    HallThruster.compute_pressure_gradient!(∇pe, params)
 
     result_∇ϕ = (;z = z_cell, exact = ∇ϕ_exact, sim = ∇ϕ)
     result_∇pe = (;z = z_cell, exact = ∇pe_exact, sim = ∇pe)

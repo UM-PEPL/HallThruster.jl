@@ -27,8 +27,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     νew = zeros(ncells)
     νiw = zeros(ncells)
     μ = zeros(ncells)
-    ϕ = zeros(nedges)
-    ϕ_cell = zeros(ncells)
+    ϕ = zeros(ncells)
     ∇ϕ = zeros(ncells)
     ne = zeros(ncells)
     Tev = zeros(ncells)
@@ -53,7 +52,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Vs = [0.0]
 
     cache = (;
-                A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+                A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs
             )
@@ -114,7 +113,7 @@ function run_simulation(config::Config;
     # Choose which cache variables to save and set up saving callback
     fields_to_save() = (
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-        :νei, :νew, :νiz, :νex, :νe, :ϕ_cell, :Id, :ni, :ui, :ji
+        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji
     )
     extract_from_cache(to_save, cache) = NamedTuple{to_save}(cache)
 

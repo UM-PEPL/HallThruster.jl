@@ -107,46 +107,46 @@ function update_values!(U, params, t = 0)
         params.cache.K[i] = electron_kinetic_energy(U, params, i)
     end
 
-    # update electrostatic potential and potential gradient on edges
-    solve_potential_edge!(U, params)
-
     # Compute potential gradient and pressure gradient
-    compute_gradients!(∇ϕ, ∇pe, params)
+    compute_pressure_gradient!(∇pe, params)
+
+    # Compute electric field
+    compute_electric_field!(∇ϕ, params)
+
+    # update electrostatic potential and potential gradient on edges
+    solve_potential_cell!(ϕ, params)
 
     # Update the electron temperature and pressure
     update_electron_energy!(U, params)
 end
 
-function compute_gradients!(∇ϕ, ∇pe, params)
-    (; ϕ, pe, ϕ_cell) = params.cache
-    (;z_cell, z_edge) = params
+function compute_electric_field!(∇ϕ, params)
+    (;A_ch, cache) = params
+    (;ji, Id, ne, μ, ∇pe) = cache
 
-    ncells = length(z_cell)
-
-    # Interpolate potential to cells
-    ϕ_cell[1] = ϕ[1]
-    ϕ_cell[end] = ϕ[end]
-    @turbo for i in 2:ncells-1
-        ϕ_cell[i] = lerp(z_cell[i], z_edge[i-1], z_edge[i], ϕ[i-1], ϕ[i])
+    for i in eachindex(∇ϕ)
+        ∇ϕ[i] = -((Id[] / A_ch - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
     end
 
-    # Potential gradient (centered)
-    ∇ϕ[1] = forward_difference(ϕ[1], ϕ[2], ϕ[3], z_edge[1], z_edge[2], z_edge[3])
+    return ∇ϕ
+end
+
+function compute_pressure_gradient!(∇pe, params)
+    (; pe) = params.cache
+    (;z_cell) = params
+
+    ncells = length(z_cell)
 
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
 
     # Centered difference in interior cells
     @inbounds for j in 2:ncells-1
-        # Compute potential gradient
-        ∇ϕ[j] = (ϕ[j] - ϕ[j-1]) / (z_edge[j] - z_edge[j-1])
 
         # Compute pressure gradient
         ∇pe[j] = central_difference(pe[j-1], pe[j], pe[j+1], z_cell[j-1], z_cell[j], z_cell[j+1])
     end
 
-    # Potential gradient (centered)
-    ∇ϕ[end] = backward_difference(ϕ[end-2], ϕ[end-1], ϕ[end], z_edge[end-2], z_edge[end-1], z_edge[end])
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
 

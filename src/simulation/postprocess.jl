@@ -202,7 +202,6 @@ function load_landmark_data(case, suffix; ncells = 100)
         ne = ne_itp.(zs),
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        ϕ_cell = ϕ_itp.(zs),
     )
 
     ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);
