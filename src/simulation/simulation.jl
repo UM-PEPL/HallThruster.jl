@@ -232,7 +232,7 @@ function run_simulation(json_path::String)
         discharge_voltage = design.anode_potential - design.cathode_potential,
         anode_mass_flow_rate = design.anode_mass_flow_rate,
         cathode_potential = design.cathode_potential,
-        ncharge = simulation.ncharge,
+        ncharge = simulation.max_charge,
         wall_loss_model = WallSheath(wall_material, parameters.sheath_loss_coefficient),
         ion_wall_losses = simulation.ion_wall_losses,
         cathode_Te = parameters.cathode_electron_temp_eV,
