@@ -1,4 +1,11 @@
-using Test, Documenter, HallThruster, StaticArrays, Symbolics, Statistics, LinearAlgebra, DelimitedFiles
+using HallThruster
+using Test
+using Documenter
+using StaticArrays
+using Symbolics
+using Statistics
+using DelimitedFiles
+using LinearAlgebra
 
 doctest(HallThruster)
 
@@ -13,7 +20,7 @@ include("unit_tests/test_walls.jl")
 include("unit_tests/test_initialization.jl")
 include("unit_tests/test_restarts.jl")
 
-@testset "Order verification (potential and gradients)" begin
+#=@testset "Order verification (potential and gradients)" begin
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_potential.jl")
     refinements = refines(4, 10, 2)
@@ -33,7 +40,7 @@ include("unit_tests/test_restarts.jl")
         @test abs(slope_∇ϕ - 2.0) < tol || slope_∇ϕ > 2.0
         @test abs(slope_∇pe - 2.0) < tol || slope_∇pe > 2.0
     end
-end
+end=#
 
 @testset "Order verification (electron energy)" begin
     include("order_verification/ovs_funcs.jl")

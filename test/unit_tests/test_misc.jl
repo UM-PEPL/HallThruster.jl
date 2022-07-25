@@ -116,24 +116,18 @@ end
 
     @test size(U) == (nvars, ncells+2)
 
-    (; A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ϕ_cell, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew)
         @test size(arr) == (ncells+2,)
     end
 
-    for arr in (b, ϕ)
-        @test size(arr) == (ncells+1,)
-    end
-
-    @test size(A) == (ncells+1, ncells+1)
     @test size(Aϵ) == (ncells+2, ncells+2)
 
-    @test A isa Tridiagonal
     @test Aϵ isa Tridiagonal
 end
 

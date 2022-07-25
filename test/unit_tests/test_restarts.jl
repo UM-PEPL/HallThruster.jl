@@ -10,7 +10,7 @@
 
     # Check that writing a restart of a restart does not lose any information
     # i.e. restarts are perfectly reconstructable
-    @test sol.retcode == :Restart
+    @test sol.retcode == :Success
     @test sol.destats === nothing
     @test sol.u == restart.u
     @test sol.savevals == restart.savevals
@@ -60,7 +60,6 @@
     @test cache.νan ≈ sol[:νan][end]
     @test cache.ne ≈ sol[:ne][end]
     @test cache.ϕ ≈ sol[:ϕ][end]
-    @test cache.ϕ_cell ≈ sol[:ϕ_cell][end]
     @test cache.Tev ≈ sol[:Tev][end]
     @test cache.νc ≈ sol[:νc][end]
 end

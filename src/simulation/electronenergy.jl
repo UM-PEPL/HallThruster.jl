@@ -6,7 +6,7 @@ end
 
 function update_electron_energy!(U, params)
     (;z_cell, z_edge, dt, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev, Vs) = cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
@@ -94,13 +94,13 @@ function update_electron_energy!(U, params)
                 # left flux is sheath heat flux
                 Te0 = 2/3 * nϵ0 / ne0
 
-                uth = -0.25 * sqrt(8 * e * Te0 / π / me) * exp(-Vs[] / Te0)
+                uth = -0.25 * sqrt(8 * e * Te0 / π / me) * exp(-params.cache.Vs[] / Te0)
 
                 FL_factor_L = 0.0
                 FL_factor_C = 4/3 * uth
                 FL_factor_R = 0.0
 
-                Q += ne0 * uth * Vs[] / Δz
+                Q += ne0 * uth * params.cache.Vs[] / Δz
             elseif i == 2
                 # central differences at left boundary for compatibility with dirichlet BC
                 FL_factor_L = 5/3 * ueL + κL / ΔzL / neL

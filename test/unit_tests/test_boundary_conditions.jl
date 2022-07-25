@@ -72,6 +72,7 @@
     U1 = [U_b U_1 U_1 U_b]
     U2 = [U_b U_2 U_2 U_b]
 
+    Vs = 0.0
     HallThruster.left_boundary_state!(U_b, U1, params)
 
     @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity

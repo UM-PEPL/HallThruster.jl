@@ -1,7 +1,7 @@
 function left_boundary_state!(bc_state, U, params)
     (;index, A_ch, config) = params
     mi = config.propellant.m
-    (;Tev, Vs) = params.cache
+    (;Tev) = params.cache
 
     un = config.neutral_velocity
     mdot_a = config.anode_mass_flow_rate
@@ -9,11 +9,12 @@ function left_boundary_state!(bc_state, U, params)
     if config.LANDMARK
         bohm_factor = 1.0
     else
+        Vs = params.cache.Vs[]
         # Compute sheath potential
-        electron_repelling_sheath = Vs[] > 0
+        electron_repelling_sheath = Vs > 0
         if electron_repelling_sheath
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
-            Vs_norm = Vs[] / Tev[1]
+            Vs_norm = Vs / Tev[1]
             # Compute correction factor (see Hara, PSST 28 (2019))
             χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + erf(sqrt(Vs_norm)))
             bohm_factor = inv(√(1 + χ))

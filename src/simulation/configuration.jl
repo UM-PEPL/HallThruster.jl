@@ -40,6 +40,8 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
+    solve_neutral_momentum::Bool
+    solve_charge_exchange::Bool
 end
 
 function Config(;
@@ -76,7 +78,9 @@ function Config(;
         source_energy::S_E                  = Returns(0.0),
         scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
-        ion_wall_losses                    = false,
+        ion_wall_losses                     = false,
+        solve_neutral_momentum              = false,
+        solve_charge_exchange               = false,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -110,7 +114,18 @@ function Config(;
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         initial_condition, callback, magnetic_field_scale, source_neutrals,
-        source_IC, source_IM, source_potential, source_energy, scheme, thruster, domain, LANDMARK, anode_mass_flow_rate, ion_wall_losses
+        source_IC,
+        source_IM,
+        source_potential,
+        source_energy,
+        scheme,
+        thruster,
+        domain,
+        LANDMARK,
+        anode_mass_flow_rate,
+        ion_wall_losses,
+        solve_neutral_momentum,
+        solve_charge_exchange,
     )
 end
 

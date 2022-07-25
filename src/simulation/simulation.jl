@@ -15,8 +15,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     nedges = grid.ncells + 1
 
     U = zeros(nvariables + 1, ncells)
-    A = Tridiagonal(ones(nedges-1), ones(nedges), ones(nedges-1)) #for potential
-    b = zeros(nedges) #for potential equation
     B = zeros(ncells)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
@@ -52,7 +50,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Vs = [0.0]
 
     cache = (;
-                A, b, Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+                Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs
             )
