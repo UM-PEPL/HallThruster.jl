@@ -279,7 +279,7 @@ julia> HallThruster.compute_anode_eff(my_solution)
 
     ```julia
     avg_eff = mean(HallThruster.compute_anode_eff(my_solution))  # Wrong
-    avg_eff = HallThruster.compute_anode_eff(time_average(my_solution) # Right
+    avg_eff = HallThruster.compute_anode_eff(time_average(my_solution)[] # Right
     ```
 
 The mass utilization efficiency is the ratio of the ion beam mass flow rate to the total anode input mass flow rate and is computed with `compute_mass_eff`:
