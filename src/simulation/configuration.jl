@@ -40,8 +40,9 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
-    solve_neutral_momentum::Bool
-    solve_charge_exchange::Bool
+    solve_background_neutrals::Bool
+    background_pressure::Float64
+    background_neutral_temperature::Float64
     anode_boundary_condition::Symbol
 end
 
@@ -52,21 +53,21 @@ function Config(;
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential                   = 0.0,
         anode_Te                            = cathode_Te,
-        cathode_Te                          = 3.0,
+        cathode_Te                          = 3.0u"eV",
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
-        neutral_velocity                    = 300.0,
-        neutral_temperature                 = 300.0,
+        neutral_velocity                    = 300.0u"m/s",
+        neutral_temperature                 = 300.0u"K",
         implicit_energy::Number             = 1.0,
         propellant::Gas                     = Xenon,
         ncharge::Int                        = 1,
-        ion_temperature                     = 1000.,
+        ion_temperature                     = 1000.0u"K",
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
         ionization_model::IonizationModel   = IonizationLookup(),
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
         electron_pressure_coupled::Number   = ncharge == 1 ? true : false,
-        min_number_density                  = 1e6,
+        min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
         initial_condition::IC               = DefaultInitialization(),
@@ -80,8 +81,9 @@ function Config(;
         scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
         ion_wall_losses                     = false,
-        solve_neutral_momentum              = false,
-        solve_charge_exchange               = false,
+        solve_background_neutrals           = false,
+        background_pressure                 = 0.0u"Torr",
+        background_neutral_temperature      = 100.0u"K",
         anode_boundary_condition            = :sheath
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
@@ -93,6 +95,7 @@ function Config(;
     # Convert to Float64 if using Unitful
     discharge_voltage = convert_to_float64(discharge_voltage, u"V")
     cathode_potential = convert_to_float64(cathode_potential, u"V")
+
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
     neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
@@ -105,6 +108,9 @@ function Config(;
     anode_mass_flow_rate = convert_to_float64(anode_mass_flow_rate, u"kg/s")
     min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
+
+    background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
+    background_pressure = convert_to_float64(background_pressure, u"Pa")
 
     if ncharge > 1 && electron_pressure_coupled > 0
         @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
@@ -130,8 +136,9 @@ function Config(;
         LANDMARK,
         anode_mass_flow_rate,
         ion_wall_losses,
-        solve_neutral_momentum,
-        solve_charge_exchange,
+        solve_background_neutrals,
+        background_pressure,
+        background_neutral_temperature,
         anode_boundary_condition,
     )
 end
