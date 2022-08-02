@@ -75,6 +75,10 @@ function run_simulation(config::Config;
     dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
     restart = nothing, CFL = 1.0, adaptive = false)
 
+    # If duration and/or dt are provided with units, convert to seconds and then strip units
+    duration = convert_to_float64(duration, u"s")
+    dt = convert_to_float64(dt, u"s")
+
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
     grid = generate_grid(config.thruster.geometry, ncells, config.domain)
 

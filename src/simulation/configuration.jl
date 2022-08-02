@@ -42,6 +42,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     ion_wall_losses::Bool
     solve_neutral_momentum::Bool
     solve_charge_exchange::Bool
+    anode_boundary_condition::Symbol
 end
 
 function Config(;
@@ -81,6 +82,7 @@ function Config(;
         ion_wall_losses                     = false,
         solve_neutral_momentum              = false,
         solve_charge_exchange               = false,
+        anode_boundary_condition            = :sheath
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -109,6 +111,10 @@ function Config(;
         electron_pressure_coupled = false
     end
 
+    if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
+        throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
+    end
+
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
@@ -126,6 +132,7 @@ function Config(;
         ion_wall_losses,
         solve_neutral_momentum,
         solve_charge_exchange,
+        anode_boundary_condition,
     )
 end
 

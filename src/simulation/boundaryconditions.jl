@@ -6,9 +6,7 @@ function left_boundary_state!(bc_state, U, params)
     un = config.neutral_velocity
     mdot_a = config.anode_mass_flow_rate
 
-    if config.LANDMARK
-        bohm_factor = 1.0
-    else
+    if config.anode_boundary_condition == :sheath
         Vs = params.cache.Vs[]
         # Compute sheath potential
         electron_repelling_sheath = Vs > 0
@@ -22,6 +20,8 @@ function left_boundary_state!(bc_state, U, params)
             # Ion-repelling sheath, ions have zero velocity at anode
             bohm_factor = 0.0
         end
+    else
+        bohm_factor = 1.0
     end
 
     # Precompute bohm velocity

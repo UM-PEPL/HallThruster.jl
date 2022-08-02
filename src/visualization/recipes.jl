@@ -39,6 +39,7 @@
         subplot := 1
         title := "Neutral density"
         label := label_mod
+        color := 1
         ()
     end
 
@@ -56,10 +57,25 @@
                 subplot := 2
                 label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
                 title := "Plasma density"
+                color := Z
                 ()
             end
         end
+    end
 
+    if ncharge > 1
+        # Plot electron density
+        @series begin
+            y := sol[:ne][frame]
+            ylabel := "Density (m⁻³)"
+            subplot := 2
+            label := ifelse(!isempty(label_mod),  label_mod * ", ne", "ne")
+            color := ncharge+1
+            ()
+        end
+    end
+
+    for Z in 1:ncharge
         # Plot ion velocity
         @series begin
             y := sol[:ui, Z][frame] ./ 1000
@@ -69,9 +85,12 @@
             legend:= :bottomright
             title := "Ion velocity"
             subplot := 3
+            color := Z
             ()
         end
+    end
 
+    for Z in 1:ncharge
         # Plot rate of production of all three species
         ionization_rate = fill(eps(Float64), length(z_normalized))
         if isempty(ionization_reactions)
@@ -94,17 +113,7 @@
             subplot := 5
             label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
             title := "Ionization rate"
-            ()
-        end
-    end
-
-    if ncharge > 1
-        # Plot electron density
-        @series begin
-            y := sol[:ne][frame]
-            ylabel := "Density (m⁻³)"
-            subplot := 2
-            label := ifelse(!isempty(label_mod),  label_mod * ", ne", "ne")
+            color := Z
             ()
         end
     end
@@ -117,6 +126,7 @@
         title := "Potential"
         subplot := 4
         label := label_mod
+        color := 1
         ()
     end
 
@@ -128,6 +138,7 @@
         subplot := 6
         title := "Electron temperature"
         label := label_mod
+        color := 1
         ()
     end
 
@@ -139,6 +150,7 @@
         subplot := 7
         title := "Cross-field electron velocity"
         label := label_mod
+        color := 1
         ()
     end
 
@@ -150,6 +162,7 @@
         subplot := 8
         title := "Electric field"
         label := label_mod
+        color := 1
         ()
     end
 end
@@ -177,54 +190,69 @@ end
     ylabel := "Frequency (Hz)"
     legend := :outertop
     framestyle := :box
-    ylims := (1, 1e10)
+    ylims := get(plotattributes, :ylims, (1e5, 1e10))
+    freqs = get(plotattributes, :freqs, [:ωce, :νan, :νen, :νei, :νiz, :νex, :νw])
 
     zs = sol.params.z_cell ./ sol.params.L_ch
 
-    @series begin
-        label := "Electron cyclotron frequency"
-        lw := 2
-        ls := :dash
-        zs, sol[:ωce][1]
+    if :ωce in freqs
+        @series begin
+            label := "Electron cyclotron frequency"
+            lw := 2
+            ls := :dash
+            zs, sol[:ωce][1]
+        end
     end
 
-    @series begin
-        label := "Anomalous"
-        zs, sol[:νan][frame]
+    if :νan in freqs
+        @series begin
+            label := "Anomalous"
+            zs, sol[:νan][frame]
+        end
     end
 
-    @series begin
-        label := "Electron-neutral"
-        zs, sol[:νen][frame]
+    if :νen in freqs
+        @series begin
+            label := "Electron-neutral"
+            zs, sol[:νen][frame]
+        end
     end
 
-    @series begin
-        label := "Electron-ion"
-        zs, sol[:νei][frame]
+    if :νei in freqs
+        @series begin
+            label := "Electron-ion"
+            zs, sol[:νei][frame]
+        end
     end
 
-    @series begin
-        label := "Ionization"
-        ys = sol[:νiz][frame]
-        inds = findall(==(0), ys)
-        ys[inds] .= NaN
-        zs, ys
+    if :νiz in freqs
+        @series begin
+            label := "Ionization"
+            ys = sol[:νiz][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
+        end
     end
 
-    @series begin
-        label := "Excitation"
-        ys = sol[:νex][frame]
-        inds = findall(==(0), ys)
-        ys[inds] .= NaN
-        zs, ys
+    if :νex in freqs
+        @series begin
+            label := "Excitation"
+            ys = sol[:νex][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
+        end
     end
 
-    @series begin
-        label := "Wall"
-        ys = sol[:νew][frame]
-        inds = findall(==(0), ys)
-        ys[inds] .= NaN
-        zs, ys
+    if :νw in freqs
+        @series begin
+            label := "Wall"
+            ys = sol[:νew][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
+        end
     end
 
     @series begin
