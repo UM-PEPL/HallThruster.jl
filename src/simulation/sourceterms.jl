@@ -10,26 +10,32 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     ϵ  = U[index.nϵ, i] / ne + K
 
-    @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
-        ρ_reactant = U[reactant_index, i]
+    @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+        product_index = product_inds[]
+        #@show reactant_inds, product_inds
+        for reactant_index in reactant_inds
+            ρ_reactant = U[reactant_index, i]
 
-        ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
+            ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
 
-        # Change in density due to ionization
-        dU[reactant_index, i] -= ρdot
-        dU[product_index, i]  += ρdot
+            # Change in density due to ionization
+            dU[reactant_index, i] -= ρdot
+            dU[product_index, i]  += ρdot
 
-        if !params.config.LANDMARK
-            # Momentum transfer due to ionization
-            if reactant_index != index.ρn
-                reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
-                dU[reactant_index + 1, i] -= ρdot * reactant_velocity
-            else
-                reactant_velocity = params.config.neutral_velocity
+            if !params.config.LANDMARK
+                # Momentum transfer due to ionization
+                if reactant_index == index.ρn[1]
+                    reactant_velocity = params.config.neutral_velocity
+                elseif reactant_index == index.ρn[2]
+                    reactant_velocity = params.background_neutral_velocity
+                else
+                    reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
+                    dU[reactant_index + 1, i] -= ρdot * reactant_velocity
+                end
+
+                dU[product_index + 1, i] += ρdot * reactant_velocity
             end
-            dU[product_index + 1, i] += ρdot * reactant_velocity
         end
-
     end
 end
 
@@ -79,7 +85,7 @@ function apply_ion_wall_losses!(dU, U, params, i)
         dU[index.ρiui[Z], i] -= ion_momentum_flux
 
         # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn, i] += ion_density_flux
+        dU[index.ρn[1], i] += ion_density_flux
     end
 end
 
@@ -108,18 +114,22 @@ function inelastic_losses!(U, params, i)
     νiz[i] = 0.0
     νex[i] = 0.0
 
-    @inbounds for (reactant_index, rxn) in zip(ionization_reactant_indices, ionization_reactions)
-        n_reactant = U[reactant_index, i] / mi
-        ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
-        inelastic_loss += ndot * rxn.energy
-        νiz[i] += ndot / ne
+    @inbounds for (reactant_inds, rxn) in zip(ionization_reactant_indices, ionization_reactions)
+        for reactant_index in reactant_inds
+            n_reactant = U[reactant_index, i] / mi
+            ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
+            inelastic_loss += ndot * rxn.energy
+            νiz[i] += ndot / ne
+        end
     end
 
-    @inbounds for (reactant_index, rxn) in zip(excitation_reactant_indices, excitation_reactions)
-        n_reactant = U[reactant_index, i] / mi
-        ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
-        inelastic_loss += ndot * (rxn.energy - K)
-        νex[i] += ndot / ne
+    @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
+        for reactant_index in reactant_inds
+            n_reactant = U[reactant_index, i] / mi
+            ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
+            inelastic_loss += ndot * (rxn.energy - K)
+            νex[i] += ndot / ne
+        end
     end
 
     return inelastic_loss

@@ -139,15 +139,17 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
     index = sol.params.index
     ncells = size(sol.u[1], 2)
 
-    if charge > sol.params.ncharge
+    if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
 
     if field == :nn
-        return [[u[index.ρn, i] / mi for i in 1:ncells] for u in sol.u]
+        return [saved[:nn][charge, :] for saved in sol.savevals]
     elseif field == :ni
         return [saved[:ni][charge, :] for saved in sol.savevals]
     elseif field == :ui
+        return [saved[:ui][charge, :] for saved in sol.savevals]
+    elseif field == :niui
         return [saved[:ui][charge, :] for saved in sol.savevals]
     elseif field == :B
         return [sol.params.cache.B]

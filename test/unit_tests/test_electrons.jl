@@ -21,8 +21,8 @@
 
     mi = HallThruster.Xenon.m
 
-    index = (ρn = 1, ρi = [2], nϵ = 3)
-    cache = (;ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0])
+    index = (ρn = [1], ρi = [2], nϵ = 3)
+    cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0])
     c1 = 1/160
     c2 = 1/16
     anom_model = HallThruster.TwoZoneBohm(c1, c2)

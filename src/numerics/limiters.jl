@@ -21,15 +21,20 @@ const koren = SlopeLimiter(r -> max(0, min(2r, min((1 + 2r) / 3, 2))) * 2 / (r+1
 const osher(β) = SlopeLimiter(r -> (max(0, min(r, β))) * 2 / (r+1))
 
 function stage_limiter!(U, integrator, p, t)
+    ncells = size(U, 2)
     min_density = p.config.min_number_density * p.config.propellant.m
-    @inbounds for j in 1:size(U, 2)
-        U[p.index.ρn, j] = max(U[p.index.ρn, j], min_density)
-        for Z in p.config.ncharge
-            density_floor = max(U[p.index.ρi[Z], j], min_density)
-            velocity = U[p.index.ρiui[Z], j] / U[p.index.ρi[Z], j]
-            U[p.index.ρi[Z], j] = density_floor
-            U[p.index.ρiui[Z], j] = density_floor * velocity
+    @inbounds for i in 1:ncells
+
+        for j in 1:p.num_neutral_fluids
+            U[p.index.ρn[j], j] = max(U[p.index.ρn[j], j], min_density)
         end
-        U[p.index.nϵ, j] = max(U[p.index.nϵ, j], p.config.min_number_density * p.config.min_electron_temperature)
+
+        for Z in 1:p.config.ncharge
+            density_floor = max(U[p.index.ρi[Z], i], min_density)
+            velocity = U[p.index.ρiui[Z], i] / U[p.index.ρi[Z], i]
+            U[p.index.ρi[Z], i] = density_floor
+            U[p.index.ρiui[Z], i] = density_floor * velocity
+        end
+        U[p.index.nϵ, i] = max(U[p.index.nϵ, i], p.config.min_number_density * p.config.min_electron_temperature)
     end
 end

@@ -32,17 +32,41 @@
     margin := 10mm
     framestyle := :box
 
+    comma = isempty(label_mod) ? "" : ", "
+
     # Plot neutral density
     @series begin
-        y := sol[:nn][frame]
+        y := sol[:nn_tot][frame]
         ylabel := "Density (m⁻³)"
         subplot := 1
         title := "Neutral density"
-        label := label_mod
+        label := label_mod * comma * "Total"
         color := 1
         ()
     end
+    #=
+    if sol.params.config.solve_background_neutrals
+        @series begin
+            y := sol[:nn, 1][frame]
+            ylabel := "Density (m⁻³)"
+            subplot := 1
+            title := "Neutral density"
+            label := label_mod * comma * "Anode"
+            color := 1
+            ()
+        end
 
+        @series begin
+            y := sol[:nn, 2][frame]
+            ylabel := "Density (m⁻³)"
+            subplot := 1
+            title := "Neutral density"
+            label := label_mod * comma * "Background"
+            color := 2
+            ()
+        end
+    end
+    =#
     ne = sol[:ne][frame]
     Tev = sol[:Tev][frame]
 
@@ -55,7 +79,7 @@
                 y := sol[:ni, Z][frame]
                 ylabel := "Density (m⁻³)"
                 subplot := 2
-                label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
+                label := label_mod * comma * charge_labels[Z]
                 title := "Plasma density"
                 color := Z
                 ()
@@ -69,7 +93,7 @@
             y := sol[:ne][frame]
             ylabel := "Density (m⁻³)"
             subplot := 2
-            label := ifelse(!isempty(label_mod),  label_mod * ", ne", "ne")
+            label := label_mod * comma * "ne"
             color := ncharge+1
             ()
         end
@@ -80,7 +104,7 @@
         @series begin
             y := sol[:ui, Z][frame] ./ 1000
             ylabel := "Ion velocity (km/s)"
-            label := ifelse(!isempty(label_user),  label_user * ", ", "") * charge_labels[Z]
+            label := label_user * comma * charge_labels[Z]
             yscale := :identity
             legend:= :bottomright
             title := "Ion velocity"
@@ -111,7 +135,7 @@
             y := ionization_rate
             ylabel := "Ionization rate (m⁻³/s)"
             subplot := 5
-            label := ifelse(!isempty(label_mod),  label_mod * ", ", "") * charge_labels[Z]
+            label := label_mod * comma * charge_labels[Z]
             title := "Ionization rate"
             color := Z
             ()

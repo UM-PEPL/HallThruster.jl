@@ -1,12 +1,12 @@
 function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
     # Number of variables in the state vector U
     nvariables = 0
-    for i in 1:length(fluids)
-        if fluids[i].conservation_laws.type == _ContinuityOnly
+    for fluid in fluids
+        if fluid.conservation_laws.type == _ContinuityOnly
             nvariables += 1
-        elseif fluids[i].conservation_laws.type == _IsothermalEuler
+        elseif fluid.conservation_laws.type == _IsothermalEuler
             nvariables += 2
-        elseif fluids[i].conservation_laws.type == _EulerEquations
+        elseif fluid.conservation_laws.type == _EulerEquations
             nvariables += 3
         end
     end
@@ -43,16 +43,20 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     K   = zeros(ncells)
     ji  = zeros(ncells)
 
-    ncharge = length(fluids) - 1
+    num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
+    ncharge = maximum(f.species.Z for f in fluids)
     ni = zeros(ncharge, ncells)
     ui = zeros(ncharge, ncells)
+    niui = zeros(ncharge, ncells)
+    nn = zeros(num_neutral_fluids, ncells)
+    nn_tot = zeros(ncells)
     Id  = [0.0]
     Vs = [0.0]
 
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs
+                ni, ui, Vs, niui, nn, nn_tot
             )
 
     return U, cache
@@ -80,19 +84,20 @@ function run_simulation(config::Config;
     dt = convert_to_float64(dt, u"s")
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
+    num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
     grid = generate_grid(config.thruster.geometry, ncells, config.domain)
 
     # load collisions and reactions
-    ionization_reactions = _load_reactions(config.ionization_model, species)
+    ionization_reactions = _load_reactions(config.ionization_model, unique(species))
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
-    excitation_reactions = _load_reactions(config.excitation_model, species)
+    excitation_reactions = _load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = _load_reactions(config.electron_neutral_model, species)
+    electron_neutral_collisions = _load_reactions(config.electron_neutral_model, unique(species))
 
-    index = configure_index(fluid_ranges)
+    index = configure_index(fluids, fluid_ranges)
 
     use_restart = restart !== nothing
 
@@ -115,7 +120,7 @@ function run_simulation(config::Config;
     # Choose which cache variables to save and set up saving callback
     fields_to_save() = (
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji
+        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot
     )
     extract_from_cache(to_save, cache) = NamedTuple{to_save}(cache)
 
@@ -160,6 +165,9 @@ function run_simulation(config::Config;
         max_timestep = [dt],
         CFL,
         adaptive,
+        num_neutral_fluids,
+        background_neutral_velocity = background_neutral_velocity(config),
+        background_neutral_density = background_neutral_density(config),
         Bmax = maximum(cache.B),
     )
 

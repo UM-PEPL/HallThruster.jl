@@ -187,7 +187,7 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to Iiw / e / V_cell
     Δz = z_edge[2] - z_edge[1]
@@ -229,7 +229,7 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to Iiw / e / V_cell
     @test dU[index.ρi[1], i] ≈ -Iiw_1 / HallThruster.e / V_cell * mi

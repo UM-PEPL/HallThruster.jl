@@ -42,9 +42,16 @@ function initialize!(U, params, ::DefaultInitialization)
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / config.neutral_velocity
     end
 
+    # Beam neutral density at outlet
     ρn_1 = 0.01 * ρn_0
-
     neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z-z0, L_ch / 2, ρn_0, ρn_1)
+
+    # Background neutral density
+    if config.solve_background_neutrals
+        ρn_B = params.background_neutral_density
+    else
+        ρn_B = 0.0
+    end
 
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
 
@@ -58,7 +65,11 @@ function initialize!(U, params, ::DefaultInitialization)
     # Fill the state vector
     for (i, z) in enumerate(z_cell)
 
-        U[index.ρn, i] = neutral_function(z)
+        U[index.ρn[1], i] = neutral_function(z)
+
+        if params.config.solve_background_neutrals
+            U[index.ρn[2], i] = ρn_B
+        end
 
         for Z in 1:params.config.ncharge
             U[index.ρi[Z], i] = ion_density_function(z, Z)

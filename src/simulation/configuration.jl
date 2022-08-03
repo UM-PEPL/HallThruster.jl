@@ -52,8 +52,8 @@ function Config(;
         discharge_voltage,                  # MANDATORY ARGUMENT
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential                   = 0.0,
-        anode_Te                            = cathode_Te,
         cathode_Te                          = 3.0u"eV",
+        anode_Te                            = cathode_Te,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
         neutral_velocity                    = 300.0u"m/s",
         neutral_temperature                 = 300.0u"K",
@@ -73,7 +73,7 @@ function Config(;
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
-        source_neutrals::S_N                = Returns(0.0),
+        source_neutrals::S_N                = nothing,
         source_ion_continuity::S_IC         = nothing,
         source_ion_momentum::S_IM           = nothing,
         source_potential::S_ϕ               = Returns(0.0),
@@ -91,6 +91,12 @@ function Config(;
     # continuity and momentum
     source_IC = ion_source_terms(ncharge, source_ion_continuity, "continuity")
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
+
+    # Neutral source terms
+    num_neutral_fluids = 1 + solve_background_neutrals
+    if isnothing(source_neutrals)
+        source_neutrals = fill(Returns(0.0), num_neutral_fluids)
+    end
 
     # Convert to Float64 if using Unitful
     discharge_voltage = convert_to_float64(discharge_voltage, u"V")
@@ -174,49 +180,57 @@ function make_keys(fluid_range, subscript)
     end
 end
 
-function configure_index(fluid_ranges)
-    lf = fluid_ranges[end][end]
+function configure_fluids(config)
+    propellant = config.propellant
 
-    ncharge = length(fluid_ranges)-1
-    solve_ion_temp = length(fluid_ranges[2]) == 3
+    anode_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
+
+    if config.solve_background_neutrals
+        Tn_background = config.background_neutral_temperature
+        background_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = background_neutral_velocity(config), T = Tn_background))
+        neutral_fluids = [anode_neutral_fluid, background_neutral_fluid]
+    else
+        neutral_fluids = [anode_neutral_fluid]
+    end
+
+    ion_eqns = IsothermalEuler(T = config.ion_temperature)
+    ion_fluids = [Fluid(propellant(Z), ion_eqns) for Z in 1:config.ncharge]
+
+    fluids = [neutral_fluids; ion_fluids]
+
+    species = [f.species for f in fluids]
+
+    fluid_ranges = ranges(fluids)
+    species_range_dict = Dict(Symbol(fluid.species) => UnitRange{Int64}[] for fluid in fluids)
+
+    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+        push!(species_range_dict[Symbol(fluid.species)], fluid_range)
+    end
+
+    return fluids, fluid_ranges, species, species_range_dict
+end
+
+function configure_index(fluids, fluid_ranges)
+    lf = fluid_ranges[end][end]
+    first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
-    values_neutrals = (1, )
+    values_neutrals = (
+        [f[1] for f in fluid_ranges[1:first_ion_fluid_index-1]],
+    )
 
-    if solve_ion_temp
-        keys_ions = (:ρi, :ρiui, :ρiuiEi)
-        values_ions = (
-            [f[1] for f in fluid_ranges[2:end]]...,
-            [f[2] for f in fluid_ranges[2:end]]...,
-            [f[3] for f in fluid_ranges[2:end]]...,
-        )
-    else
-        keys_ions = (:ρi, :ρiui)
-        values_ions = (
-            [f[1] for f in fluid_ranges[2:end]],
-            [f[2] for f in fluid_ranges[2:end]],
-        )
-    end
+    keys_ions = (:ρi, :ρiui)
+    values_ions = (
+        [f[1] for f in fluid_ranges[first_ion_fluid_index:end]],
+        [f[2] for f in fluid_ranges[first_ion_fluid_index:end]],
+    )
 
     keys_fluids = (keys_neutrals..., keys_ions...)
     values_fluids = (values_neutrals..., values_ions...)
-    keys_electrons = (:nϵ, :Tev, :ne, :pe, :ϕ, :grad_ϕ, :ue)
-    values_electrons = lf .+ collect(1:7)
+    keys_electrons = (:nϵ,)
+    values_electrons = (lf + 1,)
     index_keys = (keys_fluids..., keys_electrons..., :lf)
     index_values = (values_fluids..., values_electrons..., lf)
     index = NamedTuple{index_keys}(index_values)
     return index
-end
-
-function configure_fluids(config)
-    propellant = config.propellant
-    species = [propellant(i) for i in 0:config.ncharge]
-    neutral_fluid = Fluid(species[1], ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
-    ion_eqns = IsothermalEuler(T = config.ion_temperature)
-    ion_fluids = [Fluid(species[i+1], ion_eqns) for i in 1:config.ncharge]
-    fluids = [neutral_fluid; ion_fluids]
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => fluid_range
-                              for (fluid, fluid_range) in zip(fluids, fluid_ranges))
-    return fluids, fluid_ranges, species, species_range_dict
 end

@@ -73,7 +73,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     elseif conservative && !coupled
         source_ρiui_conservative_uncoupled
     elseif !conservative && coupled
-        source_ρiui_nonconservative_uncoupled 
+        source_ρiui_nonconservative_uncoupled
     elseif !nonconservative  && !coupled
         source_ρiui_nonconservative_uncoupled
     end
@@ -85,7 +85,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     config = (;
         thruster,
-        source_neutrals = (U, p, i) -> source_ρn(p.z_cell[i]),
+        source_neutrals = ((U, p, i) -> source_ρn(p.z_cell[i]),),
         source_ion_continuity = (
             (U, p, i) -> source_ρi(p.z_cell[i]),
         ),
@@ -107,6 +107,8 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         ionization_model = OVS_Ionization(),
         LANDMARK = true,
         ion_wall_losses = false,
+        anode_boundary_condition = :dirichlet,
+        solve_background_neutrals = false,
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
@@ -128,7 +130,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     ∇ϕ = ∇ϕ_func.(z_cell)
 
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
-    index = HallThruster.configure_index(fluid_ranges)
+    index = HallThruster.configure_index(fluids, fluid_ranges)
 
     F = zeros(4, nedges)
     UL = zeros(4, nedges)
@@ -141,7 +143,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     z_end = z_cell[end]
     z_start = z_cell[1]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
-    U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
+    U[index.ρn[1], :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
     U[index.nϵ, :] = nϵ
@@ -161,6 +163,9 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],
         max_timestep = [Inf],
+        num_neutral_fluids = 1,
+        background_neutral_density = 0.0,
+        background_neutral_velocity = 1.0,
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
@@ -182,7 +187,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     sol = (;t = [t], u = [U])
 
-    ρn_sim = sol.u[end][index.ρn, :]
+    ρn_sim = sol.u[end][index.ρn[1], :]
     ρi_sim = sol.u[end][index.ρi[1], :]
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim
