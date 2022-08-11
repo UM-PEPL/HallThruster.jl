@@ -1,7 +1,7 @@
 name = "HallThruster"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
 authors = ["Thomas Marks <marksta@umich.edu>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
