@@ -197,7 +197,7 @@ function run_simulation(json_path::String)
     )
 
     bfield_data = readdlm(design.magnetic_field_file, ',')
-    bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2] / 1e4)
+    bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
 
     thruster = HallThruster.Thruster(;
         name = design.thruster_name,
