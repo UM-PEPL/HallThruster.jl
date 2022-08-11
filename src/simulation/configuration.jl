@@ -50,8 +50,8 @@ function Config(;
         discharge_voltage,                  # MANDATORY ARGUMENT
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential                   = 0.0,
-        anode_Te                            = cathode_Te,
         cathode_Te                          = 3.0,
+        anode_Te                            = cathode_Te,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
         neutral_velocity                    = 300.0,
         neutral_temperature                 = 300.0,
