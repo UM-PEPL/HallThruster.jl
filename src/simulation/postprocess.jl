@@ -243,3 +243,40 @@ function load_landmark_data(case, suffix; ncells = 100)
 
     return Solution([0.0], [u], [cache], retcode, destats, params)
 end
+
+function frame_dict(sol, frame)
+    filler = zeros(length(sol.params.z_cell))
+    ncharge = sol.params.config.ncharge
+    Dict(
+        "t" => sol.t[frame],
+        "z" => sol.params.z_cell,
+        "nn" => sol[:nn, 1][frame],
+        "ni_1" => sol[:ni, 1][frame],
+        "ni_2" => (ncharge > 1 ? sol[:ni, 2][frame] : filler),
+        "ni_3" => (ncharge > 2 ? sol[:ni, 3][frame] : filler),
+        "ne" => sol[:ne][frame],
+        "ui_1" => sol[:ui, 1][frame],
+        "ui_2" => (ncharge > 1 ? sol[:ui, 2][frame] : filler),
+        "ui_3" => (ncharge > 2 ? sol[:ui, 3][frame] : filler),
+        "niui_1" => sol[:niui, 1][frame],
+        "niui_2" => (ncharge > 1 ? sol[:niui, 1][frame] : filler),
+        "niui_3" => (ncharge > 2 ? sol[:niui, 1][frame] : filler),
+        "ue" => sol[:ue][frame],
+        "V" => sol[:ϕ][frame],
+        "E" => sol[:E][frame],
+        "Tev" => sol[:Tev][frame],
+        "pe" => sol[:pe][frame],
+        "grad_pe" => sol[:∇pe][frame],
+        "nu_en" => sol[:νen][frame],
+        "nu_ei" => sol[:νei][frame],
+        "nu_anom" => sol[:νan][frame],
+        "nu_class" => sol[:νc][frame],
+        "mobility" => sol[:μ][frame],
+    )
+end
+
+function write_to_json(filename, sol)
+    num_frames = length(sol.t)
+    frames = map(frame -> frame_dict(sol, frame), 1:num_frames)
+    JSON3.write(filename, frames)
+end
