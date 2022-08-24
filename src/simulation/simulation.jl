@@ -257,6 +257,9 @@ function run_simulation(json_path::String)
         scheme = HyperbolicScheme(;
             flux_function, limiter, reconstruct = simulation.reconstruct, WENO = false
         ),
+        solve_background_neutrals = simulation.solve_background_neutrals,
+        background_pressure = parameters.background_pressure_Torr * u"Torr",
+        background_neutral_temperature = parameters.background_temperature_K * u"K",
     )
 
     solution = run_simulation(config; ncells = simulation.num_cells,
