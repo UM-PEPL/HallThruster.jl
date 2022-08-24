@@ -108,18 +108,17 @@ function _load_reactions(model::ReactionModel, species)
     load_reactions(model, species)
 end
 
-function reactant_indices(reactions, species_range_dict)
-    reactant_indices = zeros(Int, length(reactions))
+function _indices(symbol, reactions, species_range_dict)
+    indices = [Int[] for _ in reactions]
     for (i, reaction) in enumerate(reactions)
-        reactant_indices[i] = species_range_dict[reaction.reactant.symbol][1]
+        species = getfield(reaction, symbol).symbol
+        ranges = species_range_dict[species]
+        for r in ranges
+            push!(indices[i], r[1])
+        end
     end
-    return reactant_indices
+    return indices
 end
 
-function product_indices(reactions, species_range_dict)
-    product_indices = zeros(Int, length(reactions))
-    for (i, reaction) in enumerate(reactions)
-        product_indices[i] = species_range_dict[reaction.product.symbol][1]
-    end
-    return product_indices
-end
+reactant_indices(reactions, species_range_dict) = _indices(:reactant, reactions, species_range_dict)
+product_indices(reactions, species_range_dict) = _indices(:product, reactions, species_range_dict)

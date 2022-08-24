@@ -112,7 +112,8 @@ function verify_energy(ncells; niters = 20000)
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
         min_electron_temperature, transition_function, LANDMARK, propellant,
-        ionization_model, excitation_model, wall_loss_model, geometry
+        ionization_model, excitation_model, wall_loss_model, geometry,
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
@@ -148,7 +149,8 @@ function verify_energy(ncells; niters = 20000)
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
         min_electron_temperature, transition_function, LANDMARK, propellant,
-        ionization_model, excitation_model, wall_loss_model, geometry
+        ionization_model, excitation_model, wall_loss_model, geometry,
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false
     )
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])

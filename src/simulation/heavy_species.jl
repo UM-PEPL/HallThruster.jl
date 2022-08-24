@@ -30,15 +30,17 @@ function update_heavy_species!(dU, U, params, t)
         @inbounds for i in 1:nedges #only fluxes ncells - 1
 
             # If stencil goes past boundary, we have ghost edges
-            # Where the boundary flux is 
+            # Where the boundary flux is
             i_minus_2 = max(1, i - 2)
             i_minus_1 = max(1, i - 1)
             i_plus_1 = min(nedges, i+1)
             i_plus_2 = min(nedges, i+2)
 
             # Handle neutrals
-            F[index.ρn, i] = WENO5_compute_fluxes(
-                F[index.ρn, i_minus_2], F[index.ρn, i_minus_1], F[index.ρn, i], F[index.ρn, i_plus_1], F[index.ρn, i_plus_2])
+            for j in 1:params.num_neutral_fluids
+                F[index.ρn[j], i] = WENO5_compute_fluxes(
+                F[index.ρn[j], i_minus_2], F[index.ρn[j], i_minus_1], F[index.ρn[j], i], F[index.ρn[j], i_plus_1], F[index.ρn[j], i_plus_2])
+            end
 
             #Handle ions
             for Z in 1:ncharge
@@ -59,16 +61,22 @@ function update_heavy_species!(dU, U, params, t)
 
         Δz = z_edge[right] - z_edge[left]
 
-        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz
+        # Handle neutrals
+        for j in 1:params.num_neutral_fluids
+            # Neutral fluxes
+            dU[index.ρn[j], i] = (F[index.ρn[j], left] - F[index.ρn[j], right]) / Δz
 
-        # User-provided neutral source term
-        dU[index.ρn, i] += source_neutrals(U, params, i)
+            # User-provided neutral source term
+            dU[index.ρn[j], i] += source_neutrals[j](U, params, i)
+        end
 
+        # Handle ions
         for Z in 1:ncharge
-
+            # Ion fluxes
             dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
             dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz
-            # User-provided source terms
+
+            # User-provided ion source terms
             dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z  ](U, params, i)
         end

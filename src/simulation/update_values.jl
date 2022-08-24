@@ -33,7 +33,7 @@ function update_values!(U, params, t = 0)
     (;z_cell, index, A_ch) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
-        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui, Vs
+        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui, Vs, nn, nn_tot, niui,
     ) = params.cache
 
     # Update the current iteration
@@ -48,9 +48,18 @@ function update_values!(U, params, t = 0)
     # Update electron quantities
     @inbounds for i in 1:ncells
 
+        # Compute neutral number densities for each neutral fluid
+        nn_tot[i] = 0.0
+        for j in 1:params.num_neutral_fluids
+            nn[j, i] = U[index.ρn[j], i] / params.config.propellant.m
+            nn_tot[i] += nn[j, i]
+        end
+
+        # Compute ion densities and velocities
         for Z in 1:params.config.ncharge
             ni[Z, i] = U[index.ρi[Z], i] / params.config.propellant.m
             ui[Z, i] = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
+            niui[Z, i] = U[index.ρiui[Z], i] / params.config.propellant.m
         end
 
         # Compute electron number density, making sure it is above floor

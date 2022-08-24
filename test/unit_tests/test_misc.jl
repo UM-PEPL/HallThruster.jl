@@ -23,10 +23,10 @@ end
 end
 
 @testset "Stage limiter" begin
-    index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
+    index = (ρn = [1], ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6, min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
 
-    p = (; config, index)
+    p = (; config, index, num_neutral_fluids = 1)
     U = [-1.0, -1.0, -1.0, -1.0]
     HallThruster.stage_limiter!(U, nothing, p, 0.0)
 
@@ -100,31 +100,39 @@ end
     @test length(grid.edges) == ncells+1
 
     Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
+    Xe_0_background = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
     Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), HallThruster.IsothermalEuler(100.))
     Xe_II = HallThruster.Fluid(HallThruster.Xenon(2), HallThruster.IsothermalEuler(100.))
     Xe_III = HallThruster.Fluid(HallThruster.Xenon(3), HallThruster.EulerEquations())
     fluids = [
+        Xe_0,
         Xe_0,
         Xe_I,
         Xe_II,
         Xe_III
     ]
 
-    nvars = 1 + 1 + 2 + 2 + 3
+    nvars = 2 + 1 + 2 + 2 + 3
 
     U, cache = HallThruster.allocate_arrays(grid, fluids)
 
     @test size(U) == (nvars, ncells+2)
 
-    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, nn_tot, ji)
         @test size(arr) == (ncells+2,)
     end
+
+    for arr in (ni, ui, niui)
+        @test size(arr) == (3, ncells+2)
+    end
+
+    @test size(nn) == (2, ncells+2)
 
     @test size(Aϵ) == (ncells+2, ncells+2)
 
@@ -162,6 +170,4 @@ end
     @test quadratic(cutoff * 2000, cutoff, y1, y2) ≈ 101
     @test quadratic(cutoff, cutoff, y1, y2) == 17
     @test quadratic(cutoff + transition_length / 10, cutoff, y1, y2) > 1
-
-
 end

@@ -40,8 +40,10 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
-    solve_neutral_momentum::Bool
-    solve_charge_exchange::Bool
+    solve_background_neutrals::Bool
+    background_pressure::Float64
+    background_neutral_temperature::Float64
+    anode_boundary_condition::Symbol
 end
 
 function Config(;
@@ -53,25 +55,25 @@ function Config(;
         cathode_Te                          = 3.0,
         anode_Te                            = cathode_Te,
         wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
-        neutral_velocity                    = 300.0,
-        neutral_temperature                 = 300.0,
+        neutral_velocity                    = 300.0u"m/s",
+        neutral_temperature                 = 300.0u"K",
         implicit_energy::Number             = 1.0,
         propellant::Gas                     = Xenon,
         ncharge::Int                        = 1,
-        ion_temperature                     = 1000.,
+        ion_temperature                     = 1000.0u"K",
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
         ionization_model::IonizationModel   = IonizationLookup(),
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
         electron_pressure_coupled::Number   = ncharge == 1 ? true : false,
-        min_number_density                  = 1e6,
+        min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
         initial_condition::IC               = DefaultInitialization(),
         callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
-        source_neutrals::S_N                = Returns(0.0),
+        source_neutrals::S_N                = nothing,
         source_ion_continuity::S_IC         = nothing,
         source_ion_momentum::S_IM           = nothing,
         source_potential::S_ϕ               = Returns(0.0),
@@ -79,8 +81,10 @@ function Config(;
         scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
         ion_wall_losses                     = false,
-        solve_neutral_momentum              = false,
-        solve_charge_exchange               = false,
+        solve_background_neutrals           = false,
+        background_pressure                 = 0.0u"Torr",
+        background_neutral_temperature      = 100.0u"K",
+        anode_boundary_condition            = :sheath
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -88,9 +92,16 @@ function Config(;
     source_IC = ion_source_terms(ncharge, source_ion_continuity, "continuity")
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
 
+    # Neutral source terms
+    num_neutral_fluids = 1 + solve_background_neutrals
+    if isnothing(source_neutrals)
+        source_neutrals = fill(Returns(0.0), num_neutral_fluids)
+    end
+
     # Convert to Float64 if using Unitful
     discharge_voltage = convert_to_float64(discharge_voltage, u"V")
     cathode_potential = convert_to_float64(cathode_potential, u"V")
+
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
     neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
@@ -104,9 +115,16 @@ function Config(;
     min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
+    background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
+    background_pressure = convert_to_float64(background_pressure, u"Pa")
+
     if ncharge > 1 && electron_pressure_coupled > 0
         @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
         electron_pressure_coupled = false
+    end
+
+    if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
+        throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
     end
 
     return Config(
@@ -124,8 +142,10 @@ function Config(;
         LANDMARK,
         anode_mass_flow_rate,
         ion_wall_losses,
-        solve_neutral_momentum,
-        solve_charge_exchange,
+        solve_background_neutrals,
+        background_pressure,
+        background_neutral_temperature,
+        anode_boundary_condition,
     )
 end
 
@@ -160,49 +180,57 @@ function make_keys(fluid_range, subscript)
     end
 end
 
-function configure_index(fluid_ranges)
-    lf = fluid_ranges[end][end]
+function configure_fluids(config)
+    propellant = config.propellant
 
-    ncharge = length(fluid_ranges)-1
-    solve_ion_temp = length(fluid_ranges[2]) == 3
+    anode_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
+
+    if config.solve_background_neutrals
+        Tn_background = config.background_neutral_temperature
+        background_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = background_neutral_velocity(config), T = Tn_background))
+        neutral_fluids = [anode_neutral_fluid, background_neutral_fluid]
+    else
+        neutral_fluids = [anode_neutral_fluid]
+    end
+
+    ion_eqns = IsothermalEuler(T = config.ion_temperature)
+    ion_fluids = [Fluid(propellant(Z), ion_eqns) for Z in 1:config.ncharge]
+
+    fluids = [neutral_fluids; ion_fluids]
+
+    species = [f.species for f in fluids]
+
+    fluid_ranges = ranges(fluids)
+    species_range_dict = Dict(Symbol(fluid.species) => UnitRange{Int64}[] for fluid in fluids)
+
+    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
+        push!(species_range_dict[Symbol(fluid.species)], fluid_range)
+    end
+
+    return fluids, fluid_ranges, species, species_range_dict
+end
+
+function configure_index(fluids, fluid_ranges)
+    lf = fluid_ranges[end][end]
+    first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
-    values_neutrals = (1, )
+    values_neutrals = (
+        [f[1] for f in fluid_ranges[1:first_ion_fluid_index-1]],
+    )
 
-    if solve_ion_temp
-        keys_ions = (:ρi, :ρiui, :ρiuiEi)
-        values_ions = (
-            [f[1] for f in fluid_ranges[2:end]]...,
-            [f[2] for f in fluid_ranges[2:end]]...,
-            [f[3] for f in fluid_ranges[2:end]]...,
-        )
-    else
-        keys_ions = (:ρi, :ρiui)
-        values_ions = (
-            [f[1] for f in fluid_ranges[2:end]],
-            [f[2] for f in fluid_ranges[2:end]],
-        )
-    end
+    keys_ions = (:ρi, :ρiui)
+    values_ions = (
+        [f[1] for f in fluid_ranges[first_ion_fluid_index:end]],
+        [f[2] for f in fluid_ranges[first_ion_fluid_index:end]],
+    )
 
     keys_fluids = (keys_neutrals..., keys_ions...)
     values_fluids = (values_neutrals..., values_ions...)
-    keys_electrons = (:nϵ, :Tev, :ne, :pe, :ϕ, :grad_ϕ, :ue)
-    values_electrons = lf .+ collect(1:7)
+    keys_electrons = (:nϵ,)
+    values_electrons = (lf + 1,)
     index_keys = (keys_fluids..., keys_electrons..., :lf)
     index_values = (values_fluids..., values_electrons..., lf)
     index = NamedTuple{index_keys}(index_values)
     return index
-end
-
-function configure_fluids(config)
-    propellant = config.propellant
-    species = [propellant(i) for i in 0:config.ncharge]
-    neutral_fluid = Fluid(species[1], ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
-    ion_eqns = IsothermalEuler(T = config.ion_temperature)
-    ion_fluids = [Fluid(species[i+1], ion_eqns) for i in 1:config.ncharge]
-    fluids = [neutral_fluid; ion_fluids]
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => fluid_range
-                              for (fluid, fluid_range) in zip(fluids, fluid_ranges))
-    return fluids, fluid_ranges, species, species_range_dict
 end

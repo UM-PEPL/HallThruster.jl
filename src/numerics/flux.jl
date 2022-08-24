@@ -226,7 +226,7 @@ function compute_edge_states!(UL, UR, U, params)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids, z_edge, z_cell) = params
+    (;config, index, fluids, z_edge, z_cell, num_neutral_fluids) = params
     λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme, ncharge) = config
     ncells = size(U, 2)
@@ -268,15 +268,18 @@ function compute_fluxes!(F, UL, UR, U, params)
 
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
-        neutral_fluid = fluids[1]
-        U_neutrals = SA[U[index.ρn, i]]
-        u = velocity(U_neutrals, neutral_fluid)
+        for j in 1:num_neutral_fluids
+            neutral_fluid = fluids[j]
+            U_neutrals = SA[U[index.ρn[j], i]]
+            u = velocity(U_neutrals, neutral_fluid)
 
-        λ_global[1] = abs(u)
+            λ_global[j] = abs(u)
+        end
 
         # Ion wave speeds
         for Z in 1:ncharge
-            fluid = fluids[Z+1]
+            fluid_ind = Z + num_neutral_fluids
+            fluid = fluids[fluid_ind]
             γ = fluid.species.element.γ
             UL_ions = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
             UR_ions = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
@@ -309,38 +312,41 @@ function compute_fluxes!(F, UL, UR, U, params)
             dt_max = Δz / s_max
 
             # Update maximum wavespeeds and maximum allowable timestep
-            λ_global[Z+1] = max(s_max, λ_global[Z+1])
+            λ_global[fluid_ind] = max(s_max, λ_global[fluid_ind])
             params.max_timestep[1] = min(dt_max, params.max_timestep[1])
         end
     end
 
     @inbounds for i in 1:nedges
 
-        # Compute number density
+        # Compute electron number density
         neL = 0.0
         neR = 0.0
         for Z in 1:ncharge
             ni_L = UL[index.ρi[Z], i] / mi
             ni_R = UR[index.ρi[Z], i] / mi
-             neL = neL + Z * ni_L
-             neR = neR + Z * ni_R
+            neL = neL + Z * ni_L
+            neR = neR + Z * ni_R
         end
 
         # Compute electron temperature
         ϵL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
         ϵR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
 
-        # Neutral flux at edge i
-        left_state_n  = SA[UL[index.ρn, i]]
-        right_state_n = SA[UR[index.ρn, i]]
+        # Neutral fluxes at edge i
+        for j in 1:params.num_neutral_fluids
+            left_state_n  = SA[UL[index.ρn[j], i]]
+            right_state_n = SA[UR[index.ρn[j], i]]
 
-        F[index.ρn, i] = scheme.flux_function(left_state_n, right_state_n, fluids[1], coupled, ϵL, ϵR, neL, neR, λ_global[1])[1]
+            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], coupled, ϵL, ϵR, neL, neR, λ_global[j])[]
+        end
 
         # Ion fluxes at edge i
         for Z in 1:ncharge
             left_state_i  = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
             right_state_i = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
-            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[Z+1], coupled, ϵL, ϵR, neL, neR, λ_global[Z+1])
+            fluid_ind = Z + num_neutral_fluids
+            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[fluid_ind], coupled, ϵL, ϵR, neL, neR, λ_global[fluid_ind])
             F[index.ρi[Z],   i] = F_mass
             F[index.ρiui[Z], i] = F_momentum
         end

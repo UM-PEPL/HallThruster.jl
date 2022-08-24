@@ -75,6 +75,10 @@ right_edge(i) = i
 
 @inline inlet_neutral_density(config) = config.anode_mass_flow_rate / config.neutral_velocity / config.thruster.geometry.channel_area
 
+@inline background_neutral_density(config) = config.propellant.m * config.background_pressure / kB / config.background_neutral_temperature
+
+@inline background_neutral_velocity(config) = -sqrt(kB * config.background_neutral_temperature / config.propellant.m)
+
 @inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
 
 function discharge_current(U, params)

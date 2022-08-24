@@ -17,7 +17,7 @@ function update_electron_energy!(U, params)
     Aϵ.d[end] = 1.0
     Aϵ.dl[end] = 0.0
 
-    if config.LANDMARK || ue[1] > 0
+    if config.anode_boundary_condition == :dirichlet || ue[1] > 0
         bϵ[1] = 1.5 * Te_L * ne[1]
     else
         # Neumann BC for internal energy
@@ -90,7 +90,7 @@ function update_electron_energy!(U, params)
             FL_factor_C = -κL / ΔzL / ne0
             FL_factor_R = 0.0
         else
-            if i == 2 && !config.LANDMARK
+            if i == 2 && config.anode_boundary_condition == :sheath
                 # left flux is sheath heat flux
                 Te0 = 2/3 * nϵ0 / ne0
 
@@ -107,6 +107,7 @@ function update_electron_energy!(U, params)
                 FL_factor_C = -κL / ΔzL / ne0
                 FL_factor_R = 0.0
             else
+                # Upwind differences
                 FL_factor_L = κ0 / ΔzL / neL
                 FL_factor_C = 5/3 * ue0 - κ0 / ΔzL / ne0
                 FL_factor_R = 0.0

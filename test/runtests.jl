@@ -6,6 +6,7 @@ using Symbolics
 using Statistics
 using DelimitedFiles
 using LinearAlgebra
+using Unitful
 
 doctest(HallThruster)
 
@@ -19,28 +20,6 @@ include("unit_tests/test_boundary_conditions.jl")
 include("unit_tests/test_walls.jl")
 include("unit_tests/test_initialization.jl")
 include("unit_tests/test_restarts.jl")
-
-#=@testset "Order verification (potential and gradients)" begin
-    include("order_verification/ovs_funcs.jl")
-    include("order_verification/ovs_potential.jl")
-    refinements = refines(4, 10, 2)
-    # check that first-order convergence is maintained for L1, L2, and L∞ norms
-
-    for p in (1, 2, Inf)
-        (slope_ϕ,), norms_ϕ =  test_refinements(OVS_Potential.verify_potential, refinements, p)
-        (slope_∇ϕ, slope_∇pe), norms_grad =  test_refinements(OVS_Potential.verify_gradients, refinements, p)
-
-        tol = 0.1
-
-        @show slope_ϕ, slope_∇ϕ, slope_∇pe
-
-        # Check that potential is computed with second-order accuracy or better
-        @test abs(slope_ϕ - 2.0) < tol || slope_ϕ > 2.0
-        # Check that potential and pressure gradients are second-order
-        @test abs(slope_∇ϕ - 2.0) < tol || slope_∇ϕ > 2.0
-        @test abs(slope_∇pe - 2.0) < tol || slope_∇pe > 2.0
-    end
-end=#
 
 @testset "Order verification (electron energy)" begin
     include("order_verification/ovs_funcs.jl")
