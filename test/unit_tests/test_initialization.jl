@@ -128,7 +128,7 @@ end
     )
 
     @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.ContinuityOnly(-0.25 * sqrt(ustrip(TB) * HallThruster.kB / Xenon.m), ustrip(TB))
+    @test fluids[2].conservation_laws == HallThruster.ContinuityOnly(-sqrt(ustrip(TB) * HallThruster.kB / Xenon.m), ustrip(TB))
     @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
     @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
     @test fluids[5].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
