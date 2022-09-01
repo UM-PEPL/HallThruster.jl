@@ -150,7 +150,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
     elseif field == :ui
         return [saved[:ui][charge, :] for saved in sol.savevals]
     elseif field == :niui
-        return [saved[:ui][charge, :] for saved in sol.savevals]
+        return [saved[:niui][charge, :] for saved in sol.savevals]
     elseif field == :B
         return [sol.params.cache.B]
     elseif field == :ωce
