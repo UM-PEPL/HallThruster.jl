@@ -197,14 +197,16 @@ function load_landmark_data(case, suffix; ncells = 100)
     ui = fill(NaN, length(zs))
     ue = fill(NaN, length(zs))
 
+    ne = ne_itp.(zs)
+
     cache = (;
         ue = ue,
         Tev = 2/3 * ϵ_itp.(zs),
         pe = ϵ_itp.(zs),
         ne = ne_itp.(zs),
-        ni = [ne_itp.(zs)]' |> collect,
-        ui = [ui]' |> collect,
-        niui = [ui]' |> collect,
+        ni = ne' |> collect,
+        ui = ui' |> collect,
+        niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
         nn_tot = nn,
