@@ -101,7 +101,7 @@
             for rxn in ionization_reactions
                 if rxn.product.Z == Z
                     if rxn.reactant.Z == 0
-                        reactant_density = sol[:nn][frame]
+                        reactant_density = sol[:nn_tot][frame]
                     else
                         reactant_density = sol[:ni, rxn.reactant.Z][frame]
                     end
