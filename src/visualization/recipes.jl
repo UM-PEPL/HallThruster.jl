@@ -44,29 +44,7 @@
         color := 1
         ()
     end
-    #=
-    if sol.params.config.solve_background_neutrals
-        @series begin
-            y := sol[:nn, 1][frame]
-            ylabel := "Density (m⁻³)"
-            subplot := 1
-            title := "Neutral density"
-            label := label_mod * comma * "Anode"
-            color := 1
-            ()
-        end
 
-        @series begin
-            y := sol[:nn, 2][frame]
-            ylabel := "Density (m⁻³)"
-            subplot := 1
-            title := "Neutral density"
-            label := label_mod * comma * "Background"
-            color := 2
-            ()
-        end
-    end
-    =#
     ne = sol[:ne][frame]
     Tev = sol[:Tev][frame]
 

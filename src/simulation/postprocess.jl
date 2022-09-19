@@ -225,6 +225,9 @@ function load_landmark_data(case, suffix; ncells = 100)
             nϵ = 4,
         ),
         ionization_reactions,
+        config = (;
+            propellant = Xenon,
+        )
     )
 
     retcode = :LANDMARK
