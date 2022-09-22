@@ -1,13 +1,9 @@
 module HallThruster
 
 using StaticArrays
-using CSV
-using DataFrames
 using OrdinaryDiffEq
 using DiffEqBase
-using LoopVectorization
 using LinearAlgebra
-using FileIO
 using DiffEqCallbacks
 using SparseArrays
 using PartialFunctions
@@ -17,6 +13,7 @@ using DocStringExtensions
 using Unitful
 using SpecialFunctions
 using JSON3
+import SnoopPrecompile
 
 # Packages used for making plots
 using Measures: mm
@@ -70,5 +67,17 @@ include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
 export time_average, Xenon, Krypton
+
+# Precompile statements to improve load time
+SnoopPrecompile.@precompile_all_calls begin
+    config = Config(;
+        thruster = SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+    )
+    HallThruster.run_simulation(config; ncells=50, dt=1e-8, duration=1e-6, nsave=2)
+end
+
 
 end # module

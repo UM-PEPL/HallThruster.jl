@@ -1,12 +1,12 @@
 """
     write_restart(path::AbstractString, sol)
 
-Write a restart file to `path``.
+Write a JLD2 restart file to `path``.
 
-This can be reloaded to resume a simulation. The filetype can be anything supported by FileIO, though JLD2 is preferred.
+This can be reloaded to resume a simulation.
 """
 function write_restart(path::AbstractString, sol)
-    save(path, Dict(
+    JLD2.save(path, Dict(
         "t" => sol.t,
         "u" =>  sol.u,
         "savevals" => sol.savevals,
@@ -25,12 +25,10 @@ end
 """
     read_restart(path::AbstractString)
 
-Load a restart file from `path`.
-
-The filetype can be anything supported by FileIO, though JLD2 is preferred.
+Load a JLD2 restart file from `path`.
 """
 function read_restart(path::AbstractString)
-    dict = load(path)
+    dict = JLD2.load(path)
 
     params = (;
         ncharge = dict["ncharge"],
