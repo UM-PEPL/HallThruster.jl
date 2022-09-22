@@ -160,3 +160,13 @@ function tridiagonal_solve(A, b)
     tridiagonal_solve!(y, A′, b′)
     return y
 end
+
+function myerf(x)
+    x < 0 && return -myerf(-x)
+    x_sqrt_pi = x * √(π)
+    x_squared = x^2
+
+    h = x_sqrt_pi + (π-2)*x_squared
+    g = h / (1 + h)
+    return 1 - exp(-x_squared) / x_sqrt_pi * g
+end

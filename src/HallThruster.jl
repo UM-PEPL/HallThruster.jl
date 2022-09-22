@@ -1,6 +1,6 @@
 module HallThruster
 
-using StaticArrays
+#using StaticArrays
 #using OrdinaryDiffEq
 #using DiffEqCallbacks
 
@@ -11,7 +11,7 @@ using SparseArrays: Tridiagonal
 using PartialFunctions
 using QuadGK: quadgk
 using DelimitedFiles: readdlm, writedlm
-using SpecialFunctions: erf
+#using SpecialFunctions: erf
 using FunctionWrappers: FunctionWrapper
 using Unitful: @u_str, uconvert, ustrip, Quantity
 import SnoopPrecompile

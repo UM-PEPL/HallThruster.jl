@@ -14,7 +14,7 @@ function left_boundary_state!(bc_state, U, params)
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
             Vs_norm = Vs / Tev[1]
             # Compute correction factor (see Hara, PSST 28 (2019))
-            χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + erf(sqrt(Vs_norm)))
+            χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
             bohm_factor = inv(√(1 + χ))
         else
             # Ion-repelling sheath, ions have zero velocity at anode
