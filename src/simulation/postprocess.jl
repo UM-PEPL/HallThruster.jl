@@ -46,7 +46,6 @@ function time_average(sol::Solution, tstampstart = 1)
         [avg],
         [avg_savevals],
         sol.retcode,
-        sol.destats,
         sol.params
     )
 end
@@ -129,7 +128,7 @@ function compute_mass_eff(sol)
 end
 
 function cut_solution(sol, tstampstart)
-    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
+    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.params)
     return sol_cut
 end
 
@@ -236,7 +235,6 @@ function load_landmark_data(case, suffix; ncells = 100)
     )
 
     retcode = :LANDMARK
-    destats = nothing
 
     u = zeros(4, length(zs))
 
@@ -250,7 +248,7 @@ function load_landmark_data(case, suffix; ncells = 100)
     u[3, :] = ρiui
     u[4, :] = nϵ
 
-    return Solution([0.0], [u], [cache], retcode, destats, params)
+    return Solution([0.0], [u], [cache], retcode, params)
 end
 
 function frame_dict(sol, frame)

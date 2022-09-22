@@ -11,7 +11,6 @@
     # Check that writing a restart of a restart does not lose any information
     # i.e. restarts are perfectly reconstructable
     @test sol.retcode == :Success
-    @test sol.destats === nothing
     @test sol.u == restart.u
     @test sol.savevals == restart.savevals
     @test sol.params == restart.params

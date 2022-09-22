@@ -141,7 +141,6 @@ Running a simulation returns a `HallThruster.Solution` object. This mimics a Dif
 `u`: A `vector` of simulation state matrices saved at each of the times in `t`
 `savevals`: A `Vector` of `NamedTuple`s containing saved derived plasma properties at each of the times in `t`
 `retcode`: A `Symbol` describing how the simulation finished. This should be `:Success` if the simulation succeeded, but may be `:NaNDetected` if the simulation failed.
-`destats`: An object containing information from the differential equations solver.
 `params`: A NamedTuple containing simulation parameters, such as the `Config` the simulation was run with, the computational grid, and more.
 
 ### Extracting performance metrics

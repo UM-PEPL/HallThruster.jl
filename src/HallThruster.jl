@@ -17,6 +17,7 @@ using Unitful: @u_str, uconvert, ustrip, Quantity
 import SnoopPrecompile
 
 using JSON3
+using JLD2
 
 # Packages used for making plots
 using Measures: mm

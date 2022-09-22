@@ -49,7 +49,7 @@ function read_restart(path::AbstractString)
     end
 
     return Solution(
-        dict["t"], dict["u"], dict["savevals"], retcode, nothing, params
+        dict["t"], dict["u"], dict["savevals"], retcode, params
     )
 end
 

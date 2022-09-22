@@ -53,6 +53,10 @@ end
     for (flux, flux_name) in zip(fluxes, flux_names)
         for reconstruct in (false, true)
 
+            if reconstruct && flux_name == "HLLE"
+                continue
+            end
+
             scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
 
             slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
