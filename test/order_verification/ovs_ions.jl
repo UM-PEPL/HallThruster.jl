@@ -171,7 +171,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
 
     tspan = (0, t_end)
-    dt = 0.2 * (z_cell[end] - z_cell[1]) / ncells / amax #decrease dt for WENO5 scheme
+    dt = 0.2 * (z_cell[end] - z_cell[1]) / ncells / amax
 
     dU = copy(U)
 

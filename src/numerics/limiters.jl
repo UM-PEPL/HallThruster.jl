@@ -1,5 +1,5 @@
-struct SlopeLimiter{F}
-    limiter_func::F
+struct SlopeLimiter
+    limiter_func::FunctionWrapper{Float64, Tuple{Float64}}
 end
 
 function (L::SlopeLimiter)(r)

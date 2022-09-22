@@ -1,3 +1,4 @@
+#=
 function update_values!(integrator)
     (nvars, ncells) = size(integrator.u)
 
@@ -27,6 +28,7 @@ function update_values!(integrator)
         update_values!(integrator.u, integrator.p, integrator.t)
     end
 end
+=#
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_values!(U, params, t = 0)

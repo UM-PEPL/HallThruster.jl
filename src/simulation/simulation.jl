@@ -53,10 +53,13 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     Id  = [0.0]
     Vs = [0.0]
 
+    k = copy(U)
+    u1 = copy(U)
+
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, nn_tot
+                ni, ui, Vs, niui, nn, nn_tot, k, u1
             )
 
     return U, cache
@@ -76,7 +79,7 @@ Run a Hall thruster simulation using the provided Config object.
 - `restart`: path to restart file or a HallThrusterSolution object. Defaults to `nothing`.
 """
 function run_simulation(config::Config;
-    dt, duration, ncells, nsave, alg = SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!),
+    dt, duration, ncells, nsave, alg = nothing#=SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!)=#,
     restart = nothing, CFL = 1.0, adaptive = false)
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
@@ -114,6 +117,8 @@ function run_simulation(config::Config;
         cache.B[i] = config.thruster.magnetic_field(z)
     end
 
+    #=
+
     # callback for calling the update_values! function at each timestep
     update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
 
@@ -139,6 +144,8 @@ function run_simulation(config::Config;
     else
         callbacks = CallbackSet(update_callback, saving_callback)
     end
+
+    =#
 
     # Simulation parameters
     params = (;
@@ -172,7 +179,7 @@ function run_simulation(config::Config;
     )
 
     # Compute maximum allowed iterations
-    maxiters = Int(ceil(1000 * tspan[2] / dt))
+    #maxiters = Int(ceil(1000 * tspan[2] / dt))
 
     if !use_restart
         initialize!(U, params)
@@ -182,11 +189,20 @@ function run_simulation(config::Config;
     update_values!(U, params)
 
     # Set up ODE problem and solve
+    #=
     prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
-	sol = solve(
+    sol = solve(
             prob, alg; saveat, callback=callbacks,
             dt=dt, dtmax=10*dt, dtmin = dt/100, maxiters = maxiters,
-	    )
+        )
+
+    # Return the solution
+    sol = Solution(sol, params, saved_values.saveval)
+    =#
+
+    prob = MyODEProblem(update_heavy_species!, U, tspan, params)
+    sol = mysolve(prob; saveat, dt)
+
 
     # Print some diagnostic information
     if sol.retcode == :NaNDetected
@@ -195,8 +211,7 @@ function run_simulation(config::Config;
         println("Simulation failed with Inf detected at t = $(sol.t[end])")
     end
 
-    # Return the solution
-    return Solution(sol, params, saved_values.saveval)
+    return sol
 end
 
 function run_simulation(json_path::String)
@@ -255,7 +270,7 @@ function run_simulation(json_path::String)
         transition_function = LinearTransition(parameters.inner_outer_transition_length_m, 0.0),
         electron_pressure_coupled = false,
         scheme = HyperbolicScheme(;
-            flux_function, limiter, reconstruct = simulation.reconstruct, WENO = false
+            flux_function, limiter, reconstruct = simulation.reconstruct
         ),
         solve_background_neutrals = simulation.solve_background_neutrals,
         background_pressure = parameters.background_pressure_Torr * u"Torr",

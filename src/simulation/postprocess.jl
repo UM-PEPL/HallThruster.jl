@@ -1,14 +1,13 @@
-struct Solution{T, U, P, S, D}
+struct Solution{T, U, P, S}
     t::T
     u::U
     savevals::S
     retcode::Symbol
-    destats::D
     params::P
 end
 
-function Solution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
+function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
+    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
