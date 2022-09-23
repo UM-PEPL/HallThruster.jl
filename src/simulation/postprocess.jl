@@ -195,20 +195,21 @@ function load_landmark_data(case, suffix; ncells = 100)
     ui = fill(NaN, length(zs))
     ue = fill(NaN, length(zs))
 
-    ne = ne_itp.(zs)
+    nes = ne_itp.(zs)
+    nns = nn_itp.(zs)
 
     cache = (;
         ue = ue,
         Tev = 2/3 * ϵ_itp.(zs),
         pe = ϵ_itp.(zs),
         ne = ne_itp.(zs),
-        ni = ne' |> collect,
+        ni = nes' |> collect,
         ui = ui' |> collect,
         niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        nn_tot = nn,
-        nn,
+        nn_tot = nns,
+        nn = nns' |> collect,
     )
 
     ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);

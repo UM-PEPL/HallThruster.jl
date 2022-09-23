@@ -38,7 +38,7 @@ function mysolve(prob::MyODEProblem; saveat, dt)
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
     u_save = [deepcopy(u) for _ in saveat]
-    savevals = [first_saveval for _ in saveat]
+    savevals = [deepcopy(first_saveval) for _ in saveat]
 
     (nvars, ncells) = size(u)
 
@@ -69,7 +69,9 @@ function mysolve(prob::MyODEProblem; saveat, dt)
         # Save values
         if t > saveat[save_ind]
             u_save[save_ind] .= u
-            savevals[save_ind] = NamedTuple{fields_to_save}(params.cache)
+            for field in fields_to_save
+                savevals[save_ind][field] .= params.cache[field]#NamedTuple{fields_to_save}(params.cache)
+            end
             save_ind += 1
         end
 
