@@ -75,12 +75,9 @@ Run a Hall thruster simulation using the provided Config object.
 - `duration`: How long to run the simulation, in seconds (simulation time, not wall time). Typical runtimes are O(1 ms) (1e-3 seconds).
 - `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
 - `nsave`: How many frames to save.
-- `alg`: Explicit timestepping algorithm to use. Defaults to second-order strong-stability preserving Runge-Kutta with a stage limiter and a step limiter(`SSPRK22(stage_limiter = stage_limiter!)`), but will work with any explicit timestepping algorithm provided by `OrdinaryDiffEq`.
-- `restart`: path to restart file or a HallThrusterSolution object. Defaults to `nothing`.
 """
 function run_simulation(config::Config;
-    dt, duration, ncells, nsave, alg = nothing#=SSPRK22(;stage_limiter!, step_limiter! = stage_limiter!)=#,
-    restart = nothing, CFL = 1.0, adaptive = false)
+    dt, duration, ncells, nsave,  restart = nothing, CFL = 1.0, adaptive = false)
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
@@ -116,36 +113,6 @@ function run_simulation(config::Config;
     for (i, z) in enumerate(grid.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
     end
-
-    #=
-
-    # callback for calling the update_values! function at each timestep
-    update_callback = DiscreteCallback(Returns(true), update_values!, save_positions=(false,false))
-
-    # Choose which cache variables to save and set up saving callback
-    fields_to_save() = (
-        :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot
-    )
-    extract_from_cache(to_save, cache) = NamedTuple{to_save}(cache)
-
-    function save_func(u, t, integrator)
-        return deepcopy(extract_from_cache(fields_to_save(), integrator.p.cache))
-    end
-
-    saved_values = SavedValues(
-        Float64, typeof(extract_from_cache(fields_to_save(), cache))
-    )
-    saving_callback = SavingCallback(save_func, saved_values; saveat)
-
-    # Assemble callback set
-    if config.callback !== nothing
-        callbacks = CallbackSet(update_callback, saving_callback, config.callback)
-    else
-        callbacks = CallbackSet(update_callback, saving_callback)
-    end
-
-    =#
 
     # Simulation parameters
     params = (;
@@ -188,21 +155,9 @@ function run_simulation(config::Config;
     #make values in params available for first timestep
     update_values!(U, params)
 
-    # Set up ODE problem and solve
-    #=
-    prob = ODEProblem{true}(update_heavy_species!, U, tspan, params)
-    sol = solve(
-            prob, alg; saveat, callback=callbacks,
-            dt=dt, dtmax=10*dt, dtmin = dt/100, maxiters = maxiters,
-        )
-
-    # Return the solution
-    sol = Solution(sol, params, saved_values.saveval)
-    =#
-
+    # Set up and solve problem, this form is temporary
     prob = MyODEProblem(update_heavy_species!, U, tspan, params)
     sol = mysolve(prob; saveat, dt)
-
 
     # Print some diagnostic information
     if sol.retcode == :NaNDetected

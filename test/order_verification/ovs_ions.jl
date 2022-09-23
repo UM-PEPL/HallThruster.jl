@@ -2,7 +2,7 @@ module OVS_Ions
 
 include("ovs_funcs.jl")
 
-using Symbolics, HallThruster, LinearAlgebra, OrdinaryDiffEq
+using Symbolics, HallThruster, LinearAlgebra
 
 @variables x t
 

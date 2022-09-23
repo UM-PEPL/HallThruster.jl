@@ -1,9 +1,5 @@
 module HallThruster
 
-#using StaticArrays
-#using OrdinaryDiffEq
-#using DiffEqCallbacks
-
 using LinearAlgebra
 using DocStringExtensions
 
