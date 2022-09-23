@@ -1,7 +1,6 @@
 using HallThruster
 using Test
 using Documenter
-using StaticArrays
 using Symbolics
 using Statistics
 using DelimitedFiles
