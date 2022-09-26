@@ -14,15 +14,15 @@ struct Geometry1D
     channel_area::Float64
     function Geometry1D(;channel_length, inner_radius, outer_radius)
 
-        if channel_length isa Unitful.Quantity
+        if channel_length isa Quantity
             channel_length = ustrip(uconvert(u"m", channel_length))
         end
 
-        if inner_radius isa Unitful.Quantity
+        if inner_radius isa Quantity
             inner_radius = ustrip(uconvert(u"m", inner_radius))
         end
 
-        if outer_radius isa Unitful.Quantity
+        if outer_radius isa Quantity
             outer_radius = ustrip(uconvert(u"m", outer_radius))
         end
 

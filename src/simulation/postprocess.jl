@@ -1,14 +1,13 @@
-struct Solution{T, U, P, S, D}
+struct Solution{T, U, P, S}
     t::T
     u::U
     savevals::S
     retcode::Symbol
-    destats::D
     params::P
 end
 
-function Solution(sol::S, params::P, savevals::SV) where {S<:SciMLBase.AbstractODESolution, P, SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, sol.destats, params)
+function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
+    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
@@ -47,7 +46,6 @@ function time_average(sol::Solution, tstampstart = 1)
         [avg],
         [avg_savevals],
         sol.retcode,
-        sol.destats,
         sol.params
     )
 end
@@ -130,7 +128,7 @@ function compute_mass_eff(sol)
 end
 
 function cut_solution(sol, tstampstart)
-    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.destats, sol.params)
+    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.params)
     return sol_cut
 end
 
@@ -197,20 +195,21 @@ function load_landmark_data(case, suffix; ncells = 100)
     ui = fill(NaN, length(zs))
     ue = fill(NaN, length(zs))
 
-    ne = ne_itp.(zs)
+    nes = ne_itp.(zs)
+    nns = nn_itp.(zs)
 
     cache = (;
         ue = ue,
         Tev = 2/3 * ϵ_itp.(zs),
         pe = ϵ_itp.(zs),
         ne = ne_itp.(zs),
-        ni = ne' |> collect,
+        ni = nes' |> collect,
         ui = ui' |> collect,
         niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        nn_tot = nn,
-        nn,
+        nn_tot = nns,
+        nn = nns' |> collect,
     )
 
     ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);
@@ -237,7 +236,6 @@ function load_landmark_data(case, suffix; ncells = 100)
     )
 
     retcode = :LANDMARK
-    destats = nothing
 
     u = zeros(4, length(zs))
 
@@ -251,7 +249,7 @@ function load_landmark_data(case, suffix; ncells = 100)
     u[3, :] = ρiui
     u[4, :] = nϵ
 
-    return Solution([0.0], [u], [cache], retcode, destats, params)
+    return Solution([0.0], [u], [cache], retcode, params)
 end
 
 function frame_dict(sol, frame)

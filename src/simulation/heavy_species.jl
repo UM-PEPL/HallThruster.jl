@@ -6,54 +6,14 @@ function update_heavy_species!(dU, U, params, t)
     (;index, z_edge, config, cache) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
-        propellant, scheme, thruster, ncharge, ion_wall_losses
+        ncharge, ion_wall_losses
     ) = config
 
     (;F, UL, UR) = cache
 
-    mi = propellant.m
-
-
     ncells = size(U, 2)
-    nedges = length(z_edge)
-
-    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
-
-    ##############################################################
-    #FLUID MODULE
-
-    #fluid BCs now in update_values struct
 
     compute_fluxes!(F, UL, UR, U, params)
-
-    if scheme.WENO #with WENO 5 only going up to 2nd last to boundary cells
-        @inbounds for i in 1:nedges #only fluxes ncells - 1
-
-            # If stencil goes past boundary, we have ghost edges
-            # Where the boundary flux is
-            i_minus_2 = max(1, i - 2)
-            i_minus_1 = max(1, i - 1)
-            i_plus_1 = min(nedges, i+1)
-            i_plus_2 = min(nedges, i+2)
-
-            # Handle neutrals
-            for j in 1:params.num_neutral_fluids
-                F[index.ρn[j], i] = WENO5_compute_fluxes(
-                F[index.ρn[j], i_minus_2], F[index.ρn[j], i_minus_1], F[index.ρn[j], i], F[index.ρn[j], i_plus_1], F[index.ρn[j], i_plus_2])
-            end
-
-            #Handle ions
-            for Z in 1:ncharge
-                @views @. F[index.ρi[Z]:index.ρiui[Z], i] = WENO5_compute_fluxes(
-                    SA[F[index.ρi[Z], i_minus_2], F[index.ρiui[Z], i_minus_2]],
-                    SA[F[index.ρi[Z], i_minus_1], F[index.ρiui[Z], i_minus_1]],
-                    SA[F[index.ρi[Z], i],   F[index.ρiui[Z], i]],
-                    SA[F[index.ρi[Z], i_plus_1], F[index.ρiui[Z], i_plus_1]],
-                    SA[F[index.ρi[Z], i_plus_2], F[index.ρiui[Z], i_plus_2]],
-                )
-            end
-        end
-    end
 
     @inbounds for i in 2:ncells-1
         left = left_edge(i)

@@ -44,15 +44,15 @@
         mXe = Xenon.m
 
         continuity_eq = Fluid(Xe_0, ContinuityOnly(; u, T))
-        continuity_state = SA[ρ]
+        continuity_state = (ρ,)
         continuity = (continuity_state, continuity_eq)
 
         isothermal_eq = Fluid(Xe_0, IsothermalEuler(T))
-        isothermal_state = SA[ρ, ρ * u]
+        isothermal_state = (ρ, ρ * u,)
         isothermal = (isothermal_state, isothermal_eq)
 
         euler_eq = Fluid(Xe_0, EulerEquations())
-        euler_state = SA[ρ, ρ * u, ρ * ϵ]
+        euler_state = (ρ, ρ * u, ρ * ϵ,)
         euler = (euler_state, euler_eq)
 
         laws = [continuity, isothermal, euler]
@@ -125,19 +125,19 @@
             @test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R * T)
         end
 
-        continuity_state_2 = continuity_state * 2
-        isothermal_state_2 = isothermal_state * 2
-        euler_state_2 = euler_state * 2
+        continuity_state_2 = continuity_state .* 2
+        isothermal_state_2 = isothermal_state .* 2
+        euler_state_2 = euler_state .* 2
 
         @testset "Flux computation" begin
             p = ρ * R * T
-            f_euler = SA[ρ * u, ρ * u^2 + p, ρ * u * (ϵ + p / ρ)]
-            @test flux(continuity...) == SA[f_euler[1]]
-            @test flux(isothermal...) == SA[f_euler[1], f_euler[2]]
+            f_euler = (ρ * u, ρ * u^2 + p, ρ * u * (ϵ + p / ρ),)
+            @test flux(continuity...) == (f_euler[1],)
+            @test flux(isothermal...) == (f_euler[1], f_euler[2],)
             @test flux(euler...) == f_euler
 
-            isothermal_state_3 = SA[isothermal_state_2[1], -3 * isothermal_state[2]]
-            euler_state_3 = SA[euler_state_2[1], -2 * euler_state_2[2], euler_state_2[3]]
+            isothermal_state_3 = (isothermal_state_2[1], -3 * isothermal_state[2],)
+            euler_state_3 = (euler_state_2[1], -2 * euler_state_2[2], euler_state_2[3])
 
             # upwind flux
             @test upwind(continuity_state, continuity_state_2, continuity_eq) == flux(continuity...)
@@ -166,54 +166,55 @@
             Te = 6.0
             pe = HallThruster.e * ne * Te
             @test flux(continuity..., pe) ==  flux(continuity...)
-            @test flux(isothermal..., pe) == flux(isothermal...) + SA[0.0, pe]
-            @test flux(euler..., pe) == flux(euler...) + SA[0.0, pe, 0.0]
+            @test flux(isothermal..., pe) == flux(isothermal...) .+ (0.0, pe,)
+            @test flux(euler..., pe) == flux(euler...) .+ (0.0, pe, 0.0,)
         end
 
         @testset "Reconstruction" begin
             # check that if the states actually lie along a line, we correctly reproduce the linear values at the inteface
-            euler_state_L = 0.5 * euler_state
-            euler_state_R = 2.0 * euler_state
+            euler_state_0 = collect(euler_state)
+            euler_state_L = 0.5 .* euler_state_0
+            euler_state_R = 2.0 .* euler_state_0
 
-            edge_L = zeros(length(euler_state), 2)
-            edge_R = zeros(length(euler_state), 2)
-            U_euler = hcat(euler_state_L, euler_state, euler_state_R)
+            edge_L = zeros(length(euler_state_0), 2)
+            edge_R = zeros(length(euler_state_0), 2)
+            U_euler = hcat(euler_state_L, euler_state_0, euler_state_R)
 
             index = (ρi = [1], ρiui = [2])
-            scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false, false)
+            scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false)
             config = (;scheme, ncharge = 1)
             params = (;index, config)
 
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L
             @test edge_R[:, end] == euler_state_R
-            @test edge_L[:, 2] == euler_state
-            @test edge_R[:, 1] == euler_state
+            @test edge_L[:, 2] == euler_state_0
+            @test edge_R[:, 1] == euler_state_0
 
-            scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, true, false)
+            scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, true)
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L
             @test edge_R[:, end] == euler_state_R
 
             # check that if slopes have different signs, the avg slope resets to zero with any flux limiter
-            euler_state_L2 = 2 * euler_state
-            U_euler_2 = hcat(euler_state_L2, euler_state, euler_state_R)
+            euler_state_L2 = 2 .* euler_state_0
+            U_euler_2 = hcat(euler_state_L2, euler_state_0, euler_state_R)
 
             limiters = [
                 HallThruster.koren,
                 HallThruster.minmod,
-                HallThruster.osher,
+                HallThruster.osher(1.5),
                 HallThruster.van_albada,
                 HallThruster.van_leer
             ]
 
             for limiter in limiters
-                scheme = HallThruster.HyperbolicScheme(identity, limiter, true, false)
+                scheme = HallThruster.HyperbolicScheme(identity, limiter, true)
                 HallThruster.compute_edge_states!(edge_L, edge_R, U_euler_2, params)
                 @test edge_L[:, 1] == euler_state_L2
                 @test edge_R[:, end] == euler_state_R
-                @test edge_L[:, 2] == euler_state
-                @test edge_R[:, 1] == euler_state
+                @test edge_L[:, 2] == euler_state_0
+                @test edge_R[:, 1] == euler_state_0
             end
 
         end

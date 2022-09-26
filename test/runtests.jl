@@ -1,7 +1,6 @@
 using HallThruster
 using Test
 using Documenter
-using StaticArrays
 using Symbolics
 using Statistics
 using DelimitedFiles
@@ -49,37 +48,28 @@ end
     limiter = HallThruster.van_leer
     flux_names = ("HLLE", "Rusanov", "Global Lax-Friedrichs")
     fluxes = (HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,)
-    WENO_names = ("WENO off", "WENO on")
-    WENOs = (false, true)
 
     for (flux, flux_name) in zip(fluxes, flux_names)
         for reconstruct in (false, true)
-            for (WENO, WENO_name) in zip(WENOs, WENO_names)
 
-                if WENO && reconstruct || reconstruct && flux_name == "HLLE" || WENO && flux_name == "HLLE"
-                    # Reconstruction and WENO do similar things, no point in running them simulataneously
-                    # and HLLE is not diffusive enough with reconstruction, tends to break quickly
-                    continue
+            if reconstruct && flux_name == "HLLE"
+                continue
+            end
+
+            scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
+
+            slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
+
+            # Check that gradient reconstruction gets us to at least ~1.75-order accuracy
+            theoretical_order = 1 + reconstruct
+            for slope in slopes
+                if !reconstruct
+                    println("No reconstruction, $flux_name: ", slope)
+                else
+                    println("With reconstruction, $flux_name: ", slope)
                 end
-                scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct, WENO)
 
-                slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
-
-                # Check that gradient reconstruction gets us to at least ~1.75-order accuracy
-                theoretical_order = 1 + reconstruct
-                for slope in slopes
-                    if WENO
-                        println("WENO slope: ", slope)
-                    else
-                        if !reconstruct
-                            println("No reconstruction, $flux_name: ", slope)
-                        else
-                            println("With reconstruction, $flux_name: ", slope)
-                        end
-
-                        @test abs(slope - theoretical_order) < 0.25 || slope > theoretical_order
-                    end
-                end
+                @test abs(slope - theoretical_order) < 0.25 || slope > theoretical_order
             end
         end
     end

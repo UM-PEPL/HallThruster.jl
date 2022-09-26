@@ -119,7 +119,7 @@ end
 function cumtrapz!(cache, x, y, y0 = zero(typeof(y[1] * x[1])))
 
     cache[1] = y0
-    for i in 2:length(x)
+    @inbounds for i in 2:lastindex(x)
         Δx = x[i] - x[i-1]
         cache[i] = cache[i-1] + 0.5 * Δx * (y[i] + y[i-1])
     end
@@ -159,4 +159,14 @@ function tridiagonal_solve(A, b)
     b′ = copy(b)
     tridiagonal_solve!(y, A′, b′)
     return y
+end
+
+function myerf(x)
+    x < 0 && return -myerf(-x)
+    x_sqrt_pi = x * √(π)
+    x_squared = x^2
+
+    h = x_sqrt_pi + (π-2)*x_squared
+    g = h / (1 + h)
+    return 1 - exp(-x_squared) / x_sqrt_pi * g
 end

@@ -1,22 +1,19 @@
 module HallThruster
 
-using StaticArrays
-using CSV
-using DataFrames
-using OrdinaryDiffEq
-using DiffEqBase
-using LoopVectorization
 using LinearAlgebra
-using FileIO
-using DiffEqCallbacks
-using SparseArrays
-using PartialFunctions
-using QuadGK
-using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions
-using Unitful
-using SpecialFunctions
+
+using SparseArrays: Tridiagonal
+using PartialFunctions
+using QuadGK: quadgk
+using DelimitedFiles: readdlm, writedlm
+#using SpecialFunctions: erf
+using FunctionWrappers: FunctionWrapper
+using Unitful: @u_str, uconvert, ustrip, Quantity
+import SnoopPrecompile
+
 using JSON3
+using JLD2
 
 # Packages used for making plots
 using Measures: mm
@@ -65,10 +62,41 @@ include("simulation/sourceterms.jl")
 include("simulation/update_values.jl")
 include("simulation/configuration.jl")
 include("simulation/restart.jl")
+include("simulation/ssprk_step.jl")
 include("simulation/simulation.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
 export time_average, Xenon, Krypton
+
+# Precompile statements to improve load time
+SnoopPrecompile.@precompile_all_calls begin
+    for flux_function in [global_lax_friedrichs, rusanov, HLLE]
+        for reconstruct in [true, false]
+            config = Config(;
+                thruster = SPT_100,
+                domain = (0.0u"cm", 8.0u"cm"),
+                discharge_voltage = 300.0u"V",
+                anode_mass_flow_rate = 5u"mg/s",
+                scheme = HyperbolicScheme(;
+                    flux_function, limiter = van_leer, reconstruct
+                )
+            )
+            HallThruster.run_simulation(config; ncells=20, dt=1e-8, duration=1e-7, nsave=2)
+        end
+    end
+end
+
+#=
+using HallThruster
+
+config = HallThruster.Config(;
+    thruster = HallThruster.SPT_100,
+    domain = (0.0u"cm", 8.0u"cm"),
+    discharge_voltage = 300.0u"V",
+    anode_mass_flow_rate = 5u"mg/s",
+)
+HallThruster.run_simulation(config; ncells=20, dt=1e-8, duration=1e-7, nsave=2)
+=#
 
 end # module

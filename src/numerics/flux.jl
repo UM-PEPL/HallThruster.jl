@@ -1,37 +1,79 @@
-Base.@kwdef struct HyperbolicScheme{F,L}
+Base.@kwdef struct HyperbolicScheme{F}
     flux_function::F = global_lax_friedrichs
-    limiter::L = van_leer
+    limiter::SlopeLimiter = van_leer
     reconstruct::Bool = true
-    WENO::Bool = false
 end
 
-function flux(U::SVector{1, T}, fluid, pe = 0.0) where T
+function flux(U::NTuple{1, T}, fluid, pe = 0.0) where T
     ρ = U[1]
     u = velocity(U, fluid)
-    return SA[ρ * u]
+    return (ρ * u,)
 end
 
-function flux(U::SVector{2, T}, fluid, pe = 0.0) where T
+function flux(U::NTuple{2, T}, fluid, pe = 0.0) where T
     ρ, ρu = U
     u = velocity(U, fluid)
     p = pressure(U, fluid)
 
-    return SA[ρu, ρu * u + p + pe]
+    return (ρu, ρu * u + p + pe)
 end
 
-function flux(U::SVector{3, T}, fluid, pe = 0.0) where T
+function flux(U::NTuple{3, T}, fluid, pe = 0.0) where T
     ρ, ρu, ρE = U
     u = U[2] / U[1]
     p = pressure(U, fluid)
     ρH = ρE + p
-    return SA[ρu, ρu * u + p + pe, ρH * u]
+    return (ρu, ρu * u + p + pe, ρH * u)
+end
+
+macro NTuple(ex)
+    if !isa(ex, Expr)
+        error("Bad input for @NTuple")
+    end
+    head = ex.head
+    if head === :comprehension
+        if length(ex.args) != 1 || !isa(ex.args[1], Expr) || ex.args[1].head != :generator
+            error("Expected generator in comprehension, e.g. [f(i) for i = 1:3]")
+        end
+        ex = ex.args[1]
+        if length(ex.args) != 2
+            error("Use a one-dimensional comprehension for @$SV")
+        end
+        rng = eval(ex.args[2].args[2])
+        exprs = (:(f($j)) for j in rng)
+        return quote
+            let
+                f($(esc(ex.args[2].args[1]))) = $(esc(ex.args[1]))
+                NTuple{$(length(rng))}($tuple($(exprs...)))
+            end
+        end
+    elseif head === :typed_comprehension
+        if length(ex.args) != 2 || !isa(ex.args[2], Expr) || ex.args[2].head != :generator
+            error("Expected generator in typed comprehension, e.g. Float64[f(i) for i = 1:3]")
+        end
+        T = esc(ex.args[1])
+        ex = ex.args[2]
+        if length(ex.args) != 2
+            error("Use a one-dimensional comprehension for @$SV")
+        end
+        rng = eval(ex.args[2].args[2])
+        exprs = (:(f($j)) for j in rng)
+        return quote
+            let
+                f($(esc(ex.args[2].args[1]))) = $(esc(ex.args[1]))
+                NTuple{$(length(rng)),$T}($tuple($(exprs...)))
+            end
+        end
+    else
+        error("Expected comprehension")
+    end
 end
 
 # use fun metaprogramming create specialized flux versions for each type of fluid
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function upwind(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function upwind(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
 
@@ -48,7 +90,7 @@ for NUM_CONSERVATIVE in 1:3
         end
     end
 
-    function rusanov(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -76,10 +118,10 @@ for NUM_CONSERVATIVE in 1:3
         FL = flux(UL, fluid, charge_factor * peL)
         FR = flux(UR, fluid, charge_factor * peR)
 
-        return @SVector [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
+        return @NTuple [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
-    function HLLE(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -108,7 +150,7 @@ for NUM_CONSERVATIVE in 1:3
         FL = flux(UL, fluid, charge_factor * peL)
         FR = flux(UR, fluid, charge_factor * peR)
 
-        return @SVector[
+        return @NTuple[
             0.5 * (FL[j] + FR[j]) -
             0.5 * (smax + smin) / (smax - smin) * (FR[j] - FL[j]) +
             smax * smin / (smax - smin) * (UR[j] - UL[j])
@@ -116,7 +158,7 @@ for NUM_CONSERVATIVE in 1:3
         ]
     end
 
-    function global_lax_friedrichs(UL::SVector{$NUM_CONSERVATIVE, T}, UR::SVector{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0, args...) where T
+    function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -131,42 +173,13 @@ for NUM_CONSERVATIVE in 1:3
         FL = flux(UL, fluid, charge_factor * peL)
         FR = flux(UR, fluid, charge_factor * peR)
 
-        return @SVector[
+        return @NTuple[
             0.5 * (FL[j] + FR[j]) + 0.5 * λ_global * (UL[j] - UR[j])
             for j in 1:$(NUM_CONSERVATIVE)
         ]
     end
 
     end)
-end
-
- #input is flux from HLLE or rusanov as first order, only on a large stencil. if not enough points available, reduce to first order
- function WENO5_compute_fluxes(f₋₂, f₋₁, f₀, f₊₁, f₊₂)
-    f_hat¹ = 1/3*f₋₂ - 7/6*f₋₁ + 11/6*f₀
-    f_hat² = -1/6*f₋₁ + 5/6*f₀ + 1/3*f₊₁
-    f_hat³ = 1/3*f₀ + 5/6*f₊₁ - 1/6*f₊₂
-
-    γ₁ = 1/10
-    γ₂ = 3/5
-    γ₃ = 3/10
-
-    β₁ = 12/13*(f₋₂ - 2*f₋₁ + f₀).^2 + 1/4*(f₋₂ - 4*f₋₁ + 3*f₀).^2
-    β₂ = 12/13*(f₋₁ - 2*f₀ + f₊₁).^2 + 1/4*(f₋₁ - f₊₁).^2
-    β₃ = 12/13*(f₀ - 2*f₊₁ + f₊₂).^2 + 1/4*(3*f₀ - 4*f₊₁ + f₊₂).^2
-
-    ϵₖ = 1e-6
-
-    w_tilde₁ = γ₁/(ϵₖ .+ β₁).^2
-    w_tilde₂ = γ₂/(ϵₖ .+ β₂).^2
-    w_tilde₃ = γ₃/(ϵₖ .+ β₃).^2
-
-    w₁ = w_tilde₁ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
-    w₂ = w_tilde₂ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
-    w₃ = w_tilde₃ / (w_tilde₁ + w_tilde₂ + w_tilde₃)
-
-    f_hat = w₁*f_hat¹ + w₂*f_hat² + w₃*f_hat³
-
-    return f_hat
 end
 
 function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
@@ -270,7 +283,7 @@ function compute_fluxes!(F, UL, UR, U, params)
         # The only wave speed for neutrals is the neutral convection velocity
         for j in 1:num_neutral_fluids
             neutral_fluid = fluids[j]
-            U_neutrals = SA[U[index.ρn[j], i]]
+            U_neutrals = (U[index.ρn[j], i],)
             u = velocity(U_neutrals, neutral_fluid)
 
             λ_global[j] = abs(u)
@@ -281,8 +294,8 @@ function compute_fluxes!(F, UL, UR, U, params)
             fluid_ind = Z + num_neutral_fluids
             fluid = fluids[fluid_ind]
             γ = fluid.species.element.γ
-            UL_ions = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
-            UR_ions = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
+            UL_ions = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i],)
+            UR_ions = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i],)
 
             uL = velocity(UL_ions, fluid)
             TL = temperature(UL_ions, fluid)
@@ -335,16 +348,16 @@ function compute_fluxes!(F, UL, UR, U, params)
 
         # Neutral fluxes at edge i
         for j in 1:params.num_neutral_fluids
-            left_state_n  = SA[UL[index.ρn[j], i]]
-            right_state_n = SA[UR[index.ρn[j], i]]
+            left_state_n  = (UL[index.ρn[j], i],)
+            right_state_n = (UR[index.ρn[j], i],)
 
-            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], coupled, ϵL, ϵR, neL, neR, λ_global[j])[]
+            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], coupled, ϵL, ϵR, neL, neR, λ_global[j])[1]
         end
 
         # Ion fluxes at edge i
         for Z in 1:ncharge
-            left_state_i  = SA[UL[index.ρi[Z], i], UL[index.ρiui[Z], i]]
-            right_state_i = SA[UR[index.ρi[Z], i], UR[index.ρiui[Z], i]]
+            left_state_i  = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i],)
+            right_state_i = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i],)
             fluid_ind = Z + num_neutral_fluids
             F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[fluid_ind], coupled, ϵL, ϵR, neL, neR, λ_global[fluid_ind])
             F[index.ρi[Z],   i] = F_mass
