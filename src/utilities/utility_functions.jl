@@ -81,7 +81,7 @@ right_edge(i) = i
 
 @inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
 
-function discharge_current(U, params)
+function discharge_current(U::Matrix, params)
     (;z_cell, A_ch, cache, z_cell, ϕ_L, ϕ_R) = params
     (;∇pe, μ, ne, ji, Vs) = cache
 

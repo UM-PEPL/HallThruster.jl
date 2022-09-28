@@ -33,7 +33,7 @@ my_geometry = HallThruster.Geometry1D(
 
 ## Magnetic field
 
-The next thing we need is a magnetic field function. This can by any callable object, so long as it takes in an axial location in meters and returns a magnetic field strength in Tesla. Let's use a magnetic field with a Gaussian shape and a peak radial magnetic field strength of 200 Gauss at the channel exit plane:
+The next thing we need is a magnetic field function. This can by any callable object, so long as it takes in an axial location in meters and returns a magnetic field strength in Teslas. Let's use a magnetic field with a Gaussian shape and a peak radial magnetic field strength of 200 Gauss at the channel exit plane:
 
 ```julia
 function my_magnetic_field(z)
@@ -121,9 +121,9 @@ Now we can run a simulation. To do this, we use the `run_simulation` function. I
 
 ```julia
 julia> @time my_solution = HallThruster.run_simulation(my_config; ncells=150, nsave=10000, dt=1e-8, duration=1e-3)
- 31.246001 seconds (293.56 k allocations: 312.553 MiB)
+ 36.058672 seconds (783.66 k allocations: 519.964 MiB)
 Hall thruster solution with 10000 saved frames
-Retcode: Success
+Retcode: success
 End time: 0.001 seconds
 ```
 
@@ -145,47 +145,52 @@ Running a simulation returns a `HallThruster.Solution` object. This mimics a Dif
 
 ### Extracting performance metrics
 
-After running a simulation, the two things we might care the most about are the predicted thrust and discharge current. These can be computed with the `compute_thrust` and `compute_current` functions, respectively.
+After running a simulation, the two things we might care the most about are the predicted thrust and discharge current. These can be computed with the `thrust` and `discharge_current` functions, respectively.
 
 ```julia
-julia> HallThruster.compute_thrust(my_solution) # thrust in Newtons at every saved frame
+julia> HallThruster.thrust(my_solution) # Thrust in Newtons at every saved frame
 10000-element Vector{Float64}:
  0.24759825170838257
- 0.2366015436119258
+ 0.23553180163085566
  ⋮
- 0.16775042670178264
- 0.16775042670082455
+ 0.1677545384599781
+ 0.1677545384591017
+
+julia> HallThruster.thrust(my_solution, 12) # Thrust in Newtons at the twelfth frame
+0.16887856098607704
 ```
+
 
 ```julia
-julia> HallThruster.compute_current(my_solution)
-3×10000 Matrix{Float64}:
-  9.9178    9.59445   9.30165   9.03338  …   6.98099   6.98099   6.98099   6.98099
-  5.91132   6.90747   7.24979   7.23885      5.64394   5.64394   5.64394   5.64394
- 15.8291   16.5019   16.5514   16.2722      12.6249   12.6249   12.6249   12.6249
+julia> HallThruster.discharge_current(my_solution) # Discharge current in A at every frame
+10000-element Vector{Float64}:
+ 16.594260447976414
+ 16.491449186956455
+  ⋮
+ 12.635410795570154
+ 12.63541079552306
+
+julia> HallThruster.discharge_current(my_solution, 1999) # Discharge current in A at the 1999th frame
+12.137864749597252
+
 ```
-
-The `compute_current` function returns a matrix with three rows. The first is the ion current, the second is the electron current, and the third is the total discharge current.
-
 We can plot the ion, electron, and total currents using our plotting package of choice. In this case, we use Plots
 
 ```julia
 using Plots
-
-currents = HallThruster.compute_current(my_solution)
 time_us = my_solution.t .* 1_000_000 # Convert time from seconds to microseconds
-ion_current = currents[1, :]
-electron_current = currents[2, :]
-discharge_current = currents[3, :]
+I_ion = ion_current(my_solution)
+I_total = discharge_current(my_solution)
+I_electron = I_total .- I_ion # we can also just type electron_current(my_solution)
 
 p = plot(
-    time_us, ion_current;
+    time_us, I_ion;
     label = "Ion current",
     xlabel = "Time (microseconds)",
 	ylabel = "Current (A)"
 )
-plot!(p, time_us, electron_current; label = "Electron current")
-plot!(p, time_us, discharge_current; label = "Discharge current", linewidth = 2)
+plot!(p, time_us, I_electron; label = "Electron current")
+plot!(p, time_us, I_total; label = "Discharge current", linewidth = 2)
 
 display(p)
 
@@ -260,15 +265,13 @@ $$\eta_a = \frac{1}{2}\frac{T^2}{\dot{m} V_d I_d}$$
 We can compute this using the `compute_anode_eff` function, which returns the anode efficiency at every timestep:
 
 ```julia
-julia> HallThruster.compute_anode_eff(my_solution)
+julia> HallThruster.anode_eff(my_solution)
 10000-element Vector{Float64}:
- 0.4643621579571662
- 0.4644103835654721
- 0.46446661361110153
+ 0.769654845938557
+ 0.7008079984180736
  ⋮
- 0.46475792255626464
- 0.4647579225562488
- 0.4647579225562337
+ 0.46399997114634145
+ 0.46399997114322283
 ```
 
 !!! warning "Computing average efficiencies"
@@ -277,50 +280,44 @@ julia> HallThruster.compute_anode_eff(my_solution)
     efficiencies    from the averaged plasma properties then it is to average the instantaneous efficiencies. For example,
 
     ```julia
-    avg_eff = mean(HallThruster.compute_anode_eff(my_solution))  # Wrong
-    avg_eff = HallThruster.compute_anode_eff(time_average(my_solution)[] # Right
+    avg_eff = mean(HallThruster.anode_eff(my_solution))  # not ideal
+    avg_eff = HallThruster.anode_eff(time_average(my_solution)[] # better
     ```
 
 The mass utilization efficiency is the ratio of the ion beam mass flow rate to the total anode input mass flow rate and is computed with `compute_mass_eff`:
 
 ```julia
-julia> HallThruster.compute_mass_eff(my_solution)
+julia> HallThruster.mass_eff(my_solution)
 10000-element Vector{Float64}:
- 1.0022078211150225
- 1.00219792393588
- 1.0022045545808467
+ 1.3406882897286088
+ 1.2966376960524595
  ⋮
- 1.0025214991478901
- 1.0025214991478744
- 1.0025214991478621
+ 1.0022667540786294
+ 1.0022667540739632
 ```
 
 The current utilization efficiency is the ratio of the ion current to the discharge current:
 
 ```julia
-julia> HallThruster.compute_current_eff(my_solution)
+julia> HallThruster.current_eff(my_solution)
 10000-element Vector{Float64}:
- 0.5529551360746612
- 0.5529146604803761
- 0.5529634117427186
+ 0.599052550532874
+ 0.58182111692138
  ⋮
- 0.5528650619237234
- 0.55286506192371
- 0.5528650619237044
+ 0.552664262832069
+ 0.5526642628312223
 ```
 
 The voltage utilization efficiency is the ratio of the effective acceleration voltage to the discharge voltage:
 
 ```julia
-julia> HallThruster.compute_voltage_eff(my_solution)
+julia> HallThruster.voltage_eff(my_solution)
 10000-element Vector{Float64}:
- 0.8858297048001041
- 0.8859321592832738
- 0.8859000410683984
+ 0.9962185160007747
+ 0.9699301625865606
  ⋮
- 0.886250707525439
- 0.8862507075254344
- 0.8862507075254302
+ 0.8856545575551746
+ 0.8856545575546175
 ```
 
 ### Extracting plasma properties

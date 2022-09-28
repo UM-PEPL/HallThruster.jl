@@ -54,7 +54,7 @@ function Config(;
         cathode_potential                   = 0.0,
         cathode_Te                          = 3.0,
         anode_Te                            = cathode_Te,
-        wall_loss_model::WallLossModel      = ConstantSheathPotential(sheath_potential = -20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0),
+        wall_loss_model::WallLossModel      = WallSheath(BNSiO2, 0.15),
         neutral_velocity                    = 300.0u"m/s",
         neutral_temperature                 = 300.0u"K",
         implicit_energy::Number             = 1.0,

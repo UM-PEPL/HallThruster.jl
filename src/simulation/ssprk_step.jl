@@ -54,19 +54,19 @@ function mysolve(prob::MyODEProblem; saveat, dt)
 
         @inbounds for j in 1:ncells, i in 1:nvars
             if isnan(u[i, j])
-                println("NaN detected in variable $i in cell $j at time $(integrator.t)")
+                println("NaN detected in variable $i in cell $j at time $(t)")
                 nandetected = true
                 retcode = :NaNDetected
                 break
             elseif isinf(u[i, j])
-                println("Inf detected in variable $i in cell $j at time $(integrator.t)")
+                println("Inf detected in variable $i in cell $j at time $(t)")
                 infdetected = true
                 retcode = :InfDetected
                 break
             end
         end
 
-        # Save values
+        # Save values, TODO interpolate these to be exact
         if t > saveat[save_ind]
             u_save[save_ind] .= u
             for field in fields_to_save

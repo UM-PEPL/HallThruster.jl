@@ -78,53 +78,69 @@ function compute_current(sol, location = "cathode")
     return current
 end
 
-function compute_thrust(sol)
+function thrust(sol, frame)
     index = sol.params.index
-    thrust = zeros(length(sol.t))
     area = sol.params.A_ch
-    for i in 1:length(sol.t)
-        for Z in 1:sol.params.config.ncharge
-            thrust[i] += area * sol.u[i][index.ρiui[Z], end]^2 / sol.u[i][index.ρi[Z], end]
-            thrust[i] -= area * sol.u[i][index.ρiui[Z], 1]^2 / sol.u[i][index.ρi[Z], 1]
-        end
+    thrust = 0.0
+    for Z in 1:sol.params.config.ncharge
+        thrust += area * sol.u[frame][index.ρiui[Z], end]^2 / sol.u[frame][index.ρi[Z], end]
+        thrust -= area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
     end
+
     return thrust
 end
 
-function compute_anode_eff(sol)
-    thrust = compute_thrust(sol)
-    current = reduce(vcat, sol[:Id])
+discharge_current(sol, frame) = sol.savevals[frame].Id[]
+
+function anode_eff(sol, frame)
+    T = thrust(sol, frame)
+    current = discharge_current(sol, frame)
     Vd = sol.params.config.discharge_voltage
     mdot_a = sol.params.config.anode_mass_flow_rate
-    anode_eff = @. 0.5 * thrust^2 / current / Vd / mdot_a
+    anode_eff = 0.5 * T^2 / current / Vd / mdot_a
     return anode_eff
 end
 
-function compute_voltage_eff(sol)
+function voltage_eff(sol, frame)
     Vd = sol.params.config.discharge_voltage
-    nsave = length(sol.t)
     mi = sol.params.config.propellant.m
 
-    ui = sol[:ui, 1]
-
-    voltage_eff = [0.5 * mi * ui[i][end]^2 / e / Vd for i in 1:nsave]
+    ui = sol.u[frame][sol.params.index.ρiui[1], end] / sol.u[frame][sol.params.index.ρi[1], end]
+    voltage_eff = 0.5 * mi * ui^2 / e / Vd
     return voltage_eff
 end
 
-function compute_current_eff(sol)
-    currents = compute_current(sol)
-    Ii = currents[1, :]
-    Id = currents[3, :]
-    return @. Ii / Id
+function ion_current(sol, frame)
+    Ii = 0.0
+    A = sol.params.A_ch
+    mi = sol.params.config.propellant.m
+    for Z in 1:sol.params.config.ncharge
+        Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * A / mi
+    end
+    return Ii
 end
 
-function compute_mass_eff(sol)
-    mass_eff = [
-        sum(sol.u[i][sol.params.index.ρiui[Z], end] for Z in 1:sol.params.config.ncharge) * sol.params.A_ch /
-        sol.params.config.anode_mass_flow_rate
-        for i in 1:length(sol.t)
-    ]
+electron_current(sol, frame) = discharge_current(sol, frame) - ion_current(sol, frame)
+current_eff(sol, frame) = ion_current(sol, frame) / discharge_current(sol, frame)
+
+function mass_eff(sol, frame)
+    mass_eff = 0.0
+
+    A = sol.params.A_ch
+    mi = sol.params.config.propellant.m
+    mdot = sol.params.config.anode_mass_flow_rate
+
+    for Z in 1:sol.params.config.ncharge
+        mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * A / mdot
+    end
+
     return mass_eff
+end
+
+for func in [:thrust, :discharge_current, :ion_current, :electron_current, :mass_eff, :voltage_eff, :anode_eff, :current_eff]
+    eval(quote
+        $(func)(sol) = [$(func)(sol, i) for i in eachindex(sol.t)]
+    end)
 end
 
 function cut_solution(sol, tstampstart)
@@ -133,9 +149,6 @@ function cut_solution(sol, tstampstart)
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
-    mi = sol.params.mi
-    index = sol.params.index
-    ncells = size(sol.u[1], 2)
 
     if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
@@ -256,6 +269,11 @@ function frame_dict(sol, frame)
     filler = zeros(length(sol.params.z_cell))
     ncharge = sol.params.config.ncharge
     Dict(
+        "thrust" => thrust(sol),
+        "discharge_current" => discharge_current(sol),
+        "mass_eff" => mass_eff(sol),
+        "voltage_eff" => voltage_eff(sol),
+        "current_eff" => current_eff(sol),
         "t" => sol.t[frame],
         "z" => sol.params.z_cell,
         "nn" => sol[:nn, 1][frame],

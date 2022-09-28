@@ -69,34 +69,20 @@ include("visualization/recipes.jl")
 
 export time_average, Xenon, Krypton
 
-# Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
-    for flux_function in [global_lax_friedrichs, rusanov, HLLE]
-        for reconstruct in [true, false]
-            config = Config(;
-                thruster = SPT_100,
-                domain = (0.0u"cm", 8.0u"cm"),
-                discharge_voltage = 300.0u"V",
-                anode_mass_flow_rate = 5u"mg/s",
-                scheme = HyperbolicScheme(;
-                    flux_function, limiter = van_leer, reconstruct
-                )
-            )
-            HallThruster.run_simulation(config; ncells=20, dt=1e-8, duration=1e-7, nsave=2)
-        end
-    end
+function example_simulation(;ncells, duration, dt, nsave)
+    config = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        wall_loss_model = WallSheath(BoronNitride, 0.15)
+    )
+    HallThruster.run_simulation(config; ncells, duration, dt, nsave)
 end
 
-#=
-using HallThruster
-
-config = HallThruster.Config(;
-    thruster = HallThruster.SPT_100,
-    domain = (0.0u"cm", 8.0u"cm"),
-    discharge_voltage = 300.0u"V",
-    anode_mass_flow_rate = 5u"mg/s",
-)
-HallThruster.run_simulation(config; ncells=20, dt=1e-8, duration=1e-7, nsave=2)
-=#
+# Precompile statements to improve load time
+SnoopPrecompile.@precompile_all_calls begin
+    example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+end
 
 end # module
