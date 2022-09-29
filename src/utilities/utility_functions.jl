@@ -53,18 +53,18 @@ function find_left_index(value, array)
         return 1
     end
 
-    left = 1
+    left = 0
     right = N
-    while true
-        mid = (left + right) ÷ 2
-        if value > array[mid + 1]
-            left = mid
-        elseif value < array[mid]
+
+    @inbounds while (right - left) > 1
+        mid = (left + right) >>> 0x01
+        if array[mid] > value
             right = mid
         else
-            return mid
+            left = mid
         end
     end
+    return left
 end
 
 
