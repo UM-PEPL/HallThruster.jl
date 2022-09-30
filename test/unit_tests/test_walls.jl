@@ -12,7 +12,11 @@
     Tev = 4.0
     ne = 1e18
     cache = (;
-        ne = [ne, ne, ne, ne], Tev = [Tev, Tev, Tev, Tev], Z_eff = [1.0, 1.0, 1.0, 1.0]
+        ne = [ne, ne, ne, ne],
+        Tev = [Tev, Tev, Tev, Tev],
+        Z_eff = [1.0, 1.0, 1.0, 1.0],
+        ni = [ne ne ne ne],
+        γ_SEE = [0.0, 0.0, 0.0, 0.0]
     )
     transition_function = HallThruster.StepFunction()
     config = (;
@@ -27,7 +31,36 @@
 
     grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, 2, (0, 2 * L_ch))
 
-    params = (;cache, config, index, z_cell = grid.cell_centers, z_edge = grid.edges, L_ch = L_ch, A_ch = A_ch)
+    z_cell = grid.cell_centers
+    z_edge = grid.edges
+
+    # Fill up cell lengths and magnetic field vectors
+    Δz_cell = zeros(length(z_cell))
+    Δz_edge = zeros(length(z_edge))
+    for (i, z) in enumerate(grid.cell_centers)
+        if firstindex(z_cell) < i < lastindex(z_cell)
+            Δz_cell[i] = z_edge[HallThruster.right_edge(i)] - z_edge[HallThruster.left_edge(i)]
+        elseif i == firstindex(z_cell)
+            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
+        elseif i == lastindex(z_cell)
+            Δz_cell[i] = z_edge[end] - z_edge[end-1]
+        end
+    end
+
+    for i in eachindex(z_edge)
+        Δz_edge[i] = z_cell[i+1] - z_cell[i]
+    end
+
+
+    mi_kr = HallThruster.Krypton.m
+    γmax = 1 - 8.3 * sqrt(me/mi)
+    γmax_kr = 1 - 8.3 * sqrt(me/mi_kr)
+
+    params = (;
+        cache, config, index, z_cell = grid.cell_centers,
+        z_edge = grid.edges, L_ch = L_ch, A_ch = A_ch,
+        Δz_edge, Δz_cell, γ_SEE_max = γmax
+    )
 
     ρi = ne * mi
     nϵ = 3/2 * ne * Tev
@@ -48,11 +81,6 @@
     @test HallThruster.sheath_potential(Tev, γ2, mi) == Tev*log(0.5*(1-γ2)*sqrt(2*mi/π/me))
     #-1.02 * Tev
 
-    mi_kr = HallThruster.Krypton.m
-
-    γmax = 1 - 8.3 * sqrt(me/mi)
-    γmax_kr = 1 - 8.3 * sqrt(me/mi_kr)
-
     ideal_dielectric = HallThruster.IdealDielectric
     @test HallThruster.SEE_yield(ideal_dielectric, 100.0, γmax) == 0.0
     BN = HallThruster.BoronNitride
@@ -64,6 +92,7 @@
     @test HallThruster.SEE_yield(BN, 9000.0, γmax_kr) ≈ γmax_kr
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
+
     Vs = HallThruster.sheath_potential(Tev, γ, mi)
 
     α = 1/4
@@ -80,8 +109,10 @@
     @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) == 0.0e7
 
     νiw = α * 2 / Δr * sqrt(HallThruster.e * Tev / mi)
-    γ = HallThruster.SEE_yield(BN, Tev, mi)
+    γ = HallThruster.SEE_yield(BN, Tev, γmax)
     νew = νiw / (1 - γ)
+
+    params.cache.γ_SEE .= γ
 
     Iiw = HallThruster.wall_ion_current(sheath_model, U, params, 2, 1)
     Iew = HallThruster.wall_electron_current(sheath_model, U, params, 2)
@@ -94,7 +125,6 @@
 
     @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * Tev[1] + (1 - γ) * Vs)
     @test HallThruster.wall_power_loss(sheath_model, U, params, 3) ≈ 0.0
-
 end
 
 @testset "Ion wall losses" begin
@@ -104,6 +134,31 @@ end
 
     Tn = 300.0
     Tev = 3.0
+
+    L_ch = HallThruster.geometry_SPT_100.channel_length
+    A_ch = HallThruster.channel_area(HallThruster.SPT_100)
+
+    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, 2, (0, 2 * L_ch))
+
+    z_cell = grid.cell_centers
+    z_edge = grid.edges
+
+    # Fill up cell lengths and magnetic field vectors
+    Δz_cell = zeros(length(z_cell))
+    Δz_edge = zeros(length(z_edge))
+    for (i, z) in enumerate(grid.cell_centers)
+        if firstindex(z_cell) < i < lastindex(z_cell)
+            Δz_cell[i] = z_edge[HallThruster.right_edge(i)] - z_edge[HallThruster.left_edge(i)]
+        elseif i == firstindex(z_cell)
+            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
+        elseif i == lastindex(z_cell)
+            Δz_cell[i] = z_edge[end] - z_edge[end-1]
+        end
+    end
+
+    for i in eachindex(z_edge)
+        Δz_edge[i] = z_cell[i+1] - z_cell[i]
+    end
 
     fluids = [
         HallThruster.Fluid(Xenon(0), HallThruster.ContinuityOnly(u = 300.0, T = Tn)),
@@ -117,13 +172,10 @@ end
     ni_2 = 3e17
 
     cache = (;
-        ne = [ne, ne, ne, ne], Tev = [Tev, Tev, Tev, Tev], Z_eff = [1.0, 1.0, 1.0, 1.0]
+        ne = [ne, ne, ne, ne], Tev = [Tev, Tev, Tev, Tev],
+        Z_eff = [1.0, 1.0, 1.0, 1.0], ni = [ni_1 ni_1 ni_1 ni_1; ni_2 ni_2 ni_2 ni_2],
+        γ_SEE = [0.0, 0.0, 0.0, 0.0]
     )
-
-    L_ch = HallThruster.geometry_SPT_100.channel_length
-    A_ch = HallThruster.channel_area(HallThruster.SPT_100)
-
-    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, 2, (0, 2 * L_ch))
 
     index = (ρn = 1, ρi = [2, 4], ρiui = [3, 5], nϵ = 6)
 
@@ -153,7 +205,8 @@ end
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
-    base_params = (;cache, L_ch, A_ch, fluids, z_cell, z_edge, index)
+    γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/Xenon.m)
+    base_params = (;cache, L_ch, A_ch, fluids, z_cell, z_edge, index, Δz_cell, Δz_edge, γ_SEE_max)
 
     config_no_losses = (;config..., wall_loss_model = HallThruster.NoWallLosses())
     params_no_losses = (;base_params..., config = config_no_losses)
@@ -221,8 +274,9 @@ end
     config_wall_sheath = (;config..., wall_loss_model = wall_sheath)
     params_wall_sheath = (;base_params..., config = config_wall_sheath)
 
-    γ = HallThruster.SEE_yield(HallThruster.BNSiO2, Tev, mi)
+    γ = HallThruster.SEE_yield(HallThruster.BNSiO2, Tev, γ_SEE_max)
     i = 2
+    params_wall_sheath.cache.γ_SEE[i] = γ
     Iiw_1 = HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 1)
     Iiw_2 = HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 2)
     Iew = HallThruster.wall_electron_current(wall_sheath, U, params_wall_sheath, i)
