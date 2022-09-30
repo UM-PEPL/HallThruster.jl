@@ -35,7 +35,7 @@ end
 
 function load_reactions(model::ExcitationLookup, species)
     species_sorted = sort(species; by=x -> x.Z)
-    reactions = ExcitationReaction{LinearInterpolation{Float64,Float64}}[]
+    reactions = ExcitationReaction{LinearInterpolation{LinRangeWrapper{Float64, Int},Vector{Float64}}}[]
     folders = [model.directories; REACTION_FOLDER]
     product = nothing
     for i in 1:length(species)

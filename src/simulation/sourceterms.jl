@@ -12,11 +12,13 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         product_index = product_inds[]
-        #@show reactant_inds, product_inds
+
+        rate_coeff = rxn.rate_coeff(ϵ)
+
         for reactant_index in reactant_inds
             ρ_reactant = U[reactant_index, i]
 
-            ρdot = reaction_rate(rxn, ne, ρ_reactant, ϵ)
+            ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
 
             # Change in density due to ionization
             dU[reactant_index, i] -= ρdot
@@ -39,6 +41,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
     end
 end
 
+@inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 @inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
 
 function apply_ion_acceleration!(dU, U, params, i)
@@ -115,18 +118,24 @@ function inelastic_losses!(U, params, i)
     νex[i] = 0.0
 
     @inbounds for (reactant_inds, rxn) in zip(ionization_reactant_indices, ionization_reactions)
+        rate_coeff = rxn.rate_coeff(ϵ)
         for reactant_index in reactant_inds
             n_reactant = U[reactant_index, i] / mi
-            ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
+            ndot = reaction_rate(rate_coeff, ne, n_reactant)
             inelastic_loss += ndot * rxn.energy
             νiz[i] += ndot / ne
+
+            #=if rxn.reactant.Z == 0 && rxn.reactant.Z == 1
+                νex[i]
+            end=#
         end
     end
 
     @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
+        rate_coeff = rxn.rate_coeff(ϵ)
         for reactant_index in reactant_inds
             n_reactant = U[reactant_index, i] / mi
-            ndot = reaction_rate(rxn, ne, n_reactant, ϵ)
+            ndot = reaction_rate(rate_coeff, ne, n_reactant)
             inelastic_loss += ndot * (rxn.energy - K)
             νex[i] += ndot / ne
         end
