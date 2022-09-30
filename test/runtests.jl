@@ -6,6 +6,7 @@ using Statistics
 using DelimitedFiles
 using LinearAlgebra
 using Unitful
+using SparseArrays
 
 doctest(HallThruster)
 

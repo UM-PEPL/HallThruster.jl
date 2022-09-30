@@ -128,6 +128,8 @@ function verify_energy(ncells; niters = 20000)
 
     cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz)
 
+    Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
+
     params = (;
         z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
         dt, L_ch, propellant,
@@ -136,6 +138,7 @@ function verify_energy(ncells; niters = 20000)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
+        Δz_cell, Δz_edge
     )
 
     solve_energy!(U, params, niters, dt)
@@ -162,6 +165,7 @@ function verify_energy(ncells; niters = 20000)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
+        Δz_cell, Δz_edge
     )
 
     solve_energy!(U, params, niters, dt)

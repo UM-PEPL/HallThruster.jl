@@ -85,7 +85,7 @@
     ex_rxns = HallThruster._load_reactions(ex_lookup, [Xe_0])
     @test length(ex_rxns) == 1
     @test ex_rxns[1].energy == 8.32
-    @test ex_rxns[1].rate_coeff(10) ≈ 2.3582514835893516e-14
+    @test ex_rxns[1].rate_coeff(10) ≈ 2.3579448453671528e-14
 
     ex_lookup_2 = HallThruster.ExcitationLookup([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")])
     @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Ar_0]))

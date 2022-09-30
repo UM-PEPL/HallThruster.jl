@@ -66,6 +66,30 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     return U, cache
 end
 
+function grid_spacing(grid)
+    z_cell = grid.cell_centers
+    z_edge = grid.edges
+
+    # Fill up cell lengths and magnetic field vectors
+    Δz_cell = zeros(length(z_cell))
+    Δz_edge = zeros(length(z_edge))
+    for (i, z) in enumerate(grid.cell_centers)
+        if firstindex(z_cell) < i < lastindex(z_cell)
+            Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+        elseif i == firstindex(z_cell)
+            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
+        elseif i == lastindex(z_cell)
+            Δz_cell[i] = z_edge[end] - z_edge[end-1]
+        end
+    end
+
+    for i in eachindex(z_edge)
+        Δz_edge[i] = z_cell[i+1] - z_cell[i]
+    end
+
+    return Δz_cell, Δz_edge
+end
+
 """
     $(SIGNATURES)
 Run a Hall thruster simulation using the provided Config object.
@@ -115,22 +139,12 @@ function run_simulation(config::Config;
     z_edge = grid.edges
 
     # Fill up cell lengths and magnetic field vectors
-    Δz_cell = zeros(length(z_cell))
-    Δz_edge = zeros(length(z_edge))
+
     for (i, z) in enumerate(grid.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
-        if firstindex(z_cell) < i < lastindex(z_cell)
-            Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
-        elseif i == firstindex(z_cell)
-            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
-        elseif i == lastindex(z_cell)
-            Δz_cell[i] = z_edge[end] - z_edge[end-1]
-        end
     end
 
-    for i in eachindex(z_edge)
-        Δz_edge[i] = z_cell[i+1] - z_cell[i]
-    end
+    Δz_cell, Δz_edge = grid_spacing(grid)
 
     mi = config.propellant.m
 

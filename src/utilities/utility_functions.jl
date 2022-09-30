@@ -85,10 +85,7 @@ function find_left_index(value, array)
     left = 0
     right = N+1
 
-    count = bitwise_log2ceil(N)
-
-    # For loop instead of while to make it branchless
-    @inbounds for _ in 1:count
+    @inbounds while (right - left) > 1
         mid = (left + right) >>> 0x01
 
         cond = array[mid] > value

@@ -66,6 +66,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
+    Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
     propellant = HallThruster.Xenon
 
     source_momentum = if conservative && coupled
@@ -166,6 +167,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         num_neutral_fluids = 1,
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
+        Δz_cell, Δz_edge
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))

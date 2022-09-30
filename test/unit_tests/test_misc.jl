@@ -5,14 +5,14 @@
 end
 
 @testset "Linear Interpolation" begin
-    xs = 1:100
+    xs = LinRange(1., 100., 100)
     ys = xs .+ 0.1
-    @test [HallThruster.find_left_index(y, xs) for y in ys] == collect(xs)
+    @test [HallThruster.find_left_index(y, xs) for y in ys] == round.(Int, collect(xs))
     @test HallThruster.find_left_index(1000, xs) == 100
     @test HallThruster.find_left_index(-1000, xs) == 0
     let xs = [1., 2.], ys = [1., 2.], ys_2 = [1., 2., 3.]
         ℓ = HallThruster.LinearInterpolation(xs, ys)
-        @test ℓ isa HallThruster.LinearInterpolation{Float64, Float64}
+        @test ℓ isa HallThruster.LinearInterpolation
         @test ℓ(1.5) == 1.5
         @test ℓ(0.0) == 1.0
         @test ℓ(1.0) == 1.0
@@ -136,7 +136,7 @@ end
 
     @test size(Aϵ) == (ncells+2, ncells+2)
 
-    @test Aϵ isa Tridiagonal
+    @test Aϵ isa SparseArrays.Tridiagonal
 end
 
 @testset "Transition functions" begin
