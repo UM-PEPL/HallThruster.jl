@@ -239,7 +239,7 @@ function compute_edge_states!(UL, UR, U, params)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)
-    (;config, index, fluids, z_edge, z_cell, num_neutral_fluids) = params
+    (;config, index, fluids, Δz_edge, z_cell, num_neutral_fluids) = params
     λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme, ncharge) = config
     ncells = size(U, 2)
@@ -273,7 +273,7 @@ function compute_fluxes!(F, UL, UR, U, params)
             neR = neR + Z * niR
         end
 
-        Δz = z_cell[i+1] - z_cell[i]
+        Δz = Δz_edge[i]
 
         # Compute electron temperature
         TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)

@@ -58,10 +58,10 @@ function apply_ion_acceleration!(dU, U, params, i)
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)
-    (;index, config, A_ch, z_edge) = params
+    (;index, config, A_ch, Δz_cell) = params
     (;ncharge, propellant, wall_loss_model) = config
 
-    Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+    Δz = Δz_cell[i]
 
     mi = propellant.m
 

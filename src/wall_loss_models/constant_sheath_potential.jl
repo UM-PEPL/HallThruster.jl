@@ -11,11 +11,10 @@ function freq_electron_wall(::ConstantSheathPotential, U, params, i)
 end
 
 function wall_electron_current(model::ConstantSheathPotential, U, params, i)
-    (;z_edge, cache, A_ch) = params
+    (;Δz_cell, cache, A_ch) = params
     (;ne) = cache
     νew = freq_electron_wall(model, U, params, i)
-    Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
-    V_cell = A_ch * Δz
+    V_cell = A_ch * Δz_cell[i]
     return e * νew * V_cell * ne[i]
 end
 

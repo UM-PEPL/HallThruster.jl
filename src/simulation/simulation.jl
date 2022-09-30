@@ -50,6 +50,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     niui = zeros(ncharge, ncells)
     nn = zeros(num_neutral_fluids, ncells)
     nn_tot = zeros(ncells)
+    γ_SEE = zeros(ncells)
     Id  = [0.0]
     Vs = [0.0]
 
@@ -59,7 +60,7 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, nn_tot, k, u1
+                ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE
             )
 
     return U, cache
@@ -110,14 +111,33 @@ function run_simulation(config::Config;
     tspan = (0.0, duration)
     saveat = LinRange(tspan[1], tspan[2], nsave)
 
+    z_cell = grid.cell_centers
+    z_edge = grid.edges
+
+    # Fill up cell lengths and magnetic field vectors
+    Δz_cell = zeros(length(z_cell))
+    Δz_edge = zeros(length(z_edge))
     for (i, z) in enumerate(grid.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
+        if firstindex(z_cell) < i < lastindex(z_cell)
+            Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+        elseif i == firstindex(z_cell)
+            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
+        elseif i == lastindex(z_cell)
+            Δz_cell[i] = z_edge[end] - z_edge[end-1]
+        end
     end
+
+    for i in eachindex(z_edge)
+        Δz_edge[i] = z_cell[i+1] - z_cell[i]
+    end
+
+    mi = config.propellant.m
 
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
-        mi = config.propellant.m,
+        mi,
         config = config,
         ϕ_L = config.discharge_voltage + config.cathode_potential,
         ϕ_R = config.cathode_potential,
@@ -125,8 +145,8 @@ function run_simulation(config::Config;
         Te_R = config.cathode_Te,
         L_ch = config.thruster.geometry.channel_length,
         A_ch = config.thruster.geometry.channel_area,
-        z_cell=grid.cell_centers,
-        z_edge=grid.edges,
+        z_cell,
+        z_edge,
         dt,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
@@ -143,6 +163,8 @@ function run_simulation(config::Config;
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
         Bmax = maximum(cache.B),
+        γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
+        Δz_cell, Δz_edge
     )
 
     # Compute maximum allowed iterations

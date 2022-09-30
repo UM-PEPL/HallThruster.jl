@@ -30,9 +30,8 @@ end
 fit function for SEE with different wall materials
 Goebel Katz equ. 7.3-30
 """
-@inline function SEE_yield(material::WallMaterial, Tev, mi)
+@inline function SEE_yield(material::WallMaterial, Tev, γ_max)
     (;a, b, Γ) = material
-    γ_max = 1 - 8.3 * sqrt(me/mi) # Space-charge limited SEE coefficient
     γ = min(γ_max,  Γ * a * Tev^b)
     return γ
 end
@@ -59,7 +58,8 @@ function wall_power_loss(model::WallSheath, U, params, i)
     Tev = wall_electron_temperature(U, params, i)
 
     # space charge limited SEE coefficient
-    γ = SEE_yield(model.material, Tev, mi)
+    γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
+    params.cache.γ_SEE[i] = γ
 
     # Space charge-limited sheath potential
     ϕ_s = sheath_potential(Tev, γ, mi)
@@ -72,52 +72,34 @@ function wall_power_loss(model::WallSheath, U, params, i)
 end
 
 function wall_electron_current(model::WallSheath, U, params, i)
-    (;config) = params
-    mi = config.propellant.m
-    Tev = wall_electron_temperature(U, params, i)
-    γ = SEE_yield(model.material, Tev, mi)
+    (;config, cache) = params
+    γ = cache.γ_SEE[i]
 
     return inv(1 - γ) * sum(wall_ion_current(model, U, params, i, Z) for Z in 1:config.ncharge)
 end
 
 function wall_ion_current(model::WallSheath, U, params, i, Z)
-    (;z_edge, config, index, z_cell, L_ch) = params
+    (;Δz_cell, config,  z_cell, L_ch) = params
     (;propellant, thruster, transition_function) = config
     (;α) = model
 
     mi = propellant.m
-    ni = U[index.ρi[Z], i] / mi
+    ni = params.cache.ni[Z, i]
     Tev = params.cache.Tev[i]
 
     u_bohm = sqrt(Z * e * Tev / mi)
 
-    if firstindex(z_cell) < i < lastindex(z_cell)
-        Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
-    elseif i == firstindex(z_cell)
-        Δz = z_edge[begin+1] - z_edge[begin]
-    elseif i == lastindex(z_cell)
-        Δz = z_edge[end] - z_edge[end-1]
-    end
-
     in_channel = transition_function(z_cell[i], L_ch, 1.0, 0.0)
 
-    Iiw = in_channel * α * Z * e * ni * u_bohm * channel_perimeter(thruster) * Δz
+    Iiw = in_channel * α * Z * e * ni * u_bohm * channel_perimeter(thruster) * Δz_cell[i]
 
     return Iiw
 end
 
 function freq_electron_wall(model::WallSheath, U, params, i)
-    (;A_ch, z_edge, z_cell) = params
+    (;A_ch, Δz_cell) = params
 
-    if firstindex(z_cell) < i < lastindex(z_cell)
-        Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
-    elseif i == firstindex(z_cell)
-        Δz = z_edge[begin+1] - z_edge[begin]
-    elseif i == lastindex(z_cell)
-        Δz = z_edge[end] - z_edge[end-1]
-    end
-
-    V_cell = A_ch * Δz
+    V_cell = A_ch * Δz_cell[i]
 
     Iew = wall_electron_current(model, U, params, i)
 

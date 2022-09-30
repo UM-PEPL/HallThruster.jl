@@ -5,7 +5,7 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = let
 end
 
 function update_electron_energy!(U, params)
-    (;z_cell, z_edge, dt, index, config, cache, Te_L, Te_R) = params
+    (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
     (;Aϵ, bϵ, μ, ue, ne, Tev) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -76,9 +76,9 @@ function update_electron_energy!(U, params)
         # Weighted average of the electron velocities in the three stencil cells
         ue_avg = 0.25 * (ueL + 2 * ue0 + ueR)
 
-        ΔzL = z_cell[i] - z_cell[i-1]
-        ΔzR = z_cell[i+1] - z_cell[i]
-        Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+        ΔzL = Δz_edge[left_edge(i)]
+        ΔzR = Δz_edge[right_edge(i)]
+        Δz = Δz_cell[i]
 
         # Upwind differences
         if ue_avg > 0

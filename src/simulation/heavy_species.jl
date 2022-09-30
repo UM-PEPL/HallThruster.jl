@@ -3,7 +3,7 @@ function update_heavy_species!(dU, U, params, t)
     ####################################################################
     #extract some useful stuff from params
 
-    (;index, z_edge, config, cache) = params
+    (;index, Δz_cell, config, cache) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
         ncharge, ion_wall_losses
@@ -19,7 +19,7 @@ function update_heavy_species!(dU, U, params, t)
         left = left_edge(i)
         right = right_edge(i)
 
-        Δz = z_edge[right] - z_edge[left]
+        Δz = Δz_cell[i]
 
         # Handle neutrals
         for j in 1:params.num_neutral_fluids

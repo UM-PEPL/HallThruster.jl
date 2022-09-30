@@ -45,13 +45,13 @@ end
 function find_left_index(value, array)
     N = length(array)
 
-    if value ≥ array[end]
+    #=if value ≥ array[end]
         return N
     elseif value < array[1]
         return 0
     elseif value == array[1]
         return 1
-    end
+    end=#
 
     left = 0
     right = N
@@ -82,7 +82,7 @@ right_edge(i) = i
 @inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
 
 function discharge_current(U::Matrix, params)
-    (;z_cell, A_ch, cache, z_cell, ϕ_L, ϕ_R) = params
+    (;A_ch, cache, Δz_edge, ϕ_L, ϕ_R) = params
     (;∇pe, μ, ne, ji, Vs) = cache
 
     ncells = size(U, 2)
@@ -91,7 +91,7 @@ function discharge_current(U::Matrix, params)
     int2 = 0.0
 
     @inbounds for i in 1:ncells-1
-        Δz = z_cell[i+1] - z_cell[i]
+        Δz = Δz_edge[i]
 
         int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
         int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
