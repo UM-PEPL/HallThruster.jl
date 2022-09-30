@@ -30,7 +30,7 @@ end
 fit function for SEE with different wall materials
 Goebel Katz equ. 7.3-30
 """
-@inline function SEE_yield(material::WallMaterial, Tev, γ_max)
+@inline @fastmath function SEE_yield(material::WallMaterial, Tev, γ_max)
     (;a, b, Γ) = material
     γ = min(γ_max,  Γ * a * Tev^b)
     return γ
@@ -49,8 +49,6 @@ Base.@kwdef struct WallSheath <: WallLossModel
         return new(material, α)
     end
 end
-
-
 
 function wall_power_loss(model::WallSheath, U, params, i)
     (;config) = params
@@ -79,13 +77,13 @@ function wall_electron_current(model::WallSheath, U, params, i)
 end
 
 function wall_ion_current(model::WallSheath, U, params, i, Z)
-    (;Δz_cell, config,  z_cell, L_ch) = params
+    (;Δz_cell, config, cache, z_cell, L_ch) = params
     (;propellant, thruster, transition_function) = config
     (;α) = model
 
-    mi = propellant.m
-    ni = params.cache.ni[Z, i]
-    Tev = params.cache.Tev[i]
+    mi  = propellant.m
+    ni  = cache.ni[Z, i]
+    Tev = cache.Tev[i]
 
     u_bohm = sqrt(Z * e * Tev / mi)
 
@@ -113,13 +111,12 @@ end
 function wall_electron_temperature(U, params, i)
     (;cache, config, z_cell) = params
 
-    Tev_channel = if config.thruster.shielded
-        cache.Tev[1]
-    else
-        cache.Tev[i]
-    end
+    shielded = config.thruster.shielded
 
-    Tev_plume = cache.Tev[i]
+    Tev = cache.Tev[i]
+
+    Tev_channel = shielded * cache.Tev[1] + !shielded * Tev
+    Tev_plume = Tev
 
     L_ch = config.thruster.geometry.channel_length
 
@@ -134,4 +131,4 @@ compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Sheath potentials are positive by convention in HallThruster.jl.
 """
-sheath_potential(Tev, γ, mi) = Tev*log((1 - γ) * sqrt(mi/π/me/2))
+@inline @fastmath sheath_potential(Tev, γ, mi) = Tev*log((1 - γ) * sqrt(mi/π/me/2))

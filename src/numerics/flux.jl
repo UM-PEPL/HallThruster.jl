@@ -1,6 +1,6 @@
-Base.@kwdef struct HyperbolicScheme{F}
+Base.@kwdef struct HyperbolicScheme{F, L}
     flux_function::F = global_lax_friedrichs
-    limiter::SlopeLimiter = van_leer
+    limiter::SlopeLimiter{L} = van_leer
     reconstruct::Bool = true
 end
 

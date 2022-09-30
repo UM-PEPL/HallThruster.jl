@@ -1,13 +1,10 @@
-struct SlopeLimiter
-    limiter_func::FunctionWrapper{Float64, Tuple{Float64}}
+struct SlopeLimiter{F}
+    limiter_func::F
 end
 
 function (L::SlopeLimiter)(r)
-    if isinf(r) || isnan(r) || r <= 0.0
-        ϕ = 0.0
-    else
-        ϕ = L.limiter_func(r)
-    end
+    valid = !(isinf(r) || isnan(r) || r <= 0.0)
+    ϕ = valid * L.limiter_func(r)
     return ϕ
 end
 

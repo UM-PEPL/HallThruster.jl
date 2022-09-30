@@ -48,17 +48,22 @@
     @test HallThruster.sheath_potential(Tev, γ2, mi) == Tev*log(0.5*(1-γ2)*sqrt(2*mi/π/me))
     #-1.02 * Tev
 
-    ideal_dielectric = HallThruster.IdealDielectric
-    @test HallThruster.SEE_yield(ideal_dielectric, 100.0, mi) == 0.0
-    BN = HallThruster.BoronNitride
-    @test HallThruster.SEE_yield(BN, 10.0, mi) ≈ BN.Γ * 10.0^BN.b * BN.a
-    # Check that SEE properly obeys space charge limit at high electron temps
-    @test HallThruster.SEE_yield(BN, 9000.0, mi) ≈ 1 - 8.3 * sqrt(me/mi)
-
     mi_kr = HallThruster.Krypton.m
-    @test HallThruster.SEE_yield(BN, 9000.0, mi_kr) ≈ 1 - 8.3 * sqrt(me/mi_kr)
 
-    γ = HallThruster.SEE_yield(BN, Tev, mi)
+    γmax = 1 - 8.3 * sqrt(me/mi)
+    γmax_kr = 1 - 8.3 * sqrt(me/mi_kr)
+
+    ideal_dielectric = HallThruster.IdealDielectric
+    @test HallThruster.SEE_yield(ideal_dielectric, 100.0, γmax) == 0.0
+    BN = HallThruster.BoronNitride
+    @test HallThruster.SEE_yield(BN, 10.0, γmax) ≈ BN.Γ * 10.0^BN.b * BN.a
+    # Check that SEE properly obeys space charge limit at high electron temps
+    @test HallThruster.SEE_yield(BN, 9000.0, γmax) ≈ γmax
+
+
+    @test HallThruster.SEE_yield(BN, 9000.0, γmax_kr) ≈ γmax_kr
+
+    γ = HallThruster.SEE_yield(BN, Tev, γmax)
     Vs = HallThruster.sheath_potential(Tev, γ, mi)
 
     α = 1/4

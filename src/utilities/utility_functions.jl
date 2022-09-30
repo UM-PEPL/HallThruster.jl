@@ -38,38 +38,44 @@ julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
 1.0
 """
 @inline function lerp(x, x0, x1, y0, y1)
-    return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    t = (x - x0) / (x1 - x0)
+    return y0 + t * (y1 - y0)
 end
 
+# ceil(Int, log2(x)) done with bitwise ops
+function bitwise_log2ceil(x)
+    count = 1
+    while x != 1
+        x >>= 0x01 # divide x by 2
+        count +=1
+    end
+    return count
+end
 
 function find_left_index(value, array)
     N = length(array)
 
-    #=if value ≥ array[end]
-        return N
-    elseif value < array[1]
-        return 0
-    elseif value == array[1]
-        return 1
-    end=#
-
     left = 0
-    right = N
+    right = N+1
 
-    @inbounds while (right - left) > 1
+    count = bitwise_log2ceil(N)
+
+    # For loop instead of while to make it branchless
+    @inbounds for _ in 1:count
         mid = (left + right) >>> 0x01
-        if array[mid] > value
-            right = mid
-        else
-            left = mid
-        end
+
+        cond = array[mid] > value
+        not_cond = !cond
+
+        # conditional assignments
+        right = cond * mid + not_cond * right
+        left  = not_cond * mid + cond * left
     end
     return left
 end
 
-
-left_edge(i) = i - 1
-right_edge(i) = i
+@inline left_edge(i) = i - 1
+@inline right_edge(i) = i
 
 @inline electron_density(U, p, i) = sum(Z * U[p.index.ρi[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
 
