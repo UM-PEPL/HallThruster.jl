@@ -40,10 +40,12 @@ function LinRangeWrapper(r)
 end
 
 @fastmath function interpolate(x::T, xs, ys; use_log = false) where {T}
-    x ≤ xs[1] && return ys[1] / oneunit(T)
-    x ≥ xs[end] && return ys[end] / oneunit(T)
     isnan(x) && return NaN
     i = find_left_index(x, xs)
+
+    i < 1 && return ys[1] / oneunit(T)
+    i ≥ length(xs) && return ys[end] / oneunit(T)
+
     use_log && return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
     return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
 end
@@ -76,7 +78,8 @@ function bitwise_log2ceil(x)
 end
 
 @inline function find_left_index(val, r::LinRangeWrapper)
-    ceil(Int, clamp(muladd(r.A, val, r.B), 0, r.r.len))
+    #ceil(Int, clamp(muladd(r.A, val, r.B), 0, r.r.len))
+    return searchsortedfirst(r.r, val) - 1
 end
 
 function find_left_index(value, array)
