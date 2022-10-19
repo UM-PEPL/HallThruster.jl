@@ -16,14 +16,14 @@ function ssprk22_step!(u, f, params, t)
     return nothing
 end
 
-struct MyODEProblem{F, U, T, P}
+struct ODEProblem{F, U, T, P}
     f::F
     u::U
     tspan::T
     params::P
 end
 
-function mysolve(prob::MyODEProblem; saveat, dt)
+function solve(prob::ODEProblem; saveat, dt)
     (;f, u, tspan, params) = prob
     i = 1
     save_ind = 2
@@ -45,8 +45,11 @@ function mysolve(prob::MyODEProblem; saveat, dt)
     while t < tspan[2]
         i += 1
         t += dt
+        # Update heavy species
         ssprk22_step!(u, f, params, t)
-        update_values!(u, params, t)
+
+        # Update electron quantities
+        update_electrons!(u, params, t)
 
         # Check for NaNs and terminate if necessary
         nandetected = false

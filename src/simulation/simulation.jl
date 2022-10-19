@@ -187,18 +187,17 @@ function run_simulation(config::Config;
     )
 
     # Compute maximum allowed iterations
-    #maxiters = Int(ceil(1000 * tspan[2] / dt))
 
     if !use_restart
         initialize!(U, params)
     end
 
     #make values in params available for first timestep
-    update_values!(U, params)
+    update_electrons!(U, params)
 
     # Set up and solve problem, this form is temporary
-    prob = MyODEProblem(update_heavy_species!, U, tspan, params)
-    sol = mysolve(prob; saveat, dt)
+    prob = ODEProblem(update_heavy_species!, U, tspan, params)
+    sol = solve(prob; saveat, dt)
 
     # Print some diagnostic information
     if sol.retcode == :NaNDetected

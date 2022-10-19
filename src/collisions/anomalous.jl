@@ -64,7 +64,6 @@ function evaluate_anom(model::ZeroEquationModel, U, params, i)
     ))
 end
 
-
 #=============================================================================
  Begin definition of built-in models of type FixedAnomModel
 ==============================================================================#

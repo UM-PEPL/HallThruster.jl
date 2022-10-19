@@ -109,7 +109,7 @@ present it for completeness. For `ZeroEquationModel` types, we only need to defi
 `evaluate_anom` and we do it as so:
 
 ```julia
-function evaluate_anom(U, params, i)
+function evaluate_anom(model::BohmDiffusion, U, params, i)
     B = params.cache.B[i]
     ωce = HallThruster.e * B / HallThruster.me
     νan[i] = model.β * ωce

@@ -10,14 +10,6 @@ function freq_electron_wall(::ConstantSheathPotential, U, params, i)
     return αϵ * 1e7
 end
 
-function wall_electron_current(model::ConstantSheathPotential, U, params, i)
-    (;Δz_cell, cache, A_ch) = params
-    (;ne) = cache
-    νew = freq_electron_wall(model, U, params, i)
-    V_cell = A_ch * Δz_cell[i]
-    return e * νew * V_cell * ne[i]
-end
-
 function wall_power_loss(model::ConstantSheathPotential, U, params, i)
     (;z_cell, index, L_ch, config, cache) = params
 
