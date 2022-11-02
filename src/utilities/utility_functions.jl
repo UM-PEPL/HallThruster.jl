@@ -43,7 +43,7 @@ end
     isnan(x) && return NaN
     i = find_left_index(x, xs)
 
-    i < 1 && return ys[1] / oneunit(T)
+    i < 1          && return ys[1] / oneunit(T)
     i ≥ length(xs) && return ys[end] / oneunit(T)
 
     use_log && return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))

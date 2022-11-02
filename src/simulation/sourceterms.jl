@@ -124,10 +124,6 @@ function inelastic_losses!(U, params, i)
             ndot = reaction_rate(rate_coeff, ne, n_reactant)
             inelastic_loss += ndot * rxn.energy
             νiz[i] += ndot / ne
-
-            #=if rxn.reactant.Z == 0 && rxn.reactant.Z == 1
-                νex[i]
-            end=#
         end
     end
 

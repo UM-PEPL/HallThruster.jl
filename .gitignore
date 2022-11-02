@@ -10,3 +10,5 @@ output
 !docs/*.png
 run
 *.json
+
+bfield_spt100.csv
