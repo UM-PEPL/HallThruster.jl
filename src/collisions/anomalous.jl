@@ -36,7 +36,7 @@ function (model::Bohm)(U, params, i)
 end
 
 """
-    TwoZoneBohm(c1, c2) <: FixedAnomModel
+    TwoZoneBohm(c1, c2) <: AnomalousTransportModel
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
 Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
 """
@@ -58,7 +58,7 @@ function (model::TwoZoneBohm)(U, params, i)
 end
 
 """
-    MultiLogBohm(zs, cs) <: FixedAnomModel
+    MultiLogBohm(zs, cs) <: AnomalousTransportModel
 Model similar to that employed in Hall2De, where the mobility is Bohm-like (i.e. `νan(z) = c(z) * ωce(z)`) and z is in meters.
 
 The function `c(z)` is defined by a sequence of nodes `(z, c)` provided by the user. At `z = z[1]`, `c(z) = c[1]`, and so forth.
@@ -69,7 +69,7 @@ For `z < z[1]`, `c = c[1]` and for `z > z[end]`, `c(z) = c[end]`.
 
 The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]. The number of z values must be equal to the number of c values.
 """
-struct MultiLogBohm <: FixedAnomModel
+struct MultiLogBohm <: AnomalousTransportModel
     zs::Vector{Float64}
     cs::Vector{Float64}
     function MultiLogBohm(zs, cs)
