@@ -93,9 +93,9 @@ function update_electrons!(U, params, t = 0)
     νan[1] = νan[2]
     νan[end-1] = νan[end-2]
 
-    # if ZeroEquationModel, then smooth anom
-    if params.config.anom_model isa ZeroEquationModel
-        smooth!(νan, params.cache.cell_cache_1, iters = 2)
+    # Smooth anomalous transport model
+    if params.config.anom_smoothing_iters > 0
+        smooth!(νan, params.cache.cell_cache_1, iters = anom_smoothing_iters)
     end
 
     # Compute potential gradient and pressure gradient

@@ -62,14 +62,19 @@
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
     @test HallThruster.freq_electron_electron(U, params_landmark, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
 
-    HallThruster.initialize_anom!(params_landmark.cache.νan, params_landmark.config.anom_model, U, params_landmark)
+    for i in eachindex(params_landmark.cache.νan)
+        params_landmark.cache.νan[i] = params_landmark.config.anom_model(U, params_landmark, i)
+        params_none.cache.νan[i] =  params_none.config.anom_model(U, params_none, i)
+    end
     @test HallThruster.freq_electron_anom(U, params_landmark, 1) == e/me * c1
 
-    HallThruster.initialize_anom!(params_none.cache.νan, params_none.config.anom_model, U, params_none)
+
     @test HallThruster.freq_electron_anom(U, params_none, 1) == e/me * c2
 
     model = HallThruster.NoAnom()
-    HallThruster.initialize_anom!(params_landmark.cache.νan, model, U, params_landmark)
+    for i in eachindex(params_landmark.cache.νan)
+        params_landmark.cache.νan[i] = model(U, params, i)
+    end
     @test params_landmark.cache.νan[1] == 0.0
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66

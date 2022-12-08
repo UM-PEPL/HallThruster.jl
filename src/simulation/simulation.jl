@@ -205,7 +205,9 @@ function run_simulation(config::Config;
     end
 
     # Initialize the anomalous collision frequency
-    initialize_anom!(params.cache.νan, params.config.anom_model, U, params)
+    for i in eachindex(params.cache.νan)
+        params.cache.νan[i] = params.config.anom_model(U, params, i)
+    end
 
     #make values in params available for first timestep
     update_electrons!(U, params)

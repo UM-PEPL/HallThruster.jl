@@ -1,99 +1,37 @@
 """
     AnomalousTransportModel
-The abstract supertype of all types of anomalous transport model. Currently, there are two subtypes: `FixedAnomModel` and `ZeroEquationModel`, which
-correspond, respectively, to models which are initialized and then never updated, and models which depend algebraically on local plasma properties.
+The abstract supertype of all types of anomalous transport models.
+Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
 
-"""
-    FixedAnomModel <: AnomalousTransportModel
-An anomalous collision frequency model which is fixed at the start of a simulation and then never updated again.
-This is the most common type of model, and includes the ubiquitous multi-zone bohm-like collision frequency models.
-
-Users defining their own `FixedAnomModel` must implement the `initialize_anom!(νan, model, U, params)` method for their type.
-"""
-abstract type FixedAnomModel <: AnomalousTransportModel end
-
-"""
-    ZeroEquationModel <: AnomalousTransportModel
-An anomalous collision frequency which depends algebraically on the local plasma properties and is updated at each iteration.
-
-Users defining their own `ZeroEquationModel` must implement the `evaluate_anom(model, U, params)` method for their type.
-"""
-abstract type ZeroEquationModel <: AnomalousTransportModel end
-
-"""
-    initialize_anom!(νan, model::FixedAnomModel, U, params)
-Initialize the anomalous collision frequency profile for models in which the anomalous mobility does not change with time. Must be
-implemented by the user for specific subtypes of FixedAnomModel. Should update argument νan in-place with the desired value of anomalous
-collision frequency and then return the mutated array.
-"""
-function initialize_anom!(νan, model::FixedAnomModel, U, params)
-    throw(ArgumentError(
-        "Function `initialize_anom!(νan, model, U, params)` is not implemented for model of type $(typeof(model)). This function must be implemented by the user for `FixedAnomModel` objects."
-    ))
-end
-
-"""
-    evaluate_anom(model::FixedAnomModel, U, params, i)
-By default, this does nothing for FixedAnomModel objects, as the anomalous collision frequency is not updated at each iteration.
-"""
-function evaluate_anom(model::FixedAnomModel, U, params, i)
-    return params.cache.νan[i]
-end
-
-
-"""
-    initialize_anom!(νan, model::ZeroEquationModel, U, params)
-Default anomalous collision frequency initialization for `ZeroEquationModel`s. Just calls evalute_anom at each grid location.
-"""
-function initialize_anom!(νan, model::ZeroEquationModel, U, params)
-    for i in eachindex(params.z_cell)
-        νan[i] = evaluate_anom(model, U, params, i)
-    end
-    return νan
-end
-
-"""
-    evaluate_anom(model::ZeroEquationModel, U, params, i)
-Return the anomalous collision frequency at index `i` for a provided ZeroEquationModel. Must be implemented by the user.
-"""
-function evaluate_anom(model::ZeroEquationModel, U, params, i)
-    throw(ArgumentError(
-        "Function `evaluate_anom(model, U, params, i)` is not implemented for model of type $(typeof(model)). This function must be implemented by the user for `ZeroEquationModel` objects."
-    ))
-end
-
 #=============================================================================
- Begin definition of built-in models of type FixedAnomModel
+ Begin definition of built-in models
 ==============================================================================#
 
 """
-    NoAnom <: FixedAnomModel
+    NoAnom <: AnomalousTransportModel
 No anomalous collision frequency included in simulation
 """
-struct NoAnom <: FixedAnomModel end
+struct NoAnom <: AnomalousTransportModel end
 
-function initialize_anom!(νan, model::NoAnom, U, params)
+function (::NoAnom)(U, params, i)
     νan .= 0.0
     return νan
 end
 
 """
-    Bohm(c) <: FixedAnomModel
+    Bohm(c) <: AnomalousTransportModel
 Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
 """
-struct Bohm <: FixedAnomModel
+struct Bohm <: AnomalousTransportModel
     c::Float64
 end
 
-function initialize_anom!(νan, model::Bohm, U, params)
-    for i in eachindex(νan)
-        B = params.cache.B[i]
-        ωce = e * B / me
-        νan[i] = model.c * ωce
-    end
-
+function (model::Bohm)(U, params, i)
+    B = params.cache.B[i]
+    ωce = e * B / me
+    νan = model.c * ωce
     return νan
 end
 
@@ -102,21 +40,19 @@ end
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
 Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
 """
-struct TwoZoneBohm <: FixedAnomModel
+struct TwoZoneBohm <: AnomalousTransportModel
     coeffs::NTuple{2, Float64}
     TwoZoneBohm(c1, c2) = new((c1, c2))
 end
 
-function initialize_anom!(νan, model::TwoZoneBohm, U, params)
+function (model::TwoZoneBohm)(U, params, i)
     c1, c2 = model.coeffs
 
-    for i in eachindex(νan)
-        B = params.cache.B[i]
-        ωce = e * B / me
+    B = params.cache.B[i]
+    ωce = e * B / me
 
-        β = params.config.transition_function(params.z_cell[i], params.L_ch, c1, c2)
-        νan[i] = β * ωce
-    end
+    β = params.config.transition_function(params.z_cell[i], params.L_ch, c1, c2)
+    νan = β * ωce
 
     return νan
 end
@@ -151,21 +87,12 @@ function MultiLogBohm(coeffs)
     return MultiLogBohm(zs, cs)
 end
 
-function initialize_anom!(νan, model::MultiLogBohm, U, params)
+function (model::MultiLogBohm)(U, params, i)
     (;z_cell) = params
     (;B) = params.cache
 
-    for i in eachindex(νan)
-        ωce = e * B[i] / me
-        c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
-        νan[i] = c * ωce
-    end
-
+    ωce = e * B[i] / me
+    c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
+    νan = c * ωce
     return νan
 end
-
-#=============================================================================
- Begin definition of built-in models of type ZeroEquationModel
-==============================================================================#
-
-# None yet, but users may define their own.

@@ -44,6 +44,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     background_pressure::Float64
     background_neutral_temperature::Float64
     anode_boundary_condition::Symbol
+    anom_smoothing_iters::Int
 end
 
 function Config(;
@@ -84,7 +85,8 @@ function Config(;
         solve_background_neutrals           = false,
         background_pressure                 = 0.0u"Torr",
         background_neutral_temperature      = 100.0u"K",
-        anode_boundary_condition            = :sheath
+        anode_boundary_condition            = :sheath,
+        anom_smoothing_iters                = 0,
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -146,6 +148,7 @@ function Config(;
         background_pressure,
         background_neutral_temperature,
         anode_boundary_condition,
+        anom_smoothing_iters
     )
 end
 

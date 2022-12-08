@@ -1,8 +1,7 @@
 # Anomalous Transport
 
 HallThruster has a few anomalous transport models built in and allows users to define their own.
-Currently, we only support anomalous transport models that are fixed as a function of space or
-algebraic models which depend on the local plasma properties, but multi-equation transport
+Currently, we only support anomalous transport models that are fixed as a function of space or algebraic models which depend on the local plasma properties, but multi-equation transport
 models are planned for the future.
 
 ## Built-in Models
@@ -52,29 +51,7 @@ For `z < z[1]`, `c = c[1]` and for `z > z[end]`, `c(z) = c[end]`.
 The user may also provide a single array of `[z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]`. The number of `z `values must be equal to the number of c values.
 
 ## The `AnomalousTransportModel` interface
-All anomalous transport models in HallThruster.jl are subtypes of `AnomalousTransportModel`.
-Two methods must be defined for all such models.
-
-### `initialize_anom!(νan, model, U, params)`
-This function takes a pre-allocated vector `νan` of size `length(params.z_cell)`, the model,
-the initial simulation state vector `U`, and the simulation `params`, and fills `νan` with
-the anomalous collision frequency at the start of the simulation at each cell center.
-
-### `evaluate_anom(U, params, i)`
-This function takes the state vector `U`, the simulation `params` and cell number `i` and
-returns the anomalous collision frequency for that cell.
-
-## Types of model
-
-### `FixedAnomModel`
-These are models which do not change as the simulation progresses. To define a new subtype
-of `FixedAnomModel`, you only need to implement `initialize_anom!` as `evaluate_anom` is by
-default not called for subtypes of `FixedAnomModel`.
-
-### `ZeroEquationModel`
-These depend on the local plasma parameters. By default, `initialize_anom!` for such models
-will just call the user-implemented `evaluate_anom` function at each grid location and does
-not need to be implemented by the user.
+Currently, HallThruster.jl expects all models to be written to be callable structs, taking arguments `U, params, i`, where `U` is the system state vector, `params` are the simulation parameters (including the cache of all variables), and `i` is the index of the cell.
 
 ## Custom anomalous transport models
 Users of HallThruster may define their own models by defining a custom subtype
@@ -85,38 +62,20 @@ as the simulation progresses. We would first define our type:
 ```julia
 using HallThruster
 
-struct BohmDiffusion <: FixedAnomModel
+struct BohmDiffusion <: AnomalousTransportModel
     β::Float64
 end
 ```
 
-We then need to define the `initialize_anom!` function
+We then need to define the model
 
 ```julia
-function initialize_anom!(νan, model::BohmDiffusion, U, params)
-    for i in 1:length(params.z_cell)
-        B = params.cache.B[i]
-        ωce = HallThruster.e * B / HallThruster.me
-        νan[i] = model.β * ωce
-    end
-    return νan
-end
-```
-
-Alternatively, we could define this as a `ZeroEquationModel`. This would be wasteful as
-we do not need to recompute the anomalous collision frequency at every iteration, but we
-present it for completeness. For `ZeroEquationModel` types, we only need to define
-`evaluate_anom` and we do it as so:
-
-```julia
-function evaluate_anom(model::BohmDiffusion, U, params, i)
+function (model::BohmDiffusion)(U, params, i)
     B = params.cache.B[i]
     ωce = HallThruster.e * B / HallThruster.me
-    νan[i] = model.β * ωce
+    νan = model.β * ωce
     return νan
 end
-
 ```
 
-Regardless of which type we choose,, we can use this in a `Config` struct (see [Configuration](@ref))
-and the simulation will correctly compute the anomalous transport according to our model.
+We can now set `anom_model = BohmDiffusion` in our config struct (see [Configuration](@ref)) and the simulation will correctly compute the anomalous transport according to our model.

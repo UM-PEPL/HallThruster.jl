@@ -57,7 +57,7 @@ function freq_electron_electron(U, params, i)
     return freq_electron_electron(ne, Tev)
 end
 
-@inline freq_electron_anom(U, params, i) = evaluate_anom(params.config.anom_model, U, params, i)
+@inline freq_electron_anom(U, params, i) = params.config.anom_model(U, params, i)
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)
