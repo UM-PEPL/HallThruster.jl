@@ -1,9 +1,11 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;z_cell, index, A_ch) = params
+    (;z_cell, index, A_ch, dt, control_current, target_current, Kp, Ti, Td) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
         Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui, Vs, nn, nn_tot, niui,
+        Id_smoothed, error_integral, smoothing_time_constant, anom_multiplier,
+        errors, dcoeffs
     ) = params.cache
 
     # Update the current iteration
@@ -62,7 +64,7 @@ function update_electrons!(U, params, t = 0)
         νan[i] = freq_electron_anom(U, params, i)
 
         # Compute total collision frequency and electron mobility
-        νe[i] = νc[i] + νan[i] + νew[i]
+        νe[i] = νc[i] + anom_multiplier[] * νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
 
         # Effective ion charge state (density-weighted average charge state)
@@ -107,6 +109,28 @@ function update_electrons!(U, params, t = 0)
 
     # Update the electron temperature and pressure
     update_electron_energy!(U, params)
+
+    # Update the anomalous collision frequency multiplier to match target
+    # discharge current
+    if control_current && t[] > 1e-4
+        Ki = Kp / Ti
+
+        A1 = Kp + Ki*dt
+        A2 = -Kp
+
+        α = 1 - exp(-dt/smoothing_time_constant[])
+        Id_smoothed[] = α * Id[] + (1 - α) * Id_smoothed[]
+
+        errors[3] = errors[2]
+        errors[2] = errors[1]
+        errors[1] = target_current - Id_smoothed[]
+
+        # PID controller
+        new_anom_mult = anom_multiplier[] + A1 * errors[1] + A2 * errors[2]
+        anom_multiplier[] =  new_anom_mult
+    else
+        Id_smoothed[] = Id[]
+    end
 end
 
 function compute_electric_field!(∇ϕ, params)

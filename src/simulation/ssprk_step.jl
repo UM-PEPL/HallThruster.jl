@@ -33,7 +33,8 @@ function solve(prob::ODEProblem; saveat, dt)
 
     fields_to_save = (
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot
+        :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot,
+        :anom_multiplier,
     )
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)

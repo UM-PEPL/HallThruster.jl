@@ -52,7 +52,13 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     nn_tot = zeros(ncells)
     γ_SEE = zeros(ncells)
     Id  = [0.0]
+    error_integral = [0.0]
+    Id_smoothed = [0.0]
     Vs = [0.0]
+    anom_multiplier = [1.0]
+    smoothing_time_constant = [0.0]
+    errors = [0.0, 0.0, 0.0]
+    dcoeffs = [0.0, 0.0, 0.0, 0.0]
 
 
     # timestepping caches
@@ -65,7 +71,9 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1
+                ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
+                error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
+                errors, dcoeffs
             )
 
     return U, cache
@@ -107,7 +115,8 @@ Run a Hall thruster simulation using the provided Config object.
 - `nsave`: How many frames to save.
 """
 function run_simulation(config::Config;
-    dt, duration, ncells, nsave,  restart = nothing, CFL = 1.0, adaptive = false)
+    dt, duration, ncells, nsave,  restart = nothing, CFL = 1.0, adaptive = false,
+    control_current = false, target_current = 0.0, Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4)
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
@@ -153,6 +162,8 @@ function run_simulation(config::Config;
 
     mi = config.propellant.m
 
+    cache.smoothing_time_constant[] = time_constant
+
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
@@ -183,7 +194,8 @@ function run_simulation(config::Config;
         background_neutral_density = background_neutral_density(config),
         Bmax = maximum(cache.B),
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge,
+        control_current, target_current, Kp, Ti, Td
     )
 
     # Compute maximum allowed iterations
@@ -191,6 +203,9 @@ function run_simulation(config::Config;
     if !use_restart
         initialize!(U, params)
     end
+
+    # Initialize the anomalous collision frequency
+    initialize_anom!(params.cache.νan, params.config.anom_model, U, params)
 
     #make values in params available for first timestep
     update_electrons!(U, params)
