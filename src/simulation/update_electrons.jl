@@ -61,10 +61,10 @@ function update_electrons!(U, params, t = 0)
 
         # Compute anomalous collision frequency and wall collision frequencies
         νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
-        νan[i] = freq_electron_anom(U, params, i)
+        νan[i] = anom_multiplier[] * freq_electron_anom(U, params, i)
 
         # Compute total collision frequency and electron mobility
-        νe[i] = νc[i] + anom_multiplier[] * νan[i] + νew[i]
+        νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
 
         # Effective ion charge state (density-weighted average charge state)
@@ -95,7 +95,7 @@ function update_electrons!(U, params, t = 0)
 
     # Smooth anomalous transport model
     if params.config.anom_smoothing_iters > 0
-        smooth!(νan, params.cache.cell_cache_1, iters = anom_smoothing_iters)
+        smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
     end
 
     # Compute potential gradient and pressure gradient
@@ -112,7 +112,7 @@ function update_electrons!(U, params, t = 0)
 
     # Update the anomalous collision frequency multiplier to match target
     # discharge current
-    if control_current && t[] > 1e-4
+    if control_current && t > 0
         Ki = Kp / Ti
 
         A1 = Kp + Ki*dt
@@ -126,10 +126,13 @@ function update_electrons!(U, params, t = 0)
         errors[1] = target_current - Id_smoothed[]
 
         # PID controller
-        new_anom_mult = anom_multiplier[] + A1 * errors[1] + A2 * errors[2]
-        anom_multiplier[] =  new_anom_mult
-    else
+        if t > Ti
+            new_anom_mult = log(anom_multiplier[]) + A1 * errors[1] + A2 * errors[2]
+            anom_multiplier[] = exp(new_anom_mult)
+        end
+    elseif t == 0
         Id_smoothed[] = Id[]
+        anom_multiplier[] = 1
     end
 end
 

@@ -43,6 +43,10 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     K   = zeros(ncells)
     ji  = zeros(ncells)
 
+    ohmic_heating = zeros(ncells)
+    wall_losses = zeros(ncells)
+    inelastic_losses = zeros(ncells)
+
     num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
     ncharge = maximum(f.species.Z for f in fluids)
     ni = zeros(ncharge, ncells)
@@ -73,7 +77,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
-                errors, dcoeffs
+                errors, dcoeffs,
+                ohmic_heating, wall_losses, inelastic_losses
             )
 
     return U, cache

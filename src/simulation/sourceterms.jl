@@ -181,5 +181,9 @@ function source_electron_energy(U, params, i)
     wall_loss      = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
     inelastic_loss = inelastic_losses!(U, params, i)
 
+    params.cache.wall_losses[i] = wall_loss
+    params.cache.inelastic_losses[i] = inelastic_loss
+    params.cache.ohmic_heating[i] = ohmic_heating
+
     return ohmic_heating - wall_loss - inelastic_loss
 end
