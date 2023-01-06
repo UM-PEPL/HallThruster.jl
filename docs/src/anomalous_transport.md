@@ -24,8 +24,8 @@ HallThruster's default anomalous transport option. This is a standard model of a
 
 ```math
 \begin{aligned}
-    \nu_{AN} &= \c_1 \omega_{ce} \quad z < L_{ch} \\
-    &= \c_2 \omega_{ce} \quad z \ge L_{ch}
+    \nu_{AN} &= c_1 \omega_{ce} \quad z < L_{ch} \\
+    &= c_2 \omega_{ce} \quad z > L_{ch}
 \end{aligned}
 ```
 
