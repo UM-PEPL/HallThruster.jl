@@ -23,10 +23,10 @@ Model where the anomalous collision frequency scales with the electron cyclotron
 HallThruster's default anomalous transport option. This is a standard model of anomalous transport frequently used in Hall thruster simulations. The anomalous collision frequency is defined as
 
 ```math
-\nu_{AN} = \begin{cases}
-    \c_1 \omega_{ce} & z < L_{ch} \\
-    \c_2 \omega_{ce} & z \ge L_{ch}
-\end{cases}
+\begin{aligned}
+    \nu_{AN} &= \c_1 \omega_{ce} \quad z < L_{ch} \\
+    &= \c_2 \omega_{ce} \quad z \ge L_{ch}
+\end{aligned}
 ```
 
 In the above expression, ``c_1`` and ``c_2`` are tunable coefficients, ``\omega_{ce} = e B / m_e`` is the electron cyclotron frequency, and ``L_{ch}`` is the channel length. A `TwoZoneBohm` model is initialized as follows
