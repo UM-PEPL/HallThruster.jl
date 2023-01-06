@@ -19,7 +19,7 @@ Here, ``n_n`` is the neutral number density in m``^{-3}``, ``\mathbf{u_n}`` is t
 where ``n_e`` is the electron number density ``j`` represents the ion charge state (i.e. ``j = 1`` represents singly-charged ions, and so on), ``T_e`` is the electron temperature, and ``k_{nj}`` is the rate coefficient of the ionization reaction
  
 ```math   
-A + e- -> A^{j+} + (j + 1) e-
+A + e^- \rightarrow A^{j+} + (j + 1) e^-
 ```
 
 where A represents the gas species being simulated. Currently, the code is compatible with Xenon and Krypton. The reaction rate coefficients are generated as a function of electron temperature using the [BOLSIG+ code](http://www.bolsig.laplace.univ-tlse.fr).
@@ -45,12 +45,12 @@ The first term here represents the rate of production of ions with charge state 
 
 ```math
 \begin{aligned}
-    A + e- &-> A^{+} + 2 e-\\
-    A + e- &-> A^{2+} + 3 e-\\
-    A + e- &-> A^{3+} + 4 e-\\
-    A+ + e- &-> A^{2+} + 2 e-\\
-    A+ + e- &-> A^{3+} + 3 e-\\
-    A^{2+} + e- &-> A^{3+} + 2 e-
+    A + e^- &\rightarrow A^{+} + 2 e^-\\
+    A + e^- &\rightarrow A^{2+} + 3 e^-\\
+    A + e^- &\rightarrow A^{3+} + 4 e^-\\
+    A+ + e^- &\rightarrow A^{2+} + 2 e^-\\
+    A+ + e^- &\rightarrow A^{3+} + 3 e^-\\
+    A^{2+} + e^- &\rightarrow A^{3+} + 2 e^-
 \end{aligned}
 ```
 
@@ -145,9 +145,11 @@ The electron internal energy equation in one dimension is
 Here, ``q_ez`` is the electron heat conduction in one dimension and ``S_{wall}``, see [Wall Loss Models](@ref),  represents the loss of electron energy to the thruster walls and ``S_{coll}``, see [Collisions and Reactions](@ref) captures the loss of energy due to inelastic collisions. The heat transfer terms are defined as follows:
 
 ```math
+\begin{aligned}
     q_{ez} &= -\kappa_{e\perp} \nabla_{\perp} T_e\\ 
     \kappa_{e\perp} &\approx \frac{4.7 n_e T_e}{m_e \omega_{ce}^2 \tau_e} \\
     \tau_e &= 1/\nu_e = \frac{1}{\nu_{ei} + \nu_{en} + \nu_{ee} + \nu_{AN}} \\
+\end{aligned}
 ```
 
 In these expressions, ``\kappa_{e\perp}`` is the cross-field (axial) electron thermal conductivity, for which we employ the Braginskii closure, ``\tau_{e}`` is the electron collision time, ``\nu_j`` is the rate of inelastic collisions between electrons and species ``j`` and ``\Delta \epsilon_j`` is the average energy loss due to such collisions. These latter two parameters are computed using BOLSIG++. The heat transfer terms slightly change when considering the [Landmark case study](https://www.landmark-plasma.com/test-case-3), while the different wall and inelastic collision loss models are described in [Wall Loss Models](@ref) and [Collisions and Reactions](@ref). 

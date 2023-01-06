@@ -16,7 +16,7 @@ No anomalous collision frequency included in simulation
 struct NoAnom <: AnomalousTransportModel end
 
 function (::NoAnom)(U, params, i)
-    νan .= 0.0
+    νan = 0.0
     return νan
 end
 

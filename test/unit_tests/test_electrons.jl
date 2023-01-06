@@ -73,7 +73,7 @@
 
     model = HallThruster.NoAnom()
     for i in eachindex(params_landmark.cache.νan)
-        params_landmark.cache.νan[i] = model(U, params, i)
+        params_landmark.cache.νan[i] = model(U, params_landmark, i)
     end
     @test params_landmark.cache.νan[1] == 0.0
 

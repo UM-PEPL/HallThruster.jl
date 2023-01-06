@@ -126,7 +126,10 @@ function verify_energy(ncells; niters = 20000)
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, species)
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
 
-    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz)
+    wall_losses = zeros(ncells)
+    inelastic_losses = zeros(ncells)
+    ohmic_heating = zeros(ncells)
+    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz, wall_losses, ohmic_heating, inelastic_losses)
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
 

@@ -26,10 +26,10 @@ HallThruster's default anomalous transport option. This is a standard model of a
 \nu_{AN} = \begin{cases}
     \c_1 \omega_{ce} & z < L_{ch} \\
     \c_2 \omega_{ce} & z \ge L_{ch}
-\end{case}
+\end{cases}
 ```
 
-In the above expression, ``c_1`` and ``c_2`` are tunable coefficients, ``omega_{ce} = e B / m_e`` is the electron cyclotron frequency, and ``L_{ch}`` is the channel length. A `TwoZoneBohm` model is initialized as follows
+In the above expression, ``c_1`` and ``c_2`` are tunable coefficients, ``\omega_{ce} = e B / m_e`` is the electron cyclotron frequency, and ``L_{ch}`` is the channel length. A `TwoZoneBohm` model is initialized as follows
 
 ```julia
 anom_model = TwoZoneBohm(c1, c2)
