@@ -1,6 +1,7 @@
 function left_boundary_state!(bc_state, U, params)
     (;index, A_ch, config,) = params
     mi = config.propellant.m
+    Ti = config.ion_temperature
     (;Tev) = params.cache
 
     un = config.neutral_velocity
@@ -24,6 +25,8 @@ function left_boundary_state!(bc_state, U, params)
         bohm_factor = 1.0
     end
 
+    bohm_factor = 1.0
+
     # Precompute bohm velocity
     bohm_velocity = bohm_factor * sqrt(e * Tev[1] / mi)
 
@@ -39,19 +42,43 @@ function left_boundary_state!(bc_state, U, params)
         bc_state[index.ρn[2]] = U[index.ρn[2], begin+1]
     end
 
-    @inbounds for Z in 1:params.config.ncharge
-        boundary_density = U[index.ρi[Z],   begin+1]
-        boundary_flux    = U[index.ρiui[Z], begin+1]
-        boundary_velocity = boundary_flux / boundary_density
+    sound_speed = bohm_velocity #sqrt(config.propellant.γ * kB * Ti / mi)
+    boundary_velocity = -sound_speed
 
-        # Enforce Bohm condition at left boundary
+    @inbounds for Z in 1:params.config.ncharge
+        interior_density = U[index.ρi[Z],   begin+1]
+        interior_flux    = U[index.ρiui[Z], begin+1]
+        interior_velocity = interior_flux / interior_density
+
+        if interior_velocity <= -sound_speed
+            boundary_density = interior_density
+            boundary_flux = interior_flux
+        else
+            J⁻ = interior_velocity - sound_speed * log(interior_density)
+            J⁺ = 2 * boundary_velocity - J⁻
+            boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+            boundary_flux = boundary_velocity * boundary_density
+
+            #@show interior_velocity, -sound_speed
+            #@show J⁺, J⁻
+            #@show interior_density, boundary_density
+        end
+
+        bc_state[index.ρn[1]] -= boundary_flux / un
+        bc_state[index.ρi[Z]] = boundary_density
+        bc_state[index.ρiui[Z]] = boundary_flux
+
+
+        #= Enforce Bohm condition at left boundary
         boundary_velocity = min(-sqrt(Z) * bohm_velocity, boundary_velocity)
 
         recombination_density = -(boundary_density * boundary_velocity) / un
 
         bc_state[index.ρn[1]] += recombination_density
         bc_state[index.ρi[Z]] = boundary_density # Neumann BC for ion density at left boundary
-        bc_state[index.ρiui[Z]] = boundary_velocity * boundary_density
+        bc_state[index.ρiui[Z]] = boundary_velocity * boundary_density=#
+
+
     end
 end
 

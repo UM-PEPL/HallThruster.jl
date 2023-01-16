@@ -11,7 +11,10 @@ function anode_sheath_potential(U, params)
     (;config, index) = params
     (;ne) = params.cache
 
-    mi = params.config.propellant.m
+    mi = config.propellant.m
+    Ti = config.ion_temperature
+
+    ci = sqrt(2 * kB * Ti / mi)
 
     # Compute anode sheath potential
     if config.anode_boundary_condition == :sheath
@@ -23,6 +26,7 @@ function anode_sheath_potential(U, params)
 
         # current densities at sheath edge
         ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
+
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath

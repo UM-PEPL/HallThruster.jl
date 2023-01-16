@@ -90,8 +90,8 @@ function update_electrons!(U, params, t = 0)
     end
 
     # Neumann BC for νan
-    νan[1] = νan[2]
-    νan[end-1] = νan[end-2]
+    #νan[1] = νan[2]
+    #νan[end-1] = νan[end-2]
 
     # Smooth anomalous transport model
     if params.config.anom_smoothing_iters > 0
