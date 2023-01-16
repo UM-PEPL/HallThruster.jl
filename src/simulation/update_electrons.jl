@@ -132,7 +132,7 @@ function update_electrons!(U, params, t = 0)
         end
     elseif t == 0
         Id_smoothed[] = Id[]
-        anom_multiplier[] = 1
+        anom_multiplier[] = 1.0
     end
 end
 

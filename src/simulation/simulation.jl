@@ -231,71 +231,143 @@ function run_simulation(config::Config;
     return sol
 end
 
-function run_simulation(json_path::String)
-    (;design, simulation, parameters) = JSON3.read(read(json_path, String))
+function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
 
-    geometry = Geometry1D(;
-        channel_length = design.channel_length,
-        outer_radius = design.outer_radius,
-        inner_radius = design.inner_radius,
-    )
+    if is_path
+        json_content = JSON3.read(read(json_path, String))
+    else
+        json_content = JSON3.read(json_path)
+    end
 
-    bfield_data = readdlm(design.magnetic_field_file, ',')
+
+    if single_section
+
+        if nonstandard_keys
+            (;
+                # Design
+                thruster_name,
+                channel_length, inner_radius, outer_radius, 
+                magnetic_field_file, magnetically_shielded,
+                propellant_material, wall_material,
+                anode_potential, cathode_potential,
+                anode_mass_flow_rate,
+                # Simulation
+                anom_model, cathode_location_m, max_charge,
+                num_cells, dt_s, duration_s, num_save,
+                flux_function, limiter, reconstruct,
+                ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+                # Parameters
+                anom_coeff_1, anom_coeff_2, sheath_loss_coefficient,
+                ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
+                cathode_electron_temp_eV, inner_outer_transition_length_m,
+                background_pressure_Torr, background_temperature_K,
+            ) = json_content
+
+            anom_model_coeffs = [anom_coeff_1, anom_coeff_2]
+            propellant = propellant_material
+        else
+            (;
+                # Design
+                thruster_name,
+                channel_length, inner_radius, outer_radius, 
+                magnetic_field_file, magnetically_shielded,
+                propellant, wall_material,
+                anode_potential, cathode_potential,
+                anode_mass_flow_rate,
+                # Simulation
+                anom_model, cathode_location_m, max_charge,
+                num_cells, dt_s, duration_s, num_save,
+                flux_function, limiter, reconstruct,
+                ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+                # Parameters
+                anom_model_coeffs, sheath_loss_coefficient,
+                ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
+                cathode_electron_temp_eV, inner_outer_transition_length_m,
+                background_pressure_Torr, background_temperature_K,
+            ) = json_content
+        end
+    else
+        (;design, simulation, parameters) = json_content
+        (;
+            thruster_name,
+            channel_length, inner_radius, outer_radius, 
+            magnetic_field_file, magnetically_shielded,
+            propellant, wall_material,
+            anode_potential, cathode_potential,
+            anode_mass_flow_rate,
+        ) = design
+
+        (;
+            anom_model, cathode_location_m, max_charge,
+            num_cells, dt_s, duration_s, num_save,
+            flux_function, limiter, reconstruct,
+            ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+        ) = simulation
+
+        (; 
+            anom_model_coeffs, sheath_loss_coefficient,
+            ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
+            cathode_electron_temp_eV, inner_outer_transition_length_m,
+            background_pressure_Torr, background_temperature_K,
+        ) = parameters
+    end
+
+    geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
+
+    bfield_data = readdlm(magnetic_field_file, ',')
     bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
 
     thruster = HallThruster.Thruster(;
-        name = design.thruster_name,
+        name = thruster_name,
         geometry = geometry,
         magnetic_field = bfield_func,
-        shielded = design.magnetically_shielded
+        shielded = magnetically_shielded
     )
 
-    propellant = eval(Symbol(design.propellant))
-    wall_material = eval(Symbol(design.wall_material))
-
-    anom_model = if simulation.anom_model == "NoAnom"
+    anom_model = if anom_model == "NoAnom"
         NoAnom()
-    elseif simulation.anom_model == "Bohm"
-        (x -> Bohm(x[1]))(parameters.anom_model_coeffs)
-    elseif simulation.anom_model == "TwoZoneBohm"
-        (x -> TwoZoneBohm(x[1], x[2]))(parameters.anom_model_coeffs)
-    elseif simulation.anom_model == "MultiLogBohm"
-        MultiLogBohm(parameters.anom_model_coeffs)
+    elseif anom_model == "Bohm"
+        (x -> Bohm(x[1]))(anom_model_coeffs)
+    elseif anom_model == "TwoZoneBohm"
+        (x -> TwoZoneBohm(x[1], x[2]))(anom_model_coeffs)
+    elseif anom_model == "MultiLogBohm"
+        MultiLogBohm(anom_model_coeffs)
     end
-
-    flux_function = eval(Symbol(simulation.flux_function))
-    limiter = eval(Symbol(simulation.limiter))
 
     config = HallThruster.Config(;
         thruster,
-        propellant,
+        propellant = eval(Symbol(propellant)),
         anom_model,
-        domain = (0.0, simulation.cathode_location_m),
-        discharge_voltage = design.anode_potential - design.cathode_potential,
-        anode_mass_flow_rate = design.anode_mass_flow_rate,
-        cathode_potential = design.cathode_potential,
-        ncharge = simulation.max_charge,
-        wall_loss_model = WallSheath(wall_material, parameters.sheath_loss_coefficient),
-        ion_wall_losses = simulation.ion_wall_losses,
-        cathode_Te = parameters.cathode_electron_temp_eV,
+        domain = (0.0, cathode_location_m),
+        discharge_voltage = anode_potential - cathode_potential,
+        anode_mass_flow_rate = anode_mass_flow_rate,
+        cathode_potential = cathode_potential,
+        ncharge = max_charge,
+        wall_loss_model = WallSheath(eval(Symbol(wall_material)), sheath_loss_coefficient),
+        ion_wall_losses = ion_wall_losses,
+        cathode_Te = cathode_electron_temp_eV,
         LANDMARK = false,
-        ion_temperature = parameters.ion_temp_K,
-        neutral_temperature = parameters.neutral_temp_K,
-        neutral_velocity = parameters.neutral_velocity_m_s,
-        electron_ion_collisions = simulation.electron_ion_collisions,
-        min_electron_temperature = parameters.cathode_electron_temp_eV,
-        transition_function = LinearTransition(parameters.inner_outer_transition_length_m, 0.0),
+        ion_temperature = ion_temp_K,
+        neutral_temperature = neutral_temp_K,
+        neutral_velocity = neutral_velocity_m_s,
+        electron_ion_collisions = electron_ion_collisions,
+        min_electron_temperature = cathode_electron_temp_eV,
+        transition_function = LinearTransition(inner_outer_transition_length_m, 0.0),
         electron_pressure_coupled = false,
         scheme = HyperbolicScheme(;
-            flux_function, limiter, reconstruct = simulation.reconstruct
+            flux_function = eval(Symbol(flux_function)), limiter = eval(Symbol(limiter)), reconstruct
         ),
-        solve_background_neutrals = simulation.solve_background_neutrals,
-        background_pressure = parameters.background_pressure_Torr * u"Torr",
-        background_neutral_temperature = parameters.background_temperature_K * u"K",
+        solve_background_neutrals = solve_background_neutrals,
+        background_pressure = background_pressure_Torr * u"Torr",
+        background_neutral_temperature = background_temperature_K * u"K",
     )
 
-    solution = run_simulation(config; ncells = simulation.num_cells,
-        nsave = simulation.num_save, duration = simulation.duration_s, dt = simulation.dt_s)
+    println("JSON file read successfully. Running simulation.")
+
+    solution = run_simulation(
+        config; ncells = num_cells, nsave = num_save,
+        duration = duration_s, dt = dt_s
+    )
 
     return solution
 end

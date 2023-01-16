@@ -74,7 +74,7 @@ function solve(prob::ODEProblem; saveat, dt)
         if t > saveat[save_ind]
             u_save[save_ind] .= u
             for field in fields_to_save
-                savevals[save_ind][field] .= params.cache[field]#NamedTuple{fields_to_save}(params.cache)
+                savevals[save_ind][field] .= params.cache[field]
             end
             save_ind += 1
         end

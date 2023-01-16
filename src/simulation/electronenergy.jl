@@ -1,8 +1,6 @@
-const ELECTRON_CONDUCTIVITY_LOOKUP = let
-    Z = [1.0, 2.0, 3.0, 4.0, 5.0]
-    cond_coeff = [4.66, 4.0, 3.7, 3.6, 3.2]
-    LinearInterpolation(Z, cond_coeff)
-end
+const LOOKUP_ZS = 1.0:1.0:5.0
+const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
+const CONDUCTIVITY_LOOKUP_TABLE = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
 
 function update_electron_energy!(U, params)
     (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
@@ -27,8 +25,6 @@ function update_electron_energy!(U, params)
     end
 
     bϵ[end] = 1.5 * Te_R * ne[end]
-
-    Δt = dt
 
     # Needed to compute excitation and ionization frequencies in first and last cells,
     # Need a better solution, because the signature of this function doesn't make it clear
@@ -65,7 +61,7 @@ function update_electron_energy!(U, params)
 
         else
             #get adjusted coeffient for higher charge states
-            κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
+            κ_charge = CONDUCTIVITY_LOOKUP_TABLE(params.cache.Z_eff[i])
             correction_factor = κ_charge/4.7
             # Adjust thermal conductivity to be slightly more accurate
             κL = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
@@ -128,15 +124,15 @@ function update_electron_energy!(U, params)
         Aϵ.du[i] = (FR_factor_R - FL_factor_R) / Δz
 
         # Contribution to implicit part from timestepping
-        Aϵ.d[i]    = 1.0 + implicit * Δt * Aϵ.d[i]
-        Aϵ.dl[i-1] = implicit * Δt * Aϵ.dl[i-1]
-        Aϵ.du[i]   = implicit * Δt * Aϵ.du[i]
+        Aϵ.d[i]    = 1.0 + implicit * dt * Aϵ.d[i]
+        Aϵ.dl[i-1] = implicit * dt * Aϵ.dl[i-1]
+        Aϵ.du[i]   = implicit * dt * Aϵ.du[i]
 
         # Explicit flux
         F_explicit = (FR - FL) / Δz
 
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + Δt * (Q - explicit * F_explicit)
+        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
     end
 
     # Solve equation system using Thomas algorithm
