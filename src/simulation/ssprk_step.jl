@@ -34,7 +34,7 @@ function solve(prob::ODEProblem; saveat, dt)
     fields_to_save = (
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
         :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot,
-        :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses
+        :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs
     )
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
@@ -84,7 +84,7 @@ function solve(prob::ODEProblem; saveat, dt)
         end
     end
 
-    ind = min(save_ind, length(savevals))
+    ind = min(save_ind, length(savevals)+1)-1
 
     return Solution(saveat[1:ind], u_save[1:ind], savevals[1:ind], retcode, params)
 end

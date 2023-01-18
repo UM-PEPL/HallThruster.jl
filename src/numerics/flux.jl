@@ -107,11 +107,11 @@ for NUM_CONSERVATIVE in 1:3
 
         charge_factor = Z * e * coupled
 
-         aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-         aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
-        sL_max = max(abs(uL - aL), abs(uL + aL), #=abs(uL)=#)
-        sR_max = max(abs(uR - aR), abs(uR + aR), #=abs(uR)=#)
+        sL_max = max(abs(uL - aL), abs(uL + aL))
+        sR_max = max(abs(uR - aR), abs(uR + aR))
 
         smax = max(sL_max, sR_max)
 
@@ -234,8 +234,8 @@ function compute_edge_states!(UL, UR, U, params)
         end
     end
 
-    @. @views UL[:, 1]   = U[:, 1]
-    @. @views UR[:, end] = U[:, end]
+    @views left_boundary_state!(UL[:, 1], U, params)
+    @views right_boundary_state!(UR[:, end], U, params)
 end
 
 function compute_fluxes!(F, UL, UR, U, params)

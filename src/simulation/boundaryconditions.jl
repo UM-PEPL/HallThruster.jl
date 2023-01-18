@@ -25,11 +25,6 @@ function left_boundary_state!(bc_state, U, params)
         bohm_factor = 1.0
     end
 
-    bohm_factor = 1.0
-
-    # Precompute bohm velocity
-    bohm_velocity = bohm_factor * sqrt(e * Tev[1] / mi)
-
     # Add inlet neutral density
     bc_state[index.ρn[1]] = mdot_a / A_ch / un
 
@@ -41,44 +36,46 @@ function left_boundary_state!(bc_state, U, params)
         bc_state[index.ρn[1]] += background_neutral_flux / un
         bc_state[index.ρn[2]] = U[index.ρn[2], begin+1]
     end
-
-    sound_speed = bohm_velocity #sqrt(config.propellant.γ * kB * Ti / mi)
-    boundary_velocity = -sound_speed
+    
 
     @inbounds for Z in 1:params.config.ncharge
         interior_density = U[index.ρi[Z],   begin+1]
         interior_flux    = U[index.ρiui[Z], begin+1]
         interior_velocity = interior_flux / interior_density
 
+        sound_speed = sqrt((kB * Ti + e * Z * Tev[1]) / mi)  # Sound speed considering electron pressure-coupled terms
+        boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
+
         if interior_velocity <= -sound_speed
+            # Supersonic outflow, pure Neumann boundary condition
             boundary_density = interior_density
             boundary_flux = interior_flux
         else
+            # Subsonic outflow, need to drive the flow toward sonic
+            # For the isothermal Euler equations, the Riemann invariants are
+            # J⁺ = u + c ln ρ
+            # J⁻ = u - c ln ρ
+            # For the boundary condition, we take c = u_bohm
+            
+            # 1. Compute outgoing characteristic using interior state
             J⁻ = interior_velocity - sound_speed * log(interior_density)
+
+            # 2. Compute incoming characteristic using J⁻ invariant
             J⁺ = 2 * boundary_velocity - J⁻
+
+            # 3. Compute boundary density using J⁺ and J⁻ invariants
             boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+
+            # Compute boundary flux
             boundary_flux = boundary_velocity * boundary_density
 
-            #@show interior_velocity, -sound_speed
-            #@show J⁺, J⁻
-            #@show interior_density, boundary_density
+            #boundary_flux = interior_flux
+            #boundary_density = boundary_flux / boundary_velocity
         end
 
         bc_state[index.ρn[1]] -= boundary_flux / un
         bc_state[index.ρi[Z]] = boundary_density
         bc_state[index.ρiui[Z]] = boundary_flux
-
-
-        #= Enforce Bohm condition at left boundary
-        boundary_velocity = min(-sqrt(Z) * bohm_velocity, boundary_velocity)
-
-        recombination_density = -(boundary_density * boundary_velocity) / un
-
-        bc_state[index.ρn[1]] += recombination_density
-        bc_state[index.ρi[Z]] = boundary_density # Neumann BC for ion density at left boundary
-        bc_state[index.ρiui[Z]] = boundary_velocity * boundary_density=#
-
-
     end
 end
 

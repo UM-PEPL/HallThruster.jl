@@ -90,7 +90,7 @@ function thrust(sol, frame)
     return thrust
 end
 
-discharge_current(sol, frame) = sol.savevals[frame].Id[]
+discharge_current(sol::Solution, frame) = sol.savevals[frame].Id[]
 
 function anode_eff(sol, frame)
     T = thrust(sol, frame)

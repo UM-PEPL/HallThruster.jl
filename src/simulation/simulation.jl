@@ -64,13 +64,14 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     errors = [0.0, 0.0, 0.0]
     dcoeffs = [0.0, 0.0, 0.0, 0.0]
 
-
     # timestepping caches
     k = copy(U)
     u1 = copy(U)
 
     # other caches
     cell_cache_1 = zeros(ncells)
+
+    
 
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
@@ -231,17 +232,9 @@ function run_simulation(config::Config;
     return sol
 end
 
-function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
-
-    if is_path
-        json_content = JSON3.read(read(json_path, String))
-    else
-        json_content = JSON3.read(json_path)
-    end
-
-
+function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false)
+    
     if single_section
-
         if nonstandard_keys
             (;
                 # Design
@@ -360,6 +353,7 @@ function run_simulation(json_path::String; single_section = false, is_path = tru
         solve_background_neutrals = solve_background_neutrals,
         background_pressure = background_pressure_Torr * u"Torr",
         background_neutral_temperature = background_temperature_K * u"K",
+        anode_boundary_condition = :dirichlet
     )
 
     println("JSON file read successfully. Running simulation.")
@@ -370,4 +364,15 @@ function run_simulation(json_path::String; single_section = false, is_path = tru
     )
 
     return solution
+end
+
+function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
+
+    if is_path
+        json_content = JSON3.read(read(json_path, String))
+    else
+        json_content = JSON3.read(json_path)
+    end
+
+    run_simulation(json_content; single_section, nonstandard_keys)
 end
