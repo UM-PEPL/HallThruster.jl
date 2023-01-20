@@ -61,13 +61,11 @@ function apply_ion_acceleration!(dU, U, params, i)
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)
-    (;index, config, A_ch, Δz_cell, z_cell, L_ch) = params
+    (;index, config, z_cell, L_ch) = params
     (;ncharge, propellant, wall_loss_model, thruster) = config
 
     geometry = thruster.geometry
     h = geometry.outer_radius - geometry.inner_radius
-
-    Δz = Δz_cell[i]
 
     mi = propellant.m
 
@@ -78,15 +76,6 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 
     @inbounds for Z in 1:ncharge
-
-        #Iiw = wall_ion_current(wall_loss_model, U, params, i, Z)
-        #V_cell = A_ch * Δz
-
-        #ρdot = Iiw / e / V_cell * mi
-
-        #ion_density_flux = ρdot
-        #ion_momentum_flux = ρdot * U[index.ρiui[Z], i] / U[index.ρi[Z], i]
-
         
         in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)

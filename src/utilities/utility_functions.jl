@@ -164,6 +164,7 @@ function tridiagonal_solve(A, b)
     return y
 end
 
+# Asymptotic fast formula for error function accurate to a few percent
 function myerf(x)
     x < 0 && return -myerf(-x)
     x_sqrt_pi = x * √(π)

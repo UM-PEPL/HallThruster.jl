@@ -1,11 +1,11 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;z_cell, index, A_ch, dt, control_current, target_current, Kp, Ti, Td) = params
+    (;index, dt, control_current, target_current, Kp, Ti) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
-        Z_eff, νiz, νex, νe, ji, Id, νew, νiw, ni, ui, Vs, nn, nn_tot, niui,
-        Id_smoothed, error_integral, smoothing_time_constant, anom_multiplier,
-        errors, dcoeffs
+        Z_eff, νiz, νex, νe, ji, Id, νew, ni, ui, Vs, nn, nn_tot, niui,
+        Id_smoothed, smoothing_time_constant, anom_multiplier,
+        errors, channel_area
     ) = params.cache
 
     # Update the current iteration
@@ -14,9 +14,6 @@ function update_electrons!(U, params, t = 0)
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
-
-    #@. @views U[:, 1] = UL[:, 1]
-    #@. @views U[:, end] = UR[:, end]
 
     ncells = size(U, 2)
 
@@ -85,8 +82,8 @@ function update_electrons!(U, params, t = 0)
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in 1:ncells
-        # je + ji = Id / A_ch
-        ue[i] = (ji[i] - Id[] / A_ch) / e / ne[i]
+        # je + ji = Id / A
+        ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
 
         # Kinetic energy in both axial and azimuthal directions is accounted for
         params.cache.K[i] = electron_kinetic_energy(U, params, i)
@@ -141,8 +138,8 @@ end
 
 
 function discharge_current(U::Array, params)
-    (;A_ch, cache, Δz_edge, ϕ_L, ϕ_R) = params
-    (;∇pe, μ, ne, ji, Vs) = cache
+    (;cache, Δz_edge, ϕ_L, ϕ_R) = params
+    (;∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     ncells = size(U, 2)
 
@@ -157,25 +154,25 @@ function discharge_current(U::Array, params)
 
         int1 += 0.5 * Δz * (int1_1 + int1_2)
 
-        int2_1 = inv(e * ne[i] * μ[i])
-        int2_2 = inv(e * ne[i+1] * μ[i+1])
+        int2_1 = inv(e * ne[i] * μ[i] * channel_area[i])
+        int2_2 = inv(e * ne[i+1] * μ[i+1] * channel_area[i+1])
 
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
 
     ΔV = ϕ_L - ϕ_R + Vs[]
 
-    I = A_ch * (ΔV + int1) / int2
+    I = (ΔV + int1) / int2
 
     return I
 end
 
 function compute_electric_field!(∇ϕ, params)
-    (;A_ch, cache) = params
-    (;ji, Id, ne, μ, ∇pe) = cache
+    (;cache) = params
+    (;ji, Id, ne, μ, ∇pe, channel_area) = cache
 
     for i in eachindex(∇ϕ)
-        ∇ϕ[i] = -((Id[] / A_ch - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+        ∇ϕ[i] = -((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
     end
 
     return ∇ϕ

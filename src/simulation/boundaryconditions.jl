@@ -1,8 +1,8 @@
 function left_boundary_state!(bc_state, U, params)
-    (;index, A_ch, config,) = params
+    (;index, config,) = params
+    (;Tev, channel_area) = params.cache
     mi = config.propellant.m
     Ti = config.ion_temperature
-    (;Tev) = params.cache
 
     un = config.neutral_velocity
     mdot_a = config.anode_mass_flow_rate
@@ -26,7 +26,7 @@ function left_boundary_state!(bc_state, U, params)
     end
 
     # Add inlet neutral density
-    bc_state[index.ρn[1]] = mdot_a / A_ch / un
+    bc_state[index.ρn[1]] = mdot_a / channel_area[1] / un
 
     if config.solve_background_neutrals
         # Background neutrals are accomodated and re-emitted as anode neutrals

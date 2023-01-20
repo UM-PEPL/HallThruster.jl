@@ -9,7 +9,7 @@ end
 
 function anode_sheath_potential(U, params)
     (;config, index) = params
-    (;ne) = params.cache
+    (;ne, channel_area) = params.cache
 
     mi = config.propellant.m
     Ti = config.ion_temperature
@@ -26,7 +26,7 @@ function anode_sheath_potential(U, params)
         je_sheath = e * ne[1] * ce / 4
 
         # discharge current density
-        jd = params.cache.Id[] / params.A_ch
+        jd = params.cache.Id[] / channel_area[1]
 
         # current densities at sheath edge
         ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi

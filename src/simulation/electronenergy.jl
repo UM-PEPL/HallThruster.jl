@@ -4,7 +4,7 @@ const CONDUCTIVITY_LOOKUP_TABLE = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTI
 
 function update_electron_energy!(U, params)
     (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev) = cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
@@ -99,7 +99,7 @@ function update_electron_energy!(U, params)
                 # = - 4/3 * nϵ[1] * ue_sheath_edge - 2 ne ue Vs
 
                 # discharge current density
-                jd = params.cache.Id[] / params.A_ch
+                jd = params.cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
                 ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
@@ -150,8 +150,13 @@ function update_electron_energy!(U, params)
         # Explicit flux
         F_explicit = (FR - FL) / Δz
 
+        # Term to allow for changing area
+        dlnA_dz = params.cache.dA_dz[i] / params.cache.channel_area[i]
+        flux = 5/3 * nϵ0 * ue0
+
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
+        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit) 
+        bϵ[i] -= dt * flux * dlnA_dz
     end
 
     # Solve equation system using Thomas algorithm
