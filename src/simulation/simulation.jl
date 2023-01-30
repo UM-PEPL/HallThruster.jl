@@ -211,7 +211,6 @@ function run_simulation(config::Config;
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1, 
-        solve_plume = true
     )
 
     # Compute maximum allowed iterations

@@ -1,8 +1,13 @@
 function update_plume_geometry!(U, params; initialize = false)
     mi = params.mi
-    (; z_cell, L_ch, exit_plane_index, config, A_ch, cache, solve_plume, index) = params
+    (; z_cell, L_ch, exit_plane_index, config, A_ch, cache, index) = params
     (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ) = cache
 
+
+    if !initialize && !params.config.solve_plume
+        return
+    end
+    
     ncells = length(z_cell)
     geometry = config.thruster.geometry
     r_in = geometry.inner_radius
@@ -18,7 +23,7 @@ function update_plume_geometry!(U, params; initialize = false)
     channel_height[1] = r_out - r_in
 
     for i in 2:ncells
-        tanδ_is_zero = z_cell[i] < L_ch || initialize || !solve_plume
+        tanδ_is_zero = z_cell[i] < L_ch || initialize
 
         ui = sum(U[index.ρiui[Z], i] for Z in 1:params.config.ncharge) / sum(U[index.ρi[Z], i] for Z in 1:params.config.ncharge)
         tanδ_i = sqrt(5 * e * Tev_exit / 3 / mi) / ui
