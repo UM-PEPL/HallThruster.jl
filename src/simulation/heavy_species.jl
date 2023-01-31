@@ -1,7 +1,5 @@
 
-function update_heavy_species!(dU, U, params, t)
-    ####################################################################
-    #extract some useful stuff from params
+function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = true)
 
     (;index, Δz_cell, config, cache) = params
     (;
@@ -13,7 +11,7 @@ function update_heavy_species!(dU, U, params, t)
 
     ncells = size(U, 2)
 
-    compute_fluxes!(F, UL, UR, U, params)
+    compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 
     @inbounds for i in 2:ncells-1
         left = left_edge(i)

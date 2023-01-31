@@ -1,10 +1,10 @@
 const LOOKUP_ZS = 1.0:1.0:5.0
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
-const CONDUCTIVITY_LOOKUP_TABLE = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
+const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
 
 function update_electron_energy!(U, params)
     (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area) = cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
@@ -62,7 +62,7 @@ function update_electron_energy!(U, params)
 
         else
             #get adjusted coeffient for higher charge states
-            κ_charge = CONDUCTIVITY_LOOKUP_TABLE(params.cache.Z_eff[i])
+            κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
             correction_factor = κ_charge/4.7
             # Adjust thermal conductivity to be slightly more accurate
             κL = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
@@ -151,7 +151,7 @@ function update_electron_energy!(U, params)
         F_explicit = (FR - FL) / Δz
 
         # Term to allow for changing area
-        dlnA_dz = params.cache.dA_dz[i] / params.cache.channel_area[i]
+        dlnA_dz = dA_dz[i] / channel_area[i]
         flux = 5/3 * nϵ0 * ue0
 
         # Explicit right-hand-side

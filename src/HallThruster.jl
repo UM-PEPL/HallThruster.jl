@@ -1,6 +1,5 @@
 module HallThruster
 
-using SpecialFunctions
 using LinearAlgebra
 using DocStringExtensions
 

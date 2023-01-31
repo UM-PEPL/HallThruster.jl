@@ -36,7 +36,8 @@
         z_cell = [0., 1., 2.],
         cache = (
             Tev = [3.0, 3.0],
-            ϕ = [300.0, 300.0]
+            ϕ = [300.0, 300.0],
+            channel_area = ones(2) * config.thruster.geometry.channel_area
         ),
         num_neutral_fluids = 2,
         fluids,
@@ -47,8 +48,8 @@
         background_neutral_velocity,
     )
 
-    u_bohm_1 = sqrt(e * params.Te_L / mi)
-    u_bohm_2 = sqrt(2) * u_bohm_1
+    u_bohm_1 = sqrt((HallThruster.kB * config.ion_temperature + e * params.Te_L) / mi)
+    u_bohm_2 = sqrt((HallThruster.kB * config.ion_temperature + 2 * e * params.Te_L) / mi)
 
     ni_1 = 1e17
     ni_2 = 1e16

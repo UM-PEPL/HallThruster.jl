@@ -43,7 +43,7 @@ function left_boundary_state!(bc_state, U, params)
         interior_flux    = U[index.ρiui[Z], begin+1]
         interior_velocity = interior_flux / interior_density
 
-        sound_speed = sqrt((kB * Ti + e * Z * Tev[1]) / mi)  # Sound speed considering electron pressure-coupled terms
+        sound_speed = sqrt((kB * Ti + Z * e * Tev[1]) / mi)  # Sound speed considering electron pressure-coupled terms
         boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
 
         if interior_velocity <= -sound_speed

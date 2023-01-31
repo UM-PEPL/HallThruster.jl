@@ -138,7 +138,10 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     UR = zeros(4, nedges)
     λ_global = zeros(2)
 
-    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global)
+    channel_area = A_ch .* ones(ncells+2)
+    dA_dz = zeros(ncells+2)
+
+    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz)
 
     U = zeros(4, ncells+2)
     z_end = z_cell[end]
@@ -180,7 +183,7 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     t = 0.0
     while t < tspan[2]
         @views U[:, end] = U[:, end-1]
-        HallThruster.update_heavy_species!(dU, U, params, t)
+        HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
         for i in eachindex(U)
             U[i] += dt * dU[i]
         end

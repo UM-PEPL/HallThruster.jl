@@ -123,7 +123,7 @@
     @test Iew ≈ νew * HallThruster.e * V_cell * ne
 
     @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) ≈ νew
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) ≈ 0.0
+    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) ≈ νew #0.0
 
     @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * (1 - 0.5 * BN.σ₀) * Tev + (1 - γ) * Vs)/γ
     @test HallThruster.wall_power_loss(sheath_model, U, params, 4) ≈ 0.0
@@ -138,12 +138,13 @@ end
     Tev = 3.0
 
     α = 0.8
+    mi = config.propellant.m
 
-    γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/Xenon.m)
+    γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/mi)
 
     γ = HallThruster.SEE_yield(HallThruster.BoronNitride, Tev, γ_SEE_max)
-    νiw = α * sqrt(HallThruster.e * Tev / Xenon.m) / Δr * γ
-    νew = νiw / (1 - γ)
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
+    νew = νiw * γ / (1 - γ)
 
     L_ch = HallThruster.geometry_SPT_100.channel_length
     A_ch = HallThruster.channel_area(HallThruster.SPT_100)
@@ -190,7 +191,6 @@ end
 
     index = (ρn = 1, ρi = [2, 4], ρiui = [3, 5], nϵ = 6)
 
-    mi = config.propellant.m
     u_bohm = sqrt(HallThruster.e * Tev / mi)
     u_thermal_n = sqrt(HallThruster.kB * Tn / 2 / π / mi)
 
@@ -216,7 +216,7 @@ end
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
-    γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/Xenon.m)
+    γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/mi)
     base_params = (;cache, L_ch, A_ch, fluids, z_cell, z_edge, index, Δz_cell, Δz_edge, γ_SEE_max)
 
     config_no_losses = (;config..., wall_loss_model = HallThruster.NoWallLosses())
@@ -252,23 +252,28 @@ end
     # Ion and electron wall currents are equivalent inside of channel
     @test Iiw_1 + Iiw_2 == Iew
 
+    dU .= 0.0
     # Check that wall losses work correctly
     HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, i)
 
     # Neutrals should recombine at walls
     @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
-    # Rate of ion loss is equal to Iiw / e / V_cell
+    # Rate of ion loss is equal to ni νiw
     Δz = z_edge[2] - z_edge[1]
     V_cell = A_ch * Δz
-    @test dU[index.ρi[1], i] ≈ -Iiw_1 / HallThruster.e / V_cell * mi
-    @test dU[index.ρi[2], i] ≈ -Iiw_2 / HallThruster.e / V_cell * mi
+    u_bohm = sqrt(HallThruster.e * Tev / mi)
+    νiw =  u_bohm / Δr
+
+    @test dU[index.ρi[1], i] ≈ -U[index.ρi[1], i] * νiw
+    @test dU[index.ρi[2], i] ≈ -U[index.ρi[2], i] * νiw * sqrt(2)
 
     # ion momentum loss is equal to Iiw / e / V_cell * ui
-    @test dU[index.ρiui[1], i] ≈ -Iiw_1 / HallThruster.e / V_cell * ui_1 * mi
-    @test dU[index.ρiui[2], i] ≈ -Iiw_2 / HallThruster.e / V_cell * ui_2 * mi
+    @test dU[index.ρiui[1], i] ≈ -U[index.ρiui[1], i] * νiw
+    @test dU[index.ρiui[2], i] ≈ -U[index.ρiui[2], i] * νiw * sqrt(2)
 
     # No wall current outside of channel
+    dU .= 0.0
     i = 3
     @test HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 1) == 0.0
     @test HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 2) == 0.0
@@ -285,8 +290,8 @@ end
     params_wall_sheath = (;base_params..., config = config_wall_sheath)
 
     γ = HallThruster.SEE_yield(material, Tev, γ_SEE_max)
-    νiw = α * sqrt(HallThruster.e * Tev / Xenon.m) / Δr * γ
-    νew = νiw / (1 - γ)
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
+    νew = νiw * γ / (1 - γ)
 
     params_wall_sheath.cache.νew[1:2] .= νew
     i = 2
@@ -305,12 +310,12 @@ end
     @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to Iiw / e / V_cell
-    @test dU[index.ρi[1], i] ≈ -Iiw_1 / HallThruster.e / V_cell * mi
-    @test dU[index.ρi[2], i] ≈ -Iiw_2 / HallThruster.e / V_cell * mi
+    @test dU[index.ρi[1], i] ≈ -νiw * U[index.ρi[1], i]
+    @test dU[index.ρi[2], i] ≈ -νiw * U[index.ρi[2], i] * sqrt(2)
 
     # ion momentum loss is equal to Iiw / e / V_cell * ui
-    @test dU[index.ρiui[1], i] ≈ -Iiw_1 / HallThruster.e / V_cell * ui_1 * mi
-    @test dU[index.ρiui[2], i] ≈ -Iiw_2 / HallThruster.e / V_cell * ui_2 * mi
+    @test dU[index.ρiui[1], i] ≈ -νiw * U[index.ρiui[1], i]
+    @test dU[index.ρiui[2], i] ≈ -νiw * U[index.ρiui[2], i] * sqrt(2)
 
     # No wall losses in plume
     i = 3

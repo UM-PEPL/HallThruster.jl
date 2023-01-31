@@ -65,12 +65,14 @@ function apply_ion_wall_losses!(dU, U, params, i)
     (;ncharge, propellant, wall_loss_model, thruster) = config
 
     geometry = thruster.geometry
-    h = geometry.outer_radius - geometry.inner_radius
+    Δr = geometry.outer_radius - geometry.inner_radius
 
     mi = propellant.m
 
     if wall_loss_model isa WallSheath
         α = wall_loss_model.α
+    elseif wall_loss_model isa NoWallLosses
+        return
     else
         α = 1.0
     end
@@ -79,13 +81,14 @@ function apply_ion_wall_losses!(dU, U, params, i)
         
         in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
-        νiw = α * in_channel * u_bohm / h
-        density_loss = U[index.ρi[Z], i] * νiw
-        u = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
+        νiw = α * in_channel * u_bohm / Δr
 
+        density_loss  = U[index.ρi[Z], i] * νiw
+        momentum_loss = U[index.ρiui[Z], i] * νiw
+        
         dU[index.ρi[Z],   i] -= density_loss
-        dU[index.ρiui[Z], i] -= density_loss * u
-
+        dU[index.ρiui[Z], i] -= momentum_loss
+        
         # Neutrals gain density due to ion recombination at the walls
         dU[index.ρn[1], i] += density_loss
     end
