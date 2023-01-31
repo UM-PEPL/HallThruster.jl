@@ -1,6 +1,5 @@
 module HallThruster
 
-using SpecialFunctions
 using LinearAlgebra
 using DocStringExtensions
 
@@ -61,6 +60,7 @@ include("simulation/potential.jl")
 include("simulation/heavy_species.jl")
 include("simulation/electronenergy.jl")
 include("simulation/sourceterms.jl")
+include("simulation/plume.jl")
 include("simulation/update_electrons.jl")
 include("simulation/configuration.jl")
 include("simulation/restart.jl")

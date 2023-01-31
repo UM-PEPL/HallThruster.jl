@@ -26,7 +26,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
             if !params.config.LANDMARK
                 # Momentum transfer due to ionization
-                if reactant_index == index.ρn[1]
+                #=if reactant_index == index.ρn[1]
                     reactant_velocity = params.config.neutral_velocity
                 elseif reactant_index == index.ρn[2]
                     reactant_velocity = params.background_neutral_velocity
@@ -35,7 +35,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
                     dU[reactant_index + 1, i] -= ρdot * reactant_velocity
                 end
 
-                dU[product_index + 1, i] += ρdot * reactant_velocity
+                dU[product_index + 1, i] += ρdot * reactant_velocity=#
             end
         end
     end
@@ -61,34 +61,36 @@ function apply_ion_acceleration!(dU, U, params, i)
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)
-    (;index, config, A_ch, Δz_cell) = params
-    (;ncharge, propellant, wall_loss_model) = config
+    (;index, config, z_cell, L_ch) = params
+    (;ncharge, propellant, wall_loss_model, thruster) = config
 
-    Δz = Δz_cell[i]
+    geometry = thruster.geometry
+    Δr = geometry.outer_radius - geometry.inner_radius
 
     mi = propellant.m
 
     if wall_loss_model isa WallSheath
         α = wall_loss_model.α
+    elseif wall_loss_model isa NoWallLosses
+        return
     else
         α = 1.0
     end
 
     @inbounds for Z in 1:ncharge
+        
+        in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+        u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
+        νiw = α * in_channel * u_bohm / Δr
 
-        Iiw = wall_ion_current(wall_loss_model, U, params, i, Z)
-        V_cell = A_ch * Δz
-
-        ρdot = Iiw / e / V_cell * mi
-
-        ion_density_flux = ρdot
-        ion_momentum_flux = ρdot * U[index.ρiui[Z], i] / U[index.ρi[Z], i]
-
-        dU[index.ρi[Z],   i] -= ion_density_flux
-        dU[index.ρiui[Z], i] -= ion_momentum_flux
-
+        density_loss  = U[index.ρi[Z], i] * νiw
+        momentum_loss = U[index.ρiui[Z], i] * νiw
+        
+        dU[index.ρi[Z],   i] -= density_loss
+        dU[index.ρiui[Z], i] -= momentum_loss
+        
         # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn[1], i] += ion_density_flux
+        dU[index.ρn[1], i] += density_loss
     end
 end
 

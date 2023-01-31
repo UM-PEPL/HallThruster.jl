@@ -1,7 +1,5 @@
 
-function update_heavy_species!(dU, U, params, t)
-    ####################################################################
-    #extract some useful stuff from params
+function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = true)
 
     (;index, Δz_cell, config, cache) = params
     (;
@@ -9,17 +7,19 @@ function update_heavy_species!(dU, U, params, t)
         ncharge, ion_wall_losses
     ) = config
 
-    (;F, UL, UR) = cache
+    (;F, UL, UR, channel_area, dA_dz) = cache
 
     ncells = size(U, 2)
 
-    compute_fluxes!(F, UL, UR, U, params)
+    compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
         right = right_edge(i)
 
         Δz = Δz_cell[i]
+
+        dlnA_dz = dA_dz[i] / channel_area[i]
 
         # Handle neutrals
         for j in 1:params.num_neutral_fluids
@@ -33,8 +33,11 @@ function update_heavy_species!(dU, U, params, t)
         # Handle ions
         for Z in 1:ncharge
             # Ion fluxes
-            dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz
-            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz
+            # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
+            ρi = U[index.ρi[Z], i]
+            ρiui = U[index.ρiui[Z], i]
+            dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz - ρiui * dlnA_dz
+            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz - ρiui^2 / ρi * dlnA_dz
 
             # User-provided ion source terms
             dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)

@@ -64,7 +64,6 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     errors = [0.0, 0.0, 0.0]
     dcoeffs = [0.0, 0.0, 0.0, 0.0]
 
-
     # timestepping caches
     k = copy(U)
     u1 = copy(U)
@@ -72,13 +71,23 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     # other caches
     cell_cache_1 = zeros(ncells)
 
+    # Plume divergence variables
+    channel_area = zeros(ncells)    # Area of channel / plume
+    dA_dz = zeros(ncells)           # derivative of area w.r.t. axial coordinate
+    channel_height = zeros(ncells)  # Height of channel / plume (outer - inner) 
+    inner_radius = zeros(ncells)    # Channel/plume inner radius
+    outer_radius = zeros(ncells)    # Channel/plume outer radius
+    tanδ = zeros(ncells)            # Tangent of divergence half-angle
+
+
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
                 errors, dcoeffs,
-                ohmic_heating, wall_losses, inelastic_losses
+                ohmic_heating, wall_losses, inelastic_losses,
+                channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ
             )
 
     return U, cache
@@ -200,11 +209,11 @@ function run_simulation(config::Config;
         Bmax = maximum(cache.B),
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
         Δz_cell, Δz_edge,
-        control_current, target_current, Kp, Ti, Td
+        control_current, target_current, Kp, Ti, Td,
+        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1, 
     )
 
     # Compute maximum allowed iterations
-
     if !use_restart
         initialize!(U, params)
     end
@@ -214,7 +223,10 @@ function run_simulation(config::Config;
         params.cache.νan[i] = params.config.anom_model(U, params, i)
     end
 
-    #make values in params available for first timestep
+    # Initialize plume
+    update_plume_geometry!(U, params, initialize = true)
+
+    # make values in params available for first timestep
     update_electrons!(U, params)
 
     # Set up and solve problem, this form is temporary
@@ -231,17 +243,9 @@ function run_simulation(config::Config;
     return sol
 end
 
-function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
-
-    if is_path
-        json_content = JSON3.read(read(json_path, String))
-    else
-        json_content = JSON3.read(json_path)
-    end
-
-
+function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false)
+    
     if single_section
-
         if nonstandard_keys
             (;
                 # Design
@@ -370,4 +374,15 @@ function run_simulation(json_path::String; single_section = false, is_path = tru
     )
 
     return solution
+end
+
+function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
+
+    if is_path
+        json_content = JSON3.read(read(json_path, String))
+    else
+        json_content = JSON3.read(json_path)
+    end
+
+    run_simulation(json_content; single_section, nonstandard_keys)
 end

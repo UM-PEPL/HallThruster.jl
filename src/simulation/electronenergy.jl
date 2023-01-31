@@ -1,13 +1,14 @@
 const LOOKUP_ZS = 1.0:1.0:5.0
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
-const CONDUCTIVITY_LOOKUP_TABLE = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
+const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
 
 function update_electron_energy!(U, params)
     (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev) = cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
+    mi = params.config.propellant.m
 
     nϵ = @views U[index.nϵ, :]
     Aϵ.d[1] = 1.0
@@ -18,10 +19,10 @@ function update_electron_energy!(U, params)
     if config.anode_boundary_condition == :dirichlet || ue[1] > 0
         bϵ[1] = 1.5 * Te_L * ne[1]
     else
-        # Neumann BC for internal energy
+        # Neumann BC for electron temperature
         bϵ[1] = 0
-        Aϵ.d[1] = 1.0
-        Aϵ.du[1] = -1.0
+        Aϵ.d[1] = 1.0 / ne[1]
+        Aϵ.du[1] = -1.0 / ne[2]
     end
 
     bϵ[end] = 1.5 * Te_R * ne[end]
@@ -61,7 +62,7 @@ function update_electron_energy!(U, params)
 
         else
             #get adjusted coeffient for higher charge states
-            κ_charge = CONDUCTIVITY_LOOKUP_TABLE(params.cache.Z_eff[i])
+            κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
             correction_factor = κ_charge/4.7
             # Adjust thermal conductivity to be slightly more accurate
             κL = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
@@ -90,13 +91,31 @@ function update_electron_energy!(U, params)
                 # left flux is sheath heat flux
                 Te0 = 2/3 * nϵ0 / ne0
 
-                uth = -0.25 * sqrt(8 * e * Te0 / π / me) * exp(-params.cache.Vs[] / Te0)
+                # Sheath heat flux = je_sheath_edge * (2 * Te_sheath + Vs) / e
+                # Assume Te_sheath is the same as that in first interior cell
+                # and that ne_sheath is that computed by using the bohm condition bc
+            
+                # je_sheath_edg * (2 * Te_sheath + Vs) / e = - 2 ne ue Te - 2 ne Vs
+                # = - 4/3 * nϵ[1] * ue_sheath_edge - 2 ne ue Vs
+
+                # discharge current density
+                jd = params.cache.Id[] / channel_area[1]
+
+                # current densities at sheath edge
+                ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
+
+                je_sheath_edge = jd - ji_sheath_edge
+
+                #uth = -0.25 * sqrt(8 * e * Te0 / π / me) * exp(-params.cache.Vs[] / Te0)
+
+                ne_sheath_edge = sum(Z * U[index.ρi[Z], 1] for Z in 1:params.config.ncharge) / mi
+                ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
 
                 FL_factor_L = 0.0
-                FL_factor_C = 4/3 * uth
+                FL_factor_C = 4/3 * ue_sheath_edge * (1 + params.cache.Vs[] / Te0)
                 FL_factor_R = 0.0
 
-                Q += ne0 * uth * params.cache.Vs[] / Δz
+                #Q = ne0 * ue_sheath_edge * params.cache.Vs[] / Δz
             elseif i == 2
                 # central differences at left boundary for compatibility with dirichlet BC
                 FL_factor_L = 5/3 * ueL + κL / ΔzL / neL
@@ -131,8 +150,13 @@ function update_electron_energy!(U, params)
         # Explicit flux
         F_explicit = (FR - FL) / Δz
 
+        # Term to allow for changing area
+        dlnA_dz = dA_dz[i] / channel_area[i]
+        flux = 5/3 * nϵ0 * ue0
+
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
+        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit) 
+        bϵ[i] -= dt * flux * dlnA_dz
     end
 
     # Solve equation system using Thomas algorithm

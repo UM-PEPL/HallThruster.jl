@@ -77,6 +77,8 @@ function verify_energy(ncells; niters = 20000)
     Tev = ϵ_func.(z_cell) * 2/3
     νex = zeros(ncells)
     νiz = zeros(ncells)
+    channel_area = ones(ncells)
+    dA_dz = zeros(ncells)
 
     nϵ_exact = nϵ_func.(z_cell)
     pe = copy(nϵ_exact)
@@ -129,7 +131,11 @@ function verify_energy(ncells; niters = 20000)
     wall_losses = zeros(ncells)
     inelastic_losses = zeros(ncells)
     ohmic_heating = zeros(ncells)
-    cache = (;Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz, wall_losses, ohmic_heating, inelastic_losses)
+    cache = (;
+        Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz, 
+        wall_losses, ohmic_heating, inelastic_losses,
+        channel_area, dA_dz,
+    )
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
 

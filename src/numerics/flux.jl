@@ -107,11 +107,11 @@ for NUM_CONSERVATIVE in 1:3
 
         charge_factor = Z * e * coupled
 
-         aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-         aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
+        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
 
-        sL_max = max(abs(uL - aL), abs(uL + aL), #=abs(uL)=#)
-        sR_max = max(abs(uR - aR), abs(uR + aR), #=abs(uR)=#)
+        sL_max = max(abs(uL - aL), abs(uL + aL))
+        sR_max = max(abs(uR - aR), abs(uR + aR))
 
         smax = max(sL_max, sR_max)
 
@@ -192,7 +192,7 @@ function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
     return uⱼ₋½ᴿ, uⱼ₊½ᴸ
 end
 
-function compute_edge_states!(UL, UR, U, params)
+function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = false)
     (nvars,  ncells) = size(U)
     (;config, index) = params
     (;scheme) = config
@@ -234,11 +234,16 @@ function compute_edge_states!(UL, UR, U, params)
         end
     end
 
-    @. @views UL[:, 1]   = U[:, 1]
-    @. @views UR[:, end] = U[:, end]
+    if apply_boundary_conditions
+        @views left_boundary_state!(UL[:, 1], U, params)
+        @views right_boundary_state!(UR[:, end], U, params)
+    else
+        @. @views UL[:, 1] = U[:, 1]
+        @. @views UR[:, end] = U[:, end]
+    end
 end
 
-function compute_fluxes!(F, UL, UR, U, params)
+function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
     (;config, index, fluids, Δz_edge, z_cell, num_neutral_fluids) = params
     λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme, ncharge) = config
@@ -252,7 +257,7 @@ function compute_fluxes!(F, UL, UR, U, params)
     params.max_timestep[1] = Inf
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
-    compute_edge_states!(UL, UR, U, params)
+    compute_edge_states!(UL, UR, U, params; apply_boundary_conditions)
 
     # The contribution to the electron-pressure-coupled method will be 3/2 Te if we're using LANDMARK, since pe = nϵ in that benchmark
     if params.config.LANDMARK

@@ -56,10 +56,7 @@ compute current at anode or cathode = outflow in
 1D code.
 """
 function compute_current(sol, location = "cathode")
-    index = sol.params.index
     current = zeros(3, length(sol.t))
-    area = sol.params.A_ch
-    mi = sol.params.config.propellant.m
     if location == "cathode"
         loc = length(sol.savevals[1].ue) - 1
     elseif location == "anode"
@@ -70,7 +67,7 @@ function compute_current(sol, location = "cathode")
     for i in 1:length(sol.t)
         (;ue, ne) = sol.savevals[i]
         Id = sol.savevals[i].Id[]
-        Ie = -ne[loc] * ue[loc] * e * area
+        Ie = -ne[loc] * ue[loc] * e * sol.savevals[i].channel_area[loc]
         current[1, i] = Id - Ie # Ion current
         current[2, i] = Ie      # Electron current
         current[3, i] = Id      # Discharge current
@@ -80,11 +77,12 @@ end
 
 function thrust(sol, frame)
     index = sol.params.index
-    area = sol.params.A_ch
+    left_area = sol.savevals[frame].channel_area[1]
+    right_area = sol.savevals[frame].channel_area[end]
     thrust = 0.0
     for Z in 1:sol.params.config.ncharge
-        thrust += area * sol.u[frame][index.ρiui[Z], end]^2 / sol.u[frame][index.ρi[Z], end]
-        thrust -= area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
+        thrust += right_area * sol.u[frame][index.ρiui[Z], end]^2 / sol.u[frame][index.ρi[Z], end]
+        thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
     end
 
     return thrust
@@ -110,12 +108,18 @@ function voltage_eff(sol, frame)
     return voltage_eff
 end
 
+function divergence_eff(sol, frame)
+    tanδ = sol.savevals[frame].tanδ[end]
+    δ = atan(tanδ)
+    return cos(δ)^2
+end
+
 function ion_current(sol, frame)
     Ii = 0.0
-    A = sol.params.A_ch
+    right_area = sol.savevals[frame].channel_area[end]
     mi = sol.params.config.propellant.m
     for Z in 1:sol.params.config.ncharge
-        Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * A / mi
+        Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
     end
     return Ii
 end
@@ -125,19 +129,17 @@ current_eff(sol, frame) = ion_current(sol, frame) / discharge_current(sol, frame
 
 function mass_eff(sol, frame)
     mass_eff = 0.0
-
-    A = sol.params.A_ch
-    mi = sol.params.config.propellant.m
+    right_area = sol.savevals[frame].channel_area[end]
     mdot = sol.params.config.anode_mass_flow_rate
 
     for Z in 1:sol.params.config.ncharge
-        mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * A / mdot
+        mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mdot
     end
 
     return mass_eff
 end
 
-for func in [:thrust, :discharge_current, :ion_current, :electron_current, :mass_eff, :voltage_eff, :anode_eff, :current_eff]
+for func in [:thrust, :discharge_current, :ion_current, :electron_current, :mass_eff, :voltage_eff, :anode_eff, :current_eff, :divergence_eff]
     eval(quote
         $(func)(sol) = [$(func)(sol, i) for i in eachindex(sol.t)]
     end)
