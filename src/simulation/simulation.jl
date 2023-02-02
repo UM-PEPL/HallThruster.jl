@@ -366,8 +366,6 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         background_neutral_temperature = background_temperature_K * u"K",
     )
 
-    println("JSON file read successfully. Running simulation.")
-
     solution = run_simulation(
         config; ncells = num_cells, nsave = num_save,
         duration = duration_s, dt = dt_s
