@@ -1,7 +1,7 @@
 name = "HallThruster"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
 authors = ["Thomas Marks <marksta@umich.edu>"]
-version = "0.6.0"
+version = "0.6.1"
 
 [deps]
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
