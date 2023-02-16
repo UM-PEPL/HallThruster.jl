@@ -23,7 +23,8 @@
     config = (;
         thruster = HallThruster.SPT_100,
         transition_function,
-        propellant = HallThruster.Xenon, ncharge = 1
+        propellant = HallThruster.Xenon, ncharge = 1,
+        electron_plume_loss_scale = 0.0
     )
     index = (;ρi = [1], nϵ = 2)
 
@@ -123,7 +124,7 @@
     @test Iew ≈ νew * HallThruster.e * V_cell * ne
 
     @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) ≈ νew
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) ≈ νew #0.0
+    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) ≈ 0.0
 
     @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * (1 - 0.5 * BN.σ₀) * Tev + (1 - γ) * Vs)/γ
     @test HallThruster.wall_power_loss(sheath_model, U, params, 4) ≈ 0.0

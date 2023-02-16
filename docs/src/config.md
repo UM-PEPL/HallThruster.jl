@@ -41,3 +41,10 @@ Aside from these arguments, all others have  default values provided. These are 
 - `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
 - `LANDMARK`: Whether we are using the LANDMARK physics model. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. Also affects whether we use an anode sheath model. Defaults to `false`.
 - `ion_wall_losses`: Whether we model ion losses to the walls. Defaults to `false`.
+- `solve_background_neutrals`: Whether another population of background neutrals is injected at the right-hand side of the domain
+- `background_pressure`: The pressure of the background neutrals, in Pascals
+- `background_neutral_temperature`: The temperature of the background neutrals, in K
+- `anode_boundary_condition`: Can be either `:sheath` or `:dirichlet`
+- `anom_smoothing_iters`: How many times to smooth the anomalous transport profile
+- `solve_plume`: Whether to solve for plume area variation and divergence losses
+- `electron_losses_in_plume`: Whether electron radial/wall losses are applied in the plume region

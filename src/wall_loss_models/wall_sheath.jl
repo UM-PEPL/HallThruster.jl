@@ -59,7 +59,8 @@ function freq_electron_wall(model::WallSheath, U, params, i)
     params.cache.γ_SEE[i] = γ
 
     νew = model.α * √(e * Tev / mi) * γ / (Δr * (1 - γ))
-    return νew * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 1.0)
+
+    return νew * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
 end
 
 function wall_power_loss(model::WallSheath, U, params, i)

@@ -26,7 +26,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
             if !params.config.LANDMARK
                 # Momentum transfer due to ionization
-                #=if reactant_index == index.ρn[1]
+                if reactant_index == index.ρn[1]
                     reactant_velocity = params.config.neutral_velocity
                 elseif reactant_index == index.ρn[2]
                     reactant_velocity = params.background_neutral_velocity
@@ -35,7 +35,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
                     dU[reactant_index + 1, i] -= ρdot * reactant_velocity
                 end
 
-                dU[product_index + 1, i] += ρdot * reactant_velocity=#
+                dU[product_index + 1, i] += ρdot * reactant_velocity
             end
         end
     end

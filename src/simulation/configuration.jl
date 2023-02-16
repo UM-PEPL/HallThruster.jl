@@ -46,6 +46,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     anode_boundary_condition::Symbol
     anom_smoothing_iters::Int
     solve_plume::Bool
+    electron_plume_loss_scale::Float64
 end
 
 function Config(;
@@ -88,7 +89,8 @@ function Config(;
         background_neutral_temperature      = 100.0u"K",
         anode_boundary_condition            = :sheath,
         anom_smoothing_iters                = 0,
-        solve_plume = false
+        solve_plume                         = false,
+        electron_plume_loss_scale           = 0.0
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -151,7 +153,8 @@ function Config(;
         background_neutral_temperature,
         anode_boundary_condition,
         anom_smoothing_iters,
-        solve_plume
+        solve_plume,
+        electron_plume_loss_scale
     )
 end
 
