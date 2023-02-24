@@ -62,7 +62,14 @@ function update_electrons!(U, params, t = 0)
         # Compute anomalous collision frequency and wall collision frequencies
         νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
         νan[i] = anom_multiplier[] * freq_electron_anom(U, params, i)
+    end
 
+    # Smooth anomalous transport model
+    if params.config.anom_smoothing_iters > 0
+        smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
+    end
+
+    @inbounds for i in 1:ncells
         # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
@@ -87,15 +94,6 @@ function update_electrons!(U, params, t = 0)
 
         # Kinetic energy in both axial and azimuthal directions is accounted for
         params.cache.K[i] = electron_kinetic_energy(U, params, i)
-    end
-
-    # Neumann BC for νan
-    #νan[1] = νan[2]
-    #νan[end-1] = νan[end-2]
-
-    # Smooth anomalous transport model
-    if params.config.anom_smoothing_iters > 0
-        smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
     end
 
     # Compute potential gradient and pressure gradient
