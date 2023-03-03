@@ -35,7 +35,7 @@ function solve(prob::ODEProblem; saveat, dt)
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
         :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot,
         :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
-        :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ
+        :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables
     )
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
@@ -79,7 +79,13 @@ function solve(prob::ODEProblem; saveat, dt)
         if t > saveat[save_ind]
             u_save[save_ind] .= u
             for field in fields_to_save
-                savevals[save_ind][field] .= params.cache[field]
+                if field == :anom_variables
+                    for i in 1:num_anom_variables(params.config.anom_model)
+                        savevals[save_ind][field][i] .= params.cache[field][i]
+                    end
+                else
+                    savevals[save_ind][field] .= params.cache[field]
+                end
             end
             save_ind += 1
         end

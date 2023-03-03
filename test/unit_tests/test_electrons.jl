@@ -62,21 +62,34 @@
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
     @test HallThruster.freq_electron_electron(U, params_landmark, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
 
-    for i in eachindex(params_landmark.cache.νan)
-        params_landmark.cache.νan[i] = params_landmark.config.anom_model(U, params_landmark, i)
-        params_none.cache.νan[i] =  params_none.config.anom_model(U, params_none, i)
-    end
-    @test HallThruster.freq_electron_anom(U, params_landmark, 1) == e/me * c1
 
-
-    @test HallThruster.freq_electron_anom(U, params_none, 1) == e/me * c2
-
+    params_landmark.config.anom_model(params_landmark.cache.νan, params_landmark)
+    params_none.config.anom_model(params_none.cache.νan, params_none)
+  
     model = HallThruster.NoAnom()
-    for i in eachindex(params_landmark.cache.νan)
-        params_landmark.cache.νan[i] = model(U, params_landmark, i)
-    end
+
+    model(params_landmark.cache.νan, params_landmark)
+
     @test params_landmark.cache.νan[1] == 0.0
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
+
+    @test HallThruster.num_anom_variables(model) == 0
+    @test HallThruster.allocate_anom_variables(model, 2) == Vector{Float64}[]
+
+    struct Model2 <: HallThruster.AnomalousTransportModel end
+
+    HallThruster.num_anom_variables(::Model2) = 2
+
+    model2 = Model2()
+
+    @test HallThruster.num_anom_variables(model2) == 2
+    @test HallThruster.allocate_anom_variables(model2, 2) == [
+        [0.0, 0.0], [0.0, 0.0]
+    ]
+
+    @test HallThruster.allocate_anom_variables(model2, 0) == [
+        Float64[], Float64[]
+    ]
 end

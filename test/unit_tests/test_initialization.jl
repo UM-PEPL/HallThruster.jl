@@ -1,9 +1,13 @@
 @testset "Initialization" begin
 
+    struct TestAnomModel <: HallThruster.AnomalousTransportModel end
+
+    HallThruster.num_anom_variables(::TestAnomModel) = 3
+
     domain = (0.0, 0.08)
     thruster = HallThruster.SPT_100
     config = HallThruster.Config(;
-        anom_model = HallThruster.NoAnom(),
+        anom_model = TestAnomModel(),
         ncharge = 3,
         propellant = HallThruster.Xenon,
         thruster,
@@ -23,7 +27,7 @@
     ncells = 100
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
     grid = HallThruster.generate_grid(config.thruster.geometry, ncells, domain)
-    U, cache = HallThruster.allocate_arrays(grid, fluids)
+    U, cache = HallThruster.allocate_arrays(grid, fluids, config.anom_model)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
     params = (;
@@ -50,6 +54,10 @@
 
     @test abs(2/3 * ϵ[1] - config.anode_Te) < 0.1
     @test abs(2/3 * ϵ[end] - config.cathode_Te) < 0.1
+
+    @test cache.anom_variables == [
+        zeros(102) for _ in 1:3
+    ]
 
     struct NewInitialization <: HallThruster.InitialCondition end
     @test_throws ArgumentError HallThruster.initialize!(U, params, NewInitialization())

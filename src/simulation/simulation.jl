@@ -1,4 +1,4 @@
-function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of set of equations, either 1, 2 or 3
+function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     # Number of variables in the state vector U
     nvariables = 0
     for fluid in fluids
@@ -79,6 +79,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
     outer_radius = zeros(ncells)    # Channel/plume outer radius
     tanδ = zeros(ncells)            # Tangent of divergence half-angle
 
+    # Anomalous transport variables
+    anom_variables = allocate_anom_variables(anom_model, size(U, 2))
 
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
@@ -87,7 +89,8 @@ function allocate_arrays(grid, fluids) #rewrite allocate arrays as function of s
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
                 errors, dcoeffs,
                 ohmic_heating, wall_losses, inelastic_losses,
-                channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ
+                channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
+                anom_variables
             )
 
     return U, cache
@@ -157,7 +160,7 @@ function run_simulation(config::Config;
     if use_restart
         U, cache = load_restart(grid, fluids, config, restart)
     else
-        U, cache = allocate_arrays(grid, fluids)
+        U, cache = allocate_arrays(grid, fluids, config.anom_model)
     end
 
     tspan = (0.0, duration)
@@ -219,9 +222,7 @@ function run_simulation(config::Config;
     end
 
     # Initialize the anomalous collision frequency
-    for i in eachindex(params.cache.νan)
-        params.cache.νan[i] = params.config.anom_model(U, params, i)
-    end
+    params.config.anom_model(params.cache.νan, params)
 
     # Initialize plume
     update_plume_geometry!(U, params, initialize = true)
@@ -244,7 +245,6 @@ function run_simulation(config::Config;
 end
 
 function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false)
-    
     if single_section
         if nonstandard_keys
             (;

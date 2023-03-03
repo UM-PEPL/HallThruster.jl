@@ -61,8 +61,10 @@ function update_electrons!(U, params, t = 0)
 
         # Compute anomalous collision frequency and wall collision frequencies
         νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
-        νan[i] = anom_multiplier[] * freq_electron_anom(U, params, i)
     end
+
+    # Update anomalous transport
+    params.config.anom_model(νan, params)
 
     # Smooth anomalous transport model
     if params.config.anom_smoothing_iters > 0
@@ -70,6 +72,9 @@ function update_electrons!(U, params, t = 0)
     end
 
     @inbounds for i in 1:ncells
+        # Multiply by anom anom multiplier for PID control
+        νan[i] *= anom_multiplier[]
+
         # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])

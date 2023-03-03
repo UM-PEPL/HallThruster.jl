@@ -15,8 +15,10 @@ No anomalous collision frequency included in simulation
 """
 struct NoAnom <: AnomalousTransportModel end
 
-function (::NoAnom)(U, params, i)
-    νan = 0.0
+function (::NoAnom)(νan, params)
+    for i in eachindex(νan)
+        νan[i] = 0.0
+    end
     return νan
 end
 
@@ -28,10 +30,14 @@ struct Bohm <: AnomalousTransportModel
     c::Float64
 end
 
-function (model::Bohm)(U, params, i)
-    B = params.cache.B[i]
-    ωce = e * B / me
-    νan = model.c * ωce
+function (model::Bohm)(νan, params)
+
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = e * B / me
+        νan = model.c * ωce
+    end
+
     return νan
 end
 
@@ -45,14 +51,16 @@ struct TwoZoneBohm <: AnomalousTransportModel
     TwoZoneBohm(c1, c2) = new((c1, c2))
 end
 
-function (model::TwoZoneBohm)(U, params, i)
+function (model::TwoZoneBohm)(νan, params)
     c1, c2 = model.coeffs
 
-    B = params.cache.B[i]
-    ωce = e * B / me
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = e * B / me
 
-    β = params.config.transition_function(params.z_cell[i], params.L_ch, c1, c2)
-    νan = β * ωce
+        β = params.config.transition_function(params.z_cell[i], params.L_ch, c1, c2)
+        νan[i] = β * ωce
+    end
 
     return νan
 end
@@ -87,12 +95,35 @@ function MultiLogBohm(coeffs)
     return MultiLogBohm(zs, cs)
 end
 
-function (model::MultiLogBohm)(U, params, i)
+function (model::MultiLogBohm)(νan, params)
     (;z_cell) = params
     (;B) = params.cache
 
-    ωce = e * B[i] / me
-    c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
-    νan = c * ωce
+    for i in eachindex(νan)
+        ωce = e * B[i] / me
+        c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
+        νan[i] = c * ωce
+    end
+
     return νan
+end
+
+"""
+    num_anom_variables(::AnomalousTransportModel)::Int
+
+The number of variable arrays that should be allocated for the provided anomalous
+transport model. These arrays are used to save state beyond the anomalous
+collision frequency, and are useful for defining more complex anomalous transport
+models. If not defined by the user, this defaults to zero. 
+"""
+num_anom_variables(::AnomalousTransportModel)::Int = 0
+
+"""
+    allocate_anom_variables(::AnomalousTransportModel, ncells)
+Allocate arrays for anomalous transport state variables. `ncells` is the length
+of the arrays to be allocated. These anomalous transport variables are then stored
+in params.cache.anom_variables
+"""
+function allocate_anom_variables(model::AnomalousTransportModel, ncells)
+    [zeros(ncells) for _ in 1:num_anom_variables(model)]
 end
