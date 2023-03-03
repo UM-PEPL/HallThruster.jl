@@ -11,6 +11,8 @@ using Alert
 
 doctest(HallThruster)
 
+HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+
 include("unit_tests/test_gas.jl")
 include("unit_tests/test_conservation_laws.jl")
 include("unit_tests/test_limiters.jl")
