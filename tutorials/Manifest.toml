@@ -251,7 +251,7 @@ version = "1.7.4"
 
 [[deps.HallThruster]]
 deps = ["DelimitedFiles", "DocStringExtensions", "Documenter", "FunctionWrappers", "JLD2", "JSON3", "LinearAlgebra", "Measurements", "Measures", "PartialFunctions", "Printf", "QuadGK", "RecipesBase", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "Unitful"]
-git-tree-sha1 = "9a1ab7aa7544f978ffb8c48c396bc21484e42db8"
+git-tree-sha1 = "c418ece044990bbc5ee36ef0d505ed772269bb39"
 repo-rev = "main"
 repo-url = "https://github.com/UM-PEPL/HallThruster.jl"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
