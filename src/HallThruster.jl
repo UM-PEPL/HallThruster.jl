@@ -72,14 +72,31 @@ include("visualization/recipes.jl")
 export time_average, Xenon, Krypton
 
 function example_simulation(;ncells, duration, dt, nsave)
-    config = HallThruster.Config(;
+    config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
         wall_loss_model = WallSheath(BoronNitride, 0.15)
     )
-    HallThruster.run_simulation(config; ncells, duration, dt, nsave)
+    sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave)
+    
+    config_2 = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
+        LANDMARK = true,
+    )
+    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave)
+    HallThruster.time_average(sol_1)
+    HallThruster.discharge_current(sol_1)
+    HallThruster.thrust(sol_1)
+    HallThruster.mass_eff(sol_1)
+    HallThruster.current_eff(sol_1)
+    HallThruster.divergence_eff(sol_1)
+    HallThruster.voltage_eff(sol_1)
 end
 
 # Precompile statements to improve load time
