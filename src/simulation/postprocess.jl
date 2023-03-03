@@ -28,7 +28,13 @@ function time_average(sol::Solution, tstampstart = 1)
 
     # Initialize avg to zero
     for f in fields
-        avg_savevals[f] .= 0.0
+        if f == :anom_variables
+            for j in eachindex(num_anom_variables(sol.params.config.anom_model))
+                avg_savevals[f][j] .= 0.0
+            end
+        else
+            avg_savevals[f] .= 0.0
+        end
     end
 
     # Sum over all timesteps to get average
@@ -37,7 +43,13 @@ function time_average(sol::Solution, tstampstart = 1)
     for i in tstampstart:length(sol.t)
         avg .+= sol.u[i] / Δt
         for f in fields
-            avg_savevals[f] .+= sol.savevals[i][f] / Δt
+            if f == :anom_variables
+                for j in eachindex(num_anom_variables(sol.params.config.anom_model))
+                    avg_savevals[f][j] .+= sol.savevals[i][f][j] / Δt
+                end
+            else
+                avg_savevals[f] .+= sol.savevals[i][f] / Δt
+            end
         end
     end
 

@@ -3,7 +3,7 @@
 HallThruster has a few anomalous transport models built in and allows users to define their own. This page describes these models and the process by which algebraic and multi-equation transport
 models can be added by the user.
 
-!!! warn "Interface not finalized"
+!!! warning "Interface not finalized"
     The AnomalousTransportModel interface is not yet finalized and subject to revision.
     Keep this in mind when using this feature.
 
