@@ -21,7 +21,7 @@ function anode_sheath_potential(U, params)
     ci = sqrt(2 * kB * Ti / mi)
 
     # Compute anode sheath potential
-    #if config.anode_boundary_condition == :sheath
+    if config.anode_boundary_condition == :sheath
         ce = sqrt(8 * e * params.cache.Tev[1] / π / me)
         je_sheath = e * ne[1] * ce / 4
 
@@ -39,9 +39,9 @@ function anode_sheath_potential(U, params)
         else
             Vs = -params.cache.Tev[1] * log(min(1.0, je_sheath_edge / je_sheath))
         end
-    #else
-    #    Vs = 0.0
-    #end
+    else
+        Vs = 0.0
+    end
 
     return Vs
 end
