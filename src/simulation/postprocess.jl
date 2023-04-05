@@ -99,7 +99,8 @@ function thrust(sol, frame)
         thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
     end
 
-    return thrust
+    # Multiply by divergence efficiency to model loss of ions in radial direction
+    return thrust * divergence_eff(sol, frame)
 end
 
 discharge_current(sol, frame) = sol.savevals[frame].Id[]
@@ -135,7 +136,9 @@ function ion_current(sol, frame)
     for Z in 1:sol.params.config.ncharge
         Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
     end
-    return Ii
+
+    # Multiply by divergence efficiency to model loss of ions in radial direction
+    return Ii * divergence_eff(sol, frame)
 end
 
 electron_current(sol, frame) = discharge_current(sol, frame) - ion_current(sol, frame)
@@ -285,11 +288,11 @@ function frame_dict(sol, frame)
     filler = zeros(length(sol.params.z_cell))
     ncharge = sol.params.config.ncharge
     Dict(
-        "thrust" => thrust(sol),
-        "discharge_current" => discharge_current(sol),
-        "mass_eff" => mass_eff(sol),
-        "voltage_eff" => voltage_eff(sol),
-        "current_eff" => current_eff(sol),
+        "thrust" => thrust(sol, frame),
+        "discharge_current" => discharge_current(sol, frame),
+        "mass_eff" => mass_eff(sol, frame),
+        "voltage_eff" => voltage_eff(sol, frame),
+        "current_eff" => current_eff(sol, frame),
         "t" => sol.t[frame],
         "z" => sol.params.z_cell,
         "nn" => sol[:nn, 1][frame],

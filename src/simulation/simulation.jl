@@ -131,9 +131,14 @@ Run a Hall thruster simulation using the provided Config object.
 - `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
 - `nsave`: How many frames to save.
 """
-function run_simulation(config::Config;
-    dt, duration, ncells, nsave,  restart = nothing, CFL = 1.0, adaptive = false,
-    control_current = false, target_current = 0.0, Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4)
+function run_simulation(
+        config::Config;
+        dt, duration, ncells, nsave,  restart = nothing,
+        CFL = 1.0, adaptive = false,
+        control_current = false, target_current = 0.0, 
+        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
+        ohm_anom_scale = 1.0, conduction_anom_scale = 1.0
+    )
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
@@ -214,6 +219,8 @@ function run_simulation(config::Config;
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1, 
+        ohm_anom_scale,
+        conduction_anom_scale,
     )
 
     # Compute maximum allowed iterations
@@ -261,13 +268,12 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 flux_function, limiter, reconstruct,
                 ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
                 # Parameters
-                anom_coeff_1, anom_coeff_2, sheath_loss_coefficient,
+                anom_model_coeffs, sheath_loss_coefficient,
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
                 cathode_electron_temp_eV, inner_outer_transition_length_m,
                 background_pressure_Torr, background_temperature_K,
             ) = json_content
 
-            anom_model_coeffs = [anom_coeff_1, anom_coeff_2]
             propellant = propellant_material
         else
             (;
