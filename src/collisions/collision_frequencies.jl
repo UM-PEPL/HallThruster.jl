@@ -65,7 +65,7 @@ charge state Z, electron number density in m^-3, and electron temperature in eV.
 """
 @inline function coulomb_logarithm(ne, Tev, Z = 1)
     if Tev < 10 * Z^2
-        ln_Λ = 23 - 0.5 * log(1e-6 * ne * Z / Tev^3)
+        ln_Λ = 23 - 0.5 * log(1e-6 * ne * Z^2 / Tev^3)
     else
         ln_Λ = 24 - 0.5 * log(1e-6 * ne / Tev^2)
     end
