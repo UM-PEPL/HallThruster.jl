@@ -141,7 +141,10 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     channel_area = A_ch .* ones(ncells+2)
     dA_dz = zeros(ncells+2)
 
-    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz)
+    dt = zeros(1)
+    dt_cell = zeros(ncells+2)
+
+    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt)
 
     U = zeros(4, ncells+2)
     z_end = z_cell[end]
@@ -166,11 +169,14 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],
-        max_timestep = [Inf],
         num_neutral_fluids = 1,
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge,
+        min_dt = 0.0,
+        max_dt = Inf,
+        adaptive = false,
+        CFL = 1.0,
     )
 
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))

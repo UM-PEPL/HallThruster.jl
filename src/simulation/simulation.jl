@@ -82,6 +82,13 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     # Anomalous transport variables
     anom_variables = allocate_anom_variables(anom_model, size(U, 2))
 
+    # Timesteps
+    dt_iz = zeros(ncells)
+    dt_E = zeros(ncells)
+    dt_u = zeros(nedges)
+    dt_cell = zeros(ncells)
+    dt = zeros(1)
+
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
@@ -90,7 +97,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
                 errors, dcoeffs,
                 ohmic_heating, wall_losses, inelastic_losses,
                 channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
-                anom_variables
+                anom_variables, dt_iz, dt_E, dt_u, dt, dt_cell
             )
 
     return U, cache
@@ -134,10 +141,10 @@ Run a Hall thruster simulation using the provided Config object.
 function run_simulation(
         config::Config;
         dt, duration, ncells, nsave,  restart = nothing,
-        CFL = 1.0, adaptive = false,
+        CFL = 0.9, adaptive = false,
         control_current = false, target_current = 0.0, 
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        #ohm_anom_scale = 1.0, conduction_anom_scale = 1.0
+        dtmin = 0.0, dtmax = Inf
     )
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
@@ -185,6 +192,8 @@ function run_simulation(
     mi = config.propellant.m
 
     cache.smoothing_time_constant[] = time_constant
+    cache.dt .= dt
+    cache.dt_cell .= dt
 
     # Simulation parameters
     params = (;
@@ -199,7 +208,6 @@ function run_simulation(
         A_ch = config.thruster.geometry.channel_area,
         z_cell,
         z_edge,
-        dt,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
         ionization_reactions,
@@ -208,7 +216,7 @@ function run_simulation(
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        max_timestep = [dt],
+        dt = [dt],
         CFL,
         adaptive,
         num_neutral_fluids,
@@ -219,9 +227,9 @@ function run_simulation(
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1, 
-        #ohm_anom_scale,
-        #conduction_anom_scale,
+        dtmin, dtmax
     )
+
 
     # Compute maximum allowed iterations
     if !use_restart
@@ -239,13 +247,14 @@ function run_simulation(
 
     # Set up and solve problem, this form is temporary
     prob = ODEProblem(update_heavy_species!, U, tspan, params)
-    sol = solve(prob; saveat, dt)
+    sol_info = @timed solve(prob; saveat)
+
+    sol = sol_info.value
+    sim_time = sol_info.time
 
     # Print some diagnostic information
-    if sol.retcode == :NaNDetected
-        println("Simulation failed with NaN detected at t = $(sol.t[end])")
-    elseif sol.retcode == :InfDetected
-        println("Simulation failed with Inf detected at t = $(sol.t[end])")
+    if sol.retcode != :Success
+        println("Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sim_time) seconds.")
     end
 
     return sol

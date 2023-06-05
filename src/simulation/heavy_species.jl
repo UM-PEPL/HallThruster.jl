@@ -13,6 +13,8 @@ function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = tru
 
     compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 
+    params.cache.dt[] = Inf
+
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
         right = right_edge(i)
@@ -51,8 +53,20 @@ function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = tru
             apply_ion_wall_losses!(dU, U, params, i)
         end
 
+        params.cache.dt_cell[i] = min(
+            sqrt(params.CFL) * params.cache.dt_E[i],
+            params.CFL * params.cache.dt_iz[i],
+            params.CFL * params.cache.dt_u[left],
+            params.CFL * params.cache.dt_u[right]
+        )
+
+        params.cache.dt[] = min(params.cache.dt_cell[i], params.cache.dt[])
+
         dU[index.nϵ, i] = 0.0
     end
+
+    params.cache.dt_cell[1] = params.cache.dt_cell[2]
+    params.cache.dt_cell[end] = params.cache.dt_cell[end-1]
 
     @. @views dU[:, 1] = 0.0
     @. @views dU[:, end] = 0.0

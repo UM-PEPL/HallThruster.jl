@@ -1,6 +1,6 @@
 # Perform one step of the Strong-stability-preserving RK22 algorithm
-function ssprk22_step!(u, f, params, t)
-    (;dt, cache) = params
+function ssprk22_step!(u, f, params, t, dt)
+    (;cache) = params
     (;k, u1) = cache
 
     # First step of SSPRK22
@@ -23,7 +23,7 @@ struct ODEProblem{F, U, T, P}
     params::P
 end
 
-function solve(prob::ODEProblem; saveat, dt)
+function solve(prob::ODEProblem; saveat)
     (;f, u, tspan, params) = prob
     i = 1
     save_ind = 2
@@ -35,7 +35,8 @@ function solve(prob::ODEProblem; saveat, dt)
         :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
         :νei, :νew, :νiz, :νex, :νe, :Id, :ni, :ui, :ji, :niui, :nn, :nn_tot,
         :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
-        :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables
+        :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
+        :dt
     )
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
@@ -46,10 +47,14 @@ function solve(prob::ODEProblem; saveat, dt)
 
     while t < tspan[2]
         i += 1
-        t += dt
+
+        params.dt[] = params.adaptive ? params.cache.dt[] : params.dt[]
+        params.dt[] = clamp(params.dt[], params.dtmin, params.dtmax)
+
+        t += params.dt[]
 
         # Update heavy species
-        ssprk22_step!(u, f, params, t)
+        ssprk22_step!(u, f, params, t, params.dt[])
 
         # Update electron quantities
         update_electrons!(u, params, t)
@@ -63,12 +68,12 @@ function solve(prob::ODEProblem; saveat, dt)
 
         @inbounds for j in 1:ncells, i in 1:nvars
             if isnan(u[i, j])
-                println("NaN detected in variable $i in cell $j at time $(t)")
+                @warn("NaN detected in variable $i in cell $j at time $(t)")
                 nandetected = true
                 retcode = :NaNDetected
                 break
             elseif isinf(u[i, j])
-                println("Inf detected in variable $i in cell $j at time $(t)")
+                @warn("Inf detected in variable $i in cell $j at time $(t)")
                 infdetected = true
                 retcode = :InfDetected
                 break

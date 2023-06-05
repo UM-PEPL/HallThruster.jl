@@ -10,6 +10,8 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     ϵ  = U[index.nϵ, i] / ne + K
 
+    dt_max = Inf
+
     @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         product_index = product_inds[]
 
@@ -19,6 +21,8 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
             ρ_reactant = U[reactant_index, i]
 
             ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
+
+            dt_max = min(dt_max, ρ_reactant / ρdot)
 
             # Change in density due to ionization
             dU[reactant_index, i] -= ρdot
@@ -39,16 +43,22 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
             end
         end
     end
+
+    params.cache.dt_iz[i] = dt_max
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 @inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
 
 function apply_ion_acceleration!(dU, U, params, i)
-    (;cache, config, index) = params
+    (;cache, config, index, z_edge) = params
     (;∇ϕ, ue, μ) = cache
     coupled = config.electron_pressure_coupled
     mi = params.config.propellant.m
+
+    dt_max = Inf
+
+    Δx = z_edge[right_edge(i)] - z_edge[left_edge(i)]
 
     @inbounds for Z in 1:config.ncharge
 
@@ -56,8 +66,13 @@ function apply_ion_acceleration!(dU, U, params, i)
         Q_uncoupled = ∇ϕ[i]
 
         Q_accel = -Z * e * U[index.ρi[Z], i] / mi * (coupled * Q_coupled + (1 - coupled) * Q_uncoupled)
+
+        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(∇ϕ[i])))
+
         dU[index.ρiui[Z], i] += Q_accel
     end
+
+    params.cache.dt_E[i] = dt_max
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)

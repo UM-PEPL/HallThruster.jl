@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;index, dt, control_current, target_current, Kp, Ti) = params
+    (;index, control_current, target_current, Kp, Ti) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
         Z_eff, νiz, νex, νe, ji, Id, νew, ni, ui, Vs, nn, nn_tot, niui,
@@ -10,6 +10,9 @@ function update_electrons!(U, params, t = 0)
 
     # Update the current iteration
     params.iteration[1] += 1
+
+    # Get the current timestep
+    dt = params.dt[]
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)

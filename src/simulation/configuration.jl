@@ -90,7 +90,7 @@ function Config(;
         anode_boundary_condition            = :sheath,
         anom_smoothing_iters                = 0,
         solve_plume                         = false,
-        electron_plume_loss_scale           = 0.0
+        electron_plume_loss_scale           = 1.0
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both

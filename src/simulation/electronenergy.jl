@@ -3,12 +3,13 @@ const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
 const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
 
 function update_electron_energy!(U, params)
-    (;Δz_cell, Δz_edge, dt, index, config, cache, Te_L, Te_R) = params
+    (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
     (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
     mi = params.config.propellant.m
+    dt = params.dt[]
 
     nϵ = @views U[index.nϵ, :]
     Aϵ.d[1] = 1.0

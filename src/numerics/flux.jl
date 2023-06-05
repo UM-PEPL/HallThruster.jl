@@ -253,9 +253,6 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
     mi = propellant.m
     nedges = ncells-1
 
-    # Initialize the maximum allowable timestep. It will only decrease from here
-    params.max_timestep[1] = Inf
-
     # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(UL, UR, U, params; apply_boundary_conditions)
 
@@ -328,10 +325,10 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
 
             # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
             dt_max = Δz / s_max
+            params.cache.dt_u[i] = dt_max
 
             # Update maximum wavespeeds and maximum allowable timestep
             λ_global[fluid_ind] = max(s_max, λ_global[fluid_ind])
-            params.max_timestep[1] = min(dt_max, params.max_timestep[1])
         end
     end
 
