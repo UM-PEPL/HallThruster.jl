@@ -89,7 +89,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
     )
-    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave)
+    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.9)
     HallThruster.time_average(sol_1)
     HallThruster.discharge_current(sol_1)
     HallThruster.thrust(sol_1)

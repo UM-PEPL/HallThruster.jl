@@ -62,7 +62,7 @@ source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(mom
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
 source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
-function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled = true, conservative = true)
+function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative = true)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
 
@@ -118,7 +118,6 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     z_edge = grid.edges
     z_cell = grid.cell_centers
-    #z_cell = LinRange(-0.05/ncells/2, 0.05 + 0.05/ncells/2, ncells+2)
 
     nedges = length(z_edge)
 
@@ -143,8 +142,9 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
 
     dt = zeros(1)
     dt_cell = zeros(ncells+2)
-
-    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt)
+    dt_u = zeros(nedges)
+    dt_iz = zeros(ncells+2)
+    dt_E = zeros(ncells+2)
 
     U = zeros(4, ncells+2)
     z_end = z_cell[end]
@@ -154,6 +154,14 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
     U[index.nϵ, :] = nϵ
+
+    amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
+
+    tspan = (0, t_end)
+    dt .= 0.2 * (z_cell[end] - z_cell[1]) / (ncells+2) / amax
+    dt_cell .= dt[]
+
+    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E)
 
     params = (;
         index,
@@ -173,16 +181,9 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
         Δz_cell, Δz_edge,
-        min_dt = 0.0,
-        max_dt = Inf,
         adaptive = false,
-        CFL = 1.0,
+        CFL = 0.9,
     )
-
-    amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
-
-    tspan = (0, t_end)
-    dt = 0.2 * (z_cell[end] - z_cell[1]) / ncells / amax
 
     dU = copy(U)
 
@@ -191,9 +192,12 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
         @views U[:, end] = U[:, end-1]
         HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
         for i in eachindex(U)
-            U[i] += dt * dU[i]
+            U[i] += dt[] * dU[i]
+            if isnan(U[i]) || isinf(U[i])
+                t = Inf
+            end
         end
-        t += dt
+        t += dt[]
     end
 
     sol = (;t = [t], u = [U])
@@ -203,6 +207,23 @@ function solve_ions(ncells, scheme, plot_results = true; t_end = 1e-4, coupled =
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim
 
+    #=
+    p = plot(; title = "nn")
+    plot!(p, ρn_sim, label = "Sim")
+    plot!(p, ρn_exact, label = "Exact")
+    savefig(p, "nn_$ncells.png")
+
+    p = plot(; title = "ni")
+    plot!(p, ρi_sim, label = "Sim")
+    plot!(p, ρi_exact, label = "Exact")
+    savefig(p, "ni_$ncells.png")
+
+    p = plot(; title = "niui")
+    plot!(p, ρiui_sim, label = "Sim")
+    plot!(p, ρi_exact .* ui_exact, label = "Exact")
+    savefig(p, "niui_$ncells.png")
+
+    =#
     return (
         ρn = (;z_cell, sim = ρn_sim, exact = ρn_exact),
         ρi = (;z_cell, sim = ρi_sim, exact = ρi_exact),

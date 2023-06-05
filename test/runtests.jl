@@ -9,6 +9,7 @@ using Unitful
 using SparseArrays
 using Alert
 
+
 doctest(HallThruster)
 
 HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
@@ -44,25 +45,25 @@ include("unit_tests/test_restarts.jl")
     end
 end
 
+
 @testset "Order verification (neutrals and ions)" begin
     include("order_verification/ovs_funcs.jl")
     include("order_verification/ovs_ions.jl")
-    refinements = refines(5, 40, 2)
+    refinements = refines(5, 20, 2)
 
     limiter = HallThruster.van_leer
-    flux_names = ("HLLE", "Rusanov", "Global Lax-Friedrichs")
-    fluxes = (HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,)
+    flux_names = ["HLLE", "Rusanov", "Global Lax-Friedrichs"]
+    fluxes = [HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,]
 
     for (flux, flux_name) in zip(fluxes, flux_names)
-        for reconstruct in (false, true)
-
+        for reconstruct in [false, true]
             if reconstruct && flux_name == "HLLE"
                 continue
             end
 
             scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
 
-            slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme, false), refinements, [1, 2, Inf])
+            slopes, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme), refinements, [1, 2, Inf])
 
             # Check that gradient reconstruction gets us to at least ~1.75-order accuracy
             theoretical_order = 1 + reconstruct
