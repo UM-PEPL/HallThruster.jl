@@ -144,7 +144,8 @@ function run_simulation(
         CFL = 0.9, adaptive = false,
         control_current = false, target_current = 0.0, 
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 0.0, dtmax = Inf
+        dtmin = 0.0, dtmax = Inf,
+        verbose = true,
     )
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
@@ -253,7 +254,7 @@ function run_simulation(
     sim_time = sol_info.time
 
     # Print some diagnostic information
-    if sol.retcode != :Success
+    if sol.retcode != :Success && verbose
         println("Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sim_time) seconds.")
     end
 

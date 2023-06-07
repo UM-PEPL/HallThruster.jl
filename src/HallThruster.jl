@@ -79,7 +79,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         anode_mass_flow_rate = 5u"mg/s",
         wall_loss_model = WallSheath(BoronNitride, 0.15)
     )
-    sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave)
+    sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
     
     config_2 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
@@ -89,7 +89,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
     )
-    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.9)
+    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.9, verbose = false)
     HallThruster.time_average(sol_1)
     HallThruster.discharge_current(sol_1)
     HallThruster.thrust(sol_1)
