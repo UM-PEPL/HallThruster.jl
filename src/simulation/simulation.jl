@@ -261,7 +261,7 @@ function run_simulation(
     return sol
 end
 
-function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false)
+function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false, verbose = true)
     if single_section
         if nonstandard_keys
             (;
@@ -384,13 +384,13 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
 
     solution = run_simulation(
         config; ncells = num_cells, nsave = num_save,
-        duration = duration_s, dt = dt_s
+        duration = duration_s, dt = dt_s, verbose = verbose
     )
 
     return solution
 end
 
-function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false)
+function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false, verbose = true)
 
     if is_path
         json_content = JSON3.read(read(json_path, String))
@@ -398,5 +398,5 @@ function run_simulation(json_path::String; single_section = false, is_path = tru
         json_content = JSON3.read(json_path)
     end
 
-    run_simulation(json_content; single_section, nonstandard_keys)
+    run_simulation(json_content; single_section, nonstandard_keys, verbose)
 end
