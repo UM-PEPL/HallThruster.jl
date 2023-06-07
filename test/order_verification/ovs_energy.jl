@@ -45,7 +45,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
-        HallThruster.update_electron_energy!(U, params)
+        HallThruster.update_electron_energy!(U, params, dt)
         residual = Lp_norm(U .- U_old, 2)
         if iter == 1
             res0 = residual
