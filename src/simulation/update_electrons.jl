@@ -116,14 +116,19 @@ function update_electrons!(U, params, t = 0)
         # update electrostatic potential and potential gradient on edges
         solve_potential_cell!(ϕ, params)
 
-        dt_min = Inf
 
-        @inbounds for i in 2:ncells-1
-            Q = source_electron_energy(U, params, i)
-            dt_min = min(dt_min, abs(params.CFL * 3 * ne[i] * Tev[i] / Q))
+        if params.adaptive
+            dt_min = Inf
+
+            @inbounds for i in 2:ncells-1
+                Q = source_electron_energy(U, params, i)
+                dt_min = min(dt_min, abs(params.CFL * 3 * ne[i] * Tev[i] / Q))
+            end
+
+            dt_sub = min(dt_min, params.dt[] - t_sub)
+        else
+            dt_sub = params.dt[]
         end
-
-        dt_sub = min(dt_min, params.dt[] - t_sub)
 
         # Update the electron temperature and pressure
         update_electron_energy!(U, params, dt_sub)
