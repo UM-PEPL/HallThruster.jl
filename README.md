@@ -17,3 +17,7 @@ julia> ]add https://github.com/UM-PEPL/HallThruster.jl
 ```
 
 This will install HallThruster.jl using Julia's package manager. For details on setting up and running Hall thruster simulations, see [the official documentation](https://UM-PEPL.github.io/HallThruster.jl/dev). A Tutorial is available [here](https://nbviewer.org/github/UM-PEPL/HallThruster.jl/blob/main/tutorials/HallThrusterTutorial.ipynb).
+
+## Contribution
+
+Users are welcome to suggest and implement features for the code, as well as report bugs or numerical issues they encounter. Please feel free to open an issue on this repository describing your desired change/bug-fix. Pull requests are also welcome!
