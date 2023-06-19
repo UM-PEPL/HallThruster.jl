@@ -20,4 +20,4 @@ This will install HallThruster.jl using Julia's package manager. For details on 
 
 ## Contribution
 
-Users are welcome to suggest and implement features for the code, as well as report bugs or numerical issues they encounter. Please feel free to open an issue on this repository describing your desired change/bug-fix. Pull requests are also welcome!
+Users are welcome to suggest and implement features for the code, as well as report bugs or numerical issues they encounter. Please feel free to [open an issue on this repository](https://github.com/UM-PEPL/HallThruster.jl/issues/new) describing your desired change/bug-fix. Pull requests are also welcome!
