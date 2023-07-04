@@ -24,4 +24,4 @@ Users are welcome to suggest and implement features for the code, as well as rep
 
 ## Citation
 
-If you use this code in your work, please cite our JOSS publication. A BibTEX entry can be found in Citation.bib
+If you use this code in your work, please cite our JOSS publication. A BibTEX entry can be found in [CITATION.bib](https://github.com/UM-PEPL/HallThruster.jl/blob/main/CITATION.bib).
