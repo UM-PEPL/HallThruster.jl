@@ -1,7 +1,7 @@
 [![HallThruster.jl](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner.svg)](https://um-pepl.github.io/HallThruster.jl/dev)
 
 
-| **Documentation** | **Build Status**| **Paper**| ** Repo DOI**|
+| **Documentation** | **Build Status**| **Paper**| **Repository DOI**|
 |:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
 | [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://UM-PEPL.github.io/HallThruster.jl/dev) | [![CI](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/UM-PEPL/HallThruster.jl/branch/main/graph/badge.svg?token=cEoGN49eZp)](https://codecov.io/gh/UM-PEPL/HallThruster.jl)| [![status](https://joss.theoj.org/papers/ce9cb7aa54df10d69ed248912e584f53/status.svg)](https://joss.theoj.org/papers/ce9cb7aa54df10d69ed248912e584f53) | [![DOI](https://zenodo.org/badge/394711445.svg)](https://zenodo.org/badge/latestdoi/394711445) |
 
