@@ -28,13 +28,9 @@ function left_boundary_state!(bc_state, U, params)
     # Add inlet neutral density
     bc_state[index.ρn[1]] = mdot_a / channel_area[1] / un
 
+    # Add ingested mass flow rate at anode
     if config.solve_background_neutrals
-        # Background neutrals are accomodated and re-emitted as anode neutrals
-        background_neutral_density = U[index.ρn[2], begin+1]
-        background_neutral_velocity = params.background_neutral_velocity
-        background_neutral_flux = -background_neutral_density * background_neutral_velocity
-        bc_state[index.ρn[1]] += background_neutral_flux / un
-        bc_state[index.ρn[2]] = U[index.ρn[2], begin+1]
+        bc_state[index.ρn[1]] += params.background_neutral_density * params.background_neutral_velocity / un
     end
 
     @inbounds for Z in 1:params.config.ncharge
@@ -82,12 +78,8 @@ function right_boundary_state!(bc_state, U, params)
     (;index, fluids) = params
 
     @inbounds for j in 1:params.num_neutral_fluids
-        # If neutral fluid is right-moving, use Neumann BC, otherwise Dirichlet BC
-        if fluids[j].conservation_laws.u ≥ 0.0
-            bc_state[index.ρn[j]] = U[index.ρn[j], end-1]
-        else
-            bc_state[index.ρn[j]] = params.background_neutral_density
-        end
+        # Use Neumann boundary conditions for all neutral fluids
+        bc_state[index.ρn[j]] = U[index.ρn[j], end-1]
     end
 
     @inbounds for Z in 1:params.config.ncharge

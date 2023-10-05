@@ -126,34 +126,33 @@ end
     )
 
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config_bg)
-    @test fluid_ranges == [1:1, 2:2, 3:4, 5:6, 7:8]
-    @test species == [Xenon(0), Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
+    @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
+    @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
     @test species_range_dict == Dict(
-        Symbol("Xe") => [1:1, 2:2],
-        Symbol("Xe+") => [3:4],
-        Symbol("Xe2+") => [5:6],
-        Symbol("Xe3+") => [7:8],
+        Symbol("Xe") => [1:1],
+        Symbol("Xe+") => [2:3],
+        Symbol("Xe2+") => [4:5],
+        Symbol("Xe3+") => [6:7],
     )
 
     @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.ContinuityOnly(-sqrt(ustrip(TB) * HallThruster.kB / Xenon.m), ustrip(TB))
+    @test fluids[2].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
     @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
     @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[5].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
     @test keys(index) == (:ρn, :ρi, :ρiui, :nϵ, :lf)
-    @test values(index) == ([1, 2], [3, 5, 7], [4, 6, 8], 9, 8)
+    @test values(index) == ([1], [2, 4, 6], [3, 5, 7], 8, 7)
 
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))
     ionization_reactant_indices = HallThruster.reactant_indices(ionization_reactions, species_range_dict)
-    @test ionization_reactant_indices == [[1, 2], [1, 2], [1, 2], [3], [3], [5]]
+    @test ionization_reactant_indices == [[1], [1], [1], [2], [2], [4]]
 
     ionization_product_indices = HallThruster.product_indices(ionization_reactions, species_range_dict)
-    @test ionization_product_indices == [[3], [5], [7], [5], [7], [7]]
+    @test ionization_product_indices == [[2], [4], [6], [4], [6], [6]]
 
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
-    @test excitation_reactant_indices == [[1, 2]]
+    @test excitation_reactant_indices == [[1]]
 end

@@ -113,9 +113,7 @@ function load_restart(grid, fluids, config, sol::Solution)
                 @. @views cache[field][Z, :] = U[2 * Z + 1, :] / config.propellant.m
             end
         elseif field == :nn
-            for i in 1:1+config.solve_background_neutrals
-                @. @views cache[field][i, :] = U[i, :] / config.propellant.m
-            end
+            @. @views cache[field][1, :] = U[1, :] / config.propellant.m
         else
             itp = LinearInterpolation(z_cell, sv[field])
             cache[field] .= itp.(grid.cell_centers)

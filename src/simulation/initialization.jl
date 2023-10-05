@@ -46,13 +46,6 @@ function initialize!(U, params, ::DefaultInitialization)
     ρn_1 = 0.01 * ρn_0
     neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z-z0, L_ch / 2, ρn_0, ρn_1)
 
-    # Background neutral density
-    if config.solve_background_neutrals
-        ρn_B = params.background_neutral_density
-    else
-        ρn_B = 0.0
-    end
-
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
 
     Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Te, cathode_Te)
@@ -66,10 +59,6 @@ function initialize!(U, params, ::DefaultInitialization)
     for (i, z) in enumerate(z_cell)
 
         U[index.ρn[1], i] = neutral_function(z)
-
-        if params.config.solve_background_neutrals
-            U[index.ρn[2], i] = ρn_B
-        end
 
         for Z in 1:params.config.ncharge
             U[index.ρi[Z], i] = ion_density_function(z, Z)

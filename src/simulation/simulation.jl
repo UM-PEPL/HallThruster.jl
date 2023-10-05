@@ -74,7 +74,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     # Plume divergence variables
     channel_area = zeros(ncells)    # Area of channel / plume
     dA_dz = zeros(ncells)           # derivative of area w.r.t. axial coordinate
-    channel_height = zeros(ncells)  # Height of channel / plume (outer - inner) 
+    channel_height = zeros(ncells)  # Height of channel / plume (outer - inner)
     inner_radius = zeros(ncells)    # Channel/plume inner radius
     outer_radius = zeros(ncells)    # Channel/plume outer radius
     tanδ = zeros(ncells)            # Tangent of divergence half-angle
@@ -142,7 +142,7 @@ function run_simulation(
         config::Config;
         dt, duration, ncells, nsave,  restart = nothing,
         CFL = 0.9, adaptive = false,
-        control_current = false, target_current = 0.0, 
+        control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = Inf,
         verbose = true,
@@ -227,7 +227,7 @@ function run_simulation(
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
-        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1, 
+        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
         dtmin, dtmax
     )
 
@@ -267,7 +267,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             (;
                 # Design
                 thruster_name,
-                channel_length, inner_radius, outer_radius, 
+                channel_length, inner_radius, outer_radius,
                 magnetic_field_file, magnetically_shielded,
                 propellant_material, wall_material,
                 anode_potential, cathode_potential,
@@ -289,7 +289,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             (;
                 # Design
                 thruster_name,
-                channel_length, inner_radius, outer_radius, 
+                channel_length, inner_radius, outer_radius,
                 magnetic_field_file, magnetically_shielded,
                 propellant, wall_material,
                 anode_potential, cathode_potential,
@@ -310,7 +310,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         (;design, simulation, parameters) = json_content
         (;
             thruster_name,
-            channel_length, inner_radius, outer_radius, 
+            channel_length, inner_radius, outer_radius,
             magnetic_field_file, magnetically_shielded,
             propellant, wall_material,
             anode_potential, cathode_potential,
@@ -324,7 +324,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
         ) = simulation
 
-        (; 
+        (;
             anom_model_coeffs, sheath_loss_coefficient,
             ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
             cathode_electron_temp_eV, inner_outer_transition_length_m,

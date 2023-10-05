@@ -99,7 +99,7 @@ function Config(;
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
 
     # Neutral source terms
-    num_neutral_fluids = 1 + solve_background_neutrals
+    num_neutral_fluids = 1
     if isnothing(source_neutrals)
         source_neutrals = fill(Returns(0.0), num_neutral_fluids)
     end
@@ -154,7 +154,7 @@ function Config(;
         anode_boundary_condition,
         anom_smoothing_iters,
         solve_plume,
-        electron_plume_loss_scale
+        electron_plume_loss_scale,
     )
 end
 
@@ -192,15 +192,7 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    anode_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))
-
-    if config.solve_background_neutrals
-        Tn_background = config.background_neutral_temperature
-        background_neutral_fluid = Fluid(propellant(0), ContinuityOnly(u = background_neutral_velocity(config), T = Tn_background))
-        neutral_fluids = [anode_neutral_fluid, background_neutral_fluid]
-    else
-        neutral_fluids = [anode_neutral_fluid]
-    end
+    neutral_fluids = [Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))]
 
     ion_eqns = IsothermalEuler(T = config.ion_temperature)
     ion_fluids = [Fluid(propellant(Z), ion_eqns) for Z in 1:config.ncharge]
