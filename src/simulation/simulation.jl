@@ -282,6 +282,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
                 cathode_electron_temp_eV, inner_outer_transition_length_m,
                 background_pressure_Torr, background_temperature_K,
+                pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
             ) = json_content
 
             propellant = propellant_material
@@ -304,6 +305,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
                 cathode_electron_temp_eV, inner_outer_transition_length_m,
                 background_pressure_Torr, background_temperature_K,
+                pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
             ) = json_content
         end
     else
@@ -329,6 +331,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
             cathode_electron_temp_eV, inner_outer_transition_length_m,
             background_pressure_Torr, background_temperature_K,
+            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
         ) = parameters
     end
 
@@ -352,6 +355,8 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         (x -> TwoZoneBohm(x[1], x[2]))(anom_model_coeffs)
     elseif anom_model == "MultiLogBohm"
         MultiLogBohm(anom_model_coeffs)
+    elseif anom_model == "ShiftedTwoZone"
+        ShiftedTwoZone(anom_model_coeffs, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
     end
 
     config = HallThruster.Config(;

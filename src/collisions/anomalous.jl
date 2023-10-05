@@ -109,6 +109,41 @@ function (model::MultiLogBohm)(νan, params)
 end
 
 """
+    ShiftedTwoZoneBohm(coeffs, z0, dz, alpha, pstar) <: AnomalousTransportModel
+Model where the anomalous collision frequency has two values: c1 * ωce before some transition location and c2 * ωce after.
+Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
+The location of the transition is based on the background pressure and the user-provided coefficients.
+"""
+Base.@kwdef struct ShiftedTwoZoneBohm <: HallThruster.AnomalousTransportModel
+    coeffs::NTuple{2, Float64}
+    z0::Float64
+    dz::Float64
+    pstar::Float64
+    alpha::Float64
+end
+
+function (model::ShiftedTwoZoneBohm)(νan, params)
+    (;coeffs, z0, dz, alpha, pstar) = model
+
+    pb = params.config.background_pressure
+
+    torr_to_pa = 133.322
+
+    p_ratio = pb / (pstar * torr_to_pa)
+    zstar = params.L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+
+    c1, c2 = coeffs
+
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = HallThruster.e * B / HallThruster.me
+
+        β = params.config.transition_function(params.z_cell[i], zstar, c1, c2)
+        νan[i] = β * ωce
+    end
+end
+
+"""
     num_anom_variables(::AnomalousTransportModel)::Int
 
 The number of variable arrays that should be allocated for the provided anomalous
