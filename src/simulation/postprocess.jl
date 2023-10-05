@@ -99,8 +99,8 @@ function thrust(sol, frame)
         thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
     end
 
-    # Multiply by divergence efficiency to model loss of ions in radial direction
-    return thrust * divergence_eff(sol, frame)
+    # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
+    return thrust * sqrt(divergence_eff(sol, frame))
 end
 
 discharge_current(sol, frame) = sol.savevals[frame].Id[]
@@ -137,8 +137,7 @@ function ion_current(sol, frame)
         Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
     end
 
-    # Multiply by divergence efficiency to model loss of ions in radial direction
-    return Ii * divergence_eff(sol, frame)
+    return Ii
 end
 
 electron_current(sol, frame) = discharge_current(sol, frame) - ion_current(sol, frame)

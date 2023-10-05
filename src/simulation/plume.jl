@@ -7,7 +7,7 @@ function update_plume_geometry!(U, params; initialize = false)
     if !initialize && !params.config.solve_plume
         return
     end
-    
+
     ncells = length(z_cell)
     geometry = config.thruster.geometry
     r_in = geometry.inner_radius

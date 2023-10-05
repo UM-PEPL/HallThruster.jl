@@ -78,6 +78,6 @@ function initialize!(U, params, ::DefaultInitialization)
 
         U[index.nϵ, i] = number_density_function(z) * energy_function(z)
     end
-    
+
     return U
 end

@@ -36,7 +36,6 @@ function left_boundary_state!(bc_state, U, params)
         bc_state[index.ρn[1]] += background_neutral_flux / un
         bc_state[index.ρn[2]] = U[index.ρn[2], begin+1]
     end
-    
 
     @inbounds for Z in 1:params.config.ncharge
         interior_density = U[index.ρi[Z],   begin+1]
@@ -56,7 +55,7 @@ function left_boundary_state!(bc_state, U, params)
             # J⁺ = u + c ln ρ
             # J⁻ = u - c ln ρ
             # For the boundary condition, we take c = u_bohm
-            
+
             # 1. Compute outgoing characteristic using interior state
             J⁻ = interior_velocity - sound_speed * log(interior_density)
 
