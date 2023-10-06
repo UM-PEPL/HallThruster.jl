@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Anomalous Transport · HallThruster.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="HallThruster.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">HallThruster.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../run/">Running and analyzing a simulation</a></li><li><a class="tocitem" href="../tutorial/">Tutorial notebook</a></li><li><a class="tocitem" href="../background/">Background</a></li><li><a class="tocitem" href="../physics/">Physics model</a></li><li><span class="tocitem">Configuration</span><ul><li><a class="tocitem" href="../config/">Configuration</a></li><li><a class="tocitem" href="../propellants/">Propellants</a></li><li><a class="tocitem" href="../initialization/">Initialization</a></li><li><a class="tocitem" href="../thrusters/">Thrusters</a></li><li><a class="tocitem" href="../fluxes/">Fluxes</a></li><li><a class="tocitem" href="../collisions/">Collisions and Reactions</a></li><li class="is-active"><a class="tocitem" href>Anomalous Transport</a><ul class="internal"><li><a class="tocitem" href="#Built-in-Models"><span>Built-in Models</span></a></li><li><a class="tocitem" href="#The-AnomalousTransportModel-interface"><span>The <code>AnomalousTransportModel</code> interface</span></a></li><li><a class="tocitem" href="#Custom-anomalous-transport-models"><span>Custom anomalous transport models</span></a></li><li><a class="tocitem" href="#More-complex-anomalous-transport-models"><span>More complex anomalous transport models</span></a></li><li><a class="tocitem" href="#Solving-arbitrary-PDEs-using-the-AnomalousTransportModel-interface"><span>Solving arbitrary PDEs using the AnomalousTransportModel interface</span></a></li></ul></li><li><a class="tocitem" href="../wall_loss_models/">Wall Loss Models</a></li><li><a class="tocitem" href="../boundary_conditions/">Boundary Conditions</a></li><li><a class="tocitem" href="../source_terms/">User-Provided Source Terms</a></li></ul></li><li><a class="tocitem" href="../numerics/">Numerics</a></li><li><a class="tocitem" href="../verification/">Verification</a></li><li><a class="tocitem" href="../internals/">Internals</a></li><li><a class="tocitem" href="../contribution/">Contribution</a></li><li><a class="tocitem" href="../citation/">Citation</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Configuration</a></li><li class="is-active"><a href>Anomalous Transport</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Anomalous Transport</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/UM-PEPL/HallThruster.jl/blob/main/docs/src/anomalous_transport.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Anomalous-Transport"><a class="docs-heading-anchor" href="#Anomalous-Transport">Anomalous Transport</a><a id="Anomalous-Transport-1"></a><a class="docs-heading-anchor-permalink" href="#Anomalous-Transport" title="Permalink"></a></h1><p>HallThruster has a few anomalous transport models built in and allows users to define their own. This page describes these models and the process by which algebraic and multi-equation transport models can be added by the user.</p><div class="admonition is-warning"><header class="admonition-header">Interface not finalized</header><div class="admonition-body"><p>The AnomalousTransportModel interface is not yet finalized and subject to revision. Keep this in mind when using this feature.</p></div></div><h2 id="Built-in-Models"><a class="docs-heading-anchor" href="#Built-in-Models">Built-in Models</a><a id="Built-in-Models-1"></a><a class="docs-heading-anchor-permalink" href="#Built-in-Models" title="Permalink"></a></h2><h3 id="NoAnom()"><a class="docs-heading-anchor" href="#NoAnom()"><code>NoAnom()</code></a><a id="NoAnom()-1"></a><a class="docs-heading-anchor-permalink" href="#NoAnom()" title="Permalink"></a></h3><p>Model for no anomalous transport (anomalous collision frequency  = 0).</p><pre><code class="language-julia hljs">anom_model = NoAnom()</code></pre><h3 id="Bohm(c)"><a class="docs-heading-anchor" href="#Bohm(c)"><code>Bohm(c)</code></a><a id="Bohm(c)-1"></a><a class="docs-heading-anchor-permalink" href="#Bohm(c)" title="Permalink"></a></h3><p>Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c</p><h3 id="TwoZoneBohm(c1,-c2)"><a class="docs-heading-anchor" href="#TwoZoneBohm(c1,-c2)"><code>TwoZoneBohm(c1, c2)</code></a><a id="TwoZoneBohm(c1,-c2)-1"></a><a class="docs-heading-anchor-permalink" href="#TwoZoneBohm(c1,-c2)" title="Permalink"></a></h3><p>HallThruster&#39;s default anomalous transport option. This is a standard model of anomalous transport frequently used in Hall thruster simulations. The anomalous collision frequency is defined as</p><p class="math-container">\[\begin{aligned}
+    \nu_{AN} &amp;= c_1 \omega_{ce} \quad z &lt; L_{ch} \\
+    &amp;= c_2 \omega_{ce} \quad z &gt; L_{ch}
+\end{aligned}\]</p><p>In the above expression, <span>$c_1$</span> and <span>$c_2$</span> are tunable coefficients, <span>$\omega_{ce} = e B / m_e$</span> is the electron cyclotron frequency, and <span>$L_{ch}$</span> is the channel length. A <code>TwoZoneBohm</code> model is initialized as follows</p><pre><code class="language-julia hljs">anom_model = TwoZoneBohm(c1, c2)</code></pre><p>The transition between the zones is determined by the user-provided transition function. This defaults to a step function.</p><h3 id="MultiLogBohm(z,-c)"><a class="docs-heading-anchor" href="#MultiLogBohm(z,-c)"><code>MultiLogBohm(z, c)</code></a><a id="MultiLogBohm(z,-c)-1"></a><a class="docs-heading-anchor-permalink" href="#MultiLogBohm(z,-c)" title="Permalink"></a></h3><p>Model similar to that employed in Hall2De, where the mobility is Bohm-like (i.e. <code>νan(z) = c(z) * ωce(z)</code>) and z is in meters.</p><p>The function <code>c(z)</code> is defined by a sequence of nodes <code>(z, c)</code> provided by the user. At <code>z = z[1]</code>, <code>c(z) = c[1]</code>, and so forth.</p><p>At <code>z[i] &lt; z &lt; z[i+1]</code>, <code>log(c)</code> is defined by linearly interpolating between <code>log(c[i])</code> and <code>log(c[i+1])</code>.</p><p>For <code>z &lt; z[1]</code>, <code>c = c[1]</code> and for <code>z &gt; z[end]</code>, <code>c(z) = c[end]</code>.</p><p>The user may also provide a single array of <code>[z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]</code>. The number of <code>z</code>values must be equal to the number of c values.</p><h2 id="The-AnomalousTransportModel-interface"><a class="docs-heading-anchor" href="#The-AnomalousTransportModel-interface">The <code>AnomalousTransportModel</code> interface</a><a id="The-AnomalousTransportModel-interface-1"></a><a class="docs-heading-anchor-permalink" href="#The-AnomalousTransportModel-interface" title="Permalink"></a></h2><p>Currently, HallThruster.jl expects all models to be written to be callable structs, taking arguments <code>U, params, i</code>, where <code>U</code> is the system state vector, <code>params</code> are the simulation parameters (including the cache of all variables), and <code>i</code> is the index of the cell.</p><h2 id="Custom-anomalous-transport-models"><a class="docs-heading-anchor" href="#Custom-anomalous-transport-models">Custom anomalous transport models</a><a id="Custom-anomalous-transport-models-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-anomalous-transport-models" title="Permalink"></a></h2><p>Users of HallThruster may define their own models by defining a custom subtype of <code>AnomalousTransportModel</code>. Suppose we want to implement <span>$nu_{AN} = \beta \omega_{ce}$</span> (classic Bohm diffusion). This is a fixed anomalous transport model and does not change as the simulation progresses. We would first define our type:</p><pre><code class="language-julia hljs">using HallThruster
+
+struct BohmDiffusion &lt;: AnomalousTransportModel
+    β::Float64
+end</code></pre><p>We then need to define the function which computes the anomalous transport in each cell. This is a mutating function which takes two arguments: the vector of anomalous collision frequency values to be updated, and the solver params.</p><pre><code class="language-julia hljs">function (model::BohmDiffusion)(νan, params)
+
+    e = HallThruster.e
+    me = HallThruster.me
+    B = params.cache.B
+
+    for i in eachindex(νan)
+        ωce = e * B[i] / me
+        νan[i] = model.β * ωce
+    end
+
+    return νan
+end</code></pre><p>We can now set <code>anom_model = BohmDiffusion</code> in our config struct (see <a href="../config/#Configuration">Configuration</a>) and the simulation will correctly compute the anomalous transport according to our model.</p><h2 id="More-complex-anomalous-transport-models"><a class="docs-heading-anchor" href="#More-complex-anomalous-transport-models">More complex anomalous transport models</a><a id="More-complex-anomalous-transport-models-1"></a><a class="docs-heading-anchor-permalink" href="#More-complex-anomalous-transport-models" title="Permalink"></a></h2><p>Up until now, we have only defined algebraic models of anomalous electron transport. For more high-fidelity models, we might need to solve multiple partial differential equations. Even if we don&#39;t want to do that, we still might want to compute other anomalous transport- related quantities at the same time that we update the anomalous transport. Lets see how we might do this.</p><p>As a first example, let&#39;s compute an anomalous transport that depends on energy density of electrostatic waves in the plasma. This model derives from Lafleur, Chabert, and Balruud (2016) and has the following form:</p><p class="math-container">\[\begin{aligned}
+    \nu_{AN} = K \frac{\nabla \cdot \mathbf{u}_i W}{m_e n_e c_s v_{de}}
+\end{aligned}\]</p><p>In this expression, <span>$K$</span> is a tunable coefficient, <span>$u_i$</span> is the ion velocity, <span>$W = n_e k_B T_e$</span> is the wave energy density, <span>$m_e$</span> is the electron mass, <span>$n_e$</span> is the electron number density, <span>$c_s$</span> is the ion sound speed, and <span>$v_{de}$</span> is the electron azimuthal drift speed. Let&#39;s say we want to save the wave energy density in addition to the anomalous collision frequency. We begin by defining the model:</p><pre><code class="language-julia hljs">    struct LafleurModel &lt;: AnomalousTransportModel
+        K::Float64
+    end</code></pre><p>Next, we add a method to the <code>num_anom_variables</code> function. Since we want to save the wave energy density, we need 1 additional anomalous transport variable.</p><pre><code class="language-julia hljs">    num_anom_variables(::LafleurModel) = 1</code></pre><p>Now, we define the behavior of the model in a function. Since the model is based on assuming the wave energy convects with the ions, we will use upwind differencing for the gradient.</p><pre><code class="language-julia hljs">function (model::LafleurModel)(νan, params)
+    
+    (;config, cache) = params
+    mi = config.propellant.m
+    K = model.K
+    e = HallThruster.e
+    me = HallThruster.me
+    (;ne, Tev, ue, ui, νe, anom_variables) = cache
+
+    ncells = length(νan)
+
+    for i in 2:ncells-1
+
+        W = e * ne[i] * Tev[i]
+        Hall_param = e * B[i] / me / νe[i]
+        vde = Hall_param * ue[i]
+        cs = sqrt(e * Tev[i] / mi)
+
+        # Upwind differencing of gradient term
+        if ui &gt; 0
+            dz = params.z_cell[i] - params.z_cell[i-1]
+            W_left = e * cache.ne[i-1] * cache.Te[i-1]
+            grad_ui_W = (ui[1, i] * W[i] - cache.ui[1, i-1] * W_left) / dz
+        else
+            dz = params.z_cell[i+1] - params.z_cell[i]
+            W_right = e * cache.ne[i+1] * cache.Te[i+1]
+            grad_ui_W = (cache.ui[1, i+1] * W_right - ui[i] * W[i]) / dz
+        end
+
+        # Save W to cache.anom_variables[1]
+        anom_variables[1][i] = W
+        
+        # Return anomalous collision frequency
+        νan[i] = abs(K * grad_ui_W / (me * cs * vde * ne))
+    end
+
+    # Neumann BC anomalous transport
+    anom_variables[1][1] = anom_variables[1][2]
+    anom_variables[1][end] = anom_variables[1][end-1]
+    νan[1] = νan[2]
+    νan[end] = νan[end-1]
+    
+    return νan
+end</code></pre><p>The saved value of the wave energy density can then be recovered as</p><pre><code class="language-julia hljs">    solution.savevals[frame].anom_variables[1]</code></pre><p>where <code>solution</code> is the <code>Solution</code> object resulting from a call to <code>run_simulation</code></p><h2 id="Solving-arbitrary-PDEs-using-the-AnomalousTransportModel-interface"><a class="docs-heading-anchor" href="#Solving-arbitrary-PDEs-using-the-AnomalousTransportModel-interface">Solving arbitrary PDEs using the AnomalousTransportModel interface</a><a id="Solving-arbitrary-PDEs-using-the-AnomalousTransportModel-interface-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-arbitrary-PDEs-using-the-AnomalousTransportModel-interface" title="Permalink"></a></h2><p>We can use this basic interface to solve PDEs within HallThruster.jl. We demonstrate this by solving the scalar advection equation using first-order upwind differencing in space and forward Euler integration in time, with periodic boundary conditions. The scalar advection equation is given by:</p><p class="math-container">\[    \begin{aligned}
+        \frac{\partial u}{\partial t} + a \frac{\partial u}{\partial x} = 0
+    \end{aligned}\]</p><p>To begin, we define the model struct and the number of variables we need.</p><pre><code class="language-julia hljs">using HallThruster, Plots
+
+struct ScalarAdvection{F} &lt;: HallThruster.AnomalousTransportModel
+    advection_velocity::Float64  # Advection advection_velocity
+    initializer::F  # Initialization function
+end
+
+# Save two auxilliary variables
+#   1) Advected quantity u
+#   2) gradient of advected quantity (du/dz)
+HallThruster.num_anom_variables(::ScalarAdvection) = 2</code></pre><p>Next, we define the model function:</p><pre><code class="language-julia hljs">function (model::ScalarAdvection)(νan, params)
+    
+    ncells = length(νan)
+    
+    # Extract variables from params 
+    cache = params.cache
+    z = params.z_cell
+    u = cache.anom_variables[1]
+    du_dz = cache.anom_variables[2]
+    a = model.advection_velocity
+    dt = params.dt
+    
+    if params.iteration[] &lt; 1
+        # Initialize
+        model.initializer(u, z)
+    else
+        for i in eachindex(νan)
+            # Setup for periodic boundary conditions
+            if i == 1
+                i_minus_1 = ncells
+                dz_minus = z[2] - z[1]
+            else
+                i_minus_1 = i - 1
+                dz_minus = z[i] - z[i-1]
+            end
+
+            if i == ncells
+                i_plus_1 = 1
+                dz_plus = z[2] - z[1]
+            else
+                i_plus_1 = i + 1
+                dz_plus = z[i+1] - z[i]
+            end
+
+             # Update gradient
+            if a &gt; 0
+                du_dz[i] = (u[i] - u[i_minus_1]) / dz_minus
+            else
+                du_dz[i] = (u[i_plus_1] - u[i]) / dz_plus
+            end
+        end
+
+        # Update advected quantity
+        for i in eachindex(νan)
+            u[i] -= a * du_dz[i] * dt
+        end
+    end
+
+    # Return a two-zone bohm anomalous transport result,
+    # since we don&#39;t really care about the anomalous transport.
+    return HallThruster.TwoZoneBohm(1/160, 1/16)(νan, params)
+end</code></pre><p>And that&#39;s it! Now all there is to do is define our simulation parameters and run!</p><pre><code class="language-julia hljs">
+# Set up config
+advection_velocity = 1e5
+L = 0.08
+
+config = HallThruster.Config(
+    domain = (0.0, L),
+    anom_model = ScalarAdvection(advection_velocity, initializer),
+    thruster = HallThruster.SPT_100,
+    discharge_voltage = 300.0,
+    anode_mass_flow_rate = 5e-6
+)
+
+# Define dt such that CFL condition is obeyed
+ncells = 200
+dx = L / ncells
+CFL = 0.9
+dt = min(1e-8, dx * CFL / advection_velocity)
+nsteps = 1000
+
+# Run simulation
+solution = HallThruster.run_simulation(
+    config;
+    ncells, 
+    dt,
+    duration = nsteps * dt, 
+    nsave = nsteps
+)
+
+# Extract variables from solution
+z = solution.params.z_cell
+u = [saveval.anom_variables[1] for saveval in solution.savevals]</code></pre><p>We can now visualize the results to make sure everything worked well.</p><pre><code class="language-julia hljs">using Plots
+
+# Time needed to transit the domain
+t_transit = L / advection_velocity
+
+# Number of periods 
+num_periods = floor(Int, nsteps * dt / t_transit)
+
+# Plot results
+p = plot(; framestyle = :box, xlabel = &quot;x&quot;, ylabel = &quot;u&quot;, title = &quot;First order upwind for scalar advection&quot;)
+for i in 0:num_periods
+    index = round(Int, i * t_transit / dt) + 1
+    plot!(
+        p, z, u[index], label = &quot;After $i periods&quot;,
+        linecolor = cgrad(:turbo, num_periods + 1, categorical = true)[i+1]
+    )
+end
+display(p)</code></pre><p><img src="https://github.com/UM-PEPL/HallThruster.jl/blob/main/docs/src/assets/scalar_advection.png?raw=true" alt/></p><p>This looks correct! In this case, we haven&#39;t coupled our PDE solution to the anomalous transport, but one could easily do this. In the same way, systems of two, three, or more coupled PDEs can be solved and related to the anomalous collision frequency.</p><p>The full script is reproduced below:</p><pre><code class="language-julia hljs">using HallThruster
+
+struct ScalarAdvection{F} &lt;: HallThruster.AnomalousTransportModel
+    advection_velocity::Float64  # Advection advection_velocity
+    initializer::F  # Initialization function
+end
+
+# Save two auxilliary variables
+#   1) Advected quantity u
+#   2) gradient of advected quantity (du/dz)
+HallThruster.num_anom_variables(::ScalarAdvection) = 2
+
+function (model::ScalarAdvection)(νan, params)
+    
+    ncells = length(νan)
+    
+    # Extract variables from params 
+    cache = params.cache
+    z = params.z_cell
+    u = cache.anom_variables[1]
+    du_dz = cache.anom_variables[2]
+    a = model.advection_velocity
+    dt = params.dt
+    
+    if params.iteration[] &lt; 1
+        # Initialize
+        model.initializer(u, z)
+    else
+        for i in eachindex(νan)
+            # Setup for periodic boundary conditions
+            if i == 1
+                i_minus_1 = ncells
+                dz_minus = z[2] - z[1]
+            else
+                i_minus_1 = i - 1
+                dz_minus = z[i] - z[i-1]
+            end
+
+            if i == ncells
+                i_plus_1 = 1
+                dz_plus = z[2] - z[1]
+            else
+                i_plus_1 = i + 1
+                dz_plus = z[i+1] - z[i]
+            end
+
+             # Update gradient
+            if a &gt; 0
+                du_dz[i] = (u[i] - u[i_minus_1]) / dz_minus
+            else
+                du_dz[i] = (u[i_plus_1] - u[i]) / dz_plus
+            end
+        end
+
+        # Update advected quantity
+        for i in eachindex(νan)
+            u[i] -= a * du_dz[i] * dt
+        end
+    end
+
+    # Return a two-zone bohm anomalous transport result,
+    # since we don&#39;t really care about the anomalous transport.
+    return HallThruster.TwoZoneBohm(1/160, 1/16)(νan, params)
+end
+
+
+# Define initializer function, which is a step function
+# between z = 0.01 and z = 0.02
+function initializer(u, z)
+    for i in eachindex(u)
+        if 0.01 &lt; z[i] &lt; 0.02
+            u[i] = 1.0
+        else
+            u[i] = 0.0
+        end
+    end
+    return u
+end
+
+# Set up config
+advection_velocity = 1e5
+L = 0.08
+
+config = HallThruster.Config(
+    domain = (0.0, L),
+    anom_model = ScalarAdvection(advection_velocity, initializer),
+    thruster = HallThruster.SPT_100,
+    discharge_voltage = 300.0,
+    anode_mass_flow_rate = 5e-6
+)
+
+# Define dt such that CFL condition is obeyed
+ncells = 200
+dx = L / ncells
+CFL = 0.9
+dt = min(1e-8, dx * CFL / advection_velocity)
+nsteps = 1000
+
+# Run simulation
+solution = HallThruster.run_simulation(
+    config;
+    ncells, 
+    dt,
+    duration = nsteps * dt, 
+    nsave = nsteps
+)
+
+# Extract variables from solution
+z = solution.params.z_cell
+u = [saveval.anom_variables[1] for saveval in solution.savevals]
+
+using Plots
+
+# Time needed to transit the domain
+t_transit = L / advection_velocity
+
+# Number of periods 
+num_periods = floor(Int, nsteps * dt / t_transit)
+
+# Plot results
+p = plot(; framestyle = :box, xlabel = &quot;x&quot;, ylabel = &quot;u&quot;, title = &quot;First order upwind for scalar advection&quot;)
+for i in 0:num_periods
+    index = round(Int, i * t_transit / dt) + 1
+    plot!(
+        p, z, u[index], label = &quot;After $i periods&quot;,
+        linecolor = cgrad(:turbo, num_periods + 1, categorical = true)[i+1]
+    )
+end
+display(p)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../collisions/">« Collisions and Reactions</a><a class="docs-footer-nextpage" href="../wall_loss_models/">Wall Loss Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Friday 6 October 2023 14:52">Friday 6 October 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
