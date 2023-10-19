@@ -356,7 +356,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
     elseif anom_model == "MultiLogBohm"
         MultiLogBohm(anom_model_coeffs)
     elseif anom_model == "ShiftedTwoZone"
-        ShiftedTwoZone(anom_model_coeffs, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
+        ShiftedTwoZoneBohm(anom_model_coeffs, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
     end
 
     config = HallThruster.Config(;
