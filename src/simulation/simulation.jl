@@ -262,6 +262,7 @@ function run_simulation(
 end
 
 function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false, verbose = true)
+    adaptive = false
     if single_section
         if nonstandard_keys
             (;
@@ -308,6 +309,12 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
             ) = json_content
         end
+
+        # Handle optional keys
+        if (haskey(json_content, :adaptive))
+            adaptive = json_content.adaptive
+        end
+
     else
         (;design, simulation, parameters) = json_content
         (;
@@ -333,6 +340,11 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             background_pressure_Torr, background_temperature_K,
             pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
         ) = parameters
+
+        # Handle optional keys
+        if (haskey(simulation, :adaptive))
+            adaptive = simulation.adaptive
+        end
     end
 
     geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
@@ -390,7 +402,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
 
     solution = run_simulation(
         config; ncells = num_cells, nsave = num_save,
-        duration = duration_s, dt = dt_s, verbose = verbose
+        duration = duration_s, dt = dt_s, verbose = verbose, adaptive
     )
 
     return solution

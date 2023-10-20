@@ -11,11 +11,11 @@
     @test config.anom_model.pstar ≈ 3e-5
     @test config.anom_model.z0 ≈ -0.003
     @test config.anom_model.dz ≈ 0.005
-    @test sol.params.dt[] ≈ 1e-9
     @test config.discharge_voltage ≈ 280.0
     @test config.thruster.name == "SPT-100"
     @test config.propellant == Xenon
     @test config.anode_mass_flow_rate ≈ 3e-6
     @test config.solve_background_neutrals == true
     @test config.ion_wall_losses == true
+    @test sol.params.adaptive == true
 end
