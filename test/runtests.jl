@@ -24,6 +24,7 @@ include("unit_tests/test_boundary_conditions.jl")
 include("unit_tests/test_walls.jl")
 include("unit_tests/test_initialization.jl")
 include("unit_tests/test_restarts.jl")
+include("unit_tests/test_json.jl")
 
 @testset "Order verification (electron energy)" begin
     include("order_verification/ovs_funcs.jl")
