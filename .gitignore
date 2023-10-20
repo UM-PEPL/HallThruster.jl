@@ -10,5 +10,5 @@ output
 !docs/*.png
 run
 *.json
-
-bfield_spt100.csv
+!test/unit_tests/bfield_spt100.csv
+!test/unit_tests/test_input.json
