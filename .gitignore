@@ -11,4 +11,5 @@ output
 run
 *.json
 !test/unit_tests/bfield_spt100.csv
-!test/unit_tests/test_input.json
+!test/unit_tests/input_twozone.json
+!test/unit_tests/input_shifted.json
