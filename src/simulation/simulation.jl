@@ -262,7 +262,13 @@ function run_simulation(
 end
 
 function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false, verbose = true)
+
     adaptive = false
+    pressure_z0 = NaN
+    pressure_dz = NaN
+    pressure_pstar = NaN
+    pressure_alpha = NaN
+
     if single_section
         if nonstandard_keys
             (;
@@ -311,10 +317,14 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         end
 
         # Handle optional keys
-        if (haskey(json_content, :adaptive))
+        if haskey(json_content, :adaptive)
             adaptive = json_content.adaptive
         end
 
+        # Optional parameters for ShiftedTwoZoneBohm
+        if anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
+            (;pressure_z0, pressure_dz, pressure_pstar, pressure_alpha) = json_content
+        end
     else
         (;design, simulation, parameters) = json_content
         (;
@@ -338,12 +348,16 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
             cathode_electron_temp_eV, inner_outer_transition_length_m,
             background_pressure_Torr, background_temperature_K,
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
         ) = parameters
 
         # Handle optional keys
         if (haskey(simulation, :adaptive))
             adaptive = simulation.adaptive
+        end
+
+        # Optional parameters for ShiftedTwoZoneBohm
+        if anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
+            (;pressure_z0, pressure_dz, pressure_pstar, pressure_alpha) = parameters
         end
     end
 
@@ -367,7 +381,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         TwoZoneBohm((anom_model_coeffs[1], anom_model_coeffs[2]))
     elseif anom_model == "MultiLogBohm"
         MultiLogBohm(anom_model_coeffs)
-    elseif anom_model == "ShiftedTwoZone"
+    elseif anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
         coeff_tuple = (anom_model_coeffs[1], anom_model_coeffs[2])
         ShiftedTwoZoneBohm(coeff_tuple, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
     end

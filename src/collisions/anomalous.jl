@@ -49,6 +49,7 @@ Takes two arguments: c1 and c2. The transition between these values can be smoot
 struct TwoZoneBohm <: AnomalousTransportModel
     coeffs::NTuple{2, Float64}
     TwoZoneBohm(c1, c2) = new((c1, c2))
+    TwoZoneBohm(t) = new(t)
 end
 
 function (model::TwoZoneBohm)(νan, params)
