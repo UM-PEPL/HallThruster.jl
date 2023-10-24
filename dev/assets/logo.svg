@@ -23,9 +23,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.8520914"
-     inkscape:cx="199.5042"
-     inkscape:cy="117.43481"
+     inkscape:zoom="1.3096264"
+     inkscape:cx="40.087769"
+     inkscape:cy="176.00439"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -84,54 +84,12 @@
        cx="28.18944"
        cy="93.34201"
        r="26.458332" />
-    <ellipse
-       style="fill:#808080;fill-opacity:1;stroke:#4d4d4d;stroke-width:0.998112;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
-       id="circle863-6"
-       cx="89.277519"
-       cy="93.34201"
-       rx="26.358501"
-       ry="26.458332" />
     <circle
        style="fill:#808080;stroke:#4d4d4d;stroke-width:1;paint-order:markers fill stroke;stop-color:#000000"
        id="circle871-1"
        cx="58.783398"
        cy="40.351723"
        r="26.458332" />
-    <ellipse
-       style="fill:#9558b2;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse873-3"
-       cx="89.277519"
-       cy="93.34201"
-       rx="20.215672"
-       ry="20.292236" />
-    <ellipse
-       style="fill:#666666;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse875-5"
-       cx="89.277519"
-       cy="93.34201"
-       rx="13.649709"
-       ry="13.701406" />
-    <ellipse
-       style="fill:#9558b2;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse877-9"
-       cx="89.277519"
-       cy="93.34201"
-       rx="3.0431528"
-       ry="3.0546784" />
-    <ellipse
-       style="fill:#f6d5ff;fill-opacity:1;stroke:#b380ff;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse879-4"
-       cx="89.277519"
-       cy="93.34201"
-       rx="20.215672"
-       ry="20.292236" />
-    <ellipse
-       style="fill:#808080;fill-opacity:1;stroke:#b380ff;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse881-6"
-       cx="89.277519"
-       cy="93.34201"
-       rx="13.649709"
-       ry="13.701406" />
     <ellipse
        style="fill:#ffaaee;fill-opacity:1;stroke:#bc5fd3;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
        id="ellipse885-5"
@@ -168,16 +126,58 @@
        rx="2.175554"
        ry="2.1837938" />
     <ellipse
-       style="fill:#f6d5ff;fill-opacity:1;stroke:#b380ff;stroke-width:0.714901;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse895-5"
-       cx="89.277519"
+       style="fill:#ffaaee;fill-opacity:1;stroke:#bc5fd3;stroke-width:0.714901;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse7449"
+       cx="28.18944"
        cy="93.34201"
        rx="2.175554"
        ry="2.1837938" />
     <ellipse
-       style="fill:#ffaaee;fill-opacity:1;stroke:#bc5fd3;stroke-width:0.714901;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
-       id="ellipse7449"
-       cx="28.18944"
+       style="fill:#808080;fill-opacity:1;stroke:#4d4d4d;stroke-width:0.998112;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
+       id="circle863"
+       cx="89.776573"
+       cy="93.34201"
+       rx="26.358501"
+       ry="26.458332" />
+    <ellipse
+       style="fill:#9558b2;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse873"
+       cx="89.776573"
+       cy="93.34201"
+       rx="20.215672"
+       ry="20.292236" />
+    <ellipse
+       style="fill:#666666;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse875"
+       cx="89.776573"
+       cy="93.34201"
+       rx="13.649709"
+       ry="13.701406" />
+    <ellipse
+       style="fill:#9558b2;fill-opacity:1;stroke:none;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse877"
+       cx="89.776573"
+       cy="93.34201"
+       rx="3.0431528"
+       ry="3.0546784" />
+    <ellipse
+       style="fill:#cab5ff;fill-opacity:1;stroke:#9885ff;stroke-width:2.117;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse879"
+       cx="89.776573"
+       cy="93.34201"
+       rx="20.215672"
+       ry="20.292236" />
+    <ellipse
+       style="fill:#808080;fill-opacity:1;stroke:#9885ff;stroke-width:2.11667;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse881"
+       cx="89.776573"
+       cy="93.34201"
+       rx="13.649709"
+       ry="13.701406" />
+    <ellipse
+       style="fill:#cab5ff;fill-opacity:1;stroke:#9885ff;stroke-width:0.714901;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke;stop-color:#000000"
+       id="ellipse895-5"
+       cx="89.776573"
        cy="93.34201"
        rx="2.175554"
        ry="2.1837938" />
