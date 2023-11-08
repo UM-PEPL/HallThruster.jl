@@ -63,6 +63,35 @@
     @test_throws ArgumentError HallThruster.initialize!(U, params, NewInitialization())
 end
 
+@testset "Anom initialization" begin
+
+    anom_model = HallThruster.NoAnom()
+
+    config = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride, 0.15),
+        anom_model,
+    )
+
+    ncells = 10
+    sim_options = (;ncells, nsave = 2, verbose = false)
+    initial_model = HallThruster.TwoZoneBohm(1//160, 1/16)
+
+    # Check that anomalous transport is initialized to a two-zone Bohm approximation instead of the prescribed NoAnom.
+    sol = HallThruster.run_simulation(config; ncells, dt = 0.0, duration = 0.0, sim_options...)
+    @test initial_model(zeros(ncells+2), sol.params) == sol.params.cache.νan
+    @test anom_model(zeros(ncells+2), sol.params) != sol.params.cache.νan
+
+    # Check that after one iteration, the anomalous transport is the correct value
+    dt = 1e-8
+    sol = HallThruster.run_simulation(config; ncells, dt, duration = dt, sim_options...)
+    @test initial_model(zeros(ncells+2), sol.params) != sol.params.cache.νan
+    @test anom_model(zeros(ncells+2), sol.params) == sol.params.cache.νan
+end
+
 @testset "Configuration" begin
 
     common_opts = (;
