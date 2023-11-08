@@ -237,8 +237,8 @@ function run_simulation(
         initialize!(U, params)
     end
 
-    # Initialize the anomalous collision frequency
-    params.config.anom_model(params.cache.νan, params)
+    # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
+    TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
 
     # Initialize plume
     update_plume_geometry!(U, params, initialize = true)
