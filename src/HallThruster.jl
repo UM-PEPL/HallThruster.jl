@@ -80,7 +80,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         wall_loss_model = WallSheath(BoronNitride, 0.15)
     )
     sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
-    
+
     config_2 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0u"cm", 8.0u"cm"),

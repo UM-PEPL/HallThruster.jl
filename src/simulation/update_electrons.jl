@@ -8,6 +8,9 @@ function update_electrons!(U, params, t = 0)
         errors, channel_area
     ) = params.cache
 
+    # Allow for system interrupts
+    yield()
+
     # Update the current iteration
     params.iteration[1] += 1
 
