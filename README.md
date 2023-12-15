@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner.svg)">
-  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner_light.svg)">
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/src/assets/banner.svg)">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="./docs/src/assets/banner_light.svg)">
 </picture>
 
 
