@@ -139,7 +139,7 @@ Run a Hall thruster simulation using the provided Config object.
 - `nsave`: How many frames to save.
 """
 function run_simulation(
-        config::Config;
+        config::Config, grid = nothing;
         dt, duration, ncells, nsave,  restart = nothing,
         CFL = 0.9, adaptive = false,
         control_current = false, target_current = 0.0,
@@ -154,7 +154,11 @@ function run_simulation(
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
     num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
-    grid = generate_grid(config.thruster.geometry, ncells, config.domain)
+
+    # Generate grid
+    if (isnothing(grid))
+        grid = generate_grid(config.thruster.geometry, ncells, config.domain)
+    end
 
     # load collisions and reactions
     ionization_reactions = _load_reactions(config.ionization_model, unique(species))

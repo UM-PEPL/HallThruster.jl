@@ -9,7 +9,7 @@ function update_electron_energy!(U, params, dt)
     explicit = 1 - implicit
     ncells = size(U, 2)
     mi = params.config.propellant.m
-    
+
     nϵ = @views U[index.nϵ, :]
     Aϵ.d[1] = 1.0
     Aϵ.du[1] = 0.0
@@ -94,7 +94,7 @@ function update_electron_energy!(U, params, dt)
                 # Sheath heat flux = je_sheath_edge * (2 * Te_sheath + Vs) / e
                 # Assume Te_sheath is the same as that in first interior cell
                 # and that ne_sheath is that computed by using the bohm condition bc
-            
+
                 # je_sheath_edg * (2 * Te_sheath + Vs) / e = - 2 ne ue Te - 2 ne Vs
                 # = - 4/3 * nϵ[1] * ue_sheath_edge - 2 ne ue Vs
 
@@ -155,7 +155,7 @@ function update_electron_energy!(U, params, dt)
         flux = 5/3 * nϵ0 * ue0
 
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit) 
+        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
         bϵ[i] -= dt * flux * dlnA_dz
     end
 
