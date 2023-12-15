@@ -1,8 +1,5 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/src/assets/banner.svg)">
-  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="./docs/src/assets/banner_light.svg)">
-</picture>
-
+![HallThruster.jl Logo](./docs/src/assets/banner_light.svg#gh-dark-mode-only)
+![HallThruster.jl Logo](./docs/src/assets/banner_dark.svg#gh-light-mode-only)
 
 | **Documentation** | **Build Status**| **Paper**| **Repository DOI**|
 |:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
