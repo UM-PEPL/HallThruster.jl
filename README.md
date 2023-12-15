@@ -1,4 +1,7 @@
-[![HallThruster.jl](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner.svg)](https://um-pepl.github.io/HallThruster.jl/dev)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner.svg)">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/banner_light.svg)">
+</picture>
 
 
 | **Documentation** | **Build Status**| **Paper**| **Repository DOI**|
@@ -6,7 +9,7 @@
 | [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://UM-PEPL.github.io/HallThruster.jl/dev) | [![CI](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/UM-PEPL/HallThruster.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/UM-PEPL/HallThruster.jl/branch/main/graph/badge.svg?token=cEoGN49eZp)](https://codecov.io/gh/UM-PEPL/HallThruster.jl)| [![status](https://joss.theoj.org/papers/ce9cb7aa54df10d69ed248912e584f53/status.svg)](https://joss.theoj.org/papers/ce9cb7aa54df10d69ed248912e584f53) | [![DOI](https://zenodo.org/badge/394711445.svg)](https://zenodo.org/badge/latestdoi/394711445) |
 
 
-HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia. It was initially developed by [Thomas Marks](https://thomasmarks.space) and [Paul Schedler](https://www.linkedin.com/in/paul-schedler-1b3b6b171/) at the University of Michigan's [Plasmadynamics and Electric Propulsion Laboratory](https://pepl.engin.umich.edu) and is licensed under the MIT license. 
+HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia. It was initially developed by [Thomas Marks](https://thomasmarks.space) and [Paul Schedler](https://www.linkedin.com/in/paul-schedler-1b3b6b171/) at the University of Michigan's [Plasmadynamics and Electric Propulsion Laboratory](https://pepl.engin.umich.edu) and is licensed under the MIT license.
 
 ## Installation
 
