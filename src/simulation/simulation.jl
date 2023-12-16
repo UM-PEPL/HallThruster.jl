@@ -103,30 +103,6 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     return U, cache
 end
 
-function grid_spacing(grid)
-    z_cell = grid.cell_centers
-    z_edge = grid.edges
-
-    # Fill up cell lengths and magnetic field vectors
-    Δz_cell = zeros(length(z_cell))
-    Δz_edge = zeros(length(z_edge))
-    for (i, z) in enumerate(grid.cell_centers)
-        if firstindex(z_cell) < i < lastindex(z_cell)
-            Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
-        elseif i == firstindex(z_cell)
-            Δz_cell[i] = z_edge[begin+1] - z_edge[begin]
-        elseif i == lastindex(z_cell)
-            Δz_cell[i] = z_edge[end] - z_edge[end-1]
-        end
-    end
-
-    for i in eachindex(z_edge)
-        Δz_edge[i] = z_cell[i+1] - z_cell[i]
-    end
-
-    return Δz_cell, Δz_edge
-end
-
 """
     $(SIGNATURES)
 Run a Hall thruster simulation using the provided Config object.
@@ -140,6 +116,7 @@ Run a Hall thruster simulation using the provided Config object.
 """
 function run_simulation(
         config::Config;
+        grid::HallThrusterGrid = EvenGrid(0),
         dt, duration, ncells, nsave,  restart = nothing,
         CFL = 0.9, adaptive = false,
         control_current = false, target_current = 0.0,
@@ -154,7 +131,13 @@ function run_simulation(
 
     fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
     num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
-    grid = generate_grid(config.thruster.geometry, ncells, config.domain)
+
+    if (grid.ncells == 0)
+        # backwards compatability for unspecified grid type
+        grid1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
+    else
+        grid1d = generate_grid(config.thruster.geometry, config.domain, grid)
+    end
 
     # load collisions and reactions
     ionization_reactions = _load_reactions(config.ionization_model, unique(species))
@@ -171,24 +154,24 @@ function run_simulation(
     use_restart = restart !== nothing
 
     if use_restart
-        U, cache = load_restart(grid, fluids, config, restart)
+        U, cache = load_restart(grid1d, fluids, config, restart)
     else
-        U, cache = allocate_arrays(grid, fluids, config.anom_model)
+        U, cache = allocate_arrays(grid1d, fluids, config.anom_model)
     end
 
     tspan = (0.0, duration)
     saveat = LinRange(tspan[1], tspan[2], nsave)
 
-    z_cell = grid.cell_centers
-    z_edge = grid.edges
+    z_cell = grid1d.cell_centers
+    z_edge = grid1d.edges
 
     # Fill up cell lengths and magnetic field vectors
 
-    for (i, z) in enumerate(grid.cell_centers)
+    for (i, z) in enumerate(grid1d.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
     end
 
-    Δz_cell, Δz_edge = grid_spacing(grid)
+    Δz_cell, Δz_edge = grid_spacing(grid1d)
 
     mi = config.propellant.m
 
