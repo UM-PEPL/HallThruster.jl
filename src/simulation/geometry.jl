@@ -116,8 +116,7 @@ function grid_spacing(grid)
 
     # Fill up cell lengths and magnetic field vectors
     Δz_cell = zeros(length(z_cell))
-    Δz_edge = zeros(length(z_edge))
-    for (i, z) in enumerate(grid.cell_centers)
+    for i in eachindex(z_cell)
         if firstindex(z_cell) < i < lastindex(z_cell)
             Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
         elseif i == firstindex(z_cell)
@@ -127,9 +126,7 @@ function grid_spacing(grid)
         end
     end
 
-    for i in eachindex(z_edge)
-        Δz_edge[i] = z_cell[i+1] - z_cell[i]
-    end
+    Δz_edge = @. @views z_cell[2:end] - z_cell[1:end-1]
 
     return Δz_cell, Δz_edge
 end
