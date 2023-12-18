@@ -2,7 +2,10 @@ module OVS_Ions
 
 include("ovs_funcs.jl")
 
-using Symbolics, HallThruster, LinearAlgebra
+using HallThruster
+using LinearAlgebra
+using Plots
+using Symbolics
 
 @variables x t
 
@@ -62,9 +65,9 @@ source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(mom
 source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
 source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
 
-function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative = true)
+function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative = true, make_plots = false)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), EvenGrid(ncells))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
     propellant = HallThruster.Xenon
@@ -158,7 +161,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
 
     tspan = (0, t_end)
-    dt .= 0.2 * (z_cell[end] - z_cell[1]) / (ncells+2) / amax
+    dt .= 0.2 * minimum(Δz_cell) / amax
     dt_cell .= dt[]
 
     cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E)
@@ -207,23 +210,23 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim
 
-    #=
-    p = plot(; title = "nn")
-    plot!(p, ρn_sim, label = "Sim")
-    plot!(p, ρn_exact, label = "Exact")
-    savefig(p, "nn_$ncells.png")
+    if (make_plots)
+        p = plot(; title = "nn")
+        plot!(p, ρn_sim, label = "Sim")
+        plot!(p, ρn_exact, label = "Exact")
+        savefig(p, "nn_$ncells.png")
 
-    p = plot(; title = "ni")
-    plot!(p, ρi_sim, label = "Sim")
-    plot!(p, ρi_exact, label = "Exact")
-    savefig(p, "ni_$ncells.png")
+        p = plot(; title = "ni")
+        plot!(p, ρi_sim, label = "Sim")
+        plot!(p, ρi_exact, label = "Exact")
+        savefig(p, "ni_$ncells.png")
 
-    p = plot(; title = "niui")
-    plot!(p, ρiui_sim, label = "Sim")
-    plot!(p, ρi_exact .* ui_exact, label = "Exact")
-    savefig(p, "niui_$ncells.png")
+        p = plot(; title = "niui")
+        plot!(p, ρiui_sim, label = "Sim")
+        plot!(p, ρi_exact .* ui_exact, label = "Exact")
+        savefig(p, "niui_$ncells.png")
+    end
 
-    =#
     return (
         ρn = (;z_cell, sim = ρn_sim, exact = ρn_exact),
         ρi = (;z_cell, sim = ρi_sim, exact = ρi_exact),

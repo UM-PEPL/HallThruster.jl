@@ -4,6 +4,7 @@ landmark/webplotdigitizer
 output
 
 #*.png
+test/*.png
 *.jld2
 !test/unit_tests/test_restart.jld2
 !paper/*.png

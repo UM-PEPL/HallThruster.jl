@@ -58,10 +58,10 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(ncells; niters = 20000)
+function verify_energy(ncells; niters = 20000, make_plots = false)
     index = (; ρn = 1, nϵ = 2)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), EvenGrid(ncells))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
 
     z_cell = grid.cell_centers
     z_edge = grid.edges
