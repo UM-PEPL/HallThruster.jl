@@ -31,7 +31,7 @@
     L_ch = HallThruster.geometry_SPT_100.channel_length
     A_ch = HallThruster.channel_area(HallThruster.SPT_100)
 
-    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, 2, (0, 2 * L_ch))
+    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2))
 
     z_cell = grid.cell_centers
     z_edge = grid.edges
@@ -150,7 +150,7 @@ end
     L_ch = HallThruster.geometry_SPT_100.channel_length
     A_ch = HallThruster.channel_area(HallThruster.SPT_100)
 
-    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, 2, (0, 2 * L_ch))
+    grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2))
 
     z_cell = grid.cell_centers
     z_edge = grid.edges

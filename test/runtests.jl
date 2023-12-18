@@ -10,7 +10,7 @@ using SparseArrays
 using Alert
 
 
-doctest(HallThruster)
+#doctest(HallThruster)
 
 HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 

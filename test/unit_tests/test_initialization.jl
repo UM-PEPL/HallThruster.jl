@@ -26,7 +26,7 @@
 
     ncells = 100
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
-    grid = HallThruster.generate_grid(config.thruster.geometry, ncells, domain)
+    grid = HallThruster.generate_grid(config.thruster.geometry, domain, EvenGrid(ncells))
     U, cache = HallThruster.allocate_arrays(grid, fluids, config.anom_model)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 

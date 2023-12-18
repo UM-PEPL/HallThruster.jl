@@ -42,7 +42,7 @@
         LANDMARK = true
     )
 
-    grid = HallThruster.generate_grid(config.thruster.geometry, ncells, config.domain)
+    grid = HallThruster.generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
 
     # test loading restart, generating cache, U, etc, without interpolation, changing number of charges, or changing domain

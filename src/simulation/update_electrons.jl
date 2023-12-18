@@ -117,7 +117,7 @@ function update_electrons!(U, params, t = 0)
         compute_electric_field!(∇ϕ, params)
 
         # update electrostatic potential and potential gradient on edges
-        solve_potential_cell!(ϕ, params)
+        solve_potential!(ϕ, params)
 
 
         if params.adaptive

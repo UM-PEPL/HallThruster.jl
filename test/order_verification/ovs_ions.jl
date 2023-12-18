@@ -64,7 +64,7 @@ source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(
 
 function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative = true)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), EvenGrid(ncells))
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
     propellant = HallThruster.Xenon

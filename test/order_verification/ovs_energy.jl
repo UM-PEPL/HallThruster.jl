@@ -61,7 +61,7 @@ end
 function verify_energy(ncells; niters = 20000)
     index = (; ρn = 1, nϵ = 2)
 
-    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, ncells, (0.0, 0.05))
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), EvenGrid(ncells))
 
     z_cell = grid.cell_centers
     z_edge = grid.edges

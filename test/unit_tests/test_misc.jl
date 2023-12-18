@@ -94,7 +94,7 @@ end
     ncells = 17
     domain = (0.0, 0.08)
     thruster = HallThruster.SPT_100
-    grid = HallThruster.generate_grid(thruster.geometry, ncells, domain)
+    grid = HallThruster.generate_grid(thruster.geometry, domain, EvenGrid(ncells))
     @test grid.cell_centers[end] == domain[2]
     @test length(grid.cell_centers) == ncells+2
     @test length(grid.edges) == ncells+1

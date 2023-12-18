@@ -1,4 +1,4 @@
-function solve_potential_cell!(ϕ, params)
+function solve_potential!(ϕ, params)
     (;z_cell, cache, ϕ_L) = params
     (;∇ϕ, Vs) = cache
 

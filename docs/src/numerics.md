@@ -36,35 +36,6 @@ While the ions can be explicitly solved with ``$\Delta t \sim 10^{-8}``s, the he
 
 The spatial discretization of the electron energy equation uses central finite differences in a manner similar to the potential solver (see below). This, combined with the semi-implicit timestepping, creates a tridiagonal linear system which can be efficiently solved using the Thomas algorithm.
 
-
-## Potential solver
-
-The second order elliptic differential equation for the potential is discretized using a second order centered difference scheme, with all derivatives appearing approximated in a similar fashion. The values are solved for on the edges of the fluid cells, leading to a staggered grid and avoiding interpolation for the most part. The tridiagonal system ``\underline{\underline{A}} \underline{x} = \underline{b}`` is then solved. The left hand side of the potential equation, see [Physics model](@ref) is discretized as follows, the indexing refers to the fluid discretization: 
-
-```math
-    \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right)\bigg\vert^\delta_{_{i + \frac{1}{2}}} \approx \frac{1}{h} \left(\left(\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i+1}}\right) - \left(\mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i} \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i}}\right) \right) + O(h^2)
-```
-
-where
-
-```math
-    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i+1}} \approx \frac{1}{h}\left(\phi_{i+\frac{3}{2}} - \phi_{i + \frac{1}{2}}\right) + O(h^2)
-```
-
-similarly
-
-```math
-    \frac{\partial\phi}{\partial z}\bigg\vert^\delta_{_{i}} \approx \frac{1}{h}\left(\phi_{i + \frac{1}{2}} - \phi_{i-\frac{1}{2}}\right) + O(h^2)
-```
-
-results in
-
-```math
-    \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right)\bigg\vert^\delta_{_{i}} \approx \frac{1}{h^2} \left(\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} \phi_{i + \frac{3}{2}} - (\mu_{\perp}\vert^\delta_{i + 1} n_e\vert^\delta_{i + 1} + \mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i}) \phi_{i + \frac{1}{2}} + \mu_{\perp}\vert^\delta_{i} n_e\vert^\delta_{i} \phi_{i - \frac{1}{2}}\right)  + O(h^2)
-```
-
-The left hand side is incorporated into a ``\mathrm{NxN}`` matrix A, while the RHS is added to the vector b and ``N = n_{cells} + 1``. This results in a tridiagonal matrix that is diagonally dominant, and can therefore be solved using the Thomas algorithm at a computational expense of O(``N``), rather than O(``N^3``) for standard Gaussian elimination. The implementation can be found [here](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.solve_potential_edge!-Tuple{Any,%20Any}). 
-
 ## Evaluation of derivatives
 
 Some computations require the numerical approximation of derivatives, for example the evaluation of the electron velocity from the equation for electron current using the generalized Ohm's law, see [Physics model](@ref). The derivatives are evaluated to second order using [forward difference](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.forward_difference-NTuple{6,%20Any}), [central difference](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.central_difference-NTuple{6,%20Any}) or [backward difference](https://um-pepl.github.io/HallThruster.jl/dev/internals/#HallThruster.backward_difference-NTuple{6,%20Any}) depending on the location in the domain. 
