@@ -7,6 +7,8 @@ end
 
 # HallThruster.jl
 
+[Repository link](https://github.com/UM-PEPL/HallThruster.jl)
+
 HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia. It was initially developed by the University of Michigan's [Plasmadynamics and Electric Propulsion Laboratory](https://pepl.engin.umich.edu) and is licensed under the MIT license. 
 
 ## Installation
