@@ -26,7 +26,7 @@ using Unitful
 
 # Units will be correctly converted!
 my_geometry = HallThruster.Geometry1D(
-	inner_radius = 5.0u"cm",
+    inner_radius = 5.0u"cm",
     outer_radius = 6.5u"cm",
     channel_length = 3.0u"cm"
 )
@@ -91,7 +91,7 @@ my_thruster = HallThruster.Thruster(
 )
 ```
 
-In addition to a magnetic field and a geometry, we have also provided a name (optional) and designated whether the thruster is magnetically shielded or not. If `true`, then the electron temperature used for electron wall loss computations will be the anode temperature instead of the temperature on centerline.
+In addition to a magnetic field and a geometry, we have also provided a name (optional) and designated whether the thruster is magnetically shielded or not. If `true`, then the electron temperature used for electron wall loss computations will be the anode temperature instead of the temperature on centerline. HallThruster.jl also includes a built-in definition for the widely-known SPT-100 thruster, accessible as `HallThruster.SPT_100`.
 
 ## Defining a Config
 
