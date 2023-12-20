@@ -2,7 +2,7 @@
     (;z_cell, ionization_reactions, ncharge, L_ch) = sol.params
 
     subplot_width = 500
-    subplot_height = 500
+    subplot_height = 5/home/archermarx/run/hallthruster_run/HallThrusterTutorial.ipynb00
 
     plot_layout = (2, 4)
     layout := plot_layout
@@ -209,21 +209,30 @@ end
     if :νan in freqs
         @series begin
             label := "Anomalous"
-            zs, sol[:νan][frame]
+            ys = sol[:νan][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
         end
     end
 
     if :νen in freqs
         @series begin
             label := "Electron-neutral"
-            zs, sol[:νen][frame]
+            ys = sol[:νen][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
         end
     end
 
     if :νei in freqs
         @series begin
             label := "Electron-ion"
-            zs, sol[:νei][frame]
+            ys = sol[:νei][frame]
+            inds = findall(==(0), ys)
+            ys[inds] .= NaN
+            zs, ys
         end
     end
 
