@@ -1,6 +1,7 @@
-# Running and analyzing a simulation
+# Tutorial: running and analyzing a simulation
 
-This page will walk you through running a simulation and analyzing the output, in the process discussing many of the key features of `HallThruster.jl`
+This page will walk you through running a simulation and analyzing the output, in the process discussing many of the key features of `HallThruster.jl`. An interactive Jupyter notebook tutorial covering similar topics and convering the process of comparing the results of the code to an established benchmark is also available [here](https://nbviewer.org/github/UM-PEPL/HallThruster.jl/blob/main/HallThrusterTutorial.ipynb).
+
 
 ## Defining geometry
 
@@ -117,10 +118,10 @@ my_config = HallThruster.Config(
 
 ## Running a simulation
 
-Now we can run a simulation. To do this, we use the `run_simulation` function. In addition to the `Config` object we just created, we also pass in how many cells we want to run the simulation with, the number of frames we want to save, the timestep, in seconds and the simulation duration (also in seconds).
+Now we can run a simulation. To do this, we use the `run_simulation` function. In addition to the `Config` object we just created, we also pass in the grid we want to run the simulation with, the number of frames we want to save, the timestep, in seconds and the simulation duration (also in seconds).
 
 ```julia
-julia> @time my_solution = HallThruster.run_simulation(my_config; ncells=150, nsave=10000, dt=1e-8, duration=1e-3)
+julia> @time my_solution = HallThruster.run_simulation(my_config; grid= EvenGrid(150), nsave=10000, dt=1e-8, duration=1e-3)
  36.058672 seconds (783.66 k allocations: 519.964 MiB)
 Hall thruster solution with 10000 saved frames
 Retcode: success
