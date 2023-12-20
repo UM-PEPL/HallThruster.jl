@@ -7,7 +7,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Running and analyzing a simulation" => "run.md",
-        "Tutorial notebook" => "tutorial.md",
+        "Tutorial" => "tutorial.md",
         "Background" => "background.md",
         "Physics model" => "physics.md",
         "Configuration" => [
