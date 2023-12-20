@@ -22,7 +22,7 @@ makedocs(
             "boundary_conditions.md",
             "source_terms.md",
         ],
-        "Grid generation" => "grid.md"
+        "Grid generation" => "grid.md",
         "Numerics" => "numerics.md",
         "Verification" => "verification.md",
         "Internals" => "internals.md",

@@ -2,7 +2,7 @@
     (;z_cell, ionization_reactions, ncharge, L_ch) = sol.params
 
     subplot_width = 500
-    subplot_height = 5/home/archermarx/run/hallthruster_run/HallThrusterTutorial.ipynb00
+    subplot_height = 500
 
     plot_layout = (2, 4)
     layout := plot_layout
