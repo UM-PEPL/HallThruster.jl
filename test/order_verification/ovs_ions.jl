@@ -158,10 +158,10 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
     U[index.nϵ, :] = nϵ
 
-    amax = maximum(ui_exact .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
+    amax = maximum(abs.(ui_exact) .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
 
     tspan = (0, t_end)
-    dt .= 0.2 * minimum(Δz_cell) / amax
+    dt .= 0.1 * minimum(Δz_cell) / amax
     dt_cell .= dt[]
 
     cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E)
@@ -191,7 +191,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     dU = copy(U)
 
     t = 0.0
-    while t < tspan[2]
+    while t < t_end
         @views U[:, end] = U[:, end-1]
         HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
         for i in eachindex(U)
@@ -211,19 +211,20 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     ui_sim = ρiui_sim ./ ρi_sim
 
     if (make_plots)
+        z = grid.cell_centers
         p = plot(; title = "nn")
-        plot!(p, ρn_sim, label = "Sim")
-        plot!(p, ρn_exact, label = "Exact")
+        plot!(p, z, ρn_sim, label = "Sim")
+        plot!(p, z, ρn_exact, label = "Exact")
         savefig(p, "nn_$ncells.png")
 
-        p = plot(; title = "ni")
-        plot!(p, ρi_sim, label = "Sim")
-        plot!(p, ρi_exact, label = "Exact")
+        p = plot(; z, title = "ni")
+        plot!(p, z, ρi_sim, label = "Sim")
+        plot!(p, z, ρi_exact, label = "Exact")
         savefig(p, "ni_$ncells.png")
 
         p = plot(; title = "niui")
-        plot!(p, ρiui_sim, label = "Sim")
-        plot!(p, ρi_exact .* ui_exact, label = "Exact")
+        plot!(p, z, ρiui_sim, label = "Sim")
+        plot!(p, z, ρi_exact .* ui_exact, label = "Exact")
         savefig(p, "niui_$ncells.png")
     end
 

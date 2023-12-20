@@ -97,7 +97,7 @@ end
 
 function refines(num_refinements, initial, factor)
     return [
-        initial * factor^(p-1)
+        round(Int, initial * factor^(p-1))
         for p in 1:num_refinements
     ]
 end
