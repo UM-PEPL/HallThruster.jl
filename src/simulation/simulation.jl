@@ -227,6 +227,12 @@ function run_simulation(
     # Initialize plume
     update_plume_geometry!(U, params, initialize = true)
 
+    #initialize dt if using adaptive timestepping  
+    if adaptive
+        initialize_dt!(U, params)
+    end
+
+    println(params.cache.dt)
     # make values in params available for first timestep
     update_electrons!(U, params)
 
