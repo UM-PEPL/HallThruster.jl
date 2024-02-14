@@ -123,7 +123,7 @@ function run_simulation(
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = Inf,
-        verbose = true,
+        verbose = true, anom_heat_flux_coefficient = 1.0, 
     )
 
     # If duration and/or dt are provided with units, convert to seconds and then strip units
@@ -218,7 +218,7 @@ function run_simulation(
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
-        dtmin, dtmax
+        dtmin, dtmax, anom_heat_flux_coefficient
     )
 
 
