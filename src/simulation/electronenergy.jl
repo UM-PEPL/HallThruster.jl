@@ -62,7 +62,7 @@ function update_electron_energy!(U, params, dt)
 
         else
             #get adjusted coeffient for higher charge states
-            κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
+            κ_charge = 4.66 #ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
 
             # Adjust thermal conductivity to be slightly more accurate
             κL = κ_charge * (2/3) * nϵL * (params.cache.νc[i-1] + params.cache.νan[i-1]) * me / (e * (params.cache.B[i-1])^2)
