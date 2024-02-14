@@ -180,6 +180,12 @@ function run_simulation(
     cache.dt .= dt
     cache.dt_cell .= dt
 
+    #force the CFL to be no higher than 0.795 for adaptive timestepping
+    #this magic number is due to empirical testing, but there 
+    #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+    if adaptive
+        CFL = min(CFL, 0.795)
+    end
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
@@ -231,11 +237,7 @@ function run_simulation(
     if adaptive
         #ignore the fed in timestep
         params.cache.dt[] = Inf
-        
-        #force the CFL to be no higher than 0.795
-        #this magic number is due to empirical testing, but there 
-        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
-        params.CFL = min(CFL, 0.795)
+
 
         #intitialize
         initialize_dt!(U, params)
