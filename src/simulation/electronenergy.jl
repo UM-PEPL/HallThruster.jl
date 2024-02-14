@@ -63,11 +63,12 @@ function update_electron_energy!(U, params, dt)
         else
             #get adjusted coeffient for higher charge states
             κ_charge = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
-            correction_factor = κ_charge/4.7
+
             # Adjust thermal conductivity to be slightly more accurate
-            κL = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i-1] / √(2) / params.cache.νc[i-1])) * μnϵL * correction_factor
-            κ0 = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i]   / √(2) / params.cache.νc[i]))   * μnϵ0 * correction_factor
-            κR = 10/9 * 24/25 * (1 / (1 + params.cache.νei[i+1] / √(2) / params.cache.νc[i+1])) * μnϵR * correction_factor
+            κL = κ_charge * (2/3) * nϵL * (params.cache.νc[i-1] + params.cache.νan[i-1]) * me / (e * (params.cache.B[i-1])^2)
+            κ0 = κ_charge * (2/3) * nϵ0 * (params.cache.νc[i]   + params.cache.νan[i])   * me / (e * (params.cache.B[i])^2)
+            κR = κ_charge * (2/3) * nϵR * (params.cache.νc[i+1] + params.cache.νan[i+1]) * me / (e * (params.cache.B[i+1])^2)
+
         end
 
         # Weighted average of the electron velocities in the three stencil cells
