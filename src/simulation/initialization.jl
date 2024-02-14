@@ -348,7 +348,7 @@ function initialize_dt!(U, params)
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
         right = right_edge(i)
-        
+
         params.cache.dt_cell[i] = min(
                 sqrt(CFL) * params.cache.dt_E[i],
                 CFL * params.cache.dt_iz[i],
@@ -358,4 +358,7 @@ function initialize_dt!(U, params)
 
         params.cache.dt[] = min(params.cache.dt_cell[i], params.cache.dt[])
     end
+
+    #update params as well as params.cache
+    params.dt[] = params.cache.dt[]
 end

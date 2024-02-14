@@ -229,10 +229,18 @@ function run_simulation(
 
     #initialize dt if using adaptive timestepping  
     if adaptive
+        #ignore the fed in timestep
+        params.cache.dt[] = Inf
+        
+        #force the CFL to be no higher than 0.795
+        #this magic number is due to empirical testing, but there 
+        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        params.CFL = min(CFL, 0.795)
+
+        #intitialize
         initialize_dt!(U, params)
     end
 
-    println(params.cache.dt)
     # make values in params available for first timestep
     update_electrons!(U, params)
 
