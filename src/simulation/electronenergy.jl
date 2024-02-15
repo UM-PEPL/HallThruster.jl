@@ -4,7 +4,7 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDU
 
 function update_electron_energy!(U, params, dt)
     (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz) = cache
+    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
@@ -65,9 +65,9 @@ function update_electron_energy!(U, params, dt)
             κ_charge = 4.66 #ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
 
             # Adjust thermal conductivity to be slightly more accurate
-            κL = κ_charge * (2/3) * nϵL * (params.cache.νc[i-1] + params.anom_heat_flux_coefficient * params.cache.νan[i-1]) * me / (e * (params.cache.B[i-1])^2)
-            κ0 = κ_charge * (2/3) * nϵ0 * (params.cache.νc[i]   + params.anom_heat_flux_coefficient * params.cache.νan[i])   * me / (e * (params.cache.B[i])^2)
-            κR = κ_charge * (2/3) * nϵR * (params.cache.νc[i+1] + params.anom_heat_flux_coefficient * params.cache.νan[i+1]) * me / (e * (params.cache.B[i+1])^2)
+            κL = κ[i-1]
+            κ0 = κ[i]
+            κR = κ[i+1]
 
         end
 

@@ -24,6 +24,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     νen = zeros(ncells)
     νew = zeros(ncells)
     νiw = zeros(ncells)
+    κ = zeros(ncells)
     μ = zeros(ncells)
     ϕ = zeros(ncells)
     ∇ϕ = zeros(ncells)
@@ -91,7 +92,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
 
     cache = (;
                 Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
-                νen, νei, νew, νiw, νe, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
+                νen, νei, νew, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
                 errors, dcoeffs,
