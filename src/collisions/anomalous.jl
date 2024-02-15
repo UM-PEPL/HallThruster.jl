@@ -147,11 +147,29 @@ end
 #Built in Thermal conductivity models
 struct Braginskii <: ThermalConductivityModel end
 
-function (::Braginskii)(κ, params)
-    
+function (model::Braginskii)(κ, params)
+
     for i in eachindex(κ)
         #use both classical and anomalous collision frequencies
         ν = (params.cache.νc[i] +  params.cache.νan[i])
+        #1/(ωce^2 * me) * q, 1/ term is from Braginskii 1965, q is to convert Te from eV to J
+        cyclotron_term = me / (e * (params.cache.B[i])^2)
+
+        κ[i] = 4.66 * params.cache.ne[i] * params.cache.Tev[i] * ν * cyclotron_term
+
+    end
+    return κ
+end
+
+struct Anom_conductivity <: ThermalConductivityModel 
+    c::Float64
+end
+
+function (model::Anom_conductivity)(κ, params)
+    
+    for i in eachindex(κ)
+        #use both classical and anomalous collision frequencies
+        ν = (params.cache.νc[i] +  model.c * params.cache.νan[i])
         #1/(ωce^2 * me) * q, 1/ term is from Braginskii 1965, q is to convert Te from eV to J
         cyclotron_term = me / (e * (params.cache.B[i])^2)
 
