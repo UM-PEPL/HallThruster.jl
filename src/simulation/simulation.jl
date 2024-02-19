@@ -176,16 +176,24 @@ function run_simulation(
 
     mi = config.propellant.m
 
+    #make the adaptive timestep independent of input condition 
+    if adaptive
+        dt = 100 * eps()#small initial timestep to initialize everything
+
+        #force the CFL to be no higher than 0.799 for adaptive timestepping
+        #this limit is mainly due to empirical testing, but there 
+        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        if CFL >= 0.8
+            @warn("CFL for Adaptive Timestepping Set Higher than Stability Limit of 0.8. Setting CFL to 0.799.")
+            CFL = 0.799
+        end
+    end
+
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
     cache.dt_cell .= dt
 
-    #force the CFL to be no higher than 0.795 for adaptive timestepping
-    #this magic number is due to empirical testing, but there 
-    #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
-    if adaptive
-        CFL = min(CFL, 0.795)
-    end
+
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
@@ -232,16 +240,6 @@ function run_simulation(
 
     # Initialize plume
     update_plume_geometry!(U, params, initialize = true)
-
-    #initialize dt if using adaptive timestepping  
-    if adaptive
-        #ignore the fed in timestep
-        params.cache.dt[] = Inf
-
-
-        #intitialize
-        initialize_dt!(U, params)
-    end
 
     # make values in params available for first timestep
     update_electrons!(U, params)
