@@ -119,7 +119,7 @@ function run_simulation(
         grid::HallThrusterGrid = EvenGrid(0),
         ncells = 0,
         dt, duration, nsave,  restart = nothing,
-        CFL = 0.9, adaptive = false,
+        CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = Inf,
