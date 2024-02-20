@@ -184,7 +184,7 @@ function run_simulation(
         #this limit is mainly due to empirical testing, but there 
         #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
         if CFL >= 0.8
-            @warn("CFL for Adaptive Timestepping Set Higher than Stability Limit of 0.8. Setting CFL to 0.799.")
+            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.")
             CFL = 0.799
         end
     end
