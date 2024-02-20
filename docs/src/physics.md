@@ -142,7 +142,7 @@ The electron internal energy equation in one dimension is
     n_e u_{ez} \frac{\partial\phi}{\partial z} - W_{loss} - S_{coll}
 ```
 
-Here, ``q_ez`` is the electron heat conduction in one dimension and ``S_{wall}``, see [Wall Loss Models](@ref),  represents the loss of electron energy to the thruster walls and ``S_{coll}``, see [Collisions and Reactions](@ref) captures the loss of energy due to inelastic collisions. The heat transfer terms are defined as follows:
+Here, ``q_ez`` is the electron heat conduction in one dimension and ``W_{loss}``, see [Wall Loss Models](@ref),  represents the loss of electron energy to the thruster walls and ``S_{coll}``, see [Collisions and Reactions](@ref) captures the loss of energy due to inelastic collisions. The heat transfer terms are defined as follows:
 
 ```math
 \begin{aligned}
