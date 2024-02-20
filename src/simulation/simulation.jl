@@ -361,8 +361,12 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
 
     geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
 
-    bfield_data = readdlm(magnetic_field_file, ',')
-    bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+    if thruster_name == "SPT-100"
+        bfield_func = HallThruster.B_field_SPT_100 $ (0.016, channel_length)
+    else
+        bfield_data = readdlm(magnetic_field_file, ',')
+        bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+    end
 
     thruster = HallThruster.Thruster(;
         name = thruster_name,
