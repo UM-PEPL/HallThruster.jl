@@ -179,6 +179,14 @@ function run_simulation(
     #make the adaptive timestep independent of input condition 
     if adaptive
         dt = 100 * eps()#small initial timestep to initialize everything
+
+        #force the CFL to be no higher than 0.799 for adaptive timestepping
+        #this limit is mainly due to empirical testing, but there 
+        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        if CFL >= 0.8
+            @warn("CFL for Adaptive Timestepping Set Higher than Stability Limit of 0.8. Setting CFL to 0.799.")
+            CFL = 0.799
+        end
     end
 
     cache.smoothing_time_constant[] = time_constant

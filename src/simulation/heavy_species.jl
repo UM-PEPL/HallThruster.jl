@@ -53,13 +53,9 @@ function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = tru
             apply_ion_wall_losses!(dU, U, params, i)
         end
 
-
         params.cache.dt_cell[i] = min(
             sqrt(params.CFL) * params.cache.dt_E[i],
-            #force the CFL for iz to be no higher than 0.799 for adaptive timestepping
-            #this limit is mainly due to empirical testing, but there 
-            #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
-            params.CFL * 0.799 * params.cache.dt_iz[i],
+            params.CFL * params.cache.dt_iz[i],
             params.CFL * params.cache.dt_u[left],
             params.CFL * params.cache.dt_u[right]
         )

@@ -32,10 +32,10 @@ Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cell
 HallThruster.jl also has an adaptive timestepping option. If adaptive timestepping is enabled, the user-defined timestep is ignored in favor of a timestep based on the minimum of three conditions and the user-defined CFL number. Mathematically the timstep is choosen as:
 
 ```math
-    \Delta t = min(\sigma \frac{\Delta x}{max(u_i + a_i, u_i - a_i)}, 0.799*\sigma \frac{\dot{n}_i}{n_i}, \sqrt{\frac{\sigma m_i \Delta x}{q_i E}})
+    \Delta t = min(\sigma \frac{\Delta x}{max(u_i + a_i, u_i - a_i)}, \sigma \frac{\dot{n}_i}{n_i}, \sqrt{\frac{\sigma m_i \Delta x}{q_i E}})
 ```
 
-Where ``a_i`` is the ion sound speed. Physically, these three conditions represent timestep limits imposed by the flux, ionization, and electrostatic acceleration. The 0.799 factor in front of the ionization term comes from empirical testing, so it may be worth trying a lower CFL if the adaptive timestepping is unstable.  
+Where ``a_i`` is the ion sound speed. Physically, these three conditions represent timestep limits imposed by the flux, ionization, and electrostatic acceleration. Keep in mind that due to stability limits imposed by the ionization condition, the CFL number cannot be higher than 0.799 to remain stable. This limit will be imposed by HallThruster.jl if the user-defined value is too high. 
 
 
 ## Electron energy equation discretization
