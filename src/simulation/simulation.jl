@@ -119,7 +119,7 @@ function run_simulation(
         grid::HallThrusterGrid = EvenGrid(0),
         ncells = 0,
         dt, duration, nsave,  restart = nothing,
-        CFL = 0.9, adaptive = false,
+        CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = Inf,
@@ -176,9 +176,23 @@ function run_simulation(
 
     mi = config.propellant.m
 
+    #make the adaptive timestep independent of input condition 
+    if adaptive
+        dt = 100 * eps()#small initial timestep to initialize everything
+
+        #force the CFL to be no higher than 0.799 for adaptive timestepping
+        #this limit is mainly due to empirical testing, but there 
+        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        if CFL >= 0.8
+            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.")
+            CFL = 0.799
+        end
+    end
+
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
     cache.dt_cell .= dt
+
 
     # Simulation parameters
     params = (;
