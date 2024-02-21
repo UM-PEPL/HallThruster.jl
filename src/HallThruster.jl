@@ -32,6 +32,7 @@ include("physics/physicalconstants.jl")
 include("physics/gas.jl")
 include("physics/conservationlaws.jl")
 include("physics/fluid.jl")
+include("physics/thermal_conductivity.jl")
 include("physics/thermodynamics.jl")
 
 include("wall_loss_models/wall_losses.jl")
