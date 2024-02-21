@@ -26,14 +26,14 @@ In the user-defined configuration
 
 ### `Braginskii()`
 
-This form of the thermal conducitivity follows the result of S. I. Braginskii, inReviews of Plasma Physics, edited byM. A. Leontovich (Consultants Bureau, New York, 1965), Vol. 1,p. 205.:
+This form of the thermal conductivity follows the result of S. I. Braginskii, in Reviews of Plasma Physics, edited by M. A. Leontovich (Consultants Bureau, New York, 1965), Vol. 1, p. 205.:
 
 \begin{aligned}
     \kappa_{e\perp} & \approx C \frac{neTe (eV) \nu}{m_e \omega_{ce}^2} \\
     \nu = \nu_{ei} + \nu_{en} + \nu_{AN} \\
 \end{aligned}
 
-Where C is a constant that is based on the value of the effective charge for multiple charge states and Table 1 of the Braginskii reference. A `Braginski` model can be initialized in the user-defined configuration as:
+Where C is a constant that is based on the value of the effective charge for multiple charge states and Table 1 of the Braginskii reference. A `Braginskii` model can be initialized in the user-defined configuration as:
 
 ```julia
 conductivity_model = Braginskii()
@@ -56,14 +56,12 @@ function (model::Braginskii_Classical)(κ, params)
 
     me = HallThruster.me
     e = HallThruster.e
-    B = params.cahce.B
+    B = params.cache.B
     ne = params.cache.ne
-    Te = params.cahce.Tev
+    Te = params.cache.Tev
 
     for i in eachindex(κ)
-
         ωce = e * B[i] / me
-
         κ[i] = 4.66 * ne * e * Te * params.cache.νc[i] / (me * ωce^2)
     end
 
