@@ -4,7 +4,6 @@ The abstract supertype of all types of anomalous transport models.
 Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
-abstract type ThermalConductivityModel end
 #=============================================================================
  Begin definition of built-in models
 ==============================================================================#
@@ -144,40 +143,6 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
     end
 end
 
-#Built in Thermal conductivity models
-struct Braginskii <: ThermalConductivityModel end
-
-function (model::Braginskii)(κ, params)
-
-    for i in eachindex(κ)
-        #use both classical and anomalous collision frequencies
-        ν = (params.cache.νc[i] +  params.cache.νan[i])
-        #1/(ωce^2 * me) * q, 1/ term is from Braginskii 1965, q is to convert Te from eV to J
-        cyclotron_term = me / (e * (params.cache.B[i])^2)
-
-        κ[i] = 4.66 * params.cache.ne[i] * params.cache.Tev[i] * ν * cyclotron_term
-
-    end
-    return κ
-end
-
-struct Anom_conductivity <: ThermalConductivityModel 
-    c::Float64
-end
-
-function (model::Anom_conductivity)(κ, params)
-    
-    for i in eachindex(κ)
-        #use both classical and anomalous collision frequencies
-        ν = (params.cache.νc[i] +  model.c * params.cache.νan[i])
-        #1/(ωce^2 * me) * q, 1/ term is from Braginskii 1965, q is to convert Te from eV to J
-        cyclotron_term = me / (e * (params.cache.B[i])^2)
-
-        κ[i] = 4.66 * params.cache.ne[i] * params.cache.Tev[i] * ν * cyclotron_term
-
-    end
-    return κ
-end
 
 
 """
@@ -189,7 +154,6 @@ collision frequency, and are useful for defining more complex anomalous transpor
 models. If not defined by the user, this defaults to zero. 
 """
 num_anom_variables(::AnomalousTransportModel)::Int = 0
-num_conductivity_variables(::ThermalConductivityModel)::Int = 0
 
 """
     allocate_anom_variables(::AnomalousTransportModel, ncells)
@@ -199,7 +163,4 @@ in params.cache.anom_variables
 """
 function allocate_anom_variables(model::AnomalousTransportModel, ncells)
     [zeros(ncells) for _ in 1:num_anom_variables(model)]
-end
-function allocate_conductivity_variables(model::ThermalConductivityModel, ncells)
-    [zeros(ncells) for _ in 1:num_conductivity_variables(model)]
 end
