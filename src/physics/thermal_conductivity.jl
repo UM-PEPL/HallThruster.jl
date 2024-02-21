@@ -26,7 +26,6 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDU
 struct Braginskii <: ThermalConductivityModel end
 
 function (model::Braginskii)(κ, params)
-
     for i in eachindex(κ)
         #get coefficient from charge states
         κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(params.cache.Z_eff[i])
@@ -48,8 +47,6 @@ end
 struct Mitchner <: ThermalConductivityModel end
 
 function (model::Mitchner)(κ, params)
-
-
     for i in eachindex(κ)
         #use both classical and anomalous collision frequencies
         ν = (params.cache.νc[i] +  params.cache.νan[i])
@@ -58,5 +55,19 @@ function (model::Mitchner)(κ, params)
         #final calculation
         κ[i] = (2.4 / (1 + params.cache.νei[i]   / √(2) / ν))   * mobility * params.cache.ne[i] * params.cache.Tev[i]
     end
+    return κ
+end
 
+
+"""
+    LANDMARK, uses 10/9*
+"""
+
+struct LANDMARK_kappa <: ThermalConductivityModel end
+
+function (model::LANDMARK_kappa)(κ, params)
+    for i in eachindex(κ)
+        κ[i] = (10/9) * params.cache.μ[i] * nϵ[i]
+    end
+    return κ
 end

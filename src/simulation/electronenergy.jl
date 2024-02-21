@@ -48,24 +48,10 @@ function update_electron_energy!(U, params, dt)
         ue0 = ue[i]
         ueR = ue[i+1]
 
-        μnϵL = μ[i-1] * nϵL
-        μnϵ0 = μ[i] * nϵ0
-        μnϵR = μ[i+1] * nϵR
-
-        if config.LANDMARK
-            # Use simplified thermal condutivity
-            κL = 10/9 * μnϵL
-            κ0 = 10/9 * μnϵ0
-            κR = 10/9 * μnϵR
-
-        else
-
-            # Adjust thermal conductivity to be slightly more accurate
-            κL = κ[i-1]
-            κ0 = κ[i]
-            κR = κ[i+1]
-
-        end
+        #pull thermal conductivity values
+        κL = κ[i-1]
+        κ0 = κ[i]
+        κR = κ[i+1]
 
         # Weighted average of the electron velocities in the three stencil cells
         ue_avg = 0.25 * (ueL + 2 * ue0 + ueR)
