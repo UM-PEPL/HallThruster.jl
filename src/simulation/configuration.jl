@@ -66,7 +66,7 @@ function Config(;
         ncharge::Int                        = 1,
         ion_temperature                     = 1000.0u"K",
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
-        conductivity_model::ThermalConductivityModel = Braginskii(),
+        conductivity_model::ThermalConductivityModel = Mitchner(),
         ionization_model::IonizationModel   = IonizationLookup(),
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
