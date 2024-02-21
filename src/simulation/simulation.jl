@@ -120,7 +120,7 @@ function run_simulation(
         grid::HallThrusterGrid = EvenGrid(0),
         ncells = 0,
         dt, duration, nsave,  restart = nothing,
-        CFL = 0.9, adaptive = false,
+        CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = Inf,
@@ -177,16 +177,24 @@ function run_simulation(
 
     mi = config.propellant.m
 
+    #make the adaptive timestep independent of input condition 
+    if adaptive
+        dt = 100 * eps()#small initial timestep to initialize everything
+
+        #force the CFL to be no higher than 0.799 for adaptive timestepping
+        #this limit is mainly due to empirical testing, but there 
+        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        if CFL >= 0.8
+            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.")
+            CFL = 0.799
+        end
+    end
+
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
     cache.dt_cell .= dt
 
-    #force the CFL to be no higher than 0.795 for adaptive timestepping
-    #this magic number is due to empirical testing, but there 
-    #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
-    if adaptive
-        CFL = min(CFL, 0.795)
-    end
+
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
@@ -233,16 +241,6 @@ function run_simulation(
 
     # Initialize plume
     update_plume_geometry!(U, params, initialize = true)
-
-    #initialize dt if using adaptive timestepping  
-    if adaptive
-        #ignore the fed in timestep
-        params.cache.dt[] = Inf
-
-
-        #intitialize
-        initialize_dt!(U, params)
-    end
 
     # make values in params available for first timestep
     update_electrons!(U, params)
@@ -364,8 +362,12 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
 
     geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
 
-    bfield_data = readdlm(magnetic_field_file, ',')
-    bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+    if thruster_name == "SPT-100"
+        bfield_func = HallThruster.B_field_SPT_100 $ (0.016, channel_length)
+    else
+        bfield_data = readdlm(magnetic_field_file, ',')
+        bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+    end
 
     thruster = HallThruster.Thruster(;
         name = thruster_name,
