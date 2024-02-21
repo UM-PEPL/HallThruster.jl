@@ -63,9 +63,9 @@ end
     LANDMARK, uses 10/9*
 """
 
-struct LANDMARK_kappa <: ThermalConductivityModel end
+struct LANDMARK_conductivity <: ThermalConductivityModel end
 
-function (model::LANDMARK_kappa)(κ, params)
+function (model::LANDMARK_conductivity)(κ, params)
     for i in eachindex(κ)
         κ[i] = (10/9) * params.cache.μ[i] * nϵ[i]
     end

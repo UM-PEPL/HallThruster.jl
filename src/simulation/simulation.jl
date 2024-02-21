@@ -127,6 +127,12 @@ function run_simulation(
         verbose = true,
     )
 
+
+    #check that Landmark uses the correct thermal conductivity
+    if LANDMARK & config.conductivity_model != LANDMARK_kappa()
+        error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
+    end
+
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
     dt = convert_to_float64(dt, u"s")
