@@ -129,7 +129,7 @@ function run_simulation(
 
 
     #check that Landmark uses the correct thermal conductivity
-    if LANDMARK & config.conductivity_model != LANDMARK_kappa()
+    if config.LANDMARK & (config.conductivity_model != LANDMARK_conductivity())
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
