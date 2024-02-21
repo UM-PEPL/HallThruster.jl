@@ -43,3 +43,26 @@ function (model::Braginskii)(κ, params)
     end
     return κ
 end
+
+"""
+    Mitchner, uses closure from M. Mitchner and C. H. Kruger, Jr.,Partially Ionized Gases(John Wiley andSons, Inc., New York, 1973). Pg. 94
+    Apply factor of 1/(1+Hallparam^2) to convert from parallel to perpendicular direction
+"""
+
+struct Mitchner <: ThermalConductivityModel end
+
+function (model::Mitchner)(κ, params)
+
+
+    for i in eachindex(κ)
+        
+        #use both classical and anomalous collision frequencies
+        ν = (params.cache.νc[i] +  params.cache.νan[i])
+
+        #calculate mobility using above collision frequency 
+        mobility = electron_mobility(ν, params.cache.B[i])
+
+        κ[i] = (2.4 / (1 + params.cache.νei[i]   / √(2) / ν))   * mobility * kB * params.cache.ne[i] * params.cache.Tev[i]
+    end
+
+end
