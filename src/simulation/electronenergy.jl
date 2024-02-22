@@ -53,12 +53,13 @@ function update_electron_energy!(U, params, dt)
         κ0 = κ[i]
         κR = κ[i+1]
 
-        # Weighted average of the electron velocities in the three stencil cells
-        ue_avg = 0.25 * (ueL + 2 * ue0 + ueR)
-
+        #cell spacing
         ΔzL = Δz_edge[left_edge(i)]
         ΔzR = Δz_edge[right_edge(i)]
         Δz = Δz_cell[i]
+
+        # Weighted average of the electron velocities in the three stencil cells
+        ue_avg = 0.25 * (ΔzL * ueL + 2 * Δz * ue0 + ΔzR * ueR) / (ΔzL + Δz + ΔzR)
 
         # Upwind differences
         if ue_avg > 0
