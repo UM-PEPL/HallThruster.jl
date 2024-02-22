@@ -53,12 +53,12 @@ function update_electron_energy!(U, params, dt)
         κ0 = κ[i]
         κR = κ[i+1]
 
-        # Weighted average of the electron velocities in the three stencil cells
-        ue_avg = 0.25 * (ueL + 2 * ue0 + ueR)
-
         ΔzL = Δz_edge[left_edge(i)]
         ΔzR = Δz_edge[right_edge(i)]
         Δz = Δz_cell[i]
+
+        # Weighted average of the electron velocities in the three stencil cells
+        ue_avg = 0.25 * (ΔzL * (ueL + ue0) + ΔzR * (ue0 + ueR)) / Δz
 
         # Upwind differences
         if ue_avg > 0
@@ -74,22 +74,12 @@ function update_electron_energy!(U, params, dt)
                 # left flux is sheath heat flux
                 Te0 = 2/3 * nϵ0 / ne0
 
-                # Sheath heat flux = je_sheath_edge * (2 * Te_sheath + Vs) / e
-                # Assume Te_sheath is the same as that in first interior cell
-                # and that ne_sheath is that computed by using the bohm condition bc
-
-                # je_sheath_edg * (2 * Te_sheath + Vs) / e = - 2 ne ue Te - 2 ne Vs
-                # = - 4/3 * nϵ[1] * ue_sheath_edge - 2 ne ue Vs
-
                 # discharge current density
                 jd = params.cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
                 ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
-
                 je_sheath_edge = jd - ji_sheath_edge
-
-                #uth = -0.25 * sqrt(8 * e * Te0 / π / me) * exp(-params.cache.Vs[] / Te0)
 
                 ne_sheath_edge = sum(Z * U[index.ρi[Z], 1] for Z in 1:params.config.ncharge) / mi
                 ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
@@ -97,8 +87,6 @@ function update_electron_energy!(U, params, dt)
                 FL_factor_L = 0.0
                 FL_factor_C = 4/3 * ue_sheath_edge * (1 + params.cache.Vs[] / Te0)
                 FL_factor_R = 0.0
-
-                #Q = ne0 * ue_sheath_edge * params.cache.Vs[] / Δz
             elseif i == 2
                 # central differences at left boundary for compatibility with dirichlet BC
                 FL_factor_L = 5/3 * ueL + κL / ΔzL / neL

@@ -95,8 +95,8 @@ EvenGrid(n) = HallThrusterGrid(n, Returns(1.0))
 """
     UnevenGrid(n, density = HallThruster.default_density)
 Construct an unevenly-spaced grid according to provided density function. Defaults to twice as many grids inside of channel than outside.
-Provided density functions must have a signature of (z, z0, z1, Lch) where z is the location, 
-(z0, z1) are the extents of the domain and Lch is the channel length 
+Provided density functions must have a signature of (z, z0, z1, Lch) where z is the location,
+(z0, z1) are the extents of the domain and Lch is the channel length
 """
 UnevenGrid(n, f = default_density) = HallThrusterGrid(n, f)
 

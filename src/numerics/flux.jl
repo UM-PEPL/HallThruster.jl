@@ -244,7 +244,7 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (;config, index, fluids, Δz_edge, z_cell, num_neutral_fluids) = params
+    (;config, index, fluids, Δz_edge, num_neutral_fluids) = params
     λ_global = params.cache.λ_global
     (;propellant, electron_pressure_coupled, scheme, ncharge) = config
     ncells = size(U, 2)
@@ -275,8 +275,6 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             neR = neR + Z * niR
         end
 
-        Δz = Δz_edge[i]
-
         # Compute electron temperature
         TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
         TeR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
@@ -287,7 +285,6 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             neutral_fluid = fluids[j]
             U_neutrals = (U[index.ρn[j], i],)
             u = velocity(U_neutrals, neutral_fluid)
-
             λ_global[j] = abs(u)
         end
 
@@ -324,7 +321,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
 
             # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
-            dt_max = Δz / s_max
+            dt_max = Δz_edge[i] / s_max
             params.cache.dt_u[i] = dt_max
 
             # Update maximum wavespeeds and maximum allowable timestep
