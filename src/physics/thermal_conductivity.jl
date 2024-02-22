@@ -66,8 +66,10 @@ end
 struct LANDMARK_conductivity <: ThermalConductivityModel end
 
 function (model::LANDMARK_conductivity)(κ, params)
+    
+
     for i in eachindex(κ)
-        κ[i] = (10/9) * params.cache.μ[i] * nϵ[i]
+        κ[i] = (10/9) * params.cache.μ[i] * (3/2) * params.cache.ne[i] * params.cache.Tev[i]
     end
     return κ
 end

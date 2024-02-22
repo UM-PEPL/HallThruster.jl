@@ -39,7 +39,8 @@
         electron_ion_collisions = true,
         ionization_model = HallThruster.LandmarkIonizationLookup(),
         domain = (0.0, 0.05),
-        LANDMARK = true
+        LANDMARK = true,
+        conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
     grid = HallThruster.generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
