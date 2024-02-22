@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC<:InitialCondition, CB, HS<:HyperbolicScheme}
+struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC<:InitialCondition, CB, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -18,6 +18,7 @@ struct Config{A<:AnomalousTransportModel, W<:WallLossModel, IZ<:IonizationModel,
     ncharge::Int
     ion_temperature::Float64
     anom_model::A
+    conductivity_model::TC
     ionization_model::IZ
     excitation_model::EX
     electron_neutral_model::EN
@@ -65,6 +66,7 @@ function Config(;
         ncharge::Int                        = 1,
         ion_temperature                     = 1000.0u"K",
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
+        conductivity_model::ThermalConductivityModel = Mitchner(),
         ionization_model::IonizationModel   = IonizationLookup(),
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
@@ -135,7 +137,7 @@ function Config(;
 
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
-        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model,
+        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model, conductivity_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
         initial_condition, callback, magnetic_field_scale, source_neutrals,
         source_IC,

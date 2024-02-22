@@ -22,7 +22,9 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = [1], ρi = [2], nϵ = 3)
-    cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0])
+    cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
+             μ = μ_e, νc = ν_c, 
+    )
     c1 = 1/160
     c2 = 1/16
     anom_model = HallThruster.TwoZoneBohm(c1, c2)
@@ -74,6 +76,10 @@
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
+    
+    conductivity_model = HallThruster.LANDMARK_conductivity()
+    conductivity_model(params_landmark.cache.κ, params_landmark)
+    @test params_landmark.cache.κ[1] ≈ 5/3 * μ_e * ne * Tev
 
     @test HallThruster.num_anom_variables(model) == 0
     @test HallThruster.allocate_anom_variables(model, 2) == Vector{Float64}[]

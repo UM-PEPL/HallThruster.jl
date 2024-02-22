@@ -110,6 +110,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
         scheme,
         ionization_model = OVS_Ionization(),
         LANDMARK = true,
+        conductivity_model = HallThruster.LANDMARK_conductivity(),
         ion_wall_losses = false,
         anode_boundary_condition = :dirichlet,
         solve_background_neutrals = false,
