@@ -4,7 +4,6 @@ The abstract supertype of all types of anomalous transport models.
 Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
-
 #=============================================================================
  Begin definition of built-in models
 ==============================================================================#
@@ -143,6 +142,8 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         νan[i] = β * ωce
     end
 end
+
+
 
 """
     num_anom_variables(::AnomalousTransportModel)::Int

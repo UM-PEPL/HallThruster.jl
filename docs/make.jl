@@ -17,6 +17,7 @@ makedocs(
             "fluxes.md",
             "collisions.md",
             "anomalous_transport.md",
+            "electron_thermal_conductivity.md",
             "wall_loss_models.md",
             "boundary_conditions.md",
             "source_terms.md",

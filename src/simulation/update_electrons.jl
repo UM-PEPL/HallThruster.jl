@@ -3,7 +3,7 @@ function update_electrons!(U, params, t = 0)
     (;index, control_current, target_current, Kp, Ti) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
-        Z_eff, νiz, νex, νe, ji, Id, νew, ni, ui, Vs, nn, nn_tot, niui,
+        Z_eff, νiz, νex, νe, ji, Id, νew, κ, ni, ui, Vs, nn, nn_tot, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -132,6 +132,9 @@ function update_electrons!(U, params, t = 0)
         else
             dt_sub = params.dt[]
         end
+
+        #update thermal conductivity
+        params.config.conductivity_model(κ, params)
 
         # Update the electron temperature and pressure
         update_electron_energy!(U, params, dt_sub)

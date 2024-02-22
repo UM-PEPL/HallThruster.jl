@@ -22,12 +22,14 @@ ui = sin_wave(x/L, amplitude = 13000, phase = π/4, nwaves = 0.75, offset = 1000
 ρn = nn * HallThruster.Xenon.m
 nϵ = ne * ϵ
 ue = μ * (∇ϕ - Dx(nϵ)/ne)
+κ = 10/9 * μ * nϵ
 
 ϕ_func = eval(build_function(ϕ, [x]))
 ne_func = eval(build_function(ne, [x]))
 μ_func = eval(build_function(μ, [x]))
 ρiui_func = eval(build_function(ρiui, [x]))
 nϵ_func = eval(build_function(nϵ, [x]))
+κ_func = eval(build_function(κ, [x]))
 ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
 ρn_func = eval(build_function(ρn, [x]))
@@ -46,6 +48,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
         HallThruster.update_electron_energy!(U, params, dt)
+        params.config.conductivity_model(params.cache.κ, params)#update thermal conductivity
         residual = Lp_norm(U .- U_old, 2)
         if iter == 1
             res0 = residual
@@ -68,6 +71,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     ncells = length(z_cell)
 
     μ = μ_func.(z_cell)
+    κ = κ_func.(z_cell)
     ne = ne_func.(z_cell)
     ϕ = zeros(ncells)
     ue = ue_func.(z_cell)
@@ -115,7 +119,8 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false, 
+        conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
     species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
@@ -134,7 +139,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     cache = (;
         Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz, 
         wall_losses, ohmic_heating, inelastic_losses,
-        channel_area, dA_dz,
+        channel_area, dA_dz, κ, 
     )
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
@@ -162,7 +167,8 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false, 
+        conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
     dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])

@@ -32,6 +32,7 @@ include("physics/physicalconstants.jl")
 include("physics/gas.jl")
 include("physics/conservationlaws.jl")
 include("physics/fluid.jl")
+include("physics/thermal_conductivity.jl")
 include("physics/thermodynamics.jl")
 
 include("wall_loss_models/wall_losses.jl")
@@ -87,6 +88,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         anode_mass_flow_rate = 5u"mg/s",
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
+        conductivity_model = LANDMARK_conductivity(),
     )
     sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.9, verbose = false)
     HallThruster.time_average(sol_1)

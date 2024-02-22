@@ -11,6 +11,7 @@
         min_number_density = 1e6,
         min_electron_temperature = 1.0,
         LANDMARK = true,
+        conductivity_model = HallThruster.LANDMARK_conductivity(),
         anode_boundary_condition = :dirichlet,
         solve_background_neutrals = :true,
         neutral_temperature = 300.0,
