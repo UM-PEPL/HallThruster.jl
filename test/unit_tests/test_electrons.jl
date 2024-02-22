@@ -76,8 +76,10 @@
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
-    HallThruster.LANDMARK_conductivity(params_landmark.cache.κ,params_landmark)
-    @test params_landmark.cache.κ ≈ 5/3 * μ_e * ne * Tev
+    
+    conductivity_model = HallThruster.LANDMARK_conductivity()
+    conductivity_model(params_landmark.cache.κ, params_landmark)
+    @test params_landmark.cache.κ[1] ≈ 5/3 * μ_e * ne * Tev
 
     @test HallThruster.num_anom_variables(model) == 0
     @test HallThruster.allocate_anom_variables(model, 2) == Vector{Float64}[]
