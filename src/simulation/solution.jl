@@ -1,30 +1,39 @@
 # Perform one step of the Strong-stability-preserving RK22 algorithm
-function ssprk22_step!(u, f, params, t, dt)
-    (;cache) = params
-    (;k, u1) = cache
+function ssprk22_step!(U, f, params, t, dt)
+    (;k, u1) = params.cache
 
     # First step of SSPRK22
-    f(k, u, params, t)
-    @. u1 = u + dt * k
+    f(k, U, params, t)
+    @. u1 = U + dt * k
     stage_limiter!(u1, params)
 
     # Second step of SSPRK22
     f(k, u1, params, t+dt)
-    @. u = (u + u1 + dt * k) / 2
-    stage_limiter!(u, params)
+    @. U = (U + u1 + dt * k) / 2
+    stage_limiter!(U, params)
 
     return nothing
 end
 
-struct ODEProblem{F, U, T, P}
-    f::F
+struct Solution{T, U, P, S}
+    t::T
     u::U
-    tspan::T
+    savevals::S
+    retcode::Symbol
     params::P
 end
 
-function solve(prob::ODEProblem; saveat)
-    (;f, u, tspan, params) = prob
+function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
+    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
+    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
+    println(io, "Retcode: $(string(sol.retcode))")
+    print(io, "End time: $(sol.t[end]) seconds")
+end
+
+function solve(U, params, tspan; saveat)
     i = 1
     save_ind = 2
     t = tspan[1]
@@ -40,10 +49,10 @@ function solve(prob::ODEProblem; saveat)
     )
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
-    u_save = [deepcopy(u) for _ in saveat]
+    u_save = [deepcopy(U) for _ in saveat]
     savevals = [deepcopy(first_saveval) for _ in saveat]
 
-    (nvars, ncells) = size(u)
+    (nvars, ncells) = size(U)
 
     while t < tspan[2]
         i += 1
@@ -54,25 +63,25 @@ function solve(prob::ODEProblem; saveat)
         t += params.dt[]
 
         # Update heavy species
-        ssprk22_step!(u, f, params, t, params.dt[])
+        ssprk22_step!(U, update_heavy_species!, params, t, params.dt[])
 
         # Update electron quantities
-        update_electrons!(u, params, t)
+        update_electrons!(U, params, t)
 
         # Update plume geometry
-        update_plume_geometry!(u, params)
+        update_plume_geometry!(U, params)
 
         # Check for NaNs and terminate if necessary
         nandetected = false
         infdetected = false
 
         @inbounds for j in 1:ncells, i in 1:nvars
-            if isnan(u[i, j])
+            if isnan(U[i, j])
                 @warn("NaN detected in variable $i in cell $j at time $(t)")
                 nandetected = true
                 retcode = :NaNDetected
                 break
-            elseif isinf(u[i, j])
+            elseif isinf(U[i, j])
                 @warn("Inf detected in variable $i in cell $j at time $(t)")
                 infdetected = true
                 retcode = :InfDetected
@@ -80,9 +89,10 @@ function solve(prob::ODEProblem; saveat)
             end
         end
 
-        # Save values, TODO interpolate these to be exact
+        # Save values at designated intervals
+        # TODO interpolate these to be exact
         if t > saveat[save_ind]
-            u_save[save_ind] .= u
+            u_save[save_ind] .= U
             for field in fields_to_save
                 if field == :anom_variables
                     for i in 1:num_anom_variables(params.config.anom_model)

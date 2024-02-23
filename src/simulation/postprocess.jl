@@ -1,21 +1,3 @@
-struct Solution{T, U, P, S}
-    t::T
-    u::U
-    savevals::S
-    retcode::Symbol
-    params::P
-end
-
-function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
-end
-
-function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
-    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
-    println(io, "Retcode: $(string(sol.retcode))")
-    print(io, "End time: $(sol.t[end]) seconds")
-end
-
 """
     time_average(sol, tstampstart)
 compute time-averaged solution, input Solution type and the frame at which averaging starts.

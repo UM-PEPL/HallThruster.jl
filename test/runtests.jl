@@ -24,9 +24,10 @@ include("unit_tests/test_restarts.jl")
 include("unit_tests/test_json.jl")
 
 using Symbolics
+include("order_verification/ovs_funcs.jl")
+include("order_verification/ovs_energy.jl")
+include("order_verification/ovs_ions.jl")
 @testset "Order verification (electron energy)" begin
-    include("order_verification/ovs_funcs.jl")
-    include("order_verification/ovs_energy.jl")
 
     vfunc = x -> OVS_Energy.verify_energy(x)
     refinements = refines(6, 20, 2)
@@ -48,8 +49,6 @@ using Symbolics
 end
 
 @testset "Order verification (neutrals and ions)" begin
-    include("order_verification/ovs_funcs.jl")
-    include("order_verification/ovs_ions.jl")
     refinements = refines(6, 10, 2)
 
     limiter = HallThruster.van_leer

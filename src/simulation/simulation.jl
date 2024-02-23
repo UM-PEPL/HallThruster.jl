@@ -249,9 +249,8 @@ function run_simulation(
     # make values in params available for first timestep
     update_electrons!(U, params)
 
-    # Set up and solve problem, this form is temporary
-    prob = ODEProblem(update_heavy_species!, U, tspan, params)
-    sol_info = @timed solve(prob; saveat)
+    # Set up
+    sol_info = @timed solve(U, params, tspan; saveat)
 
     sol = sol_info.value
     sim_time = sol_info.time

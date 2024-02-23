@@ -78,7 +78,6 @@ function bitwise_log2ceil(x)
 end
 
 @inline function find_left_index(val, r::LinRangeWrapper)
-    #ceil(Int, clamp(muladd(r.A, val, r.B), 0, r.r.len))
     return searchsortedfirst(r.r, val) - 1
 end
 
@@ -120,7 +119,6 @@ function cumtrapz(x, y, y0 = zero(typeof(y[1] * x[1])))
 end
 
 function cumtrapz!(cache, x, y, y0 = zero(typeof(y[1] * x[1])))
-
     cache[1] = y0
     @inbounds for i in 2:lastindex(x)
         Δx = x[i] - x[i-1]
