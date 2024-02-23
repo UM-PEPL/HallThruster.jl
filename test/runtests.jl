@@ -53,8 +53,8 @@ end
     refinements = refines(6, 10, 2)
 
     limiter = HallThruster.van_leer
-    #flux_names = ["HLLE", "Rusanov", "Global Lax-Friedrichs"]
-    flux_names = ["Global Lax-Friedrichs"]
+    flux_names = ["HLLE", "Rusanov", "Global Lax-Friedrichs"]
+    #flux_names = ["Global Lax-Friedrichs"]
     fluxes = [HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,]
 
     # Which L-P norms to check
