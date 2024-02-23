@@ -244,8 +244,8 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (;config, index, fluids, Δz_edge, num_neutral_fluids) = params
-    λ_global = params.cache.λ_global
+    (;config, index, fluids, Δz_edge, num_neutral_fluids, cache) = params
+    (;λ_global, nϵ) = cache
     (;propellant, electron_pressure_coupled, scheme, ncharge) = config
     ncells = size(U, 2)
 
@@ -275,9 +275,9 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             neR = neR + Z * niR
         end
 
-        # Compute electron temperature
-        TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
-        TeR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
+        # Compute electron energy
+        ϵL = max(params.config.min_electron_temperature, Te_fac * nϵ[i] / neL)
+        ϵR = max(params.config.min_electron_temperature, Te_fac * nϵ[i] / neR)
 
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
@@ -306,8 +306,8 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             charge_factor = Z * e * coupled
 
             # Sound speeds
-            aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-            aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+            aL = sqrt((charge_factor * ϵL + γ * kB * TL) / mi)
+            aR = sqrt((charge_factor * ϵR + γ * kB * TR) / mi)
 
             # There are several possible waves, with speeds, u-a, u+a, and u, both left- and right-running
             λ₁₂⁺ = 0.5 * (uR + abs(uR))
@@ -342,8 +342,8 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
         end
 
         # Compute electron temperature
-        ϵL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
-        ϵR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
+        ϵL = max(params.config.min_electron_temperature, Te_fac * nϵ[i] / neL)
+        ϵR = max(params.config.min_electron_temperature, Te_fac * nϵ[i] / neR)
 
         # Neutral fluxes at edge i
         for j in 1:params.num_neutral_fluids

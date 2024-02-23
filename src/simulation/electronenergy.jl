@@ -2,13 +2,12 @@
 
 function update_electron_energy!(U, params, dt)
     (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
+    (;Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
     ncells = size(U, 2)
     mi = params.config.propellant.m
 
-    nϵ = @views U[index.nϵ, :]
     Aϵ.d[1] = 1.0
     Aϵ.du[1] = 0.0
     Aϵ.d[end] = 1.0

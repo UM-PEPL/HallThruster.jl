@@ -6,12 +6,12 @@ function ssprk22_step!(u, f, params, t, dt)
     # First step of SSPRK22
     f(k, u, params, t)
     @. u1 = u + dt * k
-    stage_limiter!(u1, nothing, params, t)
+    stage_limiter!(u1, params)
 
     # Second step of SSPRK22
     f(k, u1, params, t+dt)
     @. u = (u + u1 + dt * k) / 2
-    stage_limiter!(u, nothing, params, t)
+    stage_limiter!(u, params)
 
     return nothing
 end

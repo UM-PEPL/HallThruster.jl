@@ -2,7 +2,7 @@
 function update_electrons!(U, params, t = 0)
     (;index, control_current, target_current, Kp, Ti) = params
     (;
-        B, ue, Tev, ∇ϕ, ϕ, pe, ne, μ, ∇pe, νan, νc, νen, νei, νew,
+        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, νew,
         Z_eff, νiz, νex, νe, ji, Id, νew, κ, ni, ui, Vs, nn, nn_tot, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
@@ -47,7 +47,7 @@ function update_electrons!(U, params, t = 0)
             ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
 
             # Same with electron temperature
-            Tev[i] = 2/3 * max(params.config.min_electron_temperature, U[index.nϵ, i]/ne[i])
+            Tev[i] = 2/3 * max(params.config.min_electron_temperature, nϵ[i]/ne[i])
 
             pe[i] = if params.config.LANDMARK
                 # The LANDMARK benchmark uses nϵ instead of pe in the potential solver, but we use pe, so
@@ -118,7 +118,6 @@ function update_electrons!(U, params, t = 0)
 
         # update electrostatic potential and potential gradient on edges
         solve_potential!(ϕ, params)
-
 
         if params.adaptive
             dt_min = Inf
