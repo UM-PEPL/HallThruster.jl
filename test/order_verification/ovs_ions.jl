@@ -80,7 +80,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         ),
         propellant,
         ncharge = 1,
-        electron_pressure_coupled = true,
+        electron_pressure_coupled = false,
         min_electron_temperature = 1.0,
         neutral_velocity = un,
         neutral_temperature = 300.0,
