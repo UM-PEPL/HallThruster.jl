@@ -7,21 +7,21 @@ using LinearAlgebra
 using Unitful
 using SparseArrays
 
-# doctest(HallThruster)
+doctest(HallThruster)
 
-# HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 
-# include("unit_tests/test_gas.jl")
-# include("unit_tests/test_conservation_laws.jl")
-# include("unit_tests/test_limiters.jl")
-# include("unit_tests/test_reactions.jl")
-# include("unit_tests/test_misc.jl")
-# include("unit_tests/test_electrons.jl")
-# include("unit_tests/test_boundary_conditions.jl")
-# include("unit_tests/test_walls.jl")
-# include("unit_tests/test_initialization.jl")
-# include("unit_tests/test_restarts.jl")
-# include("unit_tests/test_json.jl")
+include("unit_tests/test_gas.jl")
+include("unit_tests/test_conservation_laws.jl")
+include("unit_tests/test_limiters.jl")
+include("unit_tests/test_reactions.jl")
+include("unit_tests/test_misc.jl")
+include("unit_tests/test_electrons.jl")
+include("unit_tests/test_boundary_conditions.jl")
+include("unit_tests/test_walls.jl")
+include("unit_tests/test_initialization.jl")
+include("unit_tests/test_restarts.jl")
+include("unit_tests/test_json.jl")
 
 using Symbolics
 @testset "Order verification (electron energy)" begin

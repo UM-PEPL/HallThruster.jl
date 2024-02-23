@@ -23,7 +23,6 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     excitation_model::EX
     electron_neutral_model::EN
     electron_ion_collisions::Bool
-    electron_pressure_coupled::Float64
     min_number_density::Float64
     min_electron_temperature::Float64
     transition_function::T
@@ -71,7 +70,6 @@ function Config(;
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
-        electron_pressure_coupled::Number   = ncharge == 1 ? true : false,
         min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
@@ -126,11 +124,6 @@ function Config(;
     background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
     background_pressure = convert_to_float64(background_pressure, u"Pa")
 
-    if ncharge > 1 && electron_pressure_coupled > 0
-        @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
-        electron_pressure_coupled = false
-    end
-
     if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
         throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
     end
@@ -138,7 +131,7 @@ function Config(;
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model, conductivity_model,
-        ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
+        ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, min_number_density, min_electron_temperature, transition_function,
         initial_condition, callback, magnetic_field_scale, source_neutrals,
         source_IC,
         source_IM,

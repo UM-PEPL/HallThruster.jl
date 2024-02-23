@@ -160,14 +160,6 @@
             @test HLLE(continuity_state, continuity...) == flux(continuity...)
             @test HLLE(isothermal_state, isothermal...) == flux(isothermal...)
             @test HLLE(euler_state, euler...) == flux(euler...)
-
-            # electron pressure-coupled
-            ne = 1e17
-            Te = 6.0
-            pe = HallThruster.e * ne * Te
-            @test flux(continuity..., pe) ==  flux(continuity...)
-            @test flux(isothermal..., pe) == flux(isothermal...) .+ (0.0, pe,)
-            @test flux(euler..., pe) == flux(euler...) .+ (0.0, pe, 0.0,)
         end
 
         @testset "Reconstruction" begin

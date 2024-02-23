@@ -50,23 +50,15 @@ end
 
 function apply_ion_acceleration!(dU, U, params, i)
     (;cache, config, index, z_edge) = params
-    (;∇ϕ, ue, μ) = cache
-    coupled = config.electron_pressure_coupled
+    E = -cache.∇ϕ[i]
     mi = params.config.propellant.m
-
     dt_max = Inf
 
     Δx = z_edge[right_edge(i)] - z_edge[left_edge(i)]
 
     @inbounds for Z in 1:config.ncharge
-
-        Q_coupled = ue[i] / μ[i]
-        Q_uncoupled = ∇ϕ[i]
-
-        Q_accel = -Z * e * U[index.ρi[Z], i] / mi * (coupled * Q_coupled + (1 - coupled) * Q_uncoupled)
-
-        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(∇ϕ[i])))
-
+        Q_accel = Z * e * U[index.ρi[Z], i] / mi * E
+        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(E)))
         dU[index.ρiui[Z], i] += Q_accel
     end
 

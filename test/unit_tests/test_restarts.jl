@@ -29,7 +29,6 @@
         excitation_model = HallThruster.LandmarkExcitationLookup(),
         wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride, 1.0),
         implicit_energy = 1.0,
-        electron_pressure_coupled = true,
         neutral_velocity = 300.0,
         neutral_temperature = 300.0,
         ion_temperature = 1000.0,
