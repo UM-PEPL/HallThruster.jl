@@ -142,7 +142,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         channel_area, dA_dz, κ, 
     )
 
-    Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
+    Δz_cell, Δz_edge, smoothing_weights = HallThruster.grid_spacing(grid)
 
     params = (;
         z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
@@ -152,7 +152,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge, smoothing_weights
     )
 
     solve_energy!(U, params, niters, dt)
@@ -180,7 +180,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge, smoothing_weights
     )
 
     solve_energy!(U, params, niters, dt)
