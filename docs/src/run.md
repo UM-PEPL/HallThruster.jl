@@ -136,13 +136,13 @@ tasks.
 
 ### The `Solution` object
 
-Running a simulation returns a `HallThruster.Solution` object. This mimics a DifferentialEquations `DiffEqSolution` object and has the same fields:
+Running a simulation returns a `HallThruster.Solution` object, which has the the same fields:
 
 `t`: A `vector` of times at which the simulation state is saved
 `u`: A `vector` of simulation state matrices saved at each of the times in `t`
 `savevals`: A `Vector` of `NamedTuple`s containing saved derived plasma properties at each of the times in `t`
 `retcode`: A `Symbol` describing how the simulation finished. This should be `:Success` if the simulation succeeded, but may be `:NaNDetected` if the simulation failed.
-`params`: A NamedTuple containing simulation parameters, such as the `Config` the simulation was run with, the computational grid, and more.
+`params`: A NamedTuple containing simulation parameters, such as the `Config` the simulation was run with, the computational grid, and more. `params.cache` contains all of the variables not contained in `u`
 
 ### Extracting performance metrics
 

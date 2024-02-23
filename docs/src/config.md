@@ -32,7 +32,6 @@ Aside from these arguments, all others have  default values provided. These are 
 - `implicit_energy`: The degree to which the energy is solved implicitly. `0.0` is a fully-explicit forward Euler, `0.5` is Crank-Nicholson, and `1.0` is backward Euler. Defaults to `1.0`.
 - `min_number_density`: Minimum allowable number density for any species. Defaults to `1e6`
 - `min_electron_temperature`: Minimum allowable electron temperature. Defaults to `1.0`.
-- `callback`: User-provided callback. This can by any standard callback from `DifferentialEquations.jl`. Defaults to `nothing`.
 - `magnetic_field_scale`: Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. Defaults to `1.0`.
 - `source_neutrals`: Extra user-provided neutral source term. Can be an arbitrary function, but must take `(U, params, i)` as arguments. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
 - `source_ion_continuity`: Vector of extra source terms for ion continuity, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref) for more information.

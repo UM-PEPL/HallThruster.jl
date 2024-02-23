@@ -1,6 +1,6 @@
 # Numerics
 
-As described in [Configuration](@ref) and [Initialization](@ref) different flux options are available in `HyperbolicScheme`. Timemarching for the heavy species is handled by [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl). The left hand side of the electron energy equation is integrated implicitly using a Crank Nicolson Adams Bashforth (CNAB) scheme. This enables larger timessteps due to the severe restrictions due to the electron heat flux.
+As described in [Configuration](@ref) and [Initialization](@ref) different flux options are available in `HyperbolicScheme`. Timemarching for the heavy species is handled using a second order strong-stability preserving Runge-Kutta scheme (SSPRK22). The left hand side of the electron energy equation is integrated implicitly using a Crank Nicolson Adams Bashforth (CNAB) scheme. This enables larger timessteps due to the severe restrictions due to the electron heat flux.
 
 ## Spatial discretization for heavy species
 
@@ -19,24 +19,23 @@ See [Fluxes](@ref) for the implemented fluxes, and possible limiters to be used 
 
 ## Time discretization of heavy species
 
-Time integration is handled by [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl). Strong stability preserving Runge Kutta schemes are used by default (specifically `SSPRK22`), but the user is free use other schemes provided by DifferentialEquations.jl.
+We employ a strong stability preserving second-order Runge Kutta schemes (`SSPRK22`) for timestepping
 
-Keep in mind that following von-Neumann stability analysis for explicit schemes the CFL number has to be lower than 1. The CFL number is defined as:
+The user has the option to supply a fixed timestep, or a CFL number. In the former case, the user will need to select a timestep that obeys the CFL condition, defined as
 
 ```math
-    \sigma = \frac{u_i \Delta t}{\Delta x}
+    \sigma = \frac{u_i \Delta t}{\Delta x} < 1
 ```
 
 Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cells, results in ``\Delta t \leq 1.2 \times 10^{-8}`` s. In practice, it needs to be a bit lower in order to handle transients as the solution oscillates. This restriction is valid for the continuity and isothermal euler equations. Information on setting `dt` and selecting the integration scheme can be found in the [Tutorial](@ref).
 
-HallThruster.jl also has an adaptive timestepping option. If adaptive timestepping is enabled, the user-defined timestep is ignored in favor of a timestep based on the minimum of three conditions and the user-defined CFL number. Mathematically the timstep is choosen as:
+In most cases, it is better to let HallThruster.jl handle timestepping automatically using its adaptive timestepping option. If adaptive timestepping is enabled, the user-defined timestep is ignored in favor of a timestep based on the minimum of three conditions and a user-supplied CFL number. Mathematically the timstep is choosen as:
 
 ```math
     \Delta t = min(\sigma \frac{\Delta x}{max(u_i + a_i, u_i - a_i)}, \sigma \frac{\dot{n}_i}{n_i}, \sqrt{\frac{\sigma m_i \Delta x}{q_i E}})
 ```
 
 Where ``a_i`` is the ion sound speed. Physically, these three conditions represent timestep limits imposed by the flux, ionization, and electrostatic acceleration. Keep in mind that due to stability limits imposed by the ionization condition, the CFL number cannot be higher than 0.799 to remain stable. This limit will be imposed by HallThruster.jl if the user-defined value is too high.
-
 
 ## Electron energy equation discretization
 
