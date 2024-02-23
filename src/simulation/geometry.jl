@@ -113,9 +113,10 @@ end
 function grid_spacing(grid)
     z_cell = grid.cell_centers
     z_edge = grid.edges
+    n_cell = length(z_cell)
 
     # Fill up cell lengths and magnetic field vectors
-    Δz_cell = zeros(length(z_cell))
+    Δz_cell = zeros(n_cell)
     for i in eachindex(z_cell)
         if firstindex(z_cell) < i < lastindex(z_cell)
             Δz_cell[i] = z_edge[right_edge(i)] - z_edge[left_edge(i)]
@@ -128,7 +129,49 @@ function grid_spacing(grid)
 
     Δz_edge = @. @views z_cell[2:end] - z_cell[1:end-1]
 
-    return Δz_cell, Δz_edge
+    #calculate weights for smoothing in electron energy calculation
+    weights = zeros(length(z_cell), 3)
+    for i in 2:n_cell-1
+        #use ghost cells for boundary cases
+        if i == 2
+            Δx_m2 = Δz_cell[1]
+        else
+            Δx_m2 = Δz_cell[i-2]
+        end
+        if i == n_cell-1
+            Δx_p2 = Δz_cell[end]
+        else 
+            Δx_p2 = Δz_cell[i+2]
+        end
+
+        #calculate zeros and x_max
+        x1 = -1 * (Δz_cell[i] / 2 + Δz_cell[i-1] + Δx_m2 / 2)
+        x2 =  (Δz_cell[i] / 2 + Δz_cell[i+1] + Δx_p2 / 2)
+        x_max = (x1 + x2) / 2
+
+        #build kernel function 
+        function triangular_kernel(x)
+            a = 2 / (x1^2 + x2^2)
+            if x >= x_max
+                return a * (x - x1)
+            else
+                return a * (x2 - x) 
+            end
+        end
+
+        #evaluate kernals
+        k_m1 = triangular_kernel(-1 * (Δz_cell[i] / 2 + Δz_cell[i-1]))
+        k_0 = triangular_kernel(0)
+        k_p1 = triangular_kernel((Δz_cell[i] / 2 + Δz_cell[i+1]))
+
+        #normalize and store
+        k_tot = k_m1 + k_0 + k_p1
+        weights[i, 1] = k_m1 / k_tot
+        weights[i, 2] = k_0 / k_tot
+        weights[i, 3] = k_p1 / k_tot
+    end
+
+    return Δz_cell, Δz_edge, weights
 end
 
 

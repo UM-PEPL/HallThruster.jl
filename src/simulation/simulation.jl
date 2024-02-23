@@ -179,7 +179,7 @@ function run_simulation(
         cache.B[i] = config.thruster.magnetic_field(z)
     end
 
-    Δz_cell, Δz_edge = grid_spacing(grid1d)
+    Δz_cell, Δz_edge, smoothing_weights = grid_spacing(grid1d)
 
     mi = config.propellant.m
 
@@ -214,6 +214,7 @@ function run_simulation(
         A_ch = config.thruster.geometry.channel_area,
         z_cell,
         z_edge,
+        smoothing_weights,
         index, cache, fluids, fluid_ranges, species_range_dict,
         iteration = [-1],
         ionization_reactions,

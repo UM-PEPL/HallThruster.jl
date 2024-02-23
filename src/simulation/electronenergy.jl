@@ -1,7 +1,7 @@
 
 
 function update_electron_energy!(U, params, dt)
-    (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
+    (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R, smoothing_weights) = params
     (;Aϵ, bϵ, μ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -59,7 +59,7 @@ function update_electron_energy!(U, params, dt)
         Δz = Δz_cell[i]
 
         # Weighted average of the electron velocities in the three stencil cells
-        ue_avg = 0.25 * (ΔzL * ueL + 2 * Δz * ue0 + ΔzR * ueR) / (ΔzL + Δz + ΔzR)
+        ue_avg = smoothing_weights[i,1] * ueL + smoothing_weights[i,2] * ue0 + smoothing_weights[i,3] * ueR
 
         # Upwind differences
         if ue_avg > 0
