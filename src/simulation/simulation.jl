@@ -14,7 +14,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     ncells = grid.ncells + 2
     nedges = grid.ncells + 1
 
-    U = zeros(nvariables + 1, ncells)
+    U = zeros(nvariables, ncells)
     B = zeros(ncells)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
@@ -34,9 +34,9 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     pe = zeros(ncells)
     ∇pe = zeros(ncells)
     ue = zeros(ncells)
-    F = zeros(nvariables+1, nedges)
-    UL = zeros(nvariables+1, nedges)
-    UR = zeros(nvariables+1, nedges)
+    F = zeros(nvariables, nedges)
+    UL = zeros(nvariables, nedges)
+    UR = zeros(nvariables, nedges)
     Z_eff = zeros(ncells)
     λ_global = zeros(length(fluids))
     νe = zeros(ncells)
@@ -128,7 +128,6 @@ function run_simulation(
         verbose = true,
     )
 
-
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK & (config.conductivity_model != LANDMARK_conductivity())
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
@@ -201,7 +200,6 @@ function run_simulation(
     cache.dt .= dt
     cache.dt_cell .= dt
 
-
     # Simulation parameters
     params = (;
         ncharge = config.ncharge,
@@ -236,7 +234,6 @@ function run_simulation(
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
         dtmin, dtmax
     )
-
 
     # Compute maximum allowed iterations
     if !use_restart

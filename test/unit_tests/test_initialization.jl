@@ -127,8 +127,8 @@ end
 
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui, :nϵ, :lf)
-    @test values(index) == ([1], [2, 4, 6], [3, 5, 7], 8, 7)
+    @test keys(index) == (:ρn, :ρi, :ρiui)
+    @test values(index) == ([1], [2, 4, 6], [3, 5, 7])
 
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))
@@ -170,8 +170,8 @@ end
     @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui, :nϵ, :lf)
-    @test values(index) == ([1], [2, 4, 6], [3, 5, 7], 8, 7)
+    @test keys(index) == (:ρn, :ρi, :ρiui)
+    @test values(index) == ([1], [2, 4, 6], [3, 5, 7])
 
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))

@@ -112,7 +112,7 @@ end
         Xe_III
     ]
 
-    nvars = 2 + 1 + 2 + 2 + 3
+    nvars = 2 + 2 + 2 + 3
 
     U, cache = HallThruster.allocate_arrays(grid, fluids)
 

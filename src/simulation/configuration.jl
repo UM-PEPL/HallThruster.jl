@@ -207,7 +207,6 @@ function configure_fluids(config)
 end
 
 function configure_index(fluids, fluid_ranges)
-    lf = fluid_ranges[end][end]
     first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
@@ -223,10 +222,6 @@ function configure_index(fluids, fluid_ranges)
 
     keys_fluids = (keys_neutrals..., keys_ions...)
     values_fluids = (values_neutrals..., values_ions...)
-    keys_electrons = (:nϵ,)
-    values_electrons = (lf + 1,)
-    index_keys = (keys_fluids..., keys_electrons..., :lf)
-    index_values = (values_fluids..., values_electrons..., lf)
-    index = NamedTuple{index_keys}(index_values)
+    index = NamedTuple{keys_fluids}(values_fluids)
     return index
 end
