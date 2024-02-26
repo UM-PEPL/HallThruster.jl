@@ -39,7 +39,7 @@ u_i(z) = \begin{cases}
 
 ### Neutral density
 
-The neutral density at the anode is computed in the same way as during a simulation, namely: 
+The neutral density at the anode is computed in the same way as during a simulation, namely:
 ```math
 \rho_{n, anode} = \frac{\dot{m}}{u_n A_{ch}} - \sum_s \frac{[\rho_{is} u_{is}]_{anode}}{u_n}
 ```
@@ -101,7 +101,7 @@ We can check the behavior of our new function:
 ncells = 100
 nvars = 4
 config = (;initial_condition = MyInitialCondition())
-z_cell = LinRange(0, 0.05, ncells)
+z_cell = range(0, 0.05, length = ncells)
 U = zeros(nvars, ncells)
 params = (;config, z_cell)
 
@@ -115,4 +115,3 @@ U[1, :] == U[2, :] == U[3, :] == U[4, :] == collect(z_cell)
 
 true
 ```
-

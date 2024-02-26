@@ -203,7 +203,7 @@ function load_landmark_data(case, suffix; ncells = 100)
     z_ϕ, ϕ = potential_file[:, 1], potential_file[:, 2]
     ϕ_itp = LinearInterpolation(z_ϕ, ϕ)
 
-    zs = LinRange(0, 0.05, ncells)
+    zs = range(0, 0.05, length = ncells)
 
     ui = fill(NaN, length(zs))
     ue = fill(NaN, length(zs))

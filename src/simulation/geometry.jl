@@ -176,11 +176,11 @@ Given bounds x0, x1, a number of points N, and a density function density(x), ge
 to the provided desity function using inverse CDF transformation.
 """
 function nodes_from_density(density, x0, x1, Lch, N)
-    xs = LinRange(x0, x1, N)
+    xs = range(x0, x1, length = N)
     den = [density(x, x0, x1, Lch) for x in xs]
     cdf = cumsum(den)
     cdf_min, cdf_max = extrema(cdf)
-    cdf_pts = LinRange(cdf_min, cdf_max, N)
+    cdf_pts = range(cdf_min, cdf_max, length = N)
     xs_density = [HallThruster.interpolate(c, cdf, xs) for c in cdf_pts]
     return xs_density
 end

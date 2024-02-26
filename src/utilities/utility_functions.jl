@@ -6,37 +6,17 @@ struct LinearInterpolation{X, Y}
             throw(ArgumentError("x and y must have same length"))
         end
 
-        # Resample xs to be a uniform LinRange to speed up finding indices
+        # Resample x-values to be uniform to speed up finding indices
         if resample_uniform
             xmin, xmax = extrema(x)
             num = length(x) * resample_factor
-            itp = LinearInterpolation(x, y)
-
-            resampled_x = LinRangeWrapper(LinRange(xmin, xmax, num))
-            resampled_y = itp.(resampled_x)
+            resampled_x = range(xmin, xmax, num)
+            resampled_y = [interpolate(_x, x, y) for _x in resampled_x]
             return LinearInterpolation(resampled_x, resampled_y; resample_uniform = false)
         else
             return new{typeof(x),typeof(y)}(x, y)
         end
     end
-end
-
-struct LinRangeWrapper{T1, T2}
-    r::LinRange{T1, T2}
-    A::T1
-    B::T1
-end
-
-Base.length(r::LinRangeWrapper) = length(r.r)
-Base.getindex(r::LinRangeWrapper, args...) = getindex(r.r, args...)
-Base.iterate(r::LinRangeWrapper, args...) = iterate(r.r, args...)
-Base.firstindex(r::LinRangeWrapper, args...) = firstindex(r.r, args...)
-Base.lastindex(r::LinRangeWrapper, args...) = lastindex(r.r, args...)
-
-function LinRangeWrapper(r)
-    A = r.len / (r.stop - r.start)
-    b = -A * r.start
-    return LinRangeWrapper(r, A, b)
 end
 
 @fastmath function interpolate(x::T, xs, ys; use_log = false) where {T}
@@ -65,20 +45,6 @@ julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
 @inline function lerp(x, x0, x1, y0, y1)
     t = (x - x0) / (x1 - x0)
     return muladd(t, (y1 - y0), y0)
-end
-
-# ceil(Int, log2(x)) done with bitwise ops
-function bitwise_log2ceil(x)
-    count = 1
-    while x != 1
-        x >>= 0x01 # divide x by 2
-        count +=1
-    end
-    return count
-end
-
-@inline function find_left_index(val, r::LinRangeWrapper)
-    return searchsortedfirst(r.r, val) - 1
 end
 
 function find_left_index(value, array)

@@ -51,7 +51,7 @@ supported_species(::ElectronNeutralLookup) = Gas[]
 
 function load_reactions(model::ElectronNeutralLookup, species)
     species_sorted = sort(species; by=x -> x.Z)
-    reactions = ElasticCollision{LinearInterpolation{LinRangeWrapper{Float64, Int},Vector{Float64}}}[]
+    reactions = []
     folders = [model.directories; REACTION_FOLDER]
     product = nothing
     collision_type = "elastic"
@@ -72,5 +72,5 @@ function load_reactions(model::ElectronNeutralLookup, species)
         end
     end
 
-    return reactions
+    return [r for r in reactions]
 end

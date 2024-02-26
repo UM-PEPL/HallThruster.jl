@@ -5,7 +5,7 @@
 end
 
 @testset "Linear Interpolation" begin
-    xs = LinRange(1., 100., 100)
+    xs = range(1., 100., length = 100)
     ys = xs .+ 0.1
     @test [HallThruster.find_left_index(y, xs) for y in ys] == round.(Int, collect(xs))
     @test HallThruster.find_left_index(1000, xs) == 100

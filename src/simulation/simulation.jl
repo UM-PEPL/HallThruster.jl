@@ -168,7 +168,7 @@ function run_simulation(
     end
 
     tspan = (0.0, duration)
-    saveat = LinRange(tspan[1], tspan[2], nsave)
+    saveat = range(tspan[1], tspan[2], length = nsave)
 
     z_cell = grid1d.cell_centers
     z_edge = grid1d.edges
