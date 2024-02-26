@@ -136,7 +136,7 @@ tasks.
 
 ### The `Solution` object
 
-Running a simulation returns a `HallThruster.Solution` object, which has the the same fields:
+Running a simulation returns a `HallThruster.Solution` object, which has the following fields:
 
 `t`: A `vector` of times at which the simulation state is saved
 `u`: A `vector` of simulation state matrices saved at each of the times in `t`
