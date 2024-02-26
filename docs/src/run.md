@@ -363,7 +363,7 @@ julia> ui = my_solution[:ui, 2][4900]
 
 Here, indexing by `[:ui, 2]` means we want the velocity for doubly-charged ions. We could similarly index by `[:ni, 1]` for the density of singly-charged ions.
 
-The parameters that support this sort of indexing are:
+A list of parameters that support this sort of indexing can be found by calling HallThruster.saved_fields(). A few of these are:
 
 - `B`: Magnetic field strength in Tesla
 - `ωce`: Cyclotron frequency in Hz

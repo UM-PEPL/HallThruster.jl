@@ -33,6 +33,17 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
     print(io, "End time: $(sol.t[end]) seconds")
 end
 
+@inline _saved_fields_vector() = (
+    :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
+    :νei, :νew, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
+    :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
+    :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
+    :dt
+)
+
+@inline _saved_fields_matrix() = (:ni, :ui, :niui, :nn)
+@inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
+
 function solve(U, params, tspan; saveat)
     i = 1
     save_ind = 2
@@ -40,19 +51,7 @@ function solve(U, params, tspan; saveat)
 
     retcode = :success
 
-    vector_fields_to_save = (
-        :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-        :νei, :νew, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
-        :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
-        :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
-        :dt
-    )
-
-    matrix_fields_to_save = (
-        :ni, :ui, :niui, :nn
-    )
-
-    fields_to_save = (vector_fields_to_save..., matrix_fields_to_save...)
+    fields_to_save = saved_fields()
 
     first_saveval = NamedTuple{fields_to_save}(params.cache)
     u_save = [deepcopy(U) for _ in saveat]
@@ -101,20 +100,20 @@ function solve(U, params, tspan; saveat)
             u_save[save_ind] .= U
 
             # save vector fields
-            for field in vector_fields_to_save
+            for field in _saved_fields_vector()
                 if field == :anom_variables
                     for i in 1:num_anom_variables(params.config.anom_model)
                         savevals[save_ind][field][i] .= params.cache[field][i]
                     end
                 else
                     cached_field::Vector{Float64} = params.cache[field]
-                    sv::typeof(cached_field) = savevals[save_ind][field]
+                    sv::Vector{Float64} = savevals[save_ind][field]
                     sv .= cached_field
                 end
             end
 
             # save matrix fields
-            for field in matrix_fields_to_save
+            for field in _saved_fields_matrix()
                 cached_field::Matrix{Float64} = params.cache[field]
                 sv::Matrix{Float64} = savevals[save_ind][field]
                 sv .= cached_field
