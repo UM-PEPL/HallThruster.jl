@@ -4,28 +4,27 @@ Base.@kwdef struct HyperbolicScheme{F, L}
     reconstruct::Bool = true
 end
 
-function flux(U::NTuple{1, T}, fluid) where T
+@inline function flux(U::NTuple{1, T}, fluid) where T
     ρ = U[1]
-    u = velocity(U, fluid)
+    u = fluid.conservation_laws.u
     return (ρ * u,)
 end
 
-function flux(U::NTuple{2, T}, fluid) where T
+@inline function flux(U::NTuple{2, T}, fluid) where T
     ρ, ρu = U
-    u = velocity(U, fluid)
     p = pressure(U, fluid)
-    return (ρu, ρu * u + p)
+    return (ρu, ρu^2 / ρ + p)
 end
 
-function flux(U::NTuple{3, T}, fluid) where T
+@inline function flux(U::NTuple{3, T}, fluid) where T
     ρ, ρu, ρE = U
-    u = U[2] / U[1]
     p = pressure(U, fluid)
     ρH = ρE + p
-    return (ρu, ρu * u + p, ρH * u)
+    return (ρu, ρu^2 / ρ + p, ρH * u)
 end
 
 # i forget why i did things this way. this seems super unnecessary, but we'll get to it
+# oh yeah, it was because I removed StaticArrays
 macro NTuple(ex)
     if !isa(ex, Expr)
         error("Bad input for @NTuple")
