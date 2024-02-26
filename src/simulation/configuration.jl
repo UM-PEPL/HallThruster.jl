@@ -5,7 +5,9 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel, EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E, T<:TransitionFunction, IC<:InitialCondition, CB, HS<:HyperbolicScheme}
+struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel,
+              EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
+              T<:TransitionFunction, IC<:InitialCondition, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -23,12 +25,10 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     excitation_model::EX
     electron_neutral_model::EN
     electron_ion_collisions::Bool
-    electron_pressure_coupled::Float64
     min_number_density::Float64
     min_electron_temperature::Float64
     transition_function::T
     initial_condition::IC
-    callback::CB
     magnetic_field_scale::Float64
     source_neutrals::S_N
     source_ion_continuity::S_IC
@@ -71,12 +71,10 @@ function Config(;
         excitation_model::ExcitationModel   = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
         electron_ion_collisions::Bool       = true,
-        electron_pressure_coupled::Number   = ncharge == 1 ? true : false,
         min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
         transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
         initial_condition::IC               = DefaultInitialization(),
-        callback                            = nothing,
         magnetic_field_scale::Float64       = 1.0,
         source_neutrals::S_N                = nothing,
         source_ion_continuity::S_IC         = nothing,
@@ -126,20 +124,17 @@ function Config(;
     background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
     background_pressure = convert_to_float64(background_pressure, u"Pa")
 
-    if ncharge > 1 && electron_pressure_coupled > 0
-        @warn("Electron pressure coupled method not compatible with multiply-charged ions. Switching to uncoupled scheme")
-        electron_pressure_coupled = false
-    end
-
     if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
         throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
     end
 
     return Config(
         discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
-        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge, ion_temperature, anom_model, conductivity_model,
-        ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions, Float64(electron_pressure_coupled), min_number_density, min_electron_temperature, transition_function,
-        initial_condition, callback, magnetic_field_scale, source_neutrals,
+        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge,
+        ion_temperature, anom_model, conductivity_model,
+        ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions,
+        min_number_density, min_electron_temperature, transition_function,
+        initial_condition, magnetic_field_scale, source_neutrals,
         source_IC,
         source_IM,
         source_potential,
@@ -214,7 +209,6 @@ function configure_fluids(config)
 end
 
 function configure_index(fluids, fluid_ranges)
-    lf = fluid_ranges[end][end]
     first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
@@ -230,10 +224,6 @@ function configure_index(fluids, fluid_ranges)
 
     keys_fluids = (keys_neutrals..., keys_ions...)
     values_fluids = (values_neutrals..., values_ions...)
-    keys_electrons = (:nϵ,)
-    values_electrons = (lf + 1,)
-    index_keys = (keys_fluids..., keys_electrons..., :lf)
-    index_values = (values_fluids..., values_electrons..., lf)
-    index = NamedTuple{index_keys}(index_values)
+    index = NamedTuple{keys_fluids}(values_fluids)
     return index
 end

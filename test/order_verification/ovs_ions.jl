@@ -4,7 +4,6 @@ include("ovs_funcs.jl")
 
 using HallThruster
 using LinearAlgebra
-using Plots
 using Symbolics
 
 @variables x t
@@ -51,54 +50,36 @@ ui_func = eval(build_function(ui, [x]))
 
 continuity_neutrals = Dt(ρn) + un * Dx(ρn) + ne * ρn * k_ionization(ϵ)
 continuity_ions = Dt(ρi) + Dx(ρiui) - ne * ρn * k_ionization(ϵ)
-
-# Test that conservative and non-conservative forms are both satisfied, as well as both coupled and uncoupled
-momentum_conservative_uncoupled = Dt(ρiui) + Dx(ρi * ui^2 + p) + e * ne * ∇ϕ
-momentum_conservative_coupled = Dt(ρiui) + Dx(ρi * ui^2 + p + pe) + e * ne * ue / μ
-momentum_nonconservative_uncoupled = ρi * (Dt(ui) + ui * Dx(ui) + nn * ui * k_ionization(ϵ)) + ∇p + e * ne * ∇ϕ
-momentum_nonconservative_coupled = ρi * (Dt(ui) + ui * Dx(ui) + nn * ui * k_ionization(ϵ)) + ∇p + ∇pe + e * ne * ue / μ
+momentum_ions = Dt(ρiui) + Dx(ρi * ui^2 + p) + e * ne * ∇ϕ
 
 source_ρn = eval(build_function(expand_derivatives(continuity_neutrals), [x]))
 source_ρi = eval(build_function(expand_derivatives(continuity_ions), [x]))
-source_ρiui_conservative_uncoupled = eval(build_function(expand_derivatives(momentum_conservative_uncoupled), [x]))
-source_ρiui_conservative_coupled   = eval(build_function(expand_derivatives(momentum_conservative_coupled), [x]))
-source_ρiui_nonconservative_uncoupled = eval(build_function(expand_derivatives(momentum_nonconservative_uncoupled), [x]))
-source_ρiui_nonconservative_coupled   = eval(build_function(expand_derivatives(momentum_nonconservative_coupled), [x]))
+source_ρiui = eval(build_function(expand_derivatives(momentum_ions), [x]))
 
-function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative = true, make_plots = false)
-
+function solve_ions(ncells, scheme; t_end = 1e-4)
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
     propellant = HallThruster.Xenon
 
-    source_momentum = if conservative && coupled
-        source_ρiui_conservative_coupled
-    elseif conservative && !coupled
-        source_ρiui_conservative_uncoupled
-    elseif !conservative && coupled
-        source_ρiui_nonconservative_uncoupled
-    elseif !nonconservative  && !coupled
-        source_ρiui_nonconservative_uncoupled
-    end
-
     thruster = HallThruster.SPT_100
 
     A_ch = HallThruster.channel_area(thruster)
-    anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un *ρi_func(0.0))* A_ch
+    anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un * ρi_func(0.0))* A_ch
 
     config = (;
         thruster,
-        source_neutrals = ((U, p, i) -> source_ρn(p.z_cell[i]),),
+        source_neutrals = (
+            (U, p, i) -> source_ρn(p.z_cell[i]),
+        ),
         source_ion_continuity = (
             (U, p, i) -> source_ρi(p.z_cell[i]),
         ),
         source_ion_momentum = (
-            (U, p, i) -> source_momentum(p.z_cell[i]),
+            (U, p, i) -> source_ρiui(p.z_cell[i]),
         ),
         propellant,
         ncharge = 1,
-        electron_pressure_coupled = true,
         min_electron_temperature = 1.0,
         neutral_velocity = un,
         neutral_temperature = 300.0,
@@ -157,15 +138,13 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     U[index.ρn[1], :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
-    U[index.nϵ, :] = nϵ
 
     amax = maximum(abs.(ui_exact) .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
-
-    tspan = (0, t_end)
     dt .= 0.1 * minimum(Δz_cell) / amax
     dt_cell .= dt[]
-
-    cache = (;ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E)
+    k = zeros(size(U))
+    u1 = zeros(size(U))
+    cache = (;k, u1, ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ)
 
     params = (;
         index,
@@ -194,13 +173,18 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end-1]
-        HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
-        for i in eachindex(U)
-            U[i] += dt[] * dU[i]
-            if isnan(U[i]) || isinf(U[i])
-                t = Inf
-            end
-        end
+        # HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
+        # for i in eachindex(U)
+        #     U[i] += dt[] * dU[i]
+        #     if isnan(U[i]) || isinf(U[i])
+        #         t = Inf
+        #     end
+        # end
+        # t += dt[]
+        HallThruster.ssprk22_step!(
+            U, (dU, U, params, t) -> HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false),
+            params, t, dt[]
+        )
         t += dt[]
     end
 
@@ -210,24 +194,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4, coupled = true, conservative =
     ρi_sim = sol.u[end][index.ρi[1], :]
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim
-
-    if (make_plots)
-        z = grid.cell_centers
-        p = plot(; title = "nn")
-        plot!(p, z, ρn_sim, label = "Sim")
-        plot!(p, z, ρn_exact, label = "Exact")
-        savefig(p, "nn_$ncells.png")
-
-        p = plot(; z, title = "ni")
-        plot!(p, z, ρi_sim, label = "Sim")
-        plot!(p, z, ρi_exact, label = "Exact")
-        savefig(p, "ni_$ncells.png")
-
-        p = plot(; title = "niui")
-        plot!(p, z, ρiui_sim, label = "Sim")
-        plot!(p, z, ρi_exact .* ui_exact, label = "Exact")
-        savefig(p, "niui_$ncells.png")
-    end
 
     return (
         ρn = (;z_cell, sim = ρn_sim, exact = ρn_exact),

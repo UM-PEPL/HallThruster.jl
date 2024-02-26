@@ -54,7 +54,6 @@ include("collisions/collision_frequencies.jl")
 
 include("simulation/initialization.jl")
 include("simulation/geometry.jl")
-include("simulation/postprocess.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/heavy_species.jl")
@@ -63,14 +62,17 @@ include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
 include("simulation/update_electrons.jl")
 include("simulation/configuration.jl")
-include("simulation/restart.jl")
-include("simulation/ssprk_step.jl")
+include("simulation/solution.jl")
 include("simulation/simulation.jl")
+include("simulation/restart.jl")
+include("simulation/postprocess.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
 export time_average, Xenon, Krypton
 
+# this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
+# routines are compiled at pre-compile time
 function example_simulation(;ncells, duration, dt, nsave)
     config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
@@ -90,7 +92,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
     )
-    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.9, verbose = false)
+    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
     HallThruster.time_average(sol_1)
     HallThruster.discharge_current(sol_1)
     HallThruster.thrust(sol_1)

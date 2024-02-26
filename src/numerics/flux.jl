@@ -4,28 +4,28 @@ Base.@kwdef struct HyperbolicScheme{F, L}
     reconstruct::Bool = true
 end
 
-function flux(U::NTuple{1, T}, fluid, pe = 0.0) where T
+@inline function flux(U::NTuple{1, T}, fluid) where T
     ρ = U[1]
-    u = velocity(U, fluid)
+    u = fluid.conservation_laws.u
     return (ρ * u,)
 end
 
-function flux(U::NTuple{2, T}, fluid, pe = 0.0) where T
+@inline function flux(U::NTuple{2, T}, fluid) where T
     ρ, ρu = U
-    u = velocity(U, fluid)
     p = pressure(U, fluid)
-
-    return (ρu, ρu * u + p + pe)
+    return (ρu, ρu^2 / ρ + p)
 end
 
-function flux(U::NTuple{3, T}, fluid, pe = 0.0) where T
+@inline function flux(U::NTuple{3, T}, fluid) where T
     ρ, ρu, ρE = U
-    u = U[2] / U[1]
+    u = ρu / ρ
     p = pressure(U, fluid)
     ρH = ρE + p
-    return (ρu, ρu * u + p + pe, ρH * u)
+    return (ρu, ρu * u + p, ρH * u)
 end
 
+# i forget why i did things this way. this seems super unnecessary, but we'll get to it
+# oh yeah, it was because I removed StaticArrays
 macro NTuple(ex)
     if !isa(ex, Expr)
         error("Bad input for @NTuple")
@@ -73,24 +73,19 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function upwind(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid::Fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function upwind(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid::Fluid, args...) where T
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
 
-        peL = neL * TeL
-        peR = neR * TeR
-
         avg_velocity = 0.5 * (uL + uR)
-
-        Z = fluid.species.Z
         if avg_velocity ≥ 0
-            return flux(UL, fluid, Z * coupled * e * peL)
+            return flux(UL, fluid)
         else
-            return flux(UR, fluid, Z * coupled * e * peR)
+            return flux(UR, fluid)
         end
     end
 
-    function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -102,44 +97,32 @@ for NUM_CONSERVATIVE in 1:3
 
         mi = m(fluid)
 
-        peL = neL * TeL
-        peR = neR * TeR
-
-        charge_factor = Z * e * coupled
-
-        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+        aL = sqrt((γ * kB * TL) / mi)
+        aR = sqrt((γ * kB * TR) / mi)
 
         sL_max = max(abs(uL - aL), abs(uL + aL))
         sR_max = max(abs(uR - aR), abs(uR + aR))
 
         smax = max(sL_max, sR_max)
 
-        FL = flux(UL, fluid, charge_factor * peL)
-        FR = flux(UR, fluid, charge_factor * peR)
+        FL = flux(UL, fluid)
+        FR = flux(UR, fluid)
 
         return @NTuple [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
-    function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, args...) where T
+    function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
+        mi = m(fluid)
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
-
-        peL = TeL * neL
-        peR = TeR * neR
-
         TL = temperature(UL, fluid)
         TR = temperature(UR, fluid)
 
-        mi = m(fluid)
-
-        charge_factor = Z * e * coupled
-
-        aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-        aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+        aL = sqrt((γ * kB * TL) / mi)
+        aR = sqrt((γ * kB * TR) / mi)
 
         sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
         sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
@@ -147,8 +130,8 @@ for NUM_CONSERVATIVE in 1:3
         smin = min(sL_min, sR_min)
         smax = max(sL_max, sR_max)
 
-        FL = flux(UL, fluid, charge_factor * peL)
-        FR = flux(UR, fluid, charge_factor * peR)
+        FL = flux(UL, fluid)
+        FR = flux(UR, fluid)
 
         return @NTuple[
             0.5 * (FL[j] + FR[j]) -
@@ -158,20 +141,15 @@ for NUM_CONSERVATIVE in 1:3
         ]
     end
 
-    function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, coupled = false, TeL = 0.0, TeR = 0.0, neL = 1.0, neR = 1.0, λ_global = 0.0, args...) where T
+    function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, λ_global = 0.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
 
-        peL = TeL * neL
-        peR = TeR * neR
-
-        charge_factor = Z * e * coupled
-
-        FL = flux(UL, fluid, charge_factor * peL)
-        FR = flux(UR, fluid, charge_factor * peR)
+        FL = flux(UL, fluid)
+        FR = flux(UR, fluid)
 
         return @NTuple[
             0.5 * (FL[j] + FR[j]) + 0.5 * λ_global * (UL[j] - UR[j])
@@ -244,50 +222,25 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (;config, index, fluids, Δz_edge, z_cell, num_neutral_fluids) = params
-    λ_global = params.cache.λ_global
-    (;propellant, electron_pressure_coupled, scheme, ncharge) = config
+    (;config, index, fluids, Δz_edge, num_neutral_fluids, cache) = params
+    (;λ_global) = cache
+    (;propellant, scheme, ncharge) = config
     ncells = size(U, 2)
 
-    coupled = electron_pressure_coupled
     mi = propellant.m
     nedges = ncells-1
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(UL, UR, U, params; apply_boundary_conditions)
 
-    # The contribution to the electron-pressure-coupled method will be 3/2 Te if we're using LANDMARK, since pe = nϵ in that benchmark
-    if params.config.LANDMARK
-        Te_fac = 1.0
-    else
-        Te_fac = 2/3
-    end
-
     # Compute maximum wave speed in domain and use this to update the max allowable timestep, if using adaptive timestepping
     @inbounds for i in 1:nedges
-        # Compute number density
-        neL = 0.0
-        neR = 0.0
-        for Z in 1:ncharge
-            niL = UL[index.ρi[Z], i] / mi
-            niR = UR[index.ρi[Z], i] / mi
-            neL = neL + Z * niL
-            neR = neR + Z * niR
-        end
-
-        Δz = Δz_edge[i]
-
-        # Compute electron temperature
-        TeL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
-        TeR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
-
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
         for j in 1:num_neutral_fluids
             neutral_fluid = fluids[j]
             U_neutrals = (U[index.ρn[j], i],)
             u = velocity(U_neutrals, neutral_fluid)
-
             λ_global[j] = abs(u)
         end
 
@@ -304,13 +257,9 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             uR = velocity(UR_ions, fluid)
             TR = temperature(UR_ions, fluid)
 
-            # If we're using the electron-pressure-coupled method, then the sound speed includes a contribution from
-            # the electron temperature and approaches the ion acoustic speed
-            charge_factor = Z * e * coupled
-
             # Sound speeds
-            aL = sqrt((charge_factor * TeL + γ * kB * TL) / mi)
-            aR = sqrt((charge_factor * TeR + γ * kB * TR) / mi)
+            aL = sqrt((γ * kB * TL) / mi)
+            aR = sqrt((γ * kB * TR) / mi)
 
             # There are several possible waves, with speeds, u-a, u+a, and u, both left- and right-running
             λ₁₂⁺ = 0.5 * (uR + abs(uR))
@@ -324,7 +273,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
 
             # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
-            dt_max = Δz / s_max
+            dt_max = Δz_edge[i] / s_max
             params.cache.dt_u[i] = dt_max
 
             # Update maximum wavespeeds and maximum allowable timestep
@@ -333,27 +282,12 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
     end
 
     @inbounds for i in 1:nedges
-
-        # Compute electron number density
-        neL = 0.0
-        neR = 0.0
-        for Z in 1:ncharge
-            ni_L = UL[index.ρi[Z], i] / mi
-            ni_R = UR[index.ρi[Z], i] / mi
-            neL = neL + Z * ni_L
-            neR = neR + Z * ni_R
-        end
-
-        # Compute electron temperature
-        ϵL = max(params.config.min_electron_temperature, Te_fac * UL[index.nϵ, i] / neL)
-        ϵR = max(params.config.min_electron_temperature, Te_fac * UR[index.nϵ, i] / neR)
-
         # Neutral fluxes at edge i
         for j in 1:params.num_neutral_fluids
             left_state_n  = (UL[index.ρn[j], i],)
             right_state_n = (UR[index.ρn[j], i],)
 
-            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], coupled, ϵL, ϵR, neL, neR, λ_global[j])[1]
+            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], λ_global[j])[1]
         end
 
         # Ion fluxes at edge i
@@ -361,11 +295,10 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             left_state_i  = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i],)
             right_state_i = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i],)
             fluid_ind = Z + num_neutral_fluids
-            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[fluid_ind], coupled, ϵL, ϵR, neL, neR, λ_global[fluid_ind])
+            F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[fluid_ind], λ_global[fluid_ind])
             F[index.ρi[Z],   i] = F_mass
             F[index.ρiui[Z], i] = F_momentum
         end
-
     end
 
     return F

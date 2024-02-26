@@ -17,11 +17,11 @@ const minmod = SlopeLimiter(r -> min(2 / (1 + r), 2r / (1 + r)))
 const koren = SlopeLimiter(r -> max(0, min(2r, min((1 + 2r) / 3, 2))) * 2 / (r+1))
 const osher(β) = SlopeLimiter(r -> (max(0, min(r, β))) * 2 / (r+1))
 
-function stage_limiter!(U, integrator, p, t)
+function stage_limiter!(U, p)
     ncells = size(U, 2)
+    (;nϵ) = p.cache
     min_density = p.config.min_number_density * p.config.propellant.m
     @inbounds for i in 1:ncells
-
         for j in 1:p.num_neutral_fluids
             U[p.index.ρn[j], j] = max(U[p.index.ρn[j], j], min_density)
         end
@@ -32,6 +32,6 @@ function stage_limiter!(U, integrator, p, t)
             U[p.index.ρi[Z], i] = density_floor
             U[p.index.ρiui[Z], i] = density_floor * velocity
         end
-        U[p.index.nϵ, i] = max(U[p.index.nϵ, i], p.config.min_number_density * p.config.min_electron_temperature)
+        nϵ[i] = max(nϵ[i], p.config.min_number_density * p.config.min_electron_temperature)
     end
 end

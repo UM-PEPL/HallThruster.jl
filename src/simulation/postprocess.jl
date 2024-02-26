@@ -1,21 +1,3 @@
-struct Solution{T, U, P, S}
-    t::T
-    u::U
-    savevals::S
-    retcode::Symbol
-    params::P
-end
-
-function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
-end
-
-function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
-    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
-    println(io, "Retcode: $(string(sol.retcode))")
-    print(io, "End time: $(sol.t[end]) seconds")
-end
-
 """
     time_average(sol, tstampstart)
 compute time-averaged solution, input Solution type and the frame at which averaging starts.
@@ -221,7 +203,7 @@ function load_landmark_data(case, suffix; ncells = 100)
     z_ϕ, ϕ = potential_file[:, 1], potential_file[:, 2]
     ϕ_itp = LinearInterpolation(z_ϕ, ϕ)
 
-    zs = LinRange(0, 0.05, ncells)
+    zs = range(0, 0.05, length = ncells)
 
     ui = fill(NaN, length(zs))
     ue = fill(NaN, length(zs))

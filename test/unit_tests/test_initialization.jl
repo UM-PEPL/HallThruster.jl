@@ -42,7 +42,7 @@
     @test abs((U[index.ρn[1], 1] / U[index.ρn[1],end]) - 100) < 1
 
     ne = [HallThruster.electron_density(U, params, i) for i in 1:ncells+2]
-    ϵ = U[index.nϵ, :] ./ ne
+    ϵ = params.cache.nϵ ./ ne
 
     ui = [
         U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:config.ncharge
@@ -127,8 +127,8 @@ end
 
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui, :nϵ, :lf)
-    @test values(index) == ([1], [2, 4, 6], [3, 5, 7], 8, 7)
+    @test keys(index) == (:ρn, :ρi, :ρiui)
+    @test values(index) == ([1], [2, 4, 6], [3, 5, 7])
 
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))
@@ -170,8 +170,8 @@ end
     @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui, :nϵ, :lf)
-    @test values(index) == ([1], [2, 4, 6], [3, 5, 7], 8, 7)
+    @test keys(index) == (:ρn, :ρi, :ρiui)
+    @test values(index) == ([1], [2, 4, 6], [3, 5, 7])
 
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))

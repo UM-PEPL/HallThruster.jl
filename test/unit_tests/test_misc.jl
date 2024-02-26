@@ -5,7 +5,7 @@
 end
 
 @testset "Linear Interpolation" begin
-    xs = LinRange(1., 100., 100)
+    xs = range(1., 100., length = 100)
     ys = xs .+ 0.1
     @test [HallThruster.find_left_index(y, xs) for y in ys] == round.(Int, collect(xs))
     @test HallThruster.find_left_index(1000, xs) == 100
@@ -26,16 +26,16 @@ end
     index = (ρn = [1], ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6, min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
 
-    p = (; config, index, num_neutral_fluids = 1)
+    p = (; config, index, num_neutral_fluids = 1, cache = (;nϵ = [-1.0]))
     U = [-1.0, -1.0, -1.0, -1.0]
-    HallThruster.stage_limiter!(U, nothing, p, 0.0)
+    HallThruster.stage_limiter!(U, p)
 
     mi = config.propellant.m
 
     @test U[index.ρn[1]] == config.min_number_density * mi
     @test U[index.ρi[1]] == config.min_number_density * mi
     @test U[index.ρiui[1]] == 1.0 * config.min_number_density * mi
-    @test U[index.nϵ] == config.min_number_density * config.min_electron_temperature
+    @test p.cache.nϵ[1] == config.min_number_density * config.min_electron_temperature
 
 end
 
@@ -112,7 +112,7 @@ end
         Xe_III
     ]
 
-    nvars = 2 + 1 + 2 + 2 + 3
+    nvars = 2 + 2 + 2 + 3
 
     U, cache = HallThruster.allocate_arrays(grid, fluids)
 

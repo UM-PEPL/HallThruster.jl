@@ -31,7 +31,7 @@ end
 
 function load_reactions(model::IonizationLookup, species)
     species_sorted = sort(species; by=x -> x.Z)
-    reactions = IonizationReaction{LinearInterpolation{LinRangeWrapper{Float64, Int},Vector{Float64}}}[]
+    reactions = []
     folders = [model.directories; REACTION_FOLDER]
     for i in 1:length(species)
         for j in (i + 1):length(species)
@@ -54,7 +54,7 @@ function load_reactions(model::IonizationLookup, species)
         end
     end
 
-    return reactions
+    return [r for r in reactions]
 end
 
 

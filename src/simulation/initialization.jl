@@ -10,7 +10,7 @@ function initialize!(U, params, model::InitialCondition)
 end
 
 function initialize!(U, params, ::DefaultInitialization)
-    (;z_cell, config, index) = params
+    (;z_cell, config, index, cache) = params
     (;ncharge, anode_Te, cathode_Te, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
@@ -65,7 +65,7 @@ function initialize!(U, params, ::DefaultInitialization)
             U[index.ρiui[Z], i] = ion_density_function(z, Z) * ion_velocity_function(z, Z)
         end
 
-        U[index.nϵ, i] = number_density_function(z) * energy_function(z)
+        cache.nϵ[i] = number_density_function(z) * energy_function(z)
     end
 
     return U

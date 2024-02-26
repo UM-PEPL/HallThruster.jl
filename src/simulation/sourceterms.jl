@@ -1,5 +1,5 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
-    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices) = params
+    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache) = params
 
     ne = electron_density(U, params, i)
     K = if params.config.LANDMARK
@@ -8,7 +8,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
         params.cache.K[i]
     end
 
-    ϵ  = U[index.nϵ, i] / ne + K
+    ϵ  = cache.nϵ[i] / ne + K
 
     dt_max = Inf
 
@@ -50,23 +50,15 @@ end
 
 function apply_ion_acceleration!(dU, U, params, i)
     (;cache, config, index, z_edge) = params
-    (;∇ϕ, ue, μ) = cache
-    coupled = config.electron_pressure_coupled
+    E = -cache.∇ϕ[i]
     mi = params.config.propellant.m
-
     dt_max = Inf
 
     Δx = z_edge[right_edge(i)] - z_edge[left_edge(i)]
 
     @inbounds for Z in 1:config.ncharge
-
-        Q_coupled = ue[i] / μ[i]
-        Q_uncoupled = ∇ϕ[i]
-
-        Q_accel = -Z * e * U[index.ρi[Z], i] / mi * (coupled * Q_coupled + (1 - coupled) * Q_uncoupled)
-
-        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(∇ϕ[i])))
-
+        Q_accel = Z * e * U[index.ρi[Z], i] / mi * E
+        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(E)))
         dU[index.ρiui[Z], i] += Q_accel
     end
 
@@ -91,24 +83,20 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 
     @inbounds for Z in 1:ncharge
-        
+
         in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
         νiw = α * in_channel * u_bohm / Δr
 
         density_loss  = U[index.ρi[Z], i] * νiw
         momentum_loss = U[index.ρiui[Z], i] * νiw
-        
+
         dU[index.ρi[Z],   i] -= density_loss
         dU[index.ρiui[Z], i] -= momentum_loss
-        
+
         # Neutrals gain density due to ion recombination at the walls
         dU[index.ρn[1], i] += density_loss
     end
-end
-
-function source_electron_energy!(Q, U, params, i)
-    Q[params.index.nϵ] = source_electron_energy(U, params, i)
 end
 
 function inelastic_losses!(U, params, i)
