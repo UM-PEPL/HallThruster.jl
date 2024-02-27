@@ -20,7 +20,7 @@ end
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
+@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
 
 function compute_Z_eff(U, params, i::Int)
     (;index) = params
@@ -49,7 +49,7 @@ end
     freq_electron_electron(ne, Tev)
 Effective frequency at which electrons are scattered due to collisions with other electrons
 """
-@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne * coulomb_logarithm(ne, Tev) / Tev^1.5
+@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne * coulomb_logarithm(ne, Tev) / sqrt(Tev^3)
 
 function freq_electron_electron(U, params, i)
     ne = params.cache.ne[i]
