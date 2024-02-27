@@ -48,9 +48,9 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
         HallThruster.update_electron_energy!(U, params, dt)
-        params.νiz[i] .= 0.0
-        params.νex[i] .= 0.0
-        params.inelastic_losses[i] .= 0.0
+        params.cache.νiz .= 0.0
+        params.cache.νex .= 0.0
+        params.cache.inelastic_losses .= 0.0
         params.config.conductivity_model(params.cache.κ, params) # update thermal conductivity
         residual = Lp_norm(params.cache.nϵ .- nϵ_old, 2)
         if iter == 1
