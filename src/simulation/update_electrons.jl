@@ -85,7 +85,7 @@ function update_electrons!(U, params, t = 0)
     end
 
     # Update anomalous transport
-    params.config.anom_model(νan, params)
+    t > 0 && params.config.anom_model(νan, params)
 
     # Smooth anomalous transport model
     if params.config.anom_smoothing_iters > 0

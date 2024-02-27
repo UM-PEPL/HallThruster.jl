@@ -144,7 +144,9 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     dt_cell .= dt[]
     k = zeros(size(U))
     u1 = zeros(size(U))
-    cache = (;k, u1, ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ)
+    inelastic_losses = zeros(ncells+2)
+    νiz = zeros(ncells+2)
+    cache = (;k, u1, ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
 
     params = (;
         index,

@@ -45,7 +45,6 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
         end
     end
 
-   # @show νiz[i]
     params.cache.dt_iz[i] = dt_max
 end
 
@@ -104,7 +103,7 @@ end
 
 function excitation_losses!(U, params, i)
     (;excitation_reactions, cache, excitation_reactant_indices) = params
-    (;νex, νiz, Tev, inelastic_losses, K) = cache
+    (;νex, Tev, inelastic_losses) = cache
     mi = params.config.propellant.m
     ne = cache.ne[i]
 
@@ -113,7 +112,7 @@ function excitation_losses!(U, params, i)
         0.0
     else
         # Include kinetic energy contribution
-        K[i]
+        cache.K[i]
     end
 
     # Total electron energy

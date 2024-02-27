@@ -35,7 +35,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ρn_func = eval(build_function(ρn, [x]))
 ϵ_func = eval(build_function(ϵ, [x]))
 
-k(ϵ) = 12.12 * OVS_rate_coeff_iz(ϵ) + 8.32 * OVS_rate_coeff_ex(ϵ)
+k(ϵ) = 8.32 * OVS_rate_coeff_ex(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5/3 * nϵ * ue - 10/9 * μ * nϵ * Dx(nϵ/ne)) + ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
@@ -48,6 +48,9 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
         HallThruster.update_electron_energy!(U, params, dt)
+        params.νiz[i] .= 0.0
+        params.νex[i] .= 0.0
+        params.inelastic_losses[i] .= 0.0
         params.config.conductivity_model(params.cache.κ, params) # update thermal conductivity
         residual = Lp_norm(params.cache.nϵ .- nϵ_old, 2)
         if iter == 1
