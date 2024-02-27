@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;index, control_current, target_current, Kp, Ti) = params
+    (;index, control_current, target_current, Kp, Ti, mi) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, νew,
         Z_eff, νiz, νex, νe, ji, Id, νew, κ, ni, ui, Vs, nn, nn_tot, niui,
@@ -20,29 +20,40 @@ function update_electrons!(U, params, t = 0)
 
     ncells = size(U, 2)
 
-    # Update electron quantities
+    # Update plasma quantities
     @inbounds for i in 1:ncells
-
-        # Compute neutral number densities for each neutral fluid
+        # Compute number density for each neutral fluid
         nn_tot[i] = 0.0
         for j in 1:params.num_neutral_fluids
             nn[j, i] = U[index.ρn[j], i] / params.config.propellant.m
             nn_tot[i] += nn[j, i]
         end
 
-        # Compute ion densities and velocities
-        for Z in 1:params.config.ncharge
-            ni[Z, i] = U[index.ρi[Z], i] / params.config.propellant.m
-            ui[Z, i] = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
-            niui[Z, i] = U[index.ρiui[Z], i] / params.config.propellant.m
+        # Compute ion derived quantities
+        ne[i] = 0.0
+        Z_eff[i] = 0.0
+        ji[i] = 0.0
+        @inbounds for Z in 1:params.config.ncharge
+            _ni = U[index.ρi[Z], i] / mi
+            _niui = U[index.ρiui[Z], i] / mi
+            ni[Z, i] = _ni
+            niui[Z, i] = _niui
+            ui[Z, i] = _niui / _ni
+            ne[i] += Z * _ni
+            Z_eff[i] += _ni
+            ji[i] += Z * e * _niui
         end
 
         # Compute electron number density, making sure it is above floor
-        ne[i] = max(params.config.min_number_density, electron_density(U, params, i))
+        ne[i] = max(params.config.min_number_density, ne[i])
 
-        # Same with electron temperature
+        # Effective ion charge state (density-weighted average charge state)
+        Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
+
+        # Compute new electron temperature
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, nϵ[i]/ne[i])
 
+        # Compute electron pressure
         pe[i] = if params.config.LANDMARK
             # The LANDMARK benchmark uses nϵ instead of pe in the potential solver, but we use pe, so
             # we need to define pe = 3/2 ne Tev
@@ -51,18 +62,25 @@ function update_electrons!(U, params, t = 0)
             # Otherwise, just use typical ideal gas law.
             ne[i] * Tev[i]
         end
+    end
+
+    # Update electron-ion collisions
+    if (params.config.electron_ion_collisions)
+        @inbounds for i in 1:ncells
+            νei[i] = freq_electron_ion(ne[i], Tev[i], Z_eff[i])
+        end
+    end
+
+    # Update other collisions
+    @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(U, params, i)
-        νei[i] = freq_electron_ion(U, params, i)
+        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn_tot[i], Tev[i])
 
         # Compute total classical collision frequency
-        νc[i] = νen[i] + νei[i]
-        if !params.config.LANDMARK
-            # Add momentum transfer due to ionization and excitation
-            νc[i] += νiz[i] + νex[i]
-        end
+        # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
+        νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
-        # Compute anomalous collision frequency and wall collision frequencies
+        # Compute wall collision frequency
         νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
     end
 
@@ -81,12 +99,6 @@ function update_electrons!(U, params, t = 0)
         # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew[i]
         μ[i] = electron_mobility(νe[i], B[i])
-
-        # Effective ion charge state (density-weighted average charge state)
-        Z_eff[i] = compute_Z_eff(U, params, i)
-
-        # Ion current
-        ji[i] = ion_current_density(U, params, i)
     end
 
     # Compute anode sheath potential
