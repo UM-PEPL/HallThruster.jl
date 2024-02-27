@@ -2,7 +2,7 @@
     freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Number, Tev::Number) where T
+@inline function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Number, Tev::Number) where T
     νen = 0.0
     @inbounds for c in collisions
         νen += c.rate_coeff(3/2 * Tev) * nn
@@ -20,42 +20,13 @@ end
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / Tev^1.5
-
-function compute_Z_eff(U, params, i::Int)
-    (;index) = params
-    mi = params.config.propellant.m
-    # Compute effective charge state
-    ne = electron_density(U, params, i)
-    ni_sum = sum(U[index.ρi[Z], i]/mi for Z in 1:params.config.ncharge)
-    Z_eff = ne / ni_sum
-    return Z_eff
-end
-
-function freq_electron_ion(U, params, i::Int)
-    if params.config.electron_ion_collisions
-        # Compute effective charge state
-        ne = params.cache.ne[i]
-        Z_eff = params.cache.Z_eff[i]
-        Tev = params.cache.Tev[i]
-        νei = Tev ≤ 0.0 || ne ≤ 0.0 || Z_eff < 1 ? 0.0 : freq_electron_ion(ne, Tev, Z_eff)
-        return νei
-    else
-        return 0.0
-    end
-end
+@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
 
 """
     freq_electron_electron(ne, Tev)
 Effective frequency at which electrons are scattered due to collisions with other electrons
 """
-@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne * coulomb_logarithm(ne, Tev) / Tev^1.5
-
-function freq_electron_electron(U, params, i)
-    ne = params.cache.ne[i]
-    Tev = params.cache.Tev[i]
-    return freq_electron_electron(ne, Tev)
-end
+@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne * coulomb_logarithm(ne, Tev) / sqrt(Tev^3)
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)

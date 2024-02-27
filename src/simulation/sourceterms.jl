@@ -1,5 +1,6 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
     (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache) = params
+    (;inelastic_losses, νiz) = cache
 
     ne = electron_density(U, params, i)
     K = if params.config.LANDMARK
@@ -11,17 +12,19 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
     ϵ  = cache.nϵ[i] / ne + K
 
     dt_max = Inf
+    νiz[i] = 0.0
+    inelastic_losses[i] = 0.0
 
     @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         product_index = product_inds[]
-
         rate_coeff = rxn.rate_coeff(ϵ)
 
         for reactant_index in reactant_inds
             ρ_reactant = U[reactant_index, i]
-
             ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
-
+            ndot = ρdot / params.config.propellant.m
+            νiz[i] += ndot / ne
+            inelastic_losses[i] += ndot * rxn.energy
             dt_max = min(dt_max, ρ_reactant / ρdot)
 
             # Change in density due to ionization
@@ -83,7 +86,6 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 
     @inbounds for Z in 1:ncharge
-
         in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
         νiw = α * in_channel * u_bohm / Δr
@@ -99,10 +101,9 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 end
 
-function inelastic_losses!(U, params, i)
-    (;ionization_reactions, excitation_reactions, cache, ionization_reactant_indices, excitation_reactant_indices) = params
-    (;νex, νiz, Tev) = cache
-    inelastic_loss = 0.0
+function excitation_losses!(U, params, i)
+    (;excitation_reactions, cache, excitation_reactant_indices) = params
+    (;νex, Tev, inelastic_losses) = cache
     mi = params.config.propellant.m
     ne = cache.ne[i]
 
@@ -117,30 +118,18 @@ function inelastic_losses!(U, params, i)
     # Total electron energy
     ϵ = 3/2 * Tev[i] + K
 
-    νiz[i] = 0.0
     νex[i] = 0.0
-
-    @inbounds for (reactant_inds, rxn) in zip(ionization_reactant_indices, ionization_reactions)
-        rate_coeff = rxn.rate_coeff(ϵ)
-        for reactant_index in reactant_inds
-            n_reactant = U[reactant_index, i] / mi
-            ndot = reaction_rate(rate_coeff, ne, n_reactant)
-            inelastic_loss += ndot * rxn.energy
-            νiz[i] += ndot / ne
-        end
-    end
-
     @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
         rate_coeff = rxn.rate_coeff(ϵ)
         for reactant_index in reactant_inds
             n_reactant = U[reactant_index, i] / mi
             ndot = reaction_rate(rate_coeff, ne, n_reactant)
-            inelastic_loss += ndot * (rxn.energy - K)
+            inelastic_losses[i] += ndot * (rxn.energy - K)
             νex[i] += ndot / ne
         end
     end
 
-    return inelastic_loss
+    return inelastic_losses[i]
 end
 
 function electron_kinetic_energy(U, params, i)
@@ -167,26 +156,18 @@ function source_electron_energy(U, params, i)
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
         K = params.cache.K[i]
         νe = params.cache.νe[i]
-
-        z = params.z_cell
-        pe = params.cache.pe
-
-        # Upwind difference for pressure gradient
-        if ue > 0
-            ∇pe = (pe[i] - pe[i-1]) / (z[i] - z[i-1])
-        else
-            ∇pe = (pe[i+1] - pe[i]) / (z[i+1] - z[i])
-        end
-
+        ∇pe = params.cache.∇pe[i]
         ohmic_heating = 2 * ne * K * νe + ue * ∇pe
     end
 
-    wall_loss      = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
-    inelastic_loss = inelastic_losses!(U, params, i)
+    # add excitation losses to total inelastic losses
+    excitation_losses!(U, params, i)
+
+    # compute wall losses
+    wall_loss = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
 
     params.cache.wall_losses[i] = wall_loss
-    params.cache.inelastic_losses[i] = inelastic_loss
     params.cache.ohmic_heating[i] = ohmic_heating
 
-    return ohmic_heating - wall_loss - inelastic_loss
+    return ohmic_heating - wall_loss - params.cache.inelastic_losses[i]
 end

@@ -224,10 +224,8 @@ end
     params_no_losses = (;base_params..., config = config_no_losses)
 
     for i in 1:4
-        cache.Z_eff[i] = HallThruster.compute_Z_eff(U, params_no_losses, i)
+        cache.Z_eff[i] = (ni_1 + 2 * ni_2) / (ni_1 + ni_2)
     end
-
-    @test cache.Z_eff[1] ≈ (ni_1 + 2 * ni_2) / (ni_1 + ni_2)
 
     u_bohm_1 = u_bohm
     u_bohm_2 = sqrt(2) * u_bohm

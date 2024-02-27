@@ -20,14 +20,26 @@ struct LinearInterpolation{X, Y}
 end
 
 @fastmath function interpolate(x::T, xs, ys; use_log = false) where {T}
-    isnan(x) && return NaN
     i = find_left_index(x, xs)
-
     i < 1          && return ys[1] / oneunit(T)
     i ≥ length(xs) && return ys[end] / oneunit(T)
-
     use_log && return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
     return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+end
+
+@inbounds function interpolate(x::T, xs::StepRangeLen, ys; use_log) where {T}
+    dx_inv = inv(xs.step.hi)
+    i = 1 + floor(Int, (x - xs[1]) * dx_inv)
+    i < 1          && return T(ys[1])
+    i ≥ length(xs) && return T(ys[end])
+    t = (x - xs[i]) * dx_inv
+    if (use_log)
+        y1 = log(ys[i+1])
+        y0 = log(ys[i])
+        return exp(muladd(t, y1 - y0, y0))
+    else
+        return muladd(t, ys[i+1] - ys[i], ys[i])
+    end
 end
 
 function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
