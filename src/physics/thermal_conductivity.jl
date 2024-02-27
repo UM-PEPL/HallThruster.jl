@@ -50,7 +50,7 @@ function (model::Mitchner)(κ, params)
         #calculate mobility using above collision frequency
         mobility = electron_mobility(ν, params.cache.B[i])
         #final calculation
-        κ[i] = (2.4 / (1 + params.cache.νei[i]   / √(2) / ν))   * mobility * params.cache.ne[i] * params.cache.Tev[i]
+        κ[i] = (2.4 / (1 + params.cache.νei[i] / (√(2) * ν))) * mobility * params.cache.ne[i] * params.cache.Tev[i]
     end
     return κ
 end
