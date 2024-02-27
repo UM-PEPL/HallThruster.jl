@@ -7,7 +7,6 @@ nvars(f::Fluid) = nvars(f.conservation_laws)
 
 function ranges(fluids)
     fluid_ranges = fill(1:1, length(fluids))
-
     start_ind = 1
     last_ind = 1
     for (i, f) in enumerate(fluids)

@@ -61,8 +61,6 @@ function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = tru
         )
 
         params.cache.dt[] = min(params.cache.dt_cell[i], params.cache.dt[])
-
-        dU[index.nϵ, i] = 0.0
     end
 
     params.cache.dt_cell[1] = params.cache.dt_cell[2]

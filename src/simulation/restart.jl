@@ -60,7 +60,6 @@ function load_restart(grid, fluids, config, path::AbstractString)
 end
 
 function load_restart(grid, fluids, config, sol::Solution)
-
     U, cache = HallThruster.allocate_arrays(grid, fluids)
 
     z_cell = sol.params.z_cell

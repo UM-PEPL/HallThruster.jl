@@ -35,25 +35,28 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ρn_func = eval(build_function(ρn, [x]))
 ϵ_func = eval(build_function(ϵ, [x]))
 
-k(ϵ) = 12.12 * OVS_rate_coeff_iz(ϵ) + 8.32 * OVS_rate_coeff_ex(ϵ)
+k(ϵ) = 8.32 * OVS_rate_coeff_ex(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5/3 * nϵ * ue - 10/9 * μ * nϵ * Dx(nϵ/ne)) + ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
 
 function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     t = 0.0
-    U_old = copy(U)
+    nϵ_old = copy(params.cache.nϵ)
     residual = Inf
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
         HallThruster.update_electron_energy!(U, params, dt)
-        params.config.conductivity_model(params.cache.κ, params)#update thermal conductivity
-        residual = Lp_norm(U .- U_old, 2)
+        params.cache.νiz .= 0.0
+        params.cache.νex .= 0.0
+        params.cache.inelastic_losses .= 0.0
+        params.config.conductivity_model(params.cache.κ, params) # update thermal conductivity
+        residual = Lp_norm(params.cache.nϵ .- nϵ_old, 2)
         if iter == 1
             res0 = residual
         end
-        U_old .= U
+        nϵ_old .= params.cache.nϵ
         t += dt
         iter += 1
     end
@@ -61,7 +64,7 @@ function solve_energy!(U, params, max_steps, dt, rtol = sqrt(eps(Float64)))
     return U, params
 end
 
-function verify_energy(ncells; niters = 20000, make_plots = false)
+function verify_energy(ncells; niters = 20000)
     index = (; ρn = 1, nϵ = 2)
 
     grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
@@ -91,7 +94,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     Te_R = nϵ_exact[end] / ne[end]
 
     U[1, :] = ρn
-    U[2, :] = Te_L * ne # Set initial temp to 3 eV
+    nϵ = Te_L * ne # Set initial temp to 3 eV
 
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
     bϵ = zeros(ncells)
@@ -119,7 +122,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false, 
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
         conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
@@ -137,9 +140,9 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     inelastic_losses = zeros(ncells)
     ohmic_heating = zeros(ncells)
     cache = (;
-        Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz, 
+        Aϵ, bϵ, μ, ϕ, ne, ue, ∇ϕ, Tev, pe, νex, νiz,
         wall_losses, ohmic_heating, inelastic_losses,
-        channel_area, dA_dz, κ, 
+        channel_area, dA_dz, κ, nϵ
     )
 
     Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
@@ -156,24 +159,23 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     )
 
     solve_energy!(U, params, niters, dt)
-    results_implicit = (;z = z_cell, exact = nϵ_exact, sim = U[2, :])
+    results_implicit = (;z = z_cell, exact = nϵ_exact, sim = params.cache.nϵ[:])
 
     # Test crank-nicholson implicit solve
-
     U[1, :] = ρn
-    U[2, :] .= Te_L * ne # set initial temp to 3 eV
+    params.cache.nϵ .= ne * Te_L
 
     config = (;
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false, 
+        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
         conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
-    dt = 8 / maximum(abs.(ue)) * (z_cell[2]-z_cell[1])
+    dt = 8 / maximum(abs.(ue)) * (z_cell[2] - z_cell[1])
     params = (;
-        z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R , cache, config,
+        z_cell, z_edge, index, Te_L = 2/3 * Te_L, Te_R = 2/3 * Te_R, cache, config,
         dt, L_ch, propellant,
         ionization_reactions,
         ionization_reactant_indices,
@@ -184,7 +186,7 @@ function verify_energy(ncells; niters = 20000, make_plots = false)
     )
 
     solve_energy!(U, params, niters, dt)
-    results_crank_nicholson = (;z = z_cell, exact = nϵ_exact, sim = U[2, :])
+    results_crank_nicholson = (;z = z_cell, exact = nϵ_exact, sim = params.cache.nϵ[:])
 
     return (results_implicit, results_crank_nicholson)
 end

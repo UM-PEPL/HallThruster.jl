@@ -6,14 +6,12 @@ struct LinearInterpolation{X, Y}
             throw(ArgumentError("x and y must have same length"))
         end
 
-        # Resample xs to be a uniform LinRange to speed up finding indices
+        # Resample x-values to be uniform to speed up finding indices
         if resample_uniform
             xmin, xmax = extrema(x)
             num = length(x) * resample_factor
-            itp = LinearInterpolation(x, y)
-
-            resampled_x = LinRangeWrapper(LinRange(xmin, xmax, num))
-            resampled_y = itp.(resampled_x)
+            resampled_x = range(xmin, xmax, num)
+            resampled_y = [interpolate(_x, x, y) for _x in resampled_x]
             return LinearInterpolation(resampled_x, resampled_y; resample_uniform = false)
         else
             return new{typeof(x),typeof(y)}(x, y)
@@ -21,33 +19,27 @@ struct LinearInterpolation{X, Y}
     end
 end
 
-struct LinRangeWrapper{T1, T2}
-    r::LinRange{T1, T2}
-    A::T1
-    B::T1
-end
-
-Base.length(r::LinRangeWrapper) = length(r.r)
-Base.getindex(r::LinRangeWrapper, args...) = getindex(r.r, args...)
-Base.iterate(r::LinRangeWrapper, args...) = iterate(r.r, args...)
-Base.firstindex(r::LinRangeWrapper, args...) = firstindex(r.r, args...)
-Base.lastindex(r::LinRangeWrapper, args...) = lastindex(r.r, args...)
-
-function LinRangeWrapper(r)
-    A = r.len / (r.stop - r.start)
-    b = -A * r.start
-    return LinRangeWrapper(r, A, b)
-end
-
 @fastmath function interpolate(x::T, xs, ys; use_log = false) where {T}
-    isnan(x) && return NaN
     i = find_left_index(x, xs)
-
     i < 1          && return ys[1] / oneunit(T)
     i ≥ length(xs) && return ys[end] / oneunit(T)
-
     use_log && return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
     return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+end
+
+@inbounds function interpolate(x::T, xs::StepRangeLen, ys; use_log) where {T}
+    dx_inv = inv(xs.step.hi)
+    i = 1 + floor(Int, (x - xs[1]) * dx_inv)
+    i < 1          && return T(ys[1])
+    i ≥ length(xs) && return T(ys[end])
+    t = (x - xs[i]) * dx_inv
+    if (use_log)
+        y1 = log(ys[i+1])
+        y0 = log(ys[i])
+        return exp(muladd(t, y1 - y0, y0))
+    else
+        return muladd(t, ys[i+1] - ys[i], ys[i])
+    end
 end
 
 function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
@@ -65,21 +57,6 @@ julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
 @inline function lerp(x, x0, x1, y0, y1)
     t = (x - x0) / (x1 - x0)
     return muladd(t, (y1 - y0), y0)
-end
-
-# ceil(Int, log2(x)) done with bitwise ops
-function bitwise_log2ceil(x)
-    count = 1
-    while x != 1
-        x >>= 0x01 # divide x by 2
-        count +=1
-    end
-    return count
-end
-
-@inline function find_left_index(val, r::LinRangeWrapper)
-    #ceil(Int, clamp(muladd(r.A, val, r.B), 0, r.r.len))
-    return searchsortedfirst(r.r, val) - 1
 end
 
 function find_left_index(value, array)
@@ -120,7 +97,6 @@ function cumtrapz(x, y, y0 = zero(typeof(y[1] * x[1])))
 end
 
 function cumtrapz!(cache, x, y, y0 = zero(typeof(y[1] * x[1])))
-
     cache[1] = y0
     @inbounds for i in 2:lastindex(x)
         Δx = x[i] - x[i-1]

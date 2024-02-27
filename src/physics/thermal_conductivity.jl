@@ -3,12 +3,10 @@
 The abstract supertype of all types of thermal conductivity models.
 Subtype this to define your own model.
 """
-
-
 abstract type ThermalConductivityModel end
 
 """
-Lookup for thermal conductivity coefficients, from Table 1 of 
+Lookup for thermal conductivity coefficients, from Table 1 of
 S. I. Braginskii, in Reviews of Plasma Physics, edited by M. A. Leontovich (Consultants Bureau, New York, 1965), Vol. 1, p. 205.
 """
 const LOOKUP_ZS = [1.0, 2.0, 3.0, 4.0, Inf]
@@ -43,26 +41,24 @@ end
     Mitchner, uses closure from M. Mitchner and C. H. Kruger, Jr., Partially Ionized Gases (John Wiley andSons, Inc., New York, 1973). Pg. 94
     Apply factor of 1/(1+Hallparam^2) to convert from parallel to perpendicular direction
 """
-
 struct Mitchner <: ThermalConductivityModel end
 
 function (model::Mitchner)(κ, params)
     for i in eachindex(κ)
         #use both classical and anomalous collision frequencies
         ν = (params.cache.νc[i] +  params.cache.νan[i])
-        #calculate mobility using above collision frequency 
+        #calculate mobility using above collision frequency
         mobility = electron_mobility(ν, params.cache.B[i])
         #final calculation
-        κ[i] = (2.4 / (1 + params.cache.νei[i]   / √(2) / ν))   * mobility * params.cache.ne[i] * params.cache.Tev[i]
+        κ[i] = (2.4 / (1 + params.cache.νei[i] / (√(2) * ν))) * mobility * params.cache.ne[i] * params.cache.Tev[i]
     end
     return κ
 end
 
 
 """
-    LANDMARK, uses 10/9*
+    LANDMARK, uses 10/9 μnϵ
 """
-
 struct LANDMARK_conductivity <: ThermalConductivityModel end
 
 function (model::LANDMARK_conductivity)(κ, params)

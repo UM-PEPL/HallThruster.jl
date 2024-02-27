@@ -39,7 +39,7 @@ compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Sheath potentials are positive by convention in HallThruster.jl.
 """
-@inline @fastmath sheath_potential(Tev, γ, mi) = Tev*log((1 - γ) * sqrt(mi/π/me/2))
+@inline @fastmath sheath_potential(Tev, γ, mi) = Tev * log((1 - γ) * sqrt(mi/π/me/2))
 
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial

@@ -14,7 +14,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     ncells = grid.ncells + 2
     nedges = grid.ncells + 1
 
-    U = zeros(nvariables + 1, ncells)
+    U = zeros(nvariables, ncells)
     B = zeros(ncells)
     Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
     bϵ = zeros(ncells) #for energy
@@ -29,13 +29,14 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     ϕ = zeros(ncells)
     ∇ϕ = zeros(ncells)
     ne = zeros(ncells)
+    nϵ = zeros(ncells)
     Tev = zeros(ncells)
     pe = zeros(ncells)
     ∇pe = zeros(ncells)
     ue = zeros(ncells)
-    F = zeros(nvariables+1, nedges)
-    UL = zeros(nvariables+1, nedges)
-    UR = zeros(nvariables+1, nedges)
+    F = zeros(nvariables, nedges)
+    UL = zeros(nvariables, nedges)
+    UR = zeros(nvariables, nedges)
     Z_eff = zeros(ncells)
     λ_global = zeros(length(fluids))
     νe = zeros(ncells)
@@ -91,7 +92,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     dt = zeros(1)
 
     cache = (;
-                Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+                Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, νew, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
@@ -126,7 +127,6 @@ function run_simulation(
         dtmin = 0.0, dtmax = Inf,
         verbose = true,
     )
-
 
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK & (config.conductivity_model != LANDMARK_conductivity())
@@ -168,7 +168,7 @@ function run_simulation(
     end
 
     tspan = (0.0, duration)
-    saveat = LinRange(tspan[1], tspan[2], nsave)
+    saveat = range(tspan[1], tspan[2], length = nsave)
 
     z_cell = grid1d.cell_centers
     z_edge = grid1d.edges
@@ -183,13 +183,13 @@ function run_simulation(
 
     mi = config.propellant.m
 
-    #make the adaptive timestep independent of input condition 
+    # make the adaptive timestep independent of input condition
     if adaptive
-        dt = 100 * eps()#small initial timestep to initialize everything
+        dt = 100 * eps() # small initial timestep to initialize everything
 
-        #force the CFL to be no higher than 0.799 for adaptive timestepping
-        #this limit is mainly due to empirical testing, but there 
-        #may be an analytical reason the ionization timestep cannot use a CFL>=0.8
+        # force the CFL to be no higher than 0.799 for adaptive timestepping
+        # this limit is mainly due to empirical testing, but there
+        # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
         if CFL >= 0.8
             @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.")
             CFL = 0.799
@@ -199,7 +199,6 @@ function run_simulation(
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
     cache.dt_cell .= dt
-
 
     # Simulation parameters
     params = (;
@@ -236,7 +235,6 @@ function run_simulation(
         dtmin, dtmax
     )
 
-
     # Compute maximum allowed iterations
     if !use_restart
         initialize!(U, params)
@@ -251,9 +249,8 @@ function run_simulation(
     # make values in params available for first timestep
     update_electrons!(U, params)
 
-    # Set up and solve problem, this form is temporary
-    prob = ODEProblem(update_heavy_species!, U, tspan, params)
-    sol_info = @timed solve(prob; saveat)
+    # Set up
+    sol_info = @timed solve(U, params, tspan; saveat)
 
     sol = sol_info.value
     sim_time = sol_info.time
@@ -414,7 +411,6 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         electron_ion_collisions = electron_ion_collisions,
         min_electron_temperature = cathode_electron_temp_eV,
         transition_function = LinearTransition(inner_outer_transition_length_m, 0.0),
-        electron_pressure_coupled = false,
         scheme = HyperbolicScheme(;
             flux_function = eval(Symbol(flux_function)), limiter = eval(Symbol(limiter)), reconstruct
         ),

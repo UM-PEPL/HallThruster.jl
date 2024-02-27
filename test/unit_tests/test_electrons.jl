@@ -23,7 +23,7 @@
 
     index = (ρn = [1], ρi = [2], nϵ = 3)
     cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
-             μ = μ_e, νc = ν_c, 
+             μ = μ_e, νc = ν_c,
     )
     c1 = 1/160
     c2 = 1/16
@@ -56,18 +56,13 @@
     @test HallThruster.freq_electron_neutral(U, params_none, 1) == 0.0
 
     Z = 1
-
-    @test HallThruster.freq_electron_ion(U, params_landmark, 1) == 0.0
-    @test HallThruster.freq_electron_ion(U, params_gk, 1) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
-    @test HallThruster.freq_electron_ion(U, params_none, 1) == 0.0
-
+    @test HallThruster.freq_electron_ion(ne, Tev, Z) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
     @test HallThruster.freq_electron_electron(ne, Tev) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
-    @test HallThruster.freq_electron_electron(U, params_landmark, 1) == 5e-12 * ne * HallThruster.coulomb_logarithm(ne, Tev) / Tev^1.5
 
 
     params_landmark.config.anom_model(params_landmark.cache.νan, params_landmark)
     params_none.config.anom_model(params_none.cache.νan, params_none)
-  
+
     model = HallThruster.NoAnom()
 
     model(params_landmark.cache.νan, params_landmark)
@@ -76,7 +71,7 @@
 
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
     @test HallThruster.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
-    
+
     conductivity_model = HallThruster.LANDMARK_conductivity()
     conductivity_model(params_landmark.cache.κ, params_landmark)
     @test params_landmark.cache.κ[1] ≈ 5/3 * μ_e * ne * Tev

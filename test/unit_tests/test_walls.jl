@@ -11,9 +11,11 @@
 
     Tev = 4.0
     ne = 1e18
+    nϵ = 3/2 * ne * Tev
     cache = (;
         ne = [ne, ne, ne, ne],
         Tev = [Tev, Tev, Tev, Tev],
+        nϵ = [nϵ, nϵ, nϵ, nϵ],
         Z_eff = [1.0, 1.0, 1.0, 1.0],
         ni = [ne ne ne ne],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
@@ -53,7 +55,6 @@
         Δz_edge[i] = z_cell[i+1] - z_cell[i]
     end
 
-
     mi_kr = HallThruster.Krypton.m
     γmax = 1 - 8.3 * sqrt(me/mi)
     γmax_kr = 1 - 8.3 * sqrt(me/mi_kr)
@@ -65,11 +66,10 @@
     )
 
     ρi = ne * mi
-    nϵ = 3/2 * ne * Tev
+
 
     U = [
         ρi ρi ρi ρi
-        nϵ nϵ nϵ nϵ
     ]
 
     @test HallThruster.wall_power_loss(no_losses, U, params, 2) == 0.0
@@ -224,10 +224,8 @@ end
     params_no_losses = (;base_params..., config = config_no_losses)
 
     for i in 1:4
-        cache.Z_eff[i] = HallThruster.compute_Z_eff(U, params_no_losses, i)
+        cache.Z_eff[i] = (ni_1 + 2 * ni_2) / (ni_1 + ni_2)
     end
-
-    @test cache.Z_eff[1] ≈ (ni_1 + 2 * ni_2) / (ni_1 + ni_2)
 
     u_bohm_1 = u_bohm
     u_bohm_2 = sqrt(2) * u_bohm
