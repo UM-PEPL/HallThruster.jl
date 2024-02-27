@@ -1,5 +1,6 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
     (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache) = params
+    (;inelastic_losses, νiz) = cache
 
     ne = electron_density(U, params, i)
     K = if params.config.LANDMARK
@@ -11,17 +12,19 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
     ϵ  = cache.nϵ[i] / ne + K
 
     dt_max = Inf
+    νiz[i] = 0.0
+    inelastic_losses[i] = 0.0
 
     @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         product_index = product_inds[]
-
         rate_coeff = rxn.rate_coeff(ϵ)
 
         for reactant_index in reactant_inds
             ρ_reactant = U[reactant_index, i]
-
             ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
-
+            ndot = ρdot / params.config.propellant.m
+            νiz[i] += ndot / ne
+            inelastic_losses[i] += ndot * rxn.energy
             dt_max = min(dt_max, ρ_reactant / ρdot)
 
             # Change in density due to ionization
@@ -42,6 +45,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
         end
     end
 
+   # @show νiz[i]
     params.cache.dt_iz[i] = dt_max
 end
 
@@ -101,8 +105,7 @@ end
 
 function inelastic_losses!(U, params, i)
     (;ionization_reactions, excitation_reactions, cache, ionization_reactant_indices, excitation_reactant_indices) = params
-    (;νex, νiz, Tev) = cache
-    inelastic_loss = 0.0
+    (;νex, νiz, Tev, inelastic_losses, K) = cache
     mi = params.config.propellant.m
     ne = cache.ne[i]
 
@@ -111,36 +114,39 @@ function inelastic_losses!(U, params, i)
         0.0
     else
         # Include kinetic energy contribution
-        cache.K[i]
+        K[i]
     end
 
     # Total electron energy
     ϵ = 3/2 * Tev[i] + K
 
-    νiz[i] = 0.0
-    νex[i] = 0.0
-
-    @inbounds for (reactant_inds, rxn) in zip(ionization_reactant_indices, ionization_reactions)
-        rate_coeff = rxn.rate_coeff(ϵ)
-        for reactant_index in reactant_inds
-            n_reactant = U[reactant_index, i] / mi
-            ndot = reaction_rate(rate_coeff, ne, n_reactant)
-            inelastic_loss += ndot * rxn.energy
-            νiz[i] += ndot / ne
+    if (i == 1 || i == lastindex(νiz))
+        νiz[i] = 0.0
+        @inbounds for (reactant_inds, rxn) in zip(ionization_reactant_indices, ionization_reactions)
+            rate_coeff = rxn.rate_coeff(ϵ)
+            for reactant_index in reactant_inds
+                n_reactant = U[reactant_index, i] / mi
+                ndot = reaction_rate(rate_coeff, ne, n_reactant)
+                inelastic_losses[i] += ndot * rxn.energy
+                νiz[i] += ndot / ne
+            end
         end
+    else
+        #@show νiz[i]
     end
 
+    νex[i] = 0.0
     @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
         rate_coeff = rxn.rate_coeff(ϵ)
         for reactant_index in reactant_inds
             n_reactant = U[reactant_index, i] / mi
             ndot = reaction_rate(rate_coeff, ne, n_reactant)
-            inelastic_loss += ndot * (rxn.energy - K)
+            inelastic_losses[i] += ndot * (rxn.energy - K)
             νex[i] += ndot / ne
         end
     end
 
-    return inelastic_loss
+    return inelastic_losses[i]
 end
 
 function electron_kinetic_energy(U, params, i)
@@ -185,7 +191,6 @@ function source_electron_energy(U, params, i)
     inelastic_loss = inelastic_losses!(U, params, i)
 
     params.cache.wall_losses[i] = wall_loss
-    params.cache.inelastic_losses[i] = inelastic_loss
     params.cache.ohmic_heating[i] = ohmic_heating
 
     return ohmic_heating - wall_loss - inelastic_loss
