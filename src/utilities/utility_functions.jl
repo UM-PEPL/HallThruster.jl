@@ -27,7 +27,7 @@ end
     return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
 end
 
-@inbounds function interpolate(x::T, xs::StepRangeLen, ys; use_log) where {T}
+@inbounds @fastmath function interpolate(x::T, xs::StepRangeLen, ys; use_log) where {T}
     dx_inv = inv(xs.step.hi)
     i = 1 + floor(Int, (x - xs[1]) * dx_inv)
     i < 1          && return T(ys[1])
@@ -42,10 +42,7 @@ end
     end
 end
 
-function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
-    xs, ys = itp.xs, itp.ys
-    interpolate(x, xs, ys; use_log)
-end
+(itp::LinearInterpolation)(x::T; use_log = false) where {T} = interpolate(x, itp.xs, itp.ys; use_log)
 
 """
     lerp(x, x0, x1, y0, y1)

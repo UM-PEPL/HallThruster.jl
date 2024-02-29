@@ -218,7 +218,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
         end
 
         # Ion wave speeds
-        @fastmath for Z in 1:ncharge
+        for Z in 1:ncharge
             fluid_ind = Z + num_neutral_fluids
             fluid = fluids[fluid_ind]
             γ = fluid.species.element.γ
@@ -229,21 +229,11 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             TL = temperature(UL_ions, fluid)
             uR = velocity(UR_ions, fluid)
             TR = temperature(UR_ions, fluid)
+            aL = sound_speed(UL_ions, fluid)
+            aR = sound_speed(UL_ions, fluid)
 
-            # Sound speeds
-            aL = sqrt((γ * kB * TL) / mi)
-            aR = sqrt((γ * kB * TR) / mi)
-
-            # There are several possible waves, with speeds, u-a, u+a, and u, both left- and right-running
-            λ₁₂⁺ = 0.5 * (uR + abs(uR))
-            λ₁₂⁻ = 0.5 * (uL - abs(uL))
-            λ₃⁺  = 0.5 * (uR + aR  + abs(uR + aR))
-            λ₃⁻  = 0.5 * (uL + aL - abs(uL + aL))
-            λ₄⁺  = 0.5 * (uR - aR  + abs(uR - aR))
-            λ₄⁻  = 0.5 * (uL - aL  - abs(uL - aL))
-
-            # Maximum of all of these wave speeds
-            s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
+            # Maximum wave speed
+            s_max = max(abs(uL + aL), abs(uL - aL), abs(uR + aR), abs(uR - aR))
 
             # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
             dt_max = Δz_edge[i] / s_max
