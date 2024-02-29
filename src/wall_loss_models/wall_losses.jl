@@ -33,9 +33,9 @@ end
 
 function wall_electron_current(::WallLossModel, U, params, i)
     (;Δz_cell, cache, A_ch) = params
-    (;ne, νew) = cache
+    (;ne, νew_momentum) = cache
     V_cell = A_ch * Δz_cell[i]
-    return e * νew[i] * V_cell * ne[i]
+    return e * νew_momentum[i] * V_cell * ne[i]
 end
 
 function wall_ion_current(model::WallLossModel, U, params, i, Z)

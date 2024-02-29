@@ -22,7 +22,8 @@
         Z_eff = [1.0, 1.0, 1.0, 1.0],
         ni = [ne ne ne ne],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
-        νew = [0.0, 0.0, 0.0, 0.0],
+        νew_energy = [0.0, 0.0, 0.0, 0.0],
+        νew_momentum = [0.0, 0.0, 0.0, 0.0],
     )
     transition_function = HallThruster.LinearTransition(0.2 * L_ch, 0.0)
     config = (;
@@ -112,10 +113,12 @@
     νew = νiw / (1 - γ)
 
     params.cache.γ_SEE .= γ
-    params.cache.νew[1] = νew
-    params.cache.νew[2] = νew
-    params.cache.νew[3] = 0.0
-    params.cache.νew[4] = 0.0
+    params.cache.νew_momentum[1] = νew
+    params.cache.νew_momentum[2] = νew
+    params.cache.νew_momentum[3] = 0.0
+    params.cache.νew_momentum[4] = 0.0
+    params.cache.νew_energy[1:4] .= νew
+
 
     Iiw = HallThruster.wall_ion_current(sheath_model, U, params, 2, 1)
     Iew = HallThruster.wall_electron_current(sheath_model, U, params, 2)
@@ -123,8 +126,8 @@
     @test Iiw ≈ νiw * HallThruster.e * V_cell * ne
     @test Iew ≈ νew * HallThruster.e * V_cell * ne
 
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) ≈ νew
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) ≈ 0.0
+    @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) * params.config.transition_function(params.z_cell[2], L_ch, 1.0, 0.0) ≈ νew
+    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) * params.config.transition_function(params.z_cell[3], L_ch, 1.0, 0.0) ≈ 0.0
 
     @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * (1 - 0.5 * BN.σ₀) * Tev + (1 - γ) * Vs)/γ
     @test HallThruster.wall_power_loss(sheath_model, U, params, 4) ≈ 0.0
@@ -187,7 +190,7 @@ end
         ne = [ne, ne, ne, ne], Tev = [Tev, Tev, Tev, Tev],
         Z_eff = [1.0, 1.0, 1.0, 1.0], ni = [ni_1 ni_1 ni_1 ni_1; ni_2 ni_2 ni_2 ni_2],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
-        νew = [νew, νew, 0.0, 0.0]
+        νew_momentum = [νew, νew, 0.0, 0.0]
     )
 
     index = (ρn = 1, ρi = [2, 4], ρiui = [3, 5], nϵ = 6)
@@ -292,7 +295,7 @@ end
     νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
     νew = νiw * γ / (1 - γ)
 
-    params_wall_sheath.cache.νew[1:2] .= νew
+    params_wall_sheath.cache.νew_momentum[1:2] .= νew
     i = 2
     params_wall_sheath.cache.γ_SEE[i] = γ
     Iiw_1 = HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 1)

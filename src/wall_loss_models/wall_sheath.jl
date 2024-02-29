@@ -76,7 +76,7 @@ function wall_power_loss(model::WallSheath, U, params, i)
     ϕ_s = sheath_potential(Tev, γ, mi)
 
     # Compute electron wall collision frequency with transition function for energy wall collisions in plume 
-    νew = params.cache.νew[i] * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
+    νew = params.cache.νew_energy[i] * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
 
     # Compute wall power loss rate
     W = νew * (2 * (1 - 0.5 * model.material.σ₀) * Tev +  (1 - γ) * ϕ_s) / γ

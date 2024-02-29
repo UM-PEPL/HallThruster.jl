@@ -2,8 +2,8 @@
 function update_electrons!(U, params, t = 0)
     (;index, control_current, target_current, Kp, Ti, mi) = params
     (;
-        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, νew,
-        Z_eff, νiz, νex, νe, ji, Id, νew, κ, ni, ui, Vs, nn, nn_tot, niui,
+        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, νew_energy,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, nn_tot, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -81,7 +81,9 @@ function update_electrons!(U, params, t = 0)
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume  
-        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i) * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
+        νew_energy[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
+        νew_momentum[i] =  νew_energy[i]* params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
+        
     end
 
     # Update anomalous transport
@@ -97,7 +99,7 @@ function update_electrons!(U, params, t = 0)
         νan[i] *= anom_multiplier[]
 
         # Compute total collision frequency and electron mobility
-        νe[i] = νc[i] + νan[i] + νew[i]
+        νe[i] = νc[i] + νan[i] + νew_momentum[i]
         μ[i] = electron_mobility(νe[i], B[i])
     end
 
