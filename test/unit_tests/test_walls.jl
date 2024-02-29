@@ -109,7 +109,7 @@
     @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) == 0.0e7
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
-    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr * γ
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr 
     νew = νiw / (1 - γ)
 
     params.cache.γ_SEE .= γ

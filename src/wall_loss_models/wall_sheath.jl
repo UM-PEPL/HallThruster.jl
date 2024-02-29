@@ -50,15 +50,25 @@ Base.@kwdef struct WallSheath <: WallLossModel
 end
 
 function freq_electron_wall(model::WallSheath, U, params, i)
-    geometry = params.config.thruster.geometry
+    (; index, config, cache) = params
+    (; ncharge) = config
+    mi = config.propellant.m
+    #compute radii difference 
+    geometry = config.thruster.geometry
     Δr = geometry.outer_radius - geometry.inner_radius
+    #compute electron wall temperature
     Tev = wall_electron_temperature(U, params, i)
-    mi = params.config.propellant.m
-
+    #calculate and store SEE coefficient
     γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
-    params.cache.γ_SEE[i] = γ
-
-    νew = model.α * √(e * Tev / mi) * γ / (Δr * (1 - γ))
+    cache.γ_SEE[i] = γ
+    #compute the ion current to the walls 
+    j_iw = 0.0
+    for Z in 1:ncharge
+        niw = ρi = U[index.ρi[Z], i] / mi
+        j_iw += model.α * Z * niw * sqrt(Z * e * Tev / mi)
+    end
+    #compute electron wall collision frequency 
+    νew = j_iw / (Δr * (1 - γ)) / cache.ne[i]
 
     return νew 
 end
