@@ -6,8 +6,7 @@ end
 
 function freq_electron_wall(::ConstantSheathPotential, U, params, i)
     (;z_cell, L_ch) = params
-    αϵ = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
-    return αϵ * 1e7
+    return 1e7
 end
 
 function wall_power_loss(model::ConstantSheathPotential, U, params, i)
