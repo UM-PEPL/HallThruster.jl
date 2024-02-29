@@ -9,13 +9,7 @@
         density = HallThruster.density,
         number_density = HallThruster.number_density,
         velocity = HallThruster.velocity,
-        stagnation_energy = HallThruster.stagnation_energy,
-        static_energy = HallThruster.static_energy,
         sound_speed = HallThruster.sound_speed,
-        mach_number = HallThruster.mach_number,
-        stagnation_enthalpy = HallThruster.stagnation_enthalpy,
-        static_enthalpy = HallThruster.static_enthalpy,
-        critical_sound_speed = HallThruster.critical_sound_speed,
         m = HallThruster.m,
         γ = HallThruster.γ,
         R = HallThruster.R,
@@ -90,13 +84,9 @@
             @test test_property(density, laws)
             @test test_property(number_density, laws)
             @test test_property(velocity, laws)
-            @test test_property(stagnation_energy, laws)
             @test test_property(static_energy, laws)
             @test test_property(sound_speed, laws)
             @test test_property(mach_number, laws)
-            @test test_property(stagnation_enthalpy, laws)
-            @test test_property(static_enthalpy, laws)
-            @test test_property(critical_sound_speed, laws)
 
             # check that versions which work for vectors instead of staticarrays work properly
             @test test_property(temperature, laws_vector)
@@ -104,11 +94,9 @@
             @test test_property(density, laws_vector)
             @test test_property(number_density, laws_vector)
             @test test_property(velocity, laws_vector)
-            @test test_property(stagnation_energy, laws_vector)
             @test test_property(static_energy, laws_vector)
             @test test_property(sound_speed, laws_vector)
             @test test_property(mach_number, laws_vector)
-            @test test_property(stagnation_enthalpy, laws_vector)
             @test test_property(static_enthalpy, laws_vector)
             @test test_property(critical_sound_speed, laws_vector)
 
@@ -118,10 +106,6 @@
             @test number_density(continuity...) ≈ ρ / m(continuity_eq)
             @test density(continuity...) ≈  ρ
             @test pressure(continuity...) ≈ ρ * HallThruster.Xenon.R * T
-            @test static_energy(continuity...) ≈ cv(continuity_eq) * T
-            @test stagnation_energy(continuity...) ≈ cv(continuity_eq) * T + 0.5 * u^2
-            @test static_enthalpy(continuity...) ≈ cp(continuity_eq) * T
-            @test stagnation_enthalpy(continuity...) ≈ cp(continuity_eq) * T + 0.5 * u^2
             @test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R * T)
         end
 

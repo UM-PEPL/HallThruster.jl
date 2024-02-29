@@ -160,7 +160,7 @@ for NUM_CONSERVATIVE in 1:3
     end)
 end
 
-function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
+@inline  function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
     slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁) / 2
 
@@ -176,39 +176,18 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
     (;scheme) = config
 
     # compute left and right edge states
-    @inbounds for i in 2:ncells-1
-        for j in 1:nvars
-            if scheme.reconstruct
+    if scheme.reconstruct
+        @inbounds for j in 1:nvars, i in 2:ncells-1
+            u₋ = U[j, i-1]
+            uᵢ = U[j, i]
+            u₊ = U[j, i+1]
 
-                is_velocity_index = false
-                for Z in 1:params.config.ncharge
-                    if j == index.ρiui[Z]
-                        is_velocity_index = true
-                        break
-                    end
-                end
-
-                if is_velocity_index # reconstruct velocity as primitive variable instead of momentum density
-                    u₋ = U[j, i-1]/U[j-1, i-1]
-                    uᵢ = U[j, i]/U[j-1, i]
-                    u₊ = U[j, i+1]/U[j-1, i+1]
-                    uR, uL = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
-
-                    ρL = UL[j-1, right_edge(i)] #use previously-reconstructed edge density to compute momentum
-                    ρR = UR[j-1, left_edge(i)]
-                    UL[j, right_edge(i)] = uL*ρL
-                    UR[j, left_edge(i)] = uR*ρR
-                else
-                    u₋ = U[j, i-1]
-                    uᵢ = U[j, i]
-                    u₊ = U[j, i+1]
-
-                    UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
-                end
-            else
-                UL[j, right_edge(i)] = U[j, i]
-                UR[j, left_edge(i)]  = U[j, i]
-            end
+            UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
+        end
+    else
+        @inbounds for i in 2:ncells-1, j in 1:nvars
+            UL[j, right_edge(i)] = U[j, i]
+            UR[j, left_edge(i)]  = U[j, i]
         end
     end
 
