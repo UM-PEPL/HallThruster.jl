@@ -79,15 +79,10 @@ for NUM_CONSERVATIVE in 1:3
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
-
         TL = temperature(UL, fluid)
         TR = temperature(UR, fluid)
-
-        mi = m(fluid)
-
-        a_factor = γ * kB / mi
-        aL = sqrt(a_factor * TL)
-        aR = sqrt(a_factor * TR)
+        aL = sound_speed(UL, fluid)
+        aR = sound_speed(UL, fluid)
 
         sL_max = max(abs(uL - aL), abs(uL + aL))
         sR_max = max(abs(uR - aR), abs(uR + aR))
@@ -103,15 +98,13 @@ for NUM_CONSERVATIVE in 1:3
     @fastmath function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
-        mi = m(fluid)
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
         TL = temperature(UL, fluid)
         TR = temperature(UR, fluid)
-
-        aL = sqrt((γ * kB * TL) / mi)
-        aR = sqrt((γ * kB * TR) / mi)
+        aL = sound_speed(UL, fluid)
+        aR = sound_speed(UL, fluid)
 
         sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
         sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
