@@ -13,7 +13,7 @@ end
 @inline function flux(U::NTuple{2, T}, fluid) where T
     ρ, ρu = U
     p = pressure(U, fluid)
-    return (ρu, ρu^2 / ρ + p)
+    return (ρu, U[2]^2 / U[1] + p)
 end
 
 @inline function flux(U::NTuple{3, T}, fluid) where T
@@ -21,7 +21,7 @@ end
     u = ρu / ρ
     p = pressure(U, fluid)
     ρH = ρE + p
-    return (ρu, ρu * u + p, ρH * u)
+    return (ρu, U[2]^2 / U[1] + p, ρH * u)
 end
 
 # i forget why i did things this way. this seems super unnecessary, but we'll get to it
