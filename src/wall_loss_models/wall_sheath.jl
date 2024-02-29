@@ -64,7 +64,7 @@ function freq_electron_wall(model::WallSheath, U, params, i)
     #compute the ion current to the walls 
     j_iw = 0.0
     for Z in 1:ncharge
-        niw = ρi = U[index.ρi[Z], i] / mi
+        niw = U[index.ρi[Z], i] / mi
         j_iw += model.α * Z * niw * sqrt(Z * e * Tev / mi)
     end
     #compute electron wall collision frequency 
