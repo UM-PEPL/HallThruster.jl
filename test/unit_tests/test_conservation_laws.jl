@@ -145,7 +145,7 @@
             index = (ρi = [1], ρiui = [2])
             scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false)
             config = (;scheme, ncharge = 1)
-            params = (;index, config)
+            params = (;index, config, is_velocity_index = [false, true, false])
 
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L
