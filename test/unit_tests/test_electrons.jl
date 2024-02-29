@@ -15,7 +15,7 @@
     @test ln_λ ≈ HallThruster.coulomb_logarithm(ne, Tev)
     ν_c = σ_en*nn*sqrt(8*HallThruster.kB*Te/pi/m) + 2.9e-12*ne*ln_λ/(Tev)^1.5
     μ_e = HallThruster.e/(HallThruster.me * ν_c)/(1+(HallThruster.e*B/(HallThruster.me*ν_c))^2)
-    @test μ_e ≈ HallThruster.electron_mobility(ν_an, ν_c, B)
+    @test μ_e ≈ HallThruster.electron_mobility(ν_an + ν_c, B)
 
     (;e, me) = HallThruster
 

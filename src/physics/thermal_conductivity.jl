@@ -18,7 +18,8 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDU
 ==============================================================================#
 
 """
-    Braginskii, uses closure from   S. I. Braginskii, inReviews of Plasma Physics, edited byM. A. Leontovich (Consultants Bureau, New York, 1965), Vol. 1,p. 205.
+    Braginskii
+    Uses closure from   S. I. Braginskii, inReviews of Plasma Physics, edited byM. A. Leontovich (Consultants Bureau, New York, 1965), Vol. 1,p. 205.
     But with a linear interpolation for the charge state
 """
 struct Braginskii <: ThermalConductivityModel end
@@ -38,8 +39,9 @@ function (model::Braginskii)(κ, params)
 end
 
 """
-    Mitchner, uses closure from M. Mitchner and C. H. Kruger, Jr., Partially Ionized Gases (John Wiley andSons, Inc., New York, 1973). Pg. 94
-    Apply factor of 1/(1+Hallparam^2) to convert from parallel to perpendicular direction
+    Mitchner
+    Uses closure from M. Mitchner and C. H. Kruger, Jr., Partially Ionized Gases (John Wiley andSons, Inc., New York, 1973). Pg. 94
+    Apply factor of 1/(1+Ωₑ²) to convert from parallel to perpendicular direction
 """
 struct Mitchner <: ThermalConductivityModel end
 
@@ -48,13 +50,12 @@ function (model::Mitchner)(κ, params)
         #use both classical and anomalous collision frequencies
         ν = (params.cache.νc[i] +  params.cache.νan[i])
         #calculate mobility using above collision frequency
-        mobility = electron_mobility(ν, params.cache.B[i])
+        mobility = params.cache.μ[i]
         #final calculation
         κ[i] = (2.4 / (1 + params.cache.νei[i] / (√(2) * ν))) * mobility * params.cache.ne[i] * params.cache.Tev[i]
     end
     return κ
 end
-
 
 """
     LANDMARK, uses 10/9 μnϵ
