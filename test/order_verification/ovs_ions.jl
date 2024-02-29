@@ -114,7 +114,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     ui_exact = ui_func.(z_cell)
     ∇ϕ = ∇ϕ_func.(z_cell)
 
-    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
     F = zeros(4, nedges)
@@ -154,6 +154,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         cache,
         fluids,
         species_range_dict,
+        is_velocity_index,
         z_edge,
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),

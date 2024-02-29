@@ -203,7 +203,13 @@ function configure_fluids(config)
         push!(species_range_dict[Symbol(fluid.species)], fluid_range)
     end
 
-    return fluids, fluid_ranges, species, species_range_dict
+    last_fluid_index = fluid_ranges[end][end]
+    is_velocity_index = fill(false, last_fluid_index)
+    for i in length(neutral_fluids)+2:2:last_fluid_index
+        is_velocity_index[i] = true
+    end
+
+    return fluids, fluid_ranges, species, species_range_dict, is_velocity_index
 end
 
 function configure_index(fluids, fluid_ranges)

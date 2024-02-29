@@ -20,7 +20,7 @@
         background_neutral_temperature = 150.0,
     )
 
-    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
     mi = config.propellant.m
@@ -46,6 +46,7 @@
         fluid_ranges,
         species,
         species_range_dict,
+        is_velocity_index,
         background_neutral_density,
         background_neutral_velocity,
         background_neutral_flux,

@@ -73,7 +73,7 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    @fastmath function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
+    @inbounds @fastmath function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -144,26 +144,39 @@ end
 
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
-    slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
-
-    uⱼ₋½ᴿ = uⱼ - 0.25 * slope
-    uⱼ₊½ᴸ = uⱼ + 0.25 * slope
-
-    return uⱼ₋½ᴿ, uⱼ₊½ᴸ
+    Δu = 0.25 * limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
+    return uⱼ - Δu, uⱼ + Δu
 end
 
 function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = false)
     (nvars,  ncells) = size(U)
-    (;config, index) = params
+    (;config, index, is_velocity_index) = params
     (;scheme) = config
 
     # compute left and right edge states
-    if scheme.reconstruct
-        @inbounds for j in 1:nvars, i in 2:ncells-1
-            u₋ = U[j, i-1]
-            uᵢ = U[j, i]
-            u₊ = U[j, i+1]
-            UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
+    if (scheme.reconstruct)
+        @inbounds for j in 1:nvars
+            if is_velocity_index[j] # reconstruct velocity as primitive variable instead of momentum density
+                for i in 2:ncells-1
+                    u₋ = U[j, i-1]/U[j-1, i-1]
+                    uᵢ = U[j, i]/U[j-1, i]
+                    u₊ = U[j, i+1]/U[j-1, i+1]
+                    uR, uL = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
+
+                    ρL = UL[j-1, right_edge(i)] #use previously-reconstructed edge density to compute momentum
+                    ρR = UR[j-1, left_edge(i)]
+                    UL[j, right_edge(i)] = uL*ρL
+                    UR[j, left_edge(i)] = uR*ρR
+                end
+            else
+                for i in 2:ncells-1
+                    u₋ = U[j, i-1]
+                    uᵢ = U[j, i]
+                    u₊ = U[j, i+1]
+
+                    UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
+                end
+            end
         end
     else
         @inbounds for i in 2:ncells-1, j in 1:nvars
