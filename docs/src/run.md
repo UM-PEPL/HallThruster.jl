@@ -374,7 +374,7 @@ A list of parameters that support this sort of indexing can be found by calling 
 - `νen`: Electron-neutral collision frequency in Hz
 - `νex`: Excitation collision frequency in Hz
 - `νiz`: Ionization collision frequency in Hz
-- `νew_energy`: Electron-wall collision frequency for wall loss calculation in Hz
+- `radial_loss_frequency`: Electron-wall collision frequency for wall loss calculation in Hz
 - `νew_momentum`: Electron-wall collision frequency for mobility calculation in Hz
 - `μ`: Electron mobility
 - `E`: Electric field

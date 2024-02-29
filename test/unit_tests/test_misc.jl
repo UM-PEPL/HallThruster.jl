@@ -118,13 +118,13 @@ end
 
     @test size(U) == (nvars, ncells+2)
 
-    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew_energy, νew_momentum, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew_energy, νew_momentum, nn_tot, ji)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, nn_tot, ji)
         @test size(arr) == (ncells+2,)
     end
 

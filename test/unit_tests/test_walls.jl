@@ -22,7 +22,7 @@
         Z_eff = [1.0, 1.0, 1.0, 1.0],
         ni = [ne ne ne ne],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
-        νew_energy = [0.0, 0.0, 0.0, 0.0],
+        radial_loss_frequency = [0.0, 0.0, 0.0, 0.0],
         νew_momentum = [0.0, 0.0, 0.0, 0.0],
     )
     transition_function = HallThruster.LinearTransition(0.2 * L_ch, 0.0)
@@ -117,7 +117,7 @@
     params.cache.νew_momentum[2] = νew
     params.cache.νew_momentum[3] = 0.0
     params.cache.νew_momentum[4] = 0.0
-    params.cache.νew_energy[1:4] .= νew
+    params.cache.radial_loss_frequency[1:4] .= νew
 
 
     Iiw = HallThruster.wall_ion_current(sheath_model, U, params, 2, 1)
