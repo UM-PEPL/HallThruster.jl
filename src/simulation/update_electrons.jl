@@ -81,7 +81,7 @@ function update_electrons!(U, params, t = 0)
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume  
-        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i) * params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+        νew[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i) * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
     end
 
     # Update anomalous transport

@@ -9,6 +9,9 @@
 
     landmark_losses = HallThruster.ConstantSheathPotential(20.0, αin, αout)
 
+    L_ch = HallThruster.geometry_SPT_100.channel_length
+    A_ch = HallThruster.channel_area(HallThruster.SPT_100)
+
     Tev = 4.0
     ne = 1e18
     nϵ = 3/2 * ne * Tev
@@ -21,7 +24,7 @@
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
         νew = [0.0, 0.0, 0.0, 0.0],
     )
-    transition_function = HallThruster.StepFunction()
+    transition_function = HallThruster.LinearTransition(0.2 * L_ch, 0.0)
     config = (;
         thruster = HallThruster.SPT_100,
         transition_function,
@@ -29,9 +32,6 @@
         electron_plume_loss_scale = 0.0
     )
     index = (;ρi = [1], nϵ = 2)
-
-    L_ch = HallThruster.geometry_SPT_100.channel_length
-    A_ch = HallThruster.channel_area(HallThruster.SPT_100)
 
     grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2))
 
@@ -105,7 +105,7 @@
     @test HallThruster.freq_electron_wall(no_losses, U, params, 3) == 0.0
 
     @test HallThruster.freq_electron_wall(landmark_losses, U, params,  2) == 1e7
-    @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) == 0.0e7
+    @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) == 0.0e7
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
     νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr * γ
@@ -124,7 +124,7 @@
     @test Iew ≈ νew * HallThruster.e * V_cell * ne
 
     @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) ≈ νew
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) ≈ 0.0
+    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) ≈ 0.0
 
     @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * (1 - 0.5 * BN.σ₀) * Tev + (1 - γ) * Vs)/γ
     @test HallThruster.wall_power_loss(sheath_model, U, params, 4) ≈ 0.0
