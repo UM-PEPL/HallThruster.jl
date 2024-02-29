@@ -189,10 +189,8 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    neutral_fluids = [Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))]
-
-    ion_eqns = IsothermalEuler(T = config.ion_temperature)
-    ion_fluids = [Fluid(propellant(Z), ion_eqns) for Z in 1:config.ncharge]
+    neutral_fluids = [ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)]
+    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature) for Z in 1:config.ncharge]
 
     fluids = [neutral_fluids; ion_fluids]
 

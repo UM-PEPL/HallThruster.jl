@@ -2,11 +2,11 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     # Number of variables in the state vector U
     nvariables = 0
     for fluid in fluids
-        if fluid.conservation_laws.type == _ContinuityOnly
+        if fluid.type == _ContinuityOnly
             nvariables += 1
-        elseif fluid.conservation_laws.type == _IsothermalEuler
+        elseif fluid.type == _IsothermalEuler
             nvariables += 2
-        elseif fluid.conservation_laws.type == _EulerEquations
+        elseif fluid.type == _EulerEquations
             nvariables += 3
         end
     end

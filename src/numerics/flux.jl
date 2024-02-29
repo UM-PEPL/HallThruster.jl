@@ -6,7 +6,7 @@ end
 
 @inline function flux(U::NTuple{1, T}, fluid) where T
     ρ = U[1]
-    u = fluid.conservation_laws.u
+    u = fluid.u
     return (ρ * u,)
 end
 
@@ -73,19 +73,7 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function upwind(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid::Fluid, args...) where T
-        uL = velocity(UL, fluid)
-        uR = velocity(UR, fluid)
-
-        avg_velocity = 0.5 * (uL + uR)
-        if avg_velocity ≥ 0
-            return flux(UL, fluid)
-        else
-            return flux(UR, fluid)
-        end
-    end
-
-    function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
+    @fastmath function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -97,8 +85,9 @@ for NUM_CONSERVATIVE in 1:3
 
         mi = m(fluid)
 
-        aL = sqrt((γ * kB * TL) / mi)
-        aR = sqrt((γ * kB * TR) / mi)
+        a_factor = γ * kB / mi
+        aL = sqrt(a_factor * TL)
+        aR = sqrt(a_factor * TR)
 
         sL_max = max(abs(uL - aL), abs(uL + aL))
         sR_max = max(abs(uR - aR), abs(uR + aR))
@@ -108,10 +97,10 @@ for NUM_CONSERVATIVE in 1:3
         FL = flux(UL, fluid)
         FR = flux(UR, fluid)
 
-        return @NTuple [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
+        return @NTuple [0.5 * ((FL[j] + FR[j]) - smax * (UR[j] - UL[j])) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
-    function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
+    @fastmath function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
         mi = m(fluid)
@@ -141,7 +130,7 @@ for NUM_CONSERVATIVE in 1:3
         ]
     end
 
-    function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, λ_global = 0.0, args...) where T
+    @fastmath function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, λ_global = 0.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -160,12 +149,12 @@ for NUM_CONSERVATIVE in 1:3
     end)
 end
 
-@inline  function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
+@inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
-    slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁) / 2
+    slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
 
-    uⱼ₋½ᴿ = uⱼ - 0.5 * slope
-    uⱼ₊½ᴸ = uⱼ + 0.5 * slope
+    uⱼ₋½ᴿ = uⱼ - 0.25 * slope
+    uⱼ₊½ᴸ = uⱼ + 0.25 * slope
 
     return uⱼ₋½ᴿ, uⱼ₊½ᴸ
 end
@@ -181,7 +170,6 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
             u₋ = U[j, i-1]
             uᵢ = U[j, i]
             u₊ = U[j, i+1]
-
             UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
         end
     else
@@ -224,7 +212,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
         end
 
         # Ion wave speeds
-        for Z in 1:ncharge
+        @fastmath for Z in 1:ncharge
             fluid_ind = Z + num_neutral_fluids
             fluid = fluids[fluid_ind]
             γ = fluid.species.element.γ

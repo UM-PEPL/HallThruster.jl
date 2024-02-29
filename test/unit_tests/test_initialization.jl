@@ -120,10 +120,10 @@ end
         Symbol("Xe3+") => [6:7],
     )
 
-    @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
+    @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
+    @test fluids[2] == HallThruster.IsothermalEuler(species[2], config.ion_temperature)
+    @test fluids[3] == HallThruster.IsothermalEuler(species[3], config.ion_temperature)
+    @test fluids[4] == HallThruster.IsothermalEuler(species[4], config.ion_temperature)
 
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
@@ -164,10 +164,10 @@ end
         Symbol("Xe3+") => [6:7],
     )
 
-    @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
+    @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
+    @test fluids[2] == HallThruster.IsothermalEuler(species[2], config.ion_temperature)
+    @test fluids[3] == HallThruster.IsothermalEuler(species[3], config.ion_temperature)
+    @test fluids[4] == HallThruster.IsothermalEuler(species[4], config.ion_temperature)
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
     @test keys(index) == (:ρn, :ρi, :ρiui)
