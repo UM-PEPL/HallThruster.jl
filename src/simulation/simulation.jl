@@ -133,6 +133,11 @@ function run_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
+    #check that user is aware of neutral backflow flag 
+    if (config.background_pressure > 0.0) & (config.solve_background_neutrals == false)
+        @warn("Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?")
+    end
+
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
     dt = convert_to_float64(dt, u"s")
