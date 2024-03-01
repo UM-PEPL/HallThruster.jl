@@ -24,7 +24,7 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDU
 struct Braginskii <: ThermalConductivityModel end
 
 function (model::Braginskii)(κ, params)
-    (;νc, νew, νan, B, ne, Tev, Z_eff) = params.cache
+    (;νc, νew_momentum, νan, B, ne, Tev, Z_eff) = params.cache
     @inbounds for i in eachindex(κ)
         #get coefficient from charge states
         κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(Z_eff[i])
