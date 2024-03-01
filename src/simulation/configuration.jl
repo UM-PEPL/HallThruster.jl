@@ -189,10 +189,8 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    neutral_fluids = [Fluid(propellant(0), ContinuityOnly(u = config.neutral_velocity, T = config.neutral_temperature))]
-
-    ion_eqns = IsothermalEuler(T = config.ion_temperature)
-    ion_fluids = [Fluid(propellant(Z), ion_eqns) for Z in 1:config.ncharge]
+    neutral_fluids = [ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)]
+    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature) for Z in 1:config.ncharge]
 
     fluids = [neutral_fluids; ion_fluids]
 
@@ -205,7 +203,13 @@ function configure_fluids(config)
         push!(species_range_dict[Symbol(fluid.species)], fluid_range)
     end
 
-    return fluids, fluid_ranges, species, species_range_dict
+    last_fluid_index = fluid_ranges[end][end]
+    is_velocity_index = fill(false, last_fluid_index)
+    for i in length(neutral_fluids)+2:2:last_fluid_index
+        is_velocity_index[i] = true
+    end
+
+    return fluids, fluid_ranges, species, species_range_dict, is_velocity_index
 end
 
 function configure_index(fluids, fluid_ranges)

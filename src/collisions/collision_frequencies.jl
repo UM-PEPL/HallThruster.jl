@@ -45,17 +45,12 @@ charge state Z, electron number density in m^-3, and electron temperature in eV.
 end
 
 """
-    electron_mobility(νan::Float64, νc::Float64, B::Float64)
+    electron_mobility(νe, B)
 
 calculates electron transport according to the generalized Ohm's law
-as a function of the classical and anomalous collision frequencies
+as a function of sum of the classical and anomalous collision frequencies
 and the magnetic field.
 """
-@inline function electron_mobility(νan, νc, B)
-    νe = νan + νc
-    return electron_mobility(νe, B)
-end
-
 @inline function electron_mobility(νe, B)
     Ω = e * B / (me * νe)
     return e / (me * νe * (1 + Ω^2))

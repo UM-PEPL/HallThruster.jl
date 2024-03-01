@@ -2,11 +2,11 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     # Number of variables in the state vector U
     nvariables = 0
     for fluid in fluids
-        if fluid.conservation_laws.type == _ContinuityOnly
+        if fluid.type == _ContinuityOnly
             nvariables += 1
-        elseif fluid.conservation_laws.type == _IsothermalEuler
+        elseif fluid.type == _IsothermalEuler
             nvariables += 2
-        elseif fluid.conservation_laws.type == _EulerEquations
+        elseif fluid.type == _EulerEquations
             nvariables += 3
         end
     end
@@ -143,7 +143,7 @@ function run_simulation(
     duration = convert_to_float64(duration, u"s")
     dt = convert_to_float64(dt, u"s")
 
-    fluids, fluid_ranges, species, species_range_dict = configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
     num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
 
     if (grid.ncells == 0)
@@ -219,7 +219,7 @@ function run_simulation(
         A_ch = config.thruster.geometry.channel_area,
         z_cell,
         z_edge,
-        index, cache, fluids, fluid_ranges, species_range_dict,
+        index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
         iteration = [-1],
         ionization_reactions,
         ionization_reactant_indices,

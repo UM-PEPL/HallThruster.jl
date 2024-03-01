@@ -97,10 +97,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         solve_background_neutrals = false,
     )
 
-    species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
-
-    ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
-
     z_edge = grid.edges
     z_cell = grid.cell_centers
 
@@ -114,12 +110,17 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     ui_exact = ui_func.(z_cell)
     ∇ϕ = ∇ϕ_func.(z_cell)
 
-    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
+    ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
-    F = zeros(4, nedges)
-    UL = zeros(4, nedges)
-    UR = zeros(4, nedges)
+    @show is_velocity_index, fluid_ranges
+
+    nvars = fluid_ranges[end][end]
+
+    F = zeros(nvars, nedges)
+    UL = zeros(nvars, nedges)
+    UR = zeros(nvars, nedges)
     λ_global = zeros(2)
 
     channel_area = A_ch .* ones(ncells+2)
@@ -131,7 +132,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     dt_iz = zeros(ncells+2)
     dt_E = zeros(ncells+2)
 
-    U = zeros(4, ncells+2)
+    U = zeros(nvars, ncells+2)
     z_end = z_cell[end]
     z_start = z_cell[1]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
@@ -154,6 +155,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         cache,
         fluids,
         species_range_dict,
+        is_velocity_index,
         z_edge,
         z_cell,
         Te_L = 2/3 * ϵ_func(z_start),
@@ -175,14 +177,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end-1]
-        # HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false)
-        # for i in eachindex(U)
-        #     U[i] += dt[] * dU[i]
-        #     if isnan(U[i]) || isinf(U[i])
-        #         t = Inf
-        #     end
-        # end
-        # t += dt[]
         HallThruster.ssprk22_step!(
             U, (dU, U, params, t) -> HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false),
             params, t, dt[]

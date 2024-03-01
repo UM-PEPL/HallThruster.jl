@@ -9,13 +9,7 @@
         density = HallThruster.density,
         number_density = HallThruster.number_density,
         velocity = HallThruster.velocity,
-        stagnation_energy = HallThruster.stagnation_energy,
-        static_energy = HallThruster.static_energy,
         sound_speed = HallThruster.sound_speed,
-        mach_number = HallThruster.mach_number,
-        stagnation_enthalpy = HallThruster.stagnation_enthalpy,
-        static_enthalpy = HallThruster.static_enthalpy,
-        critical_sound_speed = HallThruster.critical_sound_speed,
         m = HallThruster.m,
         γ = HallThruster.γ,
         R = HallThruster.R,
@@ -24,7 +18,6 @@
         kB = HallThruster.kB,
         flux = HallThruster.flux,
         HLLE = HallThruster.HLLE,
-        upwind = HallThruster.upwind,
         rusanov = HallThruster.rusanov,
         global_lax_friedrichs = HallThruster.global_lax_friedrichs,
         Xe_0 = HallThruster.Species(HallThruster.Xenon, 0),
@@ -32,9 +25,9 @@
         R = Xenon.R
 
         let Xe_0 = HallThruster.Species(HallThruster.Xenon, 0)
-            @test HallThruster.Fluid(Xe_0, HallThruster.ContinuityOnly(u = 300, T = 300)) |> HallThruster.nvars == 1
-            @test HallThruster.Fluid(Xe_0, HallThruster.IsothermalEuler(T = 300)) |> HallThruster.nvars == 2
-            @test HallThruster.Fluid(Xe_0, HallThruster.EulerEquations()) |> HallThruster.nvars == 3
+            @test HallThruster.ContinuityOnly(Xe_0; u = 300, T = 300) |> HallThruster.nvars == 1
+            @test HallThruster.IsothermalEuler(Xe_0; T = 300) |> HallThruster.nvars == 2
+            @test HallThruster.EulerEquations(Xe_0) |> HallThruster.nvars == 3
         end
 
         ρ = 1.0
@@ -43,15 +36,15 @@
         ϵ = Xenon.cv * T + 0.5 * u^2
         mXe = Xenon.m
 
-        continuity_eq = Fluid(Xe_0, ContinuityOnly(; u, T))
+        continuity_eq = Fluid(Xe_0; u, T)
         continuity_state = (ρ,)
         continuity = (continuity_state, continuity_eq)
 
-        isothermal_eq = Fluid(Xe_0, IsothermalEuler(T))
+        isothermal_eq = Fluid(Xe_0; T)
         isothermal_state = (ρ, ρ * u,)
         isothermal = (isothermal_state, isothermal_eq)
 
-        euler_eq = Fluid(Xe_0, EulerEquations())
+        euler_eq = Fluid(Xe_0)
         euler_state = (ρ, ρ * u, ρ * ϵ,)
         euler = (euler_state, euler_eq)
 
@@ -75,7 +68,7 @@
         @testset "Thermodynamic property computation" begin
             # Check to make sure our property checking code works
             function fake_property(U, f::Fluid)
-                if f.conservation_laws.type == :EulerEquations
+                if f.type == :EulerEquations
                     return 2
                 else
                     return 1
@@ -90,13 +83,7 @@
             @test test_property(density, laws)
             @test test_property(number_density, laws)
             @test test_property(velocity, laws)
-            @test test_property(stagnation_energy, laws)
-            @test test_property(static_energy, laws)
             @test test_property(sound_speed, laws)
-            @test test_property(mach_number, laws)
-            @test test_property(stagnation_enthalpy, laws)
-            @test test_property(static_enthalpy, laws)
-            @test test_property(critical_sound_speed, laws)
 
             # check that versions which work for vectors instead of staticarrays work properly
             @test test_property(temperature, laws_vector)
@@ -104,13 +91,7 @@
             @test test_property(density, laws_vector)
             @test test_property(number_density, laws_vector)
             @test test_property(velocity, laws_vector)
-            @test test_property(stagnation_energy, laws_vector)
-            @test test_property(static_energy, laws_vector)
             @test test_property(sound_speed, laws_vector)
-            @test test_property(mach_number, laws_vector)
-            @test test_property(stagnation_enthalpy, laws_vector)
-            @test test_property(static_enthalpy, laws_vector)
-            @test test_property(critical_sound_speed, laws_vector)
 
             # Check that properties are being computed correctly
             @test temperature(continuity...) ≈ T
@@ -118,10 +99,6 @@
             @test number_density(continuity...) ≈ ρ / m(continuity_eq)
             @test density(continuity...) ≈  ρ
             @test pressure(continuity...) ≈ ρ * HallThruster.Xenon.R * T
-            @test static_energy(continuity...) ≈ cv(continuity_eq) * T
-            @test stagnation_energy(continuity...) ≈ cv(continuity_eq) * T + 0.5 * u^2
-            @test static_enthalpy(continuity...) ≈ cp(continuity_eq) * T
-            @test stagnation_enthalpy(continuity...) ≈ cp(continuity_eq) * T + 0.5 * u^2
             @test sound_speed(continuity...) ≈ √(γ(continuity_eq) * R * T)
         end
 
@@ -138,13 +115,6 @@
 
             isothermal_state_3 = (isothermal_state_2[1], -3 * isothermal_state[2],)
             euler_state_3 = (euler_state_2[1], -2 * euler_state_2[2], euler_state_2[3])
-
-            # upwind flux
-            @test upwind(continuity_state, continuity_state_2, continuity_eq) == flux(continuity...)
-            @test upwind(isothermal_state, isothermal_state_2, isothermal_eq) == flux(isothermal...)
-            @test upwind(isothermal_state, isothermal_state_3, isothermal_eq) == flux(isothermal_state_3, isothermal_eq)
-            @test upwind(euler_state, euler_state_2, euler_eq) == flux(euler...)
-            @test upwind(euler_state, euler_state_3, euler_eq) == flux(euler_state_3, euler_eq)
 
             # rusanov flux
             @test rusanov(continuity_state, continuity...) == flux(continuity...)
@@ -175,7 +145,7 @@
             index = (ρi = [1], ρiui = [2])
             scheme = HallThruster.HyperbolicScheme(identity, HallThruster.no_limiter, false)
             config = (;scheme, ncharge = 1)
-            params = (;index, config)
+            params = (;index, config, is_velocity_index = [false, true, false])
 
             HallThruster.compute_edge_states!(edge_L, edge_R, U_euler, params)
             @test edge_L[:, 1] == euler_state_L

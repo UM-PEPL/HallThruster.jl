@@ -131,11 +131,11 @@ end
     @test length(grid.cell_centers) == ncells+2
     @test length(grid.edges) == ncells+1
 
-    Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
-    Xe_0_background = HallThruster.Fluid(HallThruster.Xenon(0), HallThruster.ContinuityOnly(100., 100.))
-    Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), HallThruster.IsothermalEuler(100.))
-    Xe_II = HallThruster.Fluid(HallThruster.Xenon(2), HallThruster.IsothermalEuler(100.))
-    Xe_III = HallThruster.Fluid(HallThruster.Xenon(3), HallThruster.EulerEquations())
+    Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), 100., 100.)
+    Xe_0_background = HallThruster.Fluid(HallThruster.Xenon(0), 100., 100.)
+    Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), T = 100.)
+    Xe_II = HallThruster.Fluid(HallThruster.Xenon(2), T = 100.)
+    Xe_III = HallThruster.Fluid(HallThruster.Xenon(3))
     fluids = [
         Xe_0,
         Xe_0,

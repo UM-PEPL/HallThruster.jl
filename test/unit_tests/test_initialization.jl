@@ -25,7 +25,7 @@
     mi = config.propellant.m
 
     ncells = 100
-    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     grid = HallThruster.generate_grid(config.thruster.geometry, domain, EvenGrid(ncells))
     U, cache = HallThruster.allocate_arrays(grid, fluids, config.anom_model)
     index = HallThruster.configure_index(fluids, fluid_ranges)
@@ -109,7 +109,7 @@ end
         common_opts...
     )
 
-    fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
 
     @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
     @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
@@ -120,10 +120,11 @@ end
         Symbol("Xe3+") => [6:7],
     )
 
-    @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
+    @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
+    @test fluids[2] == HallThruster.IsothermalEuler(species[2], config.ion_temperature)
+    @test fluids[3] == HallThruster.IsothermalEuler(species[3], config.ion_temperature)
+    @test fluids[4] == HallThruster.IsothermalEuler(species[4], config.ion_temperature)
+    @test is_velocity_index == [false, false, true, false, true, false, true]
 
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
@@ -164,10 +165,12 @@ end
         Symbol("Xe3+") => [6:7],
     )
 
-    @test fluids[1].conservation_laws == HallThruster.ContinuityOnly(config.neutral_velocity, config.neutral_temperature)
-    @test fluids[2].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[3].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
-    @test fluids[4].conservation_laws == HallThruster.IsothermalEuler(config.ion_temperature)
+    @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
+    @test fluids[2] == HallThruster.IsothermalEuler(species[2], config.ion_temperature)
+    @test fluids[3] == HallThruster.IsothermalEuler(species[3], config.ion_temperature)
+    @test fluids[4] == HallThruster.IsothermalEuler(species[4], config.ion_temperature)
+    @test is_velocity_index == [false, false, true, false, true, false, true]
+
 
     index = HallThruster.configure_index(fluids, fluid_ranges)
     @test keys(index) == (:ρn, :ρi, :ρiui)

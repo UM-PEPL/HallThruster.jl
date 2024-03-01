@@ -6,14 +6,14 @@ end
 
 @inline function flux(U::NTuple{1, T}, fluid) where T
     ρ = U[1]
-    u = fluid.conservation_laws.u
+    u = fluid.u
     return (ρ * u,)
 end
 
 @inline function flux(U::NTuple{2, T}, fluid) where T
     ρ, ρu = U
     p = pressure(U, fluid)
-    return (ρu, ρu^2 / ρ + p)
+    return (ρu, U[2]^2 / U[1] + p)
 end
 
 @inline function flux(U::NTuple{3, T}, fluid) where T
@@ -21,7 +21,7 @@ end
     u = ρu / ρ
     p = pressure(U, fluid)
     ρH = ρE + p
-    return (ρu, ρu * u + p, ρH * u)
+    return (ρu, U[2]^2 / U[1] + p, ρH * u)
 end
 
 # i forget why i did things this way. this seems super unnecessary, but we'll get to it
@@ -73,32 +73,16 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(quote
 
-    function upwind(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid::Fluid, args...) where T
-        uL = velocity(UL, fluid)
-        uR = velocity(UR, fluid)
-
-        avg_velocity = 0.5 * (uL + uR)
-        if avg_velocity ≥ 0
-            return flux(UL, fluid)
-        else
-            return flux(UR, fluid)
-        end
-    end
-
-    function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
+    @inbounds @fastmath function rusanov(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
-
         TL = temperature(UL, fluid)
         TR = temperature(UR, fluid)
-
-        mi = m(fluid)
-
-        aL = sqrt((γ * kB * TL) / mi)
-        aR = sqrt((γ * kB * TR) / mi)
+        aL = sound_speed(UL, fluid)
+        aR = sound_speed(UL, fluid)
 
         sL_max = max(abs(uL - aL), abs(uL + aL))
         sR_max = max(abs(uR - aR), abs(uR + aR))
@@ -108,21 +92,19 @@ for NUM_CONSERVATIVE in 1:3
         FL = flux(UL, fluid)
         FR = flux(UR, fluid)
 
-        return @NTuple [0.5 * (FL[j] + FR[j]) - 0.5 * smax * (UR[j] - UL[j]) for j in 1:$(NUM_CONSERVATIVE)]
+        return @NTuple [0.5 * ((FL[j] + FR[j]) - smax * (UR[j] - UL[j])) for j in 1:$(NUM_CONSERVATIVE)]
     end
 
-    function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
+    @fastmath function HLLE(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
-        mi = m(fluid)
 
         uL = velocity(UL, fluid)
         uR = velocity(UR, fluid)
         TL = temperature(UL, fluid)
         TR = temperature(UR, fluid)
-
-        aL = sqrt((γ * kB * TL) / mi)
-        aR = sqrt((γ * kB * TR) / mi)
+        aL = sound_speed(UL, fluid)
+        aR = sound_speed(UL, fluid)
 
         sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
         sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
@@ -141,7 +123,7 @@ for NUM_CONSERVATIVE in 1:3
         ]
     end
 
-    function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, λ_global = 0.0, args...) where T
+    @fastmath function global_lax_friedrichs(UL::NTuple{$NUM_CONSERVATIVE, T}, UR::NTuple{$NUM_CONSERVATIVE, T}, fluid, λ_global = 0.0, args...) where T
         γ = fluid.species.element.γ
         Z = fluid.species.Z
 
@@ -160,35 +142,22 @@ for NUM_CONSERVATIVE in 1:3
     end)
 end
 
-function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
+@inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
-    slope = limiter(r) * (uⱼ₊₁ - uⱼ₋₁) / 2
-
-    uⱼ₋½ᴿ = uⱼ - 0.5 * slope
-    uⱼ₊½ᴸ = uⱼ + 0.5 * slope
-
-    return uⱼ₋½ᴿ, uⱼ₊½ᴸ
+    Δu = 0.25 * limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
+    return uⱼ - Δu, uⱼ + Δu
 end
 
 function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = false)
     (nvars,  ncells) = size(U)
-    (;config, index) = params
+    (;config, index, is_velocity_index) = params
     (;scheme) = config
 
     # compute left and right edge states
-    @inbounds for i in 2:ncells-1
-        for j in 1:nvars
-            if scheme.reconstruct
-
-                is_velocity_index = false
-                for Z in 1:params.config.ncharge
-                    if j == index.ρiui[Z]
-                        is_velocity_index = true
-                        break
-                    end
-                end
-
-                if is_velocity_index # reconstruct velocity as primitive variable instead of momentum density
+    if (scheme.reconstruct)
+        @inbounds for j in 1:nvars
+            if is_velocity_index[j] # reconstruct velocity as primitive variable instead of momentum density
+                for i in 2:ncells-1
                     u₋ = U[j, i-1]/U[j-1, i-1]
                     uᵢ = U[j, i]/U[j-1, i]
                     u₊ = U[j, i+1]/U[j-1, i+1]
@@ -198,17 +167,21 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
                     ρR = UR[j-1, left_edge(i)]
                     UL[j, right_edge(i)] = uL*ρL
                     UR[j, left_edge(i)] = uR*ρR
-                else
+                end
+            else
+                for i in 2:ncells-1
                     u₋ = U[j, i-1]
                     uᵢ = U[j, i]
                     u₊ = U[j, i+1]
 
                     UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(u₋, uᵢ, u₊, scheme.limiter)
                 end
-            else
-                UL[j, right_edge(i)] = U[j, i]
-                UR[j, left_edge(i)]  = U[j, i]
             end
+        end
+    else
+        @inbounds for i in 2:ncells-1, j in 1:nvars
+            UL[j, right_edge(i)] = U[j, i]
+            UR[j, left_edge(i)]  = U[j, i]
         end
     end
 
@@ -256,21 +229,11 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
             TL = temperature(UL_ions, fluid)
             uR = velocity(UR_ions, fluid)
             TR = temperature(UR_ions, fluid)
+            aL = sound_speed(UL_ions, fluid)
+            aR = sound_speed(UL_ions, fluid)
 
-            # Sound speeds
-            aL = sqrt((γ * kB * TL) / mi)
-            aR = sqrt((γ * kB * TR) / mi)
-
-            # There are several possible waves, with speeds, u-a, u+a, and u, both left- and right-running
-            λ₁₂⁺ = 0.5 * (uR + abs(uR))
-            λ₁₂⁻ = 0.5 * (uL - abs(uL))
-            λ₃⁺  = 0.5 * (uR + aR  + abs(uR + aR))
-            λ₃⁻  = 0.5 * (uL + aL - abs(uL + aL))
-            λ₄⁺  = 0.5 * (uR - aR  + abs(uR - aR))
-            λ₄⁻  = 0.5 * (uL - aL  - abs(uL - aL))
-
-            # Maximum of all of these wave speeds
-            s_max = max(abs(λ₁₂⁺), abs(λ₁₂⁻), abs(λ₃⁺), abs(λ₃⁻), abs(λ₄⁺), abs(λ₄⁻))
+            # Maximum wave speed
+            s_max = max(abs(uL + aL), abs(uL - aL), abs(uR + aR), abs(uR - aR))
 
             # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
             dt_max = Δz_edge[i] / s_max

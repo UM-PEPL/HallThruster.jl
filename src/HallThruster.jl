@@ -30,7 +30,6 @@ include("utilities/transition_functions.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
-include("physics/conservationlaws.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
 include("physics/thermodynamics.jl")
@@ -102,9 +101,9 @@ function example_simulation(;ncells, duration, dt, nsave)
     HallThruster.voltage_eff(sol_1)
 end
 
-# Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
-    example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
-end
+# # Precompile statements to improve load time
+# SnoopPrecompile.@precompile_all_calls begin
+#     example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+# end
 
 end # module

@@ -176,9 +176,9 @@ end
     end
 
     fluids = [
-        HallThruster.Fluid(Xenon(0), HallThruster.ContinuityOnly(u = 300.0, T = Tn)),
-        HallThruster.Fluid(Xenon(1), HallThruster.IsothermalEuler(T = Tn)),
-        HallThruster.Fluid(Xenon(2), HallThruster.IsothermalEuler(T = Tn)),
+        HallThruster.Fluid(Xenon(0); u = 300.0, T = Tn),
+        HallThruster.Fluid(Xenon(1); T = Tn),
+        HallThruster.Fluid(Xenon(2); T = Tn),
     ]
 
     Tev = 4.0
