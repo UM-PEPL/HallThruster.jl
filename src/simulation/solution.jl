@@ -35,7 +35,7 @@ end
 
 @inline _saved_fields_vector() = (
     :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-    :νei, :νew, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
+    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
     :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
     :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
     :dt

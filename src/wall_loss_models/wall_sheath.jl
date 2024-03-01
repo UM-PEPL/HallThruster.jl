@@ -50,17 +50,27 @@ Base.@kwdef struct WallSheath <: WallLossModel
 end
 
 function freq_electron_wall(model::WallSheath, U, params, i)
-    geometry = params.config.thruster.geometry
+    (; index, config, cache) = params
+    (; ncharge) = config
+    mi = config.propellant.m
+    #compute radii difference 
+    geometry = config.thruster.geometry
     Δr = geometry.outer_radius - geometry.inner_radius
+    #compute electron wall temperature
     Tev = wall_electron_temperature(U, params, i)
-    mi = params.config.propellant.m
-
+    #calculate and store SEE coefficient
     γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
-    params.cache.γ_SEE[i] = γ
+    cache.γ_SEE[i] = γ
+    #compute the ion current to the walls 
+    j_iw = 0.0
+    for Z in 1:ncharge
+        niw = U[index.ρi[Z], i] / mi
+        j_iw += model.α * Z * niw * sqrt(Z * e * Tev / mi)
+    end
+    #compute electron wall collision frequency 
+    νew = j_iw / (Δr * (1 - γ)) / cache.ne[i]
 
-    νew = model.α * √(e * Tev / mi) * γ / (Δr * (1 - γ))
-
-    return νew * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
+    return νew 
 end
 
 function wall_power_loss(model::WallSheath, U, params, i)
@@ -75,8 +85,8 @@ function wall_power_loss(model::WallSheath, U, params, i)
     # Space charge-limited sheath potential
     ϕ_s = sheath_potential(Tev, γ, mi)
 
-    # Compute electron wall collision frequency
-    νew = params.cache.νew[i]
+    # Compute electron wall collision frequency with transition function for energy wall collisions in plume 
+    νew = params.cache.radial_loss_frequency[i] * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
 
     # Compute wall power loss rate
     W = νew * (2 * (1 - 0.5 * model.material.σ₀) * Tev +  (1 - γ) * ϕ_s) / γ

@@ -27,7 +27,7 @@ where $\nu_{ew}$ is the electron wall collision frequency, $T_{ev}$ is the elect
 Here, $\gamma$ is the secondary electron emission coefficient, which is computed according to the choice of `WallMaterial`. For a plasma with only once charge state, the electron-wall collision frequency is:
 
 ```math
-\nu_{ew} = \frac{\alpha}{1 - \gamma}\sqrt{\frac{e T_{eV}}{m_i}}\frac{2}{R_o - R_i},
+\nu_{ew} = \frac{\alpha}{1 - \gamma}\sqrt{\frac{e T_{eV}}{m_i}}\frac{1}{R_o - R_i},
 ```
 
 where $R_o$ and $R_i$ are the channel inner radius and outer radii respectively. For multiply-charged plasmas, the ion currents of each species are first computed as:
@@ -45,13 +45,13 @@ Then, the electron wall current minus the secondary electron current are equal t
 Lastly, we compute the electron-wall collision frequency as
 
 ```math
-\nu_{ew} = \frac{j_{ew}}{e n_e} \frac{2}{R_o - R_i}
+\nu_{ew} = \frac{j_{ew}}{e n_e} \frac{1}{R_o - R_i}
 ```
 
 The ion current of each species is also used to compute ion wall losses if `ion_wall_losses` is set to `true` in `config`. Ions are assumed to recombine at the walls and the flux is re-injected as neutrals.
 
 ```math
-\dot{n}_{iw, Z} = -\frac{j_{iw, Z}}{e}\frac{2}{R_o - R_i}
+\dot{n}_{iw, Z} = -\frac{j_{iw, Z}}{e}\frac{1}{R_o - R_i}
 ```
 
 ```math

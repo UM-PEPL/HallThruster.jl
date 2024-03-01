@@ -1,3 +1,35 @@
+@testset "Errors and Warnings" begin
+    Landmark_config = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        LANDMARK = true,
+    )
+    
+    @test_throws ErrorException HallThruster.run_simulation(Landmark_config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10)
+
+    config = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+    )
+
+    @test_logs (:warn, "CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.") HallThruster.run_simulation(config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10, adaptive = true, CFL = 0.9)
+    
+    pressure_config = HallThruster.Config(;
+        thruster = HallThruster.SPT_100,
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        background_pressure = 1.0u"Pa",
+    )
+    
+    @test_logs (:warn, "Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?") HallThruster.run_simulation(pressure_config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10)
+
+end
+
 @testset "Linear algebra" begin
     A = Tridiagonal(ones(3), -2.6 * ones(4), ones(3))
     b = [-240., 0, 0, -150]
@@ -118,13 +150,13 @@ end
 
     @test size(U) == (nvars, ncells+2)
 
-    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, νew, nn_tot, ji)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, nn_tot, ji)
         @test size(arr) == (ncells+2,)
     end
 
