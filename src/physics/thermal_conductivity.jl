@@ -29,7 +29,7 @@ function (model::Braginskii)(κ, params)
         #get coefficient from charge states
         κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(Z_eff[i])
         #use both classical and anomalous collision frequencies
-        ν = νc[i] + νew[i] + νan[i]
+        ν = νc[i] + νew_momentum[i] + νan[i]
         # calculate mobility using above collision frequency
         μ = electron_mobility(ν, B[i])
         #final calculation
@@ -45,10 +45,10 @@ end
 struct Mitchner <: ThermalConductivityModel end
 
 function (model::Mitchner)(κ, params)
-    (;νc, νew, νei, νan, B, ne, Tev) = params.cache
+    (;νc, νew_momentum, νei, νan, B, ne, Tev) = params.cache
     @inbounds for i in eachindex(κ)
         # use both classical and anomalous collision frequencies
-        ν = νc[i] + νew[i] + νan[i]
+        ν = νc[i] + νew_momentum[i] + νan[i]
         # calculate mobility using above collision frequency
         μ = electron_mobility(ν, B[i])
         # final calculation
