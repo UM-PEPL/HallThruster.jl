@@ -1,8 +1,8 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;index, control_current, target_current, Kp, Ti, mi) = params
+    (;index, control_current, target_current, Kp, Ti, mi, z_cell) = params
     (;
-        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
+        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, ∇Te, νan, νc, νen, νei, radial_loss_frequency,
         Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, nn_tot, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
@@ -80,10 +80,10 @@ function update_electrons!(U, params, t = 0)
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
-        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume  
+        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
         νew_momentum[i] =  radial_loss_frequency[i]* params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
-        
+
     end
 
     # Update anomalous transport
@@ -118,8 +118,9 @@ function update_electrons!(U, params, t = 0)
         params.cache.K[i] = electron_kinetic_energy(U, params, i)
     end
 
-    # Compute potential gradient and pressure gradient
-    compute_pressure_gradient!(∇pe, params)
+    # Compute pressure and temperature gradient
+    compute_gradient!(∇Te, Tev, z_cell)
+    compute_gradient!(∇pe, pe, z_cell)
 
     # Compute electric field
     compute_electric_field!(∇ϕ, params)
@@ -162,7 +163,7 @@ end
 
 function discharge_current(U::Array, params)
     (;cache, Δz_edge, ϕ_L, ϕ_R) = params
-    (;∇pe, μ, ne, ji, Vs, channel_area) = cache
+    (;∇pe, ∇Te, μ, ne, ji, Vs, channel_area) = cache
 
     ncells = size(U, 2)
 
@@ -172,8 +173,8 @@ function discharge_current(U::Array, params)
     @inbounds for i in 1:ncells-1
         Δz = Δz_edge[i]
 
-        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
-        int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
+        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
+        int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1] - 1.5 * ∇Te[i+1]
 
         int1 += 0.5 * Δz * (int1_1 + int1_2)
 
@@ -192,35 +193,31 @@ end
 
 function compute_electric_field!(∇ϕ, params)
     (;cache) = params
-    (;ji, Id, ne, μ, ∇pe, channel_area) = cache
+    (;ji, Id, ne, μ, ∇pe, ∇Te, channel_area) = cache
 
     for i in eachindex(∇ϕ)
-        ∇ϕ[i] = -((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+        ∇ϕ[i] = -((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
     end
 
     return ∇ϕ
 end
 
-function compute_pressure_gradient!(∇pe, params)
-    (; pe) = params.cache
-    (;z_cell) = params
-
-    ncells = length(z_cell)
-
+function compute_gradient!(∇f, f, z)
     # Pressure gradient (forward)
-    ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
+    ∇f[1] = forward_difference(f[1], f[2], f[3], z[1], z[2], z[3])
 
     # Centered difference in interior cells
-    @inbounds for j in 2:ncells-1
+    @inbounds for j in 2:length(z) - 1
         # Compute pressure gradient
-        ∇pe[j] = central_difference(pe[j-1], pe[j], pe[j+1], z_cell[j-1], z_cell[j], z_cell[j+1])
+        ∇f[j] = central_difference(f[j-1], f[j], f[j+1], z[j-1], z[j], z[j+1])
     end
 
     # pressure gradient (backward)
-    ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
+    ∇f[end] = backward_difference(f[end-2], f[end-1], f[end], z[end-2], z[end-1], z[end])
 
-    return nothing
+    return ∇f
 end
+
 
 function smooth!(x, x_cache; iters=1)
     if iters > 0

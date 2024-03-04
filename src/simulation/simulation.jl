@@ -34,6 +34,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     Tev = zeros(ncells)
     pe = zeros(ncells)
     ∇pe = zeros(ncells)
+    ∇Te = zeros(ncells)
     ue = zeros(ncells)
     F = zeros(nvariables, nedges)
     UL = zeros(nvariables, nedges)
@@ -93,7 +94,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     dt = zeros(1)
 
     cache = (;
-                Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+                Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, ∇Te,
                 νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
                 ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
@@ -134,7 +135,7 @@ function run_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    #check that user is aware of neutral backflow flag 
+    #check that user is aware of neutral backflow flag
     if (config.background_pressure > 0.0) & (config.solve_background_neutrals == false)
         @warn("Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?")
     end
