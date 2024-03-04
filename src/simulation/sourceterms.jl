@@ -133,17 +133,17 @@ function excitation_losses!(U, params, i)
 end
 
 function electron_kinetic_energy(U, params, i)
-    νe = params.cache.νe[i]
-    B  = params.cache.B[i]
-    ue = params.cache.ue[i]
-    Ωe = e * B / me / νe
-    return 0.5 *  me * (1 + Ωe^2) * ue^2 / e
+    (;ue, Ωe²) = params.cache
+    return 0.5 *  me * (1 + Ωe²[i]) * ue[i]^2 / e
 end
 
 function source_electron_energy(U, params, i)
-    ne = params.cache.ne[i]
-    ue = params.cache.ue[i]
-    ∇ϕ = params.cache.∇ϕ[i]
+    (;cache) = params
+    ne = cache.ne[i]
+    ue = cache.ue[i]
+    ∇ϕ = cache.∇ϕ[i]
+    B = cache.B[i]
+    νe = cache.νe[i]
 
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal inergy
@@ -157,7 +157,15 @@ function source_electron_energy(U, params, i)
         K = params.cache.K[i]
         νe = params.cache.νe[i]
         ∇pe = params.cache.∇pe[i]
-        ohmic_heating = 2 * ne * K * νe + ue * ∇pe
+        ∇Te = params.cache.∇Te[i]
+        ji = params.cache.ji[i]
+        Te = params.cache.Tev[i]
+        j_perp = ji - e * ne * ue
+        hall_param = e * B / (me * νe)
+        j_theta = hall_param * (j_perp - ji) + 1.5 * ne / B * ∇Te
+        σ = e^2 * ne / (me * νe)
+        ion_heating_rate = 3 * me / params.mi * νe * ne * Te
+        ohmic_heating = ne * ue * ∇ϕ - ion_heating_rate
     end
 
     # add excitation losses to total inelastic losses

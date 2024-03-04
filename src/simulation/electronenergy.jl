@@ -120,7 +120,7 @@ function update_electron_energy!(U, params, dt)
 
         # Explicit right-hand-side
         bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
-        bϵ[i] -= dt * flux * dlnA_dz
+        #bϵ[i] -= dt * flux * dlnA_dz
     end
 
     # Solve equation system using Thomas algorithm

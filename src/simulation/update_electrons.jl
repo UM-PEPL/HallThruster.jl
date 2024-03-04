@@ -5,7 +5,7 @@ function update_electrons!(U, params, t = 0)
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, ∇Te, νan, νc, νen, νei, radial_loss_frequency,
         Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, nn_tot, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
-        errors, channel_area
+        errors, channel_area, Ωe²
     ) = params.cache
 
     # Allow for system interrupts
@@ -100,7 +100,8 @@ function update_electrons!(U, params, t = 0)
 
         # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew_momentum[i]
-        μ[i] = electron_mobility(νe[i], B[i])
+        Ωe²[i] = (e * B[i] / (me * νe[i]))^2
+        μ[i] = e / (me * νe[i] * (1 + Ωe²[i]))
     end
 
     # Compute anode sheath potential
@@ -163,7 +164,7 @@ end
 
 function discharge_current(U::Array, params)
     (;cache, Δz_edge, ϕ_L, ϕ_R) = params
-    (;∇pe, ∇Te, μ, ne, ji, Vs, channel_area) = cache
+    (;∇pe, ∇Te, μ, ne, ji, Vs, channel_area, Ωe²) = cache
 
     ncells = size(U, 2)
 
@@ -172,9 +173,10 @@ function discharge_current(U::Array, params)
 
     @inbounds for i in 1:ncells-1
         Δz = Δz_edge[i]
-
-        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
-        int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1] - 1.5 * ∇Te[i+1]
+        hall_fac_1 = Ωe²[i] / (1 + Ωe²[i])
+        hall_fac_2 = Ωe²[i+1] / (1 + Ωe²[i+1])
+        int1_1 = (hall_fac_1 * ji[i] / e / μ[i] + ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
+        int1_2 = (hall_fac_2 * ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1] - 1.5 * ∇Te[i+1]
 
         int1 += 0.5 * Δz * (int1_1 + int1_2)
 
@@ -193,10 +195,11 @@ end
 
 function compute_electric_field!(∇ϕ, params)
     (;cache) = params
-    (;ji, Id, ne, μ, ∇pe, ∇Te, channel_area) = cache
+    (;ji, Id, ne, μ, ∇pe, ∇Te, channel_area, Ωe²) = cache
 
     for i in eachindex(∇ϕ)
-        ∇ϕ[i] = -((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
+        hall_factor = Ωe²[i] / (1 + Ωe²[i])
+        ∇ϕ[i] = -((Id[] / channel_area[i] - hall_factor * ji[i]) / e / μ[i] - ∇pe[i]) / ne[i] - 1.5 * ∇Te[i]
     end
 
     return ∇ϕ
