@@ -67,28 +67,37 @@ function solve(U, params, tspan; saveat)
 
         t += params.dt[]
 
-        # Update heavy species
-        ssprk22_step!(U, update_heavy_species!, params, t, params.dt[])
+        try
 
-        # Update electron quantities
-        update_electrons!(U, params, t)
+            # Update heavy species
+            ssprk22_step!(U, update_heavy_species!, params, t, params.dt[])
 
-        # Update plume geometry
-        update_plume_geometry!(U, params)
+            # Update electron quantities
+            update_electrons!(U, params, t)
+
+            # Update plume geometry
+            update_plume_geometry!(U, params)
+
+        catch e
+            if (e isa InterruptException)
+                @warn("Simulation interrupted at time $t.")
+                retcode = :interrupt
+                break
+            else
+                @warn ("Error detected at time $t.")
+                retcode = :errordetected
+                break
+            end
+        end
 
         # Check for NaNs and terminate if necessary
-        nandetected = false
-        infdetected = false
-
         @inbounds for j in 1:ncells, i in 1:nvars
             if isnan(U[i, j])
                 @warn("NaN detected in variable $i in cell $j at time $(t)")
-                nandetected = true
                 retcode = :NaNDetected
                 break
             elseif isinf(U[i, j])
                 @warn("Inf detected in variable $i in cell $j at time $(t)")
-                infdetected = true
                 retcode = :InfDetected
                 break
             end
@@ -120,10 +129,6 @@ function solve(U, params, tspan; saveat)
             end
 
             save_ind += 1
-        end
-
-        if nandetected || infdetected
-            break
         end
     end
 

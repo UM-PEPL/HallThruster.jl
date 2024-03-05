@@ -1,7 +1,7 @@
 
 
 function update_electron_energy!(U, params, dt)
-    (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
+    (;z_cell, Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
     (;Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
@@ -97,14 +97,17 @@ function update_electron_energy!(U, params, dt)
             FR_factor_R = 5/3 * ueR - κR / ΔzR / neR
         end
 
-        # Fluxes at left and right boundary
-        FL = FL_factor_L * nϵL + FL_factor_C * nϵ0 + FL_factor_R * nϵR
-        FR = FR_factor_L * nϵL + FR_factor_C * nϵ0 + FR_factor_R * nϵR
-
         # Contribution to implicit part from fluxes
         Aϵ.d[i] = (FR_factor_C - FL_factor_C) / Δz
         Aϵ.dl[i-1] = (FR_factor_L - FL_factor_L) / Δz
         Aϵ.du[i] = (FR_factor_R - FL_factor_R) / Δz
+
+        # Contribution to implicit part from area expansion term
+        dlnA_dz = dA_dz[i] / channel_area[i]
+        dL, d0, dR = central_diff_coeffs(z_cell[i-1], z_cell[i], z_cell[i+1])
+        Aϵ.d[i] -= (5/3 * ue0 + d0 * κ0 / ne0) * dlnA_dz
+        Aϵ.dl[i-1] -= dL * κ0 / neL * dlnA_dz
+        Aϵ.du[i] -= dR * κ0 / neR * dlnA_dz
 
         # Contribution to implicit part from timestepping
         Aϵ.d[i]    = 1.0 + implicit * dt * Aϵ.d[i]
@@ -112,15 +115,16 @@ function update_electron_energy!(U, params, dt)
         Aϵ.du[i]   = implicit * dt * Aϵ.du[i]
 
         # Explicit flux
+        # dF / dz
+        FL = FL_factor_L * nϵL + FL_factor_C * nϵ0 + FL_factor_R * nϵR
+        FR = FR_factor_L * nϵL + FR_factor_C * nϵ0 + FR_factor_R * nϵR
         F_explicit = (FR - FL) / Δz
 
-        # Term to allow for changing area
-        dlnA_dz = dA_dz[i] / channel_area[i]
-        flux = 5/3 * nϵ0 * ue0
+        # (5/3 nϵ ue + κ dT/dz) d(lnA)/dz
+        Q_area = (5/3 * nϵ0 * ue0 + κ0 * (dL * Tev[i-1] + d0 * Tev[i] + dR * Tev[i+1])) * dlnA_dz
 
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
-        #bϵ[i] -= dt * flux * dlnA_dz
+        bϵ[i] = nϵ[i] + dt * (Q - explicit * (F_explicit + Q_area))
     end
 
     # Solve equation system using Thomas algorithm

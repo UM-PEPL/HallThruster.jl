@@ -138,41 +138,17 @@ function electron_kinetic_energy(U, params, i)
 end
 
 function source_electron_energy(U, params, i)
-    (;cache) = params
-    ne = cache.ne[i]
-    ue = cache.ue[i]
-    ∇ϕ = cache.∇ϕ[i]
-    B = cache.B[i]
-    νe = cache.νe[i]
+    (;ne, ue, ∇ϕ) = params.cache
 
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
-    # drift (kinetic energy) into thermal inergy
-    if params.config.LANDMARK
-        # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
-        # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
-        ohmic_heating  = ne * ue * ∇ϕ
-    else
-        # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
-        # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
-        K = params.cache.K[i]
-        νe = params.cache.νe[i]
-        ∇pe = params.cache.∇pe[i]
-        ∇Te = params.cache.∇Te[i]
-        ji = params.cache.ji[i]
-        Te = params.cache.Tev[i]
-        j_perp = ji - e * ne * ue
-        hall_param = e * B / (me * νe)
-        j_theta = hall_param * (j_perp - ji) + 1.5 * ne / B * ∇Te
-        σ = e^2 * ne / (me * νe)
-        ion_heating_rate = 3 * me / params.mi * νe * ne * Te
-        ohmic_heating = ne * ue * ∇ϕ - ion_heating_rate
-    end
+    # drift (kinetic energy) into thermal energy
+    ohmic_heating = ne[i] * ue[i] * ∇ϕ[i]
 
     # add excitation losses to total inelastic losses
     excitation_losses!(U, params, i)
 
     # compute wall losses
-    wall_loss = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
+    wall_loss = ne[i] * wall_power_loss(params.config.wall_loss_model, U, params, i)
 
     params.cache.wall_losses[i] = wall_loss
     params.cache.ohmic_heating[i] = ohmic_heating
