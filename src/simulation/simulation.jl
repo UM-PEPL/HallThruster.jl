@@ -134,7 +134,7 @@ function run_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    #check that user is aware of neutral backflow flag 
+    #check that user is aware of neutral backflow flag
     if (config.background_pressure > 0.0) & (config.solve_background_neutrals == false)
         @warn("Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?")
     end
@@ -269,9 +269,8 @@ function run_simulation(
     return sol
 end
 
-function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false, verbose = true)
+function run_simulation(json_content::JSON3.Object; single_section = false, nonstandard_keys = false, verbose = true, adaptive = false)
 
-    adaptive = false
     pressure_z0 = NaN
     pressure_dz = NaN
     pressure_pstar = NaN
@@ -293,11 +292,10 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 flux_function, limiter, reconstruct,
                 ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
                 # Parameters
-                anom_model_coeffs, sheath_loss_coefficient,
+                sheath_loss_coefficient,
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
                 cathode_electron_temp_eV, inner_outer_transition_length_m,
                 background_pressure_Torr, background_temperature_K,
-                pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
             ) = json_content
 
             propellant = propellant_material
@@ -316,17 +314,23 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 flux_function, limiter, reconstruct,
                 ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
                 # Parameters
-                anom_model_coeffs, sheath_loss_coefficient,
+                sheath_loss_coefficient,
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
                 cathode_electron_temp_eV, inner_outer_transition_length_m,
                 background_pressure_Torr, background_temperature_K,
-                pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
             ) = json_content
         end
 
         # Handle optional keys
         if haskey(json_content, :adaptive)
             adaptive = json_content.adaptive
+        end
+
+        # Anom coefficients
+        if (haskey(json_content, :anom_model_coeffs))
+            anom_model_coeffs = json_content.anom_model_coeffs
+        else
+            anom_model_coeffs = [json_content.anom_coeff_1, json_content.anom_coeff_2]
         end
 
         # Optional parameters for ShiftedTwoZoneBohm
@@ -425,6 +429,8 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         background_neutral_temperature = background_temperature_K * u"K",
     )
 
+    @show adaptive
+
     solution = run_simulation(
         config; ncells = num_cells, nsave = num_save,
         duration = duration_s, dt = dt_s, verbose = verbose, adaptive
@@ -433,7 +439,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
     return solution
 end
 
-function run_simulation(json_path::String; single_section = false, is_path = true, nonstandard_keys = false, verbose = true)
+function run_simulation(json_path::String; kwargs...)
 
     if is_path
         json_content = JSON3.read(read(json_path, String))
@@ -441,5 +447,5 @@ function run_simulation(json_path::String; single_section = false, is_path = tru
         json_content = JSON3.read(json_path)
     end
 
-    run_simulation(json_content; single_section, nonstandard_keys, verbose)
+    run_simulation(json_content; kwargs...)
 end
