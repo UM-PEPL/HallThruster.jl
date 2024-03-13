@@ -439,7 +439,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
     return solution
 end
 
-function run_simulation(json_path::String; kwargs...)
+function run_simulation(json_path::String; is_path = true, kwargs...)
 
     if is_path
         json_content = JSON3.read(read(json_path, String))

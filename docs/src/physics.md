@@ -99,38 +99,26 @@ In Hall thrusters, the observed axial/cross-field electron current is significan
 
 ## Electrostatic potential
 
-To compute the electrostatic potential, we first add the continuity equations from the multiple ion species and subtract the electron continuity equation to obtain the charge continuity equation:
-
-```@docs
-current conservation equation
-```
+The electrostatic potential is found by first computing the electric field. To determine the electric field we generally follow the method from [V. Giannetti, et. al *Numerical and experimental investigation of longitudinal oscillations in Hall thrusters*, Aerospace 8, 148, 2021](https://www.mdpi.com/2226-4310/8/6/148) but the main steps are outlined here. By writing the discharge current as ``\frac{I_d}{A_{ch}} = j_e + j_i`` where ``A_{ch}`` is the channel area, plugging in Ohm's law for the electron current density, and integrating over the domain, we can write the discharge current as
 
 ```math
-    \sigma = \sum_{j=1}^3 j\;n_{ij} - n_e \\
-    j_{iz} =  \sum_{j=1}^3 j\;n_{ij} u_{ij} \\
-    \frac{\partial \sigma}{\partial t} + \frac{\partial}{\partial z}\left(j_{iz} - j_{ez}\right) = 0
+    I_d = \frac{\Delta V + \int_{z_c}^{z_a} \frac{1}{en_e}\frac{\partial p_e}{\partial z} + \frac{j_{iz}}{en_e\mu_{\perp}} dz}{\int_{z_c}^{z_a} en_e \mu_{\perp} A dz}
 ```
 
-
-Here, ``\sigma`` is the charge density, which is zero in our model as we have assumed quasineutrality, and ``j_{iz}`` is the total axial ion current. We substitute the axial current equation into the current conservation equation and noting that ``E_z = -\partial \phi / \partial z``
+Where A is the cross section area of either the channel or plume, ``z_c`` and ``z_a`` are the cathode and anode positions, and ``\Delta V, j_{iz},`` and ``\mu_{\perp}`` are given by 
 
 ```math
-    \frac{\partial}{\partial_z} j_{iz} - \frac{\partial}{\partial z}\left[\frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(-\frac{\partial \phi}{\partial z} + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\right] = 0.
+\Delta V = V_d + V_s \\
+j_{iz} = \Sigma_{j=1}^{3} j\;n_{ij} u_{ij} \\
+\mu_{\perp} = \frac{e}{m_e \nu_e} \frac{1}{1+\Omega_e^2}
 ```
 
-Defining the cross-field electron mobility
+With the discharge current known, the axial electric field is computed locally as
 
 ```math
-    \mu_{\perp} = \frac{e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2},
+E_z = \frac{I_d}{en_e\mu_{\perp}A_{ch}} - \frac{1}{en_e} \frac{\partial p_e}{\partial z} - \frac{j_{iz}}{en_e\mu_{\perp}} 
 ```
-
-we obtain the following second-order elliptic differential equation for the potential.
-
-```math
-    \frac{\partial}{\partial z}\left(\mu_{\perp} n_e \frac{\partial\phi}{\partial z}\right) = \frac{\partial}{\partial z}\left(\frac{\mu_{\perp}}{e}\frac{\partial p_e}{\partial z} - \frac{j_{iz}}{e}\right)
-```
-
-This can be discretized using a finite-difference scheme and written in linear form as ``\underline{\underline{A}} \underline{x} = \underline{b}``. The resulting system is tridiagonal and is readily solvable. Details of this procedure can be found in [Numerics](@ref). 
+As the electric field is the negative gradient of the electrostatic potential, the potential is finally calculted by integrating the negative electric field using the trapezoid rule.
 
 
 ## Electron energy equation
