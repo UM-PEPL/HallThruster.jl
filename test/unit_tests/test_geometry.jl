@@ -26,10 +26,14 @@
     @test HallThruster.channel_perimeter(HallThruster.SPT_100) ≈ 2π * (r1 + r0)
 
 
+    U = zeros(6, 4) 
+    U[1, :] .= 1e18
+    U[2, :] .= 1e17
+    U[3, :] .= 1e16
+    U[4, :] = 1e18 .*  [-100, 100, 5000, 20000]
+    U[5, :] = 1e17 .*  [-100, 100, 2 * 5000, 2 * 20000]
+    U[6, :] = 1e16 .*  [-100, 100, 3 * 5000, 3 *20000]
     
-    U = zeros(2, 4) 
-    U[1, :] .= 1e17
-    U[2, :] = 1e17 .*  [-100, 100, 5000, 20000]
 
     inner_radius = zeros(4)
     outer_radius = zeros(4)
@@ -38,14 +42,15 @@
     tanδ = zeros(4)
 
     cs = sqrt(5 * HallThruster.e * 30 / (3 * HallThruster.Xenon.m))
-    tan_δ = 0.5 * max(0.0, min(π/4, cs / 20000))
+    ui = sum(U[4:6,4]) / 1.11e18
+    tan_δ = 0.5 * max(0.0, min(π/4, cs / ui))
     A = π * ((r1 + tan_δ * 0.025)^2 - (max(0.0,r0 - tan_δ * 0.025))^2)
 
     cache = (; channel_area = zeros(4), inner_radius = zeros(4), 
             outer_radius = zeros(4), channel_height = zeros(4), 
             dA_dz = zeros(4), tanδ = zeros(4), Tev = [30])
-    config = (; thruster = SPT_100, ncharge = 1, solve_plume = true)
-    index = (; ρi = [1], ρiui = [2])
+    config = (; thruster = SPT_100, ncharge = 3, solve_plume = true)
+    index = (; ρi = [1,2,3], ρiui = [4,5,6])
     params = (; mi = HallThruster.Xenon.m, z_cell = [0.0, 0.01, 0.025, 0.05],
                 L_ch = 0.025, exit_plane_index = 1, config = config, A_ch = A_ch, 
                 cache = cache, index = index )
