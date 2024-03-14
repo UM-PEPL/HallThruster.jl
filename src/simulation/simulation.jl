@@ -244,13 +244,13 @@ function run_simulation(
     # Compute maximum allowed iterations
     if !use_restart
         initialize!(U, params)
+
+        # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
+        TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
+
+        # Initialize plume
+        update_plume_geometry!(U, params, initialize = true)
     end
-
-    # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
-    TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
-
-    # Initialize plume
-    update_plume_geometry!(U, params, initialize = true)
 
     # make values in params available for first timestep
     update_electrons!(U, params)
