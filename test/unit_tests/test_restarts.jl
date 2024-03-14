@@ -40,7 +40,6 @@
     @test sol.retcode == :success
     @test sol.u == restart.u
     @test sol.savevals == restart.savevals
-    #@test sol.params == restart.params
     @test sol.t == restart.t
 
     # test loading restart, generating cache, U, etc, without interpolation, changing number of charges, or changing domain

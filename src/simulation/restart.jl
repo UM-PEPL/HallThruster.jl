@@ -10,14 +10,7 @@ function write_restart(path::AbstractString, sol)
         "t" => sol.t,
         "u" =>  sol.u,
         "savevals" => sol.savevals,
-        "z_edge" => sol.params.z_edge,
-        "z_cell" => sol.params.z_cell,
-        "L_ch" => sol.params.L_ch,
-        "A_ch" => sol.params.A_ch,
-        "B" => sol.params.cache.B,
-        "index" => sol.params.index,
-        "ncharge" => sol.params.ncharge,
-        "mi" => sol.params.mi,
+        "params" => sol.params,
         "retcode" => sol.retcode,
     ))
 end
@@ -30,18 +23,6 @@ Load a JLD2 restart file from `path`.
 function read_restart(path::AbstractString)
     dict = JLD2.load(path)
 
-    params = (;
-        ncharge = dict["ncharge"],
-        cache = (;B = dict["B"]),
-        A_ch = dict["A_ch"],
-        z_edge = dict["z_edge"],
-        z_cell = dict["z_cell"],
-        index = dict["index"],
-        L_ch = dict["L_ch"],
-        ionization_reactions = IonizationReaction{nothing}[],
-        mi = dict["mi"],
-    )
-
     retcode = if haskey(dict, "retcode")
         dict["retcode"]
     else
@@ -49,7 +30,7 @@ function read_restart(path::AbstractString)
     end
 
     return Solution(
-        dict["t"], dict["u"], dict["savevals"], retcode, params
+        dict["t"], dict["u"], dict["savevals"], retcode, dict["params"]
     )
 end
 
