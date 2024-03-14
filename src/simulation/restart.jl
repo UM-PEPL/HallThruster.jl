@@ -97,7 +97,7 @@ function load_restart(grid, fluids, config, sol::Solution)
     sv = sol.savevals[end]
     # Interpolate cell-centered cache variables
     for field in fieldnames(typeof(sv))
-        if field == :Id || field == :Vs
+        if field == :Id || field == :Vs || field == :anom_multiplier || field == :anom_variables || field == :dt
             cache[field] .= sv[field]
         elseif field == :ni
             for Z in 1:config.ncharge
