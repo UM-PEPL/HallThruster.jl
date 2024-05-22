@@ -334,7 +334,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             anom_model_coeffs = [json_content.anom_coeff_1, json_content.anom_coeff_2]
         end
 
-        if (haskey(simulation, :apply_thrust_divergence_correction))
+        if (haskey(json_content, :apply_thrust_divergence_correction))
             apply_thrust_divergence_correction = simulation.apply_thrust_divergence_correction
         end
 
