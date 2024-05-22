@@ -109,6 +109,89 @@ function (model::MultiLogBohm)(νan, params)
 end
 
 """
+    ShiftedMultiBohm(zs, cs, z0, dz, alpha, pstar) <: AnomalousTransportModel
+A version of MultiLogBohm where the coefficients are shifted depending on the background pressure.
+"""
+Base.@kwdef struct ShiftedMultiBohm <: HallThruster.AnomalousTransportModel
+    zs::Vector{Float64}
+    cs::Vector{Float64}
+    z0::Float64
+    dz::Float64
+    pstar::Float64
+    alpha::Float64
+end
+
+function (model::ShiftedMultiBohm)(νan, params)
+    (;zs, cs, z0, dz, alpha, pstar) = model
+
+    pb = params.config.background_pressure
+
+    torr_to_pa = 133.322
+
+    p_ratio = pb / (pstar * torr_to_pa)
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = e * B / me
+        c = HallThruster.interpolate(params.z_cell[i] - zstar, zs, cs, use_log = true)
+        νan[i] = c * ωce
+    end
+end
+
+"""
+    ShiftedGaussianBohm(trough_location, trough_width, trough_depth, z0, dz, alpha, pstar) <: AnomalousTransportModel
+Model in which the anomalous collision frequency is Bohm-like (ν_an ~ ω_ce), except in a Gaussian-shaped region defined by
+the parameters trough_location, trough_width, trough_max, and trough_min where the collision frequency is lower.
+The location of the trough is based on the background pressure and the user-provided coefficients.
+
+# Arguments
+- `trough_location`: the axial position (in meters) of the mean of the Gaussian trough
+- `trough_width`: the standard deviation (in meters) of the Gaussian trough
+- `trough_min`: the minimum Hall parameter
+- `trough_max`: the maximum Hall parameter
+- `z0`: the furthest upstream displacement permitted at high back-pressures, relative to `trough_location`
+- `dz`: the maximum allowable amount of axial displacement
+- `pstar`: the background pressure at which the shift upstream halts/plateaus
+- `alpha`: the slope of the pressure response curve, with a higher value corresponding to a steeper pressure response
+"""
+Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
+    trough_location::Float64
+    trough_width::Float64
+    trough_min::Float64
+    trough_max::Float64
+    z0::Float64
+    dz::Float64
+    pstar::Float64
+    alpha::Float64
+end
+
+function (model::ShiftedGaussianBohm)(νan, params)
+    (;trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
+
+    # do not recompute after a certain point - profile is meant to be fixed in time
+    if (params.iteration[] > 10)
+        return;
+    end
+
+    pb = params.config.background_pressure
+    torr_to_pa = 133.322
+
+    p_ratio = pb / (pstar * torr_to_pa)
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+
+    for i in eachindex(νan)
+        B = params.cache.B[i]
+        ωce = e * B / me
+        z = params.z_cell[i] - zstar
+        μ = trough_location
+        c = trough_max * (1 - (1 - trough_min) * exp(-0.5 * ((z - μ) / trough_width)^2))
+        νan[i] = c * ωce
+    end
+end
+
+
+"""
     ShiftedTwoZoneBohm(coeffs, z0, dz, alpha, pstar) <: AnomalousTransportModel
 Model where the anomalous collision frequency has two values: c1 * ωce before some transition location and c2 * ωce after.
 Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
@@ -143,15 +226,13 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
     end
 end
 
-
-
 """
     num_anom_variables(::AnomalousTransportModel)::Int
 
 The number of variable arrays that should be allocated for the provided anomalous
 transport model. These arrays are used to save state beyond the anomalous
 collision frequency, and are useful for defining more complex anomalous transport
-models. If not defined by the user, this defaults to zero. 
+models. If not defined by the user, this defaults to zero.
 """
 num_anom_variables(::AnomalousTransportModel)::Int = 0
 

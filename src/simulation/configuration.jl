@@ -47,6 +47,7 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     anode_boundary_condition::Symbol
     anom_smoothing_iters::Int
     solve_plume::Bool
+    apply_thrust_divergence_correction::Bool
     electron_plume_loss_scale::Float64
 end
 
@@ -90,6 +91,7 @@ function Config(;
         anode_boundary_condition            = :sheath,
         anom_smoothing_iters                = 0,
         solve_plume                         = false,
+        apply_thrust_divergence_correction  = false,
         electron_plume_loss_scale           = 1.0
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
@@ -151,6 +153,7 @@ function Config(;
         anode_boundary_condition,
         anom_smoothing_iters,
         solve_plume,
+        apply_thrust_divergence_correction,
         electron_plume_loss_scale,
     )
 end

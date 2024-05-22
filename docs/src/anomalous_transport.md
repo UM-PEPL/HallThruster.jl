@@ -9,6 +9,10 @@ models can be added by the user.
 
 ## Built-in Models
 
+!!! warning Incomplete documentation
+Some models (those relating to pressure-dependent effects) have not been finalized and are not represented in this documentation.
+Please see the [source code](https://github.com/UM-PEPL/HallThruster.jl/blob/main/src/collisions/anomalous.jl) for a complete listing.
+
 ### `NoAnom()`
 
 Model for no anomalous transport (anomalous collision frequency  = 0).
@@ -132,7 +136,7 @@ on assuming the wave energy convects with the ions, we will use upwind differenc
 
 ```julia
 function (model::LafleurModel)(νan, params)
-    
+
     (;config, cache) = params
     mi = config.propellant.m
     K = model.K
@@ -162,7 +166,7 @@ function (model::LafleurModel)(νan, params)
 
         # Save W to cache.anom_variables[1]
         anom_variables[1][i] = W
-        
+
         # Return anomalous collision frequency
         νan[i] = abs(K * grad_ui_W / (me * cs * vde * ne))
     end
@@ -172,7 +176,7 @@ function (model::LafleurModel)(νan, params)
     anom_variables[1][end] = anom_variables[1][end-1]
     νan[1] = νan[2]
     νan[end] = νan[end-1]
-    
+
     return νan
 end
 ```
@@ -216,17 +220,17 @@ Next, we define the model function:
 
 ```julia
 function (model::ScalarAdvection)(νan, params)
-    
+
     ncells = length(νan)
-    
-    # Extract variables from params 
+
+    # Extract variables from params
     cache = params.cache
     z = params.z_cell
     u = cache.anom_variables[1]
     du_dz = cache.anom_variables[2]
     a = model.advection_velocity
     dt = params.dt
-    
+
     if params.iteration[] < 1
         # Initialize
         model.initializer(u, z)
@@ -295,9 +299,9 @@ nsteps = 1000
 # Run simulation
 solution = HallThruster.run_simulation(
     config;
-    ncells, 
+    ncells,
     dt,
-    duration = nsteps * dt, 
+    duration = nsteps * dt,
     nsave = nsteps
 )
 
@@ -314,7 +318,7 @@ using Plots
 # Time needed to transit the domain
 t_transit = L / advection_velocity
 
-# Number of periods 
+# Number of periods
 num_periods = floor(Int, nsteps * dt / t_transit)
 
 # Plot results
@@ -349,17 +353,17 @@ end
 HallThruster.num_anom_variables(::ScalarAdvection) = 2
 
 function (model::ScalarAdvection)(νan, params)
-    
+
     ncells = length(νan)
-    
-    # Extract variables from params 
+
+    # Extract variables from params
     cache = params.cache
     z = params.z_cell
     u = cache.anom_variables[1]
     du_dz = cache.anom_variables[2]
     a = model.advection_velocity
     dt = params.dt
-    
+
     if params.iteration[] < 1
         # Initialize
         model.initializer(u, z)
@@ -437,9 +441,9 @@ nsteps = 1000
 # Run simulation
 solution = HallThruster.run_simulation(
     config;
-    ncells, 
+    ncells,
     dt,
-    duration = nsteps * dt, 
+    duration = nsteps * dt,
     nsave = nsteps
 )
 
@@ -452,7 +456,7 @@ using Plots
 # Time needed to transit the domain
 t_transit = L / advection_velocity
 
-# Number of periods 
+# Number of periods
 num_periods = floor(Int, nsteps * dt / t_transit)
 
 # Plot results

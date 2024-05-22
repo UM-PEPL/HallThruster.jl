@@ -46,4 +46,5 @@ Aside from these arguments, all others have  default values provided. These are 
 - `anode_boundary_condition`: Can be either `:sheath` or `:dirichlet`
 - `anom_smoothing_iters`: How many times to smooth the anomalous transport profile
 - `solve_plume`: Whether to solve for plume area variation and divergence losses
+- `apply_thrust_divergence_correction`: Whether the thrust output by HallThruster.jl should include a divergence correction factor of cos(δ)^2
 - `electron_losses_in_plume`: Whether electron radial/wall losses are applied in the plume region

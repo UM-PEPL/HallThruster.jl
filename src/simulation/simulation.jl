@@ -275,6 +275,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
     pressure_dz = NaN
     pressure_pstar = NaN
     pressure_alpha = NaN
+    apply_thrust_divergence_correction = true
 
     if single_section
         if nonstandard_keys
@@ -333,8 +334,13 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             anom_model_coeffs = [json_content.anom_coeff_1, json_content.anom_coeff_2]
         end
 
-        # Optional parameters for ShiftedTwoZoneBohm
-        if anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
+        if (haskey(simulation, :apply_thrust_divergence_correction))
+            apply_thrust_divergence_correction = simulation.apply_thrust_divergence_correction
+        end
+
+        # Optional parameters for pressure-dependent models
+        if anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm" ||
+           anom_model == "ShiftedMultiBohm" || anom_model == "ShiftedGaussianBohm"
             (;pressure_z0, pressure_dz, pressure_pstar, pressure_alpha) = json_content
         end
     else
@@ -365,6 +371,10 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         # Handle optional keys
         if (haskey(simulation, :adaptive))
             adaptive = simulation.adaptive
+        end
+
+        if (haskey(simulation, :apply_thrust_divergence_correction))
+            apply_thrust_divergence_correction = simulation.apply_thrust_divergence_correction
         end
 
         # Optional parameters for ShiftedTwoZoneBohm
@@ -400,6 +410,16 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
     elseif anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
         coeff_tuple = (anom_model_coeffs[1], anom_model_coeffs[2])
         ShiftedTwoZoneBohm(coeff_tuple, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
+    elseif anom_model == "ShiftedMultiBohm"
+        N = length(anom_model_coeffs)
+        ShiftedMultiBohm(
+            anom_model_coeffs[1:N÷2], anom_model_coeffs[N÷2 + 1], pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
+        )
+    elseif anom_model == "ShiftedGaussianBohm"
+        ShiftedGaussianBohm(
+            anom_model_coeffs[1], anom_model_coeffs[2], anom_model_coeffs[3], anom_model_coeffs[4],
+            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
+        )
     end
 
     config = HallThruster.Config(;
@@ -427,6 +447,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         solve_background_neutrals = solve_background_neutrals,
         background_pressure = background_pressure_Torr * u"Torr",
         background_neutral_temperature = background_temperature_K * u"K",
+        apply_thrust_divergence_correction
     )
 
     @show adaptive

@@ -82,7 +82,11 @@ function thrust(sol, frame)
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
-    return thrust * sqrt(divergence_eff(sol, frame))
+    if (sol.params.config.apply_thrust_divergence_correction)
+        return thrust * sqrt(divergence_eff(sol, frame))
+    else
+        return thrust
+    end
 end
 
 discharge_current(sol, frame) = sol.savevals[frame].Id[]
