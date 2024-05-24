@@ -450,8 +450,6 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         apply_thrust_divergence_correction
     )
 
-    @show adaptive
-
     solution = run_simulation(
         config; ncells = num_cells, nsave = num_save,
         duration = duration_s, dt = dt_s, verbose = verbose, adaptive
