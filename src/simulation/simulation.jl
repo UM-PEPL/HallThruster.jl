@@ -235,7 +235,9 @@ function run_simulation(
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
-        dtmin, dtmax
+        dtmin, dtmax,
+        # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
+        pe_factor = config.LANDMARK ? 3/2 : 1.0
     )
 
     # Compute maximum allowed iterations
@@ -250,7 +252,8 @@ function run_simulation(
     end
 
     # make values in params available for first timestep
-    update_electrons!(U, params)
+    update_ions!(U, params)
+    update_electrons!(params)
 
     # Set up
     sol_info = @timed solve(U, params, tspan; saveat)

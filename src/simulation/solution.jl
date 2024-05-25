@@ -1,20 +1,3 @@
-# Perform one step of the Strong-stability-preserving RK22 algorithm
-function ssprk22_step!(U, f, params, t, dt)
-    (;k, u1) = params.cache
-
-    # First step of SSPRK22
-    f(k, U, params, t)
-    @. u1 = U + dt * k
-    stage_limiter!(u1, params)
-
-    # Second step of SSPRK22
-    f(k, u1, params, t+dt)
-    @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params)
-
-    return nothing
-end
-
 struct Solution{T, U, P, S}
     t::T
     u::U
@@ -32,6 +15,65 @@ function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
     println(io, "Retcode: $(string(sol.retcode))")
     print(io, "End time: $(sol.t[end]) seconds")
 end
+
+# Perform one step of the Strong-stability-preserving RK22 algorithm
+function ssprk22_step!(U, f, params, dt)
+    (;k, u1) = params.cache
+
+    # First step of SSPRK22
+    f(k, U, params)
+    @. u1 = U + dt * k
+    stage_limiter!(u1, params)
+
+    # Second step of SSPRK22
+    f(k, u1, params)
+    @. U = (U + u1 + dt * k) / 2
+    stage_limiter!(U, params)
+
+    return nothing
+end
+
+
+function update_ions!(U, params)
+    (;index, ncells, cache) = params
+    (;nn, ne, ni, ui, niui, Z_eff, ji) = cache
+    mi = params.config.propellant.m
+
+    # Update heavy species
+    ssprk22_step!(U, update_heavy_species!, params, params.dt[])
+
+    # Apply fluid boundary conditions
+    @views left_boundary_state!(U[:, 1], U, params)
+    @views right_boundary_state!(U[:, end], U, params)
+
+    # Update plasma quantities
+    @inbounds for i in 1:ncells
+        # Compute number density for each neutral fluid
+        nn[i] = U[index.ρn, i] / params.config.propellant.m
+
+        # Compute ion derived quantities
+        ne[i] = 0.0
+        Z_eff[i] = 0.0
+        ji[i] = 0.0
+        @inbounds for Z in 1:params.config.ncharge
+            _ni = U[index.ρi[Z], i] / mi
+            _niui = U[index.ρiui[Z], i] / mi
+            ni[Z, i] = _ni
+            niui[Z, i] = _niui
+            ui[Z, i] = _niui / _ni
+            ne[i] += Z * _ni
+            Z_eff[i] += _ni
+            ji[i] += Z * e * _niui
+        end
+
+        # Compute electron number density, making sure it is above floor
+        ne[i] = max(params.config.min_number_density, ne[i])
+
+        # Effective ion charge state (density-weighted average charge state)
+        Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
+    end
+end
+
 
 @inline _saved_fields_vector() = (
     :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
@@ -67,14 +109,20 @@ function solve(U, params, tspan; saveat)
 
         t += params.dt[]
 
-        # Update heavy species
-        ssprk22_step!(U, update_heavy_species!, params, t, params.dt[])
+        # update heavy species quantities
+        update_ions!(U, params)
 
         # Update electron quantities
-        update_electrons!(U, params, t)
+        update_electrons!(params, t)
 
         # Update plume geometry
         update_plume_geometry!(U, params)
+
+        # Allow for system interrupts
+        yield()
+
+        # Update the current iteration
+        params.iteration[1] += 1
 
         # Check for NaNs and terminate if necessary
         nandetected = false

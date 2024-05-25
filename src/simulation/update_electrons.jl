@@ -1,61 +1,20 @@
+
 # update useful quantities relevant for potential, electron energy and fluid solve
-function update_electrons!(U, params, t = 0)
-    (;index, control_current, target_current, Kp, Ti, mi, ncells) = params
+function update_electrons!(params, t = 0)
+    (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, niui,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
 
-    # Allow for system interrupts
-    yield()
-
-    # Update the current iteration
-    params.iteration[1] += 1
-
-    # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U, params)
-    @views right_boundary_state!(U[:, end], U, params)
-
-    # Update plasma quantities
+    # Update plasma quantities based on new density
     @inbounds for i in 1:ncells
-        # Compute number density for each neutral fluid
-        nn[i] = U[index.ρn, i] / params.config.propellant.m
-
-        # Compute ion derived quantities
-        ne[i] = 0.0
-        Z_eff[i] = 0.0
-        ji[i] = 0.0
-        @inbounds for Z in 1:params.config.ncharge
-            _ni = U[index.ρi[Z], i] / mi
-            _niui = U[index.ρiui[Z], i] / mi
-            ni[Z, i] = _ni
-            niui[Z, i] = _niui
-            ui[Z, i] = _niui / _ni
-            ne[i] += Z * _ni
-            Z_eff[i] += _ni
-            ji[i] += Z * e * _niui
-        end
-
-        # Compute electron number density, making sure it is above floor
-        ne[i] = max(params.config.min_number_density, ne[i])
-
-        # Effective ion charge state (density-weighted average charge state)
-        Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
-
         # Compute new electron temperature
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, nϵ[i]/ne[i])
-
         # Compute electron pressure
-        pe[i] = if params.config.LANDMARK
-            # The LANDMARK benchmark uses nϵ instead of pe in the potential solver, but we use pe, so
-            # we need to define pe = 3/2 ne Tev
-            3/2 * ne[i] * Tev[i]
-        else
-            # Otherwise, just use typical ideal gas law.
-            ne[i] * Tev[i]
-        end
+        pe[i] = pe_factor * ne[i] * Tev[i]
     end
 
     # Update electron-ion collisions

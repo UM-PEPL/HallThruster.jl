@@ -1,5 +1,5 @@
 
-function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = true)
+function update_heavy_species!(dU, U, params; apply_boundary_conditions = true)
 
     (;index, Δz_cell, config, cache, ncells) = params
     (;
