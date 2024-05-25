@@ -2,7 +2,6 @@
     test_path = joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests")
     restart_path = joinpath(test_path, "test_restart.jld2")
 
-
     config = HallThruster.Config(;
         ncharge = 1,
         anode_Te = 2.0,
@@ -28,12 +27,10 @@
     grid = HallThruster.generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
 
-
-    #make a new restart from the current configuration 
-    sol = HallThruster.run_simulation(config; dt = 5e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10)
+    #make a new restart from the current configuration
+    sol = HallThruster.run_simulation(config; dt = 1e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10)
     HallThruster.write_restart(restart_path, sol)
 
-    
     # Check that writing a restart of a restart does not lose any information
     # i.e. restarts are perfectly reconstructable
     restart = HallThruster.read_restart(restart_path)
@@ -59,8 +56,8 @@
     @test cache.Tev ≈ sol[:Tev][end]
     @test cache.νc ≈ sol[:νc][end]
 
-    
-    #test that a simulation can be run from the restart 
+
+    #test that a simulation can be run from the restart
     restart_sol = HallThruster.run_simulation(config; dt = 5e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10, restart = restart_path)
     @test restart_sol.retcode == :success
 

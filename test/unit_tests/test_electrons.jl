@@ -51,9 +51,9 @@
     params_none = (;cache, index, config = config_none, z_cell = [0.03], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none)
 
     U = [mi * nn; mi * ne; ne * 3/2 * Tev ;;]
-    @test HallThruster.freq_electron_neutral(U, params_landmark, 1) == 2.5e-13 * nn
-    @test HallThruster.freq_electron_neutral(U, params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
-    @test HallThruster.freq_electron_neutral(U, params_none, 1) == 0.0
+    @test HallThruster.freq_electron_neutral(params_landmark, 1) == 2.5e-13 * nn
+    @test HallThruster.freq_electron_neutral(params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    @test HallThruster.freq_electron_neutral(params_none, 1) == 0.0
 
     Z = 1
     @test HallThruster.freq_electron_ion(ne, Tev, Z) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5

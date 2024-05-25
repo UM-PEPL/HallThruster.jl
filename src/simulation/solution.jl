@@ -54,18 +54,6 @@ function solve(U, params, tspan; saveat)
         integrate_heavy_species!(U, params, params.dt[])
         update_heavy_species!(U, params)
 
-        # Update electron quantities
-        update_electrons!(params, t)
-
-        # Update plume geometry
-        update_plume_geometry!(U, params)
-
-        # Allow for system interrupts
-        yield()
-
-        # Update the current iteration
-        params.iteration[1] += 1
-
         # Check for NaNs and terminate if necessary
         nandetected = false
         infdetected = false
@@ -83,6 +71,22 @@ function solve(U, params, tspan; saveat)
                 break
             end
         end
+
+        if nandetected || infdetected
+            break
+        end
+
+        # Update electron quantities
+        update_electrons!(params, t)
+
+        # Update plume geometry
+        update_plume_geometry!(U, params)
+
+        # Allow for system interrupts
+        yield()
+
+        # Update the current iteration
+        params.iteration[1] += 1
 
         # Save values at designated intervals
         # TODO interpolate these to be exact and make a bit more elegant
@@ -110,10 +114,6 @@ function solve(U, params, tspan; saveat)
             end
 
             save_ind += 1
-        end
-
-        if nandetected || infdetected
-            break
         end
     end
 

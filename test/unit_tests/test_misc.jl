@@ -16,7 +16,7 @@
         anode_mass_flow_rate = 5u"mg/s",
     )
 
-    @test_logs (:warn, "CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.") HallThruster.run_simulation(config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10, adaptive = true, CFL = 0.9)
+    @test_logs (:warn, "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.") HallThruster.run_simulation(config; dt=5e-9, duration=0e-9, grid = HallThruster.EvenGrid(2), nsave = 10, adaptive = true, CFL = 0.9)
 
     pressure_config = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
@@ -58,7 +58,7 @@ end
     index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6, min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
 
-    p = (; config, index, cache = (;nϵ = [-1.0]))
+    p = (; config, index, cache = (;nϵ = [-1.0]), ncells = 1)
     U = [-1.0, -1.0, -1.0, -1.0]
     HallThruster.stage_limiter!(U, p)
 

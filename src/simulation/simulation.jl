@@ -128,12 +128,12 @@ function run_simulation(
     )
 
     #check that Landmark uses the correct thermal conductivity
-    if config.LANDMARK & (config.conductivity_model != LANDMARK_conductivity())
+    if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
     #check that user is aware of neutral backflow flag
-    if (config.background_pressure > 0.0) & (config.solve_background_neutrals == false)
+    if (config.background_pressure > 0.0) && (config.solve_background_neutrals == false)
         @warn("Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?")
     end
 
@@ -194,7 +194,7 @@ function run_simulation(
         # this limit is mainly due to empirical testing, but there
         # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
         if CFL >= 0.8
-            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.")
+            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
             CFL = 0.799
         end
     end
