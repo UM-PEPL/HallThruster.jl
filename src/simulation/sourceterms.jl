@@ -1,15 +1,9 @@
 function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
-    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache) = params
-    (;inelastic_losses, νiz) = cache
+    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, config) = params
+    (;inelastic_losses, νiz, K, Tev, ne) = cache
+    (;LANDMARK) = config
 
-    ne = electron_density(U, params, i)
-    K = if params.config.LANDMARK
-        0.0
-    else
-        params.cache.K[i]
-    end
-
-    ϵ  = cache.nϵ[i] / ne + K
+    ϵ  = 1.5 * Tev[i] +(1 - LANDMARK) * K[i]
 
     dt_max = Inf
     νiz[i] = 0.0
@@ -21,9 +15,9 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
         for reactant_index in reactant_inds
             ρ_reactant = U[reactant_index, i]
-            ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
+            ρdot = reaction_rate(rate_coeff, ne[i], ρ_reactant)
             ndot = ρdot / params.config.propellant.m
-            νiz[i] += ndot / ne
+            νiz[i] += ndot / ne[i]
             inelastic_losses[i] += ndot * rxn.energy
             dt_max = min(dt_max, ρ_reactant / ρdot)
 
@@ -31,10 +25,10 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
             dU[reactant_index, i] -= ρdot
             dU[product_index, i]  += ρdot
 
-            if !params.config.LANDMARK
+            if !LANDMARK
                 # Momentum transfer due to ionization
                 if reactant_index == index.ρn
-                    reactant_velocity = params.config.neutral_velocity
+                    reactant_velocity = config.neutral_velocity
                 else
                     reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
                     dU[reactant_index + 1, i] -= ρdot * reactant_velocity
@@ -45,13 +39,13 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
         end
     end
 
-    params.cache.dt_iz[i] = dt_max
+    cache.dt_iz[i] = dt_max
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 @inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
 
-function apply_ion_acceleration!(dU, U, params, i)
+function apply_ion_acceleration!(dU, params, i)
     (;cache, config, index, z_edge) = params
     E = -cache.∇ϕ[i]
     mi = params.config.propellant.m
@@ -60,12 +54,12 @@ function apply_ion_acceleration!(dU, U, params, i)
     Δx = z_edge[right_edge(i)] - z_edge[left_edge(i)]
 
     @inbounds for Z in 1:config.ncharge
-        Q_accel = Z * e * U[index.ρi[Z], i] / mi * E
-        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(E)))
+        Q_accel = Z * e * cache.ni[Z, i] * E
+        dt_max = min(dt_max, sqrt(mi * Δx / (Z * e * abs(E))))
         dU[index.ρiui[Z], i] += Q_accel
     end
-
     params.cache.dt_E[i] = dt_max
+    return nothing
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)
