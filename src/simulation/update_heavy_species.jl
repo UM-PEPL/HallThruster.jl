@@ -46,28 +46,30 @@ end
 function heavy_species_source_terms!(dU, U, params, dt)
     (;ncells, cache, config, CFL, index) = params
     (;ncharge) = config
+    (;ni, ne, dt_cell, dt_iz, dt_E, dt_u) = cache
     dU .= 0.0
 
     # update electron density in interior cells
     @inbounds for i in 1:ncells
-        cache.ne[i] = 0.0
+        ne[i] = 0.0
         for Z in 1:ncharge
-            cache.ni[Z, i] = U[index.ρi[Z], i] / config.propellant.m
-            cache.ne[i] += Z * cache.ni[Z, i]
+            ni[Z, i] = U[index.ρi[Z], i] / config.propellant.m
+            ne[i] += Z * cache.ni[Z, i]
         end
     end
 
     # reset timestep
     params.cache.dt[] = Inf
 
+    apply_reactions!(dU, U, params)
+
+    apply_ion_acceleration!(dU, params)
+
+    if (config.ion_wall_losses)
+        apply_ion_wall_losses!(dU, U, params)
+    end
+
     @inbounds for i in 2:ncells-1
-        apply_ion_acceleration!(dU, params, i)
-        apply_reactions!(dU, U, params, i)
-
-        if config.ion_wall_losses
-            apply_ion_wall_losses!(dU, U, params, i)
-        end
-
         # update allowable timestep
         cache.dt_cell[i] = min(
             sqrt(CFL) * cache.dt_E[i],

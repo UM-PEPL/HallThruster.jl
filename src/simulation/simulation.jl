@@ -43,6 +43,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     νe = zeros(ncells)
     νiz = zeros(ncells)
     νex = zeros(ncells)
+    ϵ_tot = zeros(ncells)
     K   = zeros(ncells)
     ji  = zeros(ncells)
 
@@ -71,6 +72,9 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
 
     # other caches
     cell_cache_1 = zeros(ncells)
+    cell_cache_2 = zeros(ncells)
+    cell_cache_3 = zeros(ncells)
+    cell_cache_4 = zeros(ncells)
 
     # Plume divergence variables
     channel_area = zeros(ncells)    # Area of channel / plume
@@ -92,8 +96,9 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
 
     cache = (;
                 Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
-                νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
+                νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ϵ_tot,
+                ji, ni, ui, Vs, niui, nn, k, u1, γ_SEE,
+                cell_cache_1, cell_cache_2, cell_cache_3, cell_cache_4,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
                 errors, dcoeffs,
                 ohmic_heating, wall_losses, inelastic_losses,

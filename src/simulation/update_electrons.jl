@@ -4,7 +4,7 @@ function update_electrons!(params, t = 0)
     (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn, ϵ_tot, K,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -68,7 +68,9 @@ function update_electrons!(params, t = 0)
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
 
         # Kinetic energy in both axial and azimuthal directions is accounted for
-        params.cache.K[i] = electron_kinetic_energy(params, i)
+        K[i] = electron_kinetic_energy(params, i)
+        # total electron energy (thermal + kinetic, used for ionization)
+        ϵ_tot[i]  = 1.5 * Tev[i] + (1 - params.config.LANDMARK) * K[i]
     end
 
     # Compute potential gradient and pressure gradient
