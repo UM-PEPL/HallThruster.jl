@@ -66,16 +66,16 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm to the ion fluid
-function integrate_heavy_species!(U, params, dt)
+function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = true)
     (;k, u1) = params.cache
 
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params)
+    iterate_heavy_species!(k, U, params; apply_boundary_conditions)
     @. u1 = U + dt * k
     stage_limiter!(u1, params)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params)
+    iterate_heavy_species!(k, u1, params; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
     stage_limiter!(U, params)
 

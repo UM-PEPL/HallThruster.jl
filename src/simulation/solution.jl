@@ -54,7 +54,7 @@ function solve(U, params, tspan; saveat)
         integrate_heavy_species!(U, params, params.dt[])
         update_heavy_species!(U, params)
 
-        # Check for NaNs and terminate if necessary
+        # Check for NaNs in heavy species solve and terminate if necessary
         nandetected = false
         infdetected = false
 

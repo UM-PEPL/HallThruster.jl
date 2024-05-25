@@ -9,6 +9,7 @@ using SparseArrays
 
 doctest(HallThruster)
 
+# exercise all parts of the solver loop
 HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 
 include("unit_tests/test_gas.jl")

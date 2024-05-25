@@ -99,6 +99,7 @@ function example_simulation(;ncells, duration, dt, nsave)
     HallThruster.current_eff(sol_1)
     HallThruster.divergence_eff(sol_1)
     HallThruster.voltage_eff(sol_1)
+    return sol_1
 end
 
 # # Precompile statements to improve load time

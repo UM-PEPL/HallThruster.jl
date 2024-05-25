@@ -114,8 +114,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
-    @show is_velocity_index, fluid_ranges
-
     nvars = fluid_ranges[end][end]
 
     F = zeros(nvars, nedges)
@@ -150,6 +148,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     cache = (;k, u1, ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
 
     params = (;
+        ncells = ncells+2,
         index,
         config,
         cache,
@@ -176,7 +175,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end-1]
-        HallThruster.integrate_heavy_species!(U, params, dt[]);
+        HallThruster.integrate_heavy_species!(U, params, dt[], false);
         t += dt[]
     end
 

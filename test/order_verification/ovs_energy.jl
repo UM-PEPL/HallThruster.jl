@@ -151,7 +151,8 @@ function verify_energy(ncells; niters = 20000)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge,
+        ncells
     )
 
     solve_energy!(params, niters, dt)
@@ -177,7 +178,7 @@ function verify_energy(ncells; niters = 20000)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        Δz_cell, Δz_edge
+        Δz_cell, Δz_edge, ncells
     )
 
     solve_energy!(params, niters, dt)
