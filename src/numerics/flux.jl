@@ -195,12 +195,10 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (;config, index, fluids, Δz_edge, cache) = params
+    (;config, index, fluids, Δz_edge, cache, ncells) = params
     (;λ_global) = cache
-    (;propellant, scheme, ncharge) = config
-    ncells = size(U, 2)
+    (;scheme, ncharge) = config
 
-    mi = propellant.m
     nedges = ncells-1
 
     # Reconstruct the states at the left and right edges using MUSCL scheme

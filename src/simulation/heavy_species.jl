@@ -1,15 +1,13 @@
 
 function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = true)
 
-    (;index, Δz_cell, config, cache) = params
+    (;index, Δz_cell, config, cache, ncells) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
         ncharge, ion_wall_losses
     ) = config
 
     (;F, UL, UR, channel_area, dA_dz) = cache
-
-    ncells = size(U, 2)
 
     compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 

@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(U, params, t = 0)
-    (;index, control_current, target_current, Kp, Ti, mi) = params
+    (;index, control_current, target_current, Kp, Ti, mi, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
         Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, niui,
@@ -17,8 +17,6 @@ function update_electrons!(U, params, t = 0)
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
-
-    ncells = size(U, 2)
 
     # Update plasma quantities
     @inbounds for i in 1:ncells
@@ -158,10 +156,8 @@ end
 
 # TODO: differentiate this from the postprocessing one
 function _discharge_current(params)
-    (;cache, Δz_edge, ϕ_L, ϕ_R) = params
+    (;cache, Δz_edge, ϕ_L, ϕ_R, ncells) = params
     (;∇pe, μ, ne, ji, Vs, channel_area) = cache
-
-    ncells = length(ne)
 
     int1 = 0.0
     int2 = 0.0
@@ -200,9 +196,7 @@ end
 
 function compute_pressure_gradient!(∇pe, params)
     (; pe) = params.cache
-    (;z_cell) = params
-
-    ncells = length(z_cell)
+    (;z_cell, ncells) = params
 
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])

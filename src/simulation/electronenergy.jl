@@ -1,12 +1,10 @@
 
 
 function update_electron_energy!(params, dt)
-    (;Δz_cell, Δz_edge, config, cache, Te_L, Te_R) = params
+    (;Δz_cell, Δz_edge, config, cache, Te_L, Te_R, ncells) = params
     (;Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
-    ncells = length(ne)
-    mi = params.config.propellant.m
 
     Aϵ.d[1] = 1.0
     Aϵ.du[1] = 0.0

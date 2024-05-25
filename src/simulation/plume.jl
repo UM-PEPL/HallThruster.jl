@@ -1,14 +1,11 @@
 function update_plume_geometry!(U, params; initialize = false)
-    
-    (; mi, z_cell, L_ch, exit_plane_index, config, A_ch, cache, index) = params
+    (; mi, z_cell, L_ch, exit_plane_index, config, A_ch, cache, index, ncells) = params
     (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev) = cache
-
 
     if !initialize && !params.config.solve_plume
         return
     end
 
-    ncells = length(z_cell)
     geometry = config.thruster.geometry
     r_in = geometry.inner_radius
     r_out = geometry.outer_radius
