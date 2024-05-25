@@ -232,7 +232,7 @@ function run_simulation(
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
         dtmin, dtmax,
         # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3/2 : 1.0
+        pe_factor = config.LANDMARK ? 1.5 : 1.0
     )
 
     # Compute maximum allowed iterations
