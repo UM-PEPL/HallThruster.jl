@@ -136,7 +136,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     z_end = z_cell[end]
     z_start = z_cell[1]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
-    U[index.ρn[1], :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
+    U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
 
@@ -164,7 +164,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],
-        num_neutral_fluids = 1,
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
         Δz_cell, Δz_edge,
@@ -186,7 +185,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     sol = (;t = [t], u = [U])
 
-    ρn_sim = sol.u[end][index.ρn[1], :]
+    ρn_sim = sol.u[end][index.ρn, :]
     ρi_sim = sol.u[end][index.ρi[1], :]
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim

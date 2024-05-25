@@ -36,7 +36,7 @@
 
     # Plot neutral density
     @series begin
-        y := sol[:nn_tot][frame]
+        y := sol[:nn][frame]
         ylabel := "Density (m⁻³)"
         subplot := 1
         title := "Neutral density"
@@ -101,7 +101,7 @@
             for rxn in ionization_reactions
                 if rxn.product.Z == Z
                     if rxn.reactant.Z == 0
-                        reactant_density = sol[:nn_tot][frame]
+                        reactant_density = sol[:nn][frame]
                     else
                         reactant_density = sol[:ni, rxn.reactant.Z][frame]
                     end

@@ -195,7 +195,7 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (;config, index, fluids, Δz_edge, num_neutral_fluids, cache) = params
+    (;config, index, fluids, Δz_edge, cache) = params
     (;λ_global) = cache
     (;propellant, scheme, ncharge) = config
     ncells = size(U, 2)
@@ -210,16 +210,14 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
     @inbounds for i in 1:nedges
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
-        for j in 1:num_neutral_fluids
-            neutral_fluid = fluids[j]
-            U_neutrals = (U[index.ρn[j], i],)
-            u = velocity(U_neutrals, neutral_fluid)
-            λ_global[j] = abs(u)
-        end
+        neutral_fluid = fluids[1]
+        U_neutrals = (U[index.ρn, i],)
+        u = velocity(U_neutrals, neutral_fluid)
+        λ_global[1] = abs(u)
 
         # Ion wave speeds
         for Z in 1:ncharge
-            fluid_ind = Z + num_neutral_fluids
+            fluid_ind = Z + 1
             fluid = fluids[fluid_ind]
             γ = fluid.species.element.γ
             UL_ions = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i],)
@@ -246,18 +244,16 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
 
     @inbounds for i in 1:nedges
         # Neutral fluxes at edge i
-        for j in 1:params.num_neutral_fluids
-            left_state_n  = (UL[index.ρn[j], i],)
-            right_state_n = (UR[index.ρn[j], i],)
+        left_state_n  = (UL[index.ρn, i],)
+        right_state_n = (UR[index.ρn, i],)
 
-            F[index.ρn[j], i] = scheme.flux_function(left_state_n, right_state_n, fluids[j], λ_global[j])[1]
-        end
+        F[index.ρn, i] = scheme.flux_function(left_state_n, right_state_n, fluids[1], λ_global[1])[1]
 
         # Ion fluxes at edge i
         for Z in 1:ncharge
             left_state_i  = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i],)
             right_state_i = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i],)
-            fluid_ind = Z + num_neutral_fluids
+            fluid_ind = Z + 1
             F_mass, F_momentum = scheme.flux_function(left_state_i, right_state_i, fluids[fluid_ind], λ_global[fluid_ind])
             F[index.ρi[Z],   i] = F_mass
             F[index.ρiui[Z], i] = F_momentum

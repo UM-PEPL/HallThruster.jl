@@ -158,9 +158,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
 
-    if field == :nn
-        return [saved[:nn][charge, :] for saved in sol.savevals]
-    elseif field == :ni
+    if field == :ni
         return [saved[:ni][charge, :] for saved in sol.savevals]
     elseif field == :ui
         return [saved[:ui][charge, :] for saved in sol.savevals]
@@ -225,8 +223,7 @@ function load_landmark_data(case, suffix; ncells = 100)
         niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        nn_tot = nns,
-        nn = nns' |> collect,
+        nn = nns,
     )
 
     ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);

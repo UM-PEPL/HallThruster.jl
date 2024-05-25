@@ -3,7 +3,7 @@ function update_electrons!(U, params, t = 0)
     (;index, control_current, target_current, Kp, Ti, mi) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, nn_tot, niui,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, niui,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -23,11 +23,7 @@ function update_electrons!(U, params, t = 0)
     # Update plasma quantities
     @inbounds for i in 1:ncells
         # Compute number density for each neutral fluid
-        nn_tot[i] = 0.0
-        for j in 1:params.num_neutral_fluids
-            nn[j, i] = U[index.ρn[j], i] / params.config.propellant.m
-            nn_tot[i] += nn[j, i]
-        end
+        nn[i] = U[index.ρn, i] / params.config.propellant.m
 
         # Compute ion derived quantities
         ne[i] = 0.0
@@ -74,16 +70,16 @@ function update_electrons!(U, params, t = 0)
     # Update other collisions
     @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn_tot[i], Tev[i])
+        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn[i], Tev[i])
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
-        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume  
+        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
         νew_momentum[i] =  radial_loss_frequency[i]* params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
-        
+
     end
 
     # Update anomalous transport

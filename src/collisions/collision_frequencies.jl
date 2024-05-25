@@ -11,7 +11,7 @@ Effective frequency of electron scattering caused by collisions with neutrals
 end
 
 function freq_electron_neutral(U::AbstractArray, params::NamedTuple, i::Int)
-    nn = params.cache.nn_tot[i]
+    nn = params.cache.nn[i]
     Tev = params.cache.Tev[i]
     return freq_electron_neutral(params.electron_neutral_collisions, nn, Tev)
 end

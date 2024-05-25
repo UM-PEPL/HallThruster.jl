@@ -22,9 +22,7 @@ function stage_limiter!(U, p)
     (;nϵ) = p.cache
     min_density = p.config.min_number_density * p.config.propellant.m
     @inbounds for i in 1:ncells
-        for j in 1:p.num_neutral_fluids
-            U[p.index.ρn[j], j] = max(U[p.index.ρn[j], j], min_density)
-        end
+        U[p.index.ρn, i] = max(U[p.index.ρn, i], min_density)
 
         for Z in 1:p.config.ncharge
             density_floor = max(U[p.index.ρi[Z], i], min_density)

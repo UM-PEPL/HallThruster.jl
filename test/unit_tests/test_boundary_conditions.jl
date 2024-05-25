@@ -41,7 +41,6 @@
             ϕ = [300.0, 300.0],
             channel_area = ones(2) * config.thruster.geometry.channel_area
         ),
-        num_neutral_fluids = 1,
         fluids,
         fluid_ranges,
         species,
@@ -98,13 +97,13 @@
     # when ion velocity at left boundary is less than bohm speed, it should be accelerated
     # to reach bohm speed
     HallThruster.left_boundary_state!(U_b, U1, params)
-    @test U_b[index.ρn[1]] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
+    @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -u_bohm_1
     @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -u_bohm_2
 
     # when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
     HallThruster.left_boundary_state!(U_b, U2, params)
-    @test U_b[index.ρn[1]] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
+    @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
     @test U_b[index.ρiui[1]] == U_2[index.ρiui[1]]
     @test U_b[index.ρiui[2]] == U_2[index.ρiui[2]]
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -2 * u_bohm_1
@@ -112,14 +111,14 @@
 
     # Right boundary condition should be Neumann for all species
     HallThruster.right_boundary_state!(U_b, U1, params)
-    @test U_b[index.ρn[1]] ≈ U_1[index.ρn[1]]
+    @test U_b[index.ρn] ≈ U_1[index.ρn]
     @test U_b[index.ρi[1]] ≈ U_1[index.ρi[1]]
     @test U_b[index.ρiui[1]] ≈ U_1[index.ρiui[1]]
     @test U_b[index.ρi[2]] ≈ U_1[index.ρi[2]]
     @test U_b[index.ρiui[2]] ≈ U_1[index.ρiui[2]]
 
     HallThruster.right_boundary_state!(U_b, U2, params)
-    @test U_b[index.ρn[1]] ≈ U_2[index.ρn[1]]
+    @test U_b[index.ρn] ≈ U_2[index.ρn]
     @test U_b[index.ρi[1]] ≈ U_2[index.ρi[1]]
     @test U_b[index.ρiui[1]] ≈ U_2[index.ρiui[1]]
     @test U_b[index.ρi[2]] ≈ U_2[index.ρi[2]]

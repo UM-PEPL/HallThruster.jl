@@ -23,14 +23,11 @@ function update_heavy_species!(dU, U, params, t; apply_boundary_conditions = tru
 
         dlnA_dz = dA_dz[i] / channel_area[i]
 
-        # Handle neutrals
-        for j in 1:params.num_neutral_fluids
-            # Neutral fluxes
-            dU[index.ρn[j], i] = (F[index.ρn[j], left] - F[index.ρn[j], right]) / Δz
+        # Neutral flux
+        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz
 
-            # User-provided neutral source term
-            dU[index.ρn[j], i] += source_neutrals[j](U, params, i)
-        end
+        # User-provided neutral source term
+        dU[index.ρn, i] += source_neutrals[1](U, params, i)
 
         # Handle ions
         for Z in 1:ncharge

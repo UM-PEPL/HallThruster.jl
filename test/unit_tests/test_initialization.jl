@@ -39,7 +39,7 @@
 
     HallThruster.initialize!(U, params)
 
-    @test abs((U[index.ρn[1], 1] / U[index.ρn[1],end]) - 100) < 1
+    @test abs((U[index.ρn, 1] / U[index.ρn,end]) - 100) < 1
 
     ne = [HallThruster.electron_density(U, params, i) for i in 1:ncells+2]
     ϵ = params.cache.nϵ ./ ne

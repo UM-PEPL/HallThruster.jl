@@ -58,7 +58,7 @@ function initialize!(U, params, ::DefaultInitialization)
     # Fill the state vector
     for (i, z) in enumerate(z_cell)
 
-        U[index.ρn[1], i] = neutral_function(z)
+        U[index.ρn, i] = neutral_function(z)
 
         for Z in 1:params.config.ncharge
             U[index.ρi[Z], i] = ion_density_function(z, Z)

@@ -50,13 +50,11 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     wall_losses = zeros(ncells)
     inelastic_losses = zeros(ncells)
 
-    num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
     ncharge = maximum(f.species.Z for f in fluids)
     ni = zeros(ncharge, ncells)
     ui = zeros(ncharge, ncells)
     niui = zeros(ncharge, ncells)
-    nn = zeros(num_neutral_fluids, ncells)
-    nn_tot = zeros(ncells)
+    nn = zeros(ncells)
     γ_SEE = zeros(ncells)
     Id  = [0.0]
     error_integral = [0.0]
@@ -95,7 +93,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     cache = (;
                 Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
                 νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, nn_tot, k, u1, γ_SEE, cell_cache_1,
+                ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
                 error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
                 errors, dcoeffs,
                 ohmic_heating, wall_losses, inelastic_losses,
@@ -144,7 +142,6 @@ function run_simulation(
     dt = convert_to_float64(dt, u"s")
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
-    num_neutral_fluids = count(f -> f.species.Z == 0, fluids)
 
     if (grid.ncells == 0)
         # backwards compatability for unspecified grid type
@@ -230,7 +227,6 @@ function run_simulation(
         dt = [dt],
         CFL,
         adaptive,
-        num_neutral_fluids,
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
         Bmax = maximum(cache.B),

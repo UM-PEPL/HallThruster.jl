@@ -101,9 +101,8 @@ function Config(;
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
 
     # Neutral source terms
-    num_neutral_fluids = 1
     if isnothing(source_neutrals)
-        source_neutrals = fill(Returns(0.0), num_neutral_fluids)
+        source_neutrals = fill(Returns(0.0), 1)
     end
 
     # Convert to Float64 if using Unitful
@@ -192,10 +191,10 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    neutral_fluids = [ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)]
+    neutral_fluid = ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)
     ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature) for Z in 1:config.ncharge]
 
-    fluids = [neutral_fluids; ion_fluids]
+    fluids = [neutral_fluid; ion_fluids]
 
     species = [f.species for f in fluids]
 
@@ -208,7 +207,7 @@ function configure_fluids(config)
 
     last_fluid_index = fluid_ranges[end][end]
     is_velocity_index = fill(false, last_fluid_index)
-    for i in length(neutral_fluids)+2:2:last_fluid_index
+    for i in 3:2:last_fluid_index
         is_velocity_index[i] = true
     end
 
@@ -219,9 +218,7 @@ function configure_index(fluids, fluid_ranges)
     first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
-    values_neutrals = (
-        [f[1] for f in fluid_ranges[1:first_ion_fluid_index-1]],
-    )
+    values_neutrals = (1,)
 
     keys_ions = (:ρi, :ρiui)
     values_ions = (

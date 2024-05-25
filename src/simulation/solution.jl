@@ -35,13 +35,13 @@ end
 
 @inline _saved_fields_vector() = (
     :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
+    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn,
     :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
     :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
     :dt
 )
 
-@inline _saved_fields_matrix() = (:ni, :ui, :niui, :nn)
+@inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat)

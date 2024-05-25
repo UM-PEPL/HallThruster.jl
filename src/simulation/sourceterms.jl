@@ -33,7 +33,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
             if !params.config.LANDMARK
                 # Momentum transfer due to ionization
-                if reactant_index == index.ρn[1]
+                if reactant_index == index.ρn
                     reactant_velocity = params.config.neutral_velocity
                 else
                     reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
@@ -69,24 +69,17 @@ function apply_ion_acceleration!(dU, U, params, i)
 end
 
 function apply_ion_wall_losses!(dU, U, params, i)
-    (;index, config, z_cell, L_ch) = params
+    (;index, config, z_cell, L_ch, cache) = params
     (;ncharge, propellant, wall_loss_model, thruster) = config
 
     geometry = thruster.geometry
     Δr = geometry.outer_radius - geometry.inner_radius
 
     mi = propellant.m
-
-    if wall_loss_model isa WallSheath
-        α = wall_loss_model.α
-    elseif wall_loss_model isa NoWallLosses
-        return
-    else
-        α = 1.0
-    end
+    α = wall_loss_coeff(wall_loss_model)
 
     @inbounds for Z in 1:ncharge
-        in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+        in_channel = config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
         νiw = α * in_channel * u_bohm / Δr
 
@@ -97,7 +90,7 @@ function apply_ion_wall_losses!(dU, U, params, i)
         dU[index.ρiui[Z], i] -= momentum_loss
 
         # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn[1], i] += density_loss
+        dU[index.ρn, i] += density_loss
     end
 end
 

@@ -22,7 +22,7 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = [1], ρi = [2], nϵ = 3)
-    cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
+    cache = (;nn = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
              μ = μ_e, νc = ν_c,
     )
     c1 = 1/160

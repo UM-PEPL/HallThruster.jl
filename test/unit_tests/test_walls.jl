@@ -109,7 +109,7 @@
     @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) == 0.0e7
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
-    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr 
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
     νew = νiw / (1 - γ)
 
     params.cache.γ_SEE .= γ
@@ -259,7 +259,7 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to ni νiw
     Δz = z_edge[2] - z_edge[1]
@@ -309,7 +309,7 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to Iiw / e / V_cell
     @test dU[index.ρi[1], i] ≈ -νiw * U[index.ρi[1], i]

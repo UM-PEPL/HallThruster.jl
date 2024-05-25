@@ -6,7 +6,7 @@
         anode_mass_flow_rate = 5u"mg/s",
         LANDMARK = true,
     )
-    
+
     @test_throws ErrorException HallThruster.run_simulation(Landmark_config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10)
 
     config = HallThruster.Config(;
@@ -17,7 +17,7 @@
     )
 
     @test_logs (:warn, "CFL for adaptive timestepping set higher than stability limit of 0.8. setting CFL to 0.799.") HallThruster.run_simulation(config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10, adaptive = true, CFL = 0.9)
-    
+
     pressure_config = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0u"cm", 8.0u"cm"),
@@ -25,7 +25,7 @@
         anode_mass_flow_rate = 5u"mg/s",
         background_pressure = 1.0u"Pa",
     )
-    
+
     @test_logs (:warn, "Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?") HallThruster.run_simulation(pressure_config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10)
 
 end
@@ -55,16 +55,16 @@ end
 end
 
 @testset "Stage limiter" begin
-    index = (ρn = [1], ρi = [2], ρiui = [3], nϵ = 4)
+    index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6, min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
 
-    p = (; config, index, num_neutral_fluids = 1, cache = (;nϵ = [-1.0]))
+    p = (; config, index, cache = (;nϵ = [-1.0]))
     U = [-1.0, -1.0, -1.0, -1.0]
     HallThruster.stage_limiter!(U, p)
 
     mi = config.propellant.m
 
-    @test U[index.ρn[1]] == config.min_number_density * mi
+    @test U[index.ρn] == config.min_number_density * mi
     @test U[index.ρi[1]] == config.min_number_density * mi
     @test U[index.ρiui[1]] == 1.0 * config.min_number_density * mi
     @test p.cache.nϵ[1] == config.min_number_density * config.min_electron_temperature
@@ -121,13 +121,13 @@ end
 
     @test size(U) == (nvars, ncells+2)
 
-    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, F, UL, UR, ni, ui, niui, nn, nn_tot, ji) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, F, UL, UR, ni, ui, niui, nn, ji) = cache
 
     for arr in (F, UL, UR)
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, nn_tot, ji)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ji)
         @test size(arr) == (ncells+2,)
     end
 
