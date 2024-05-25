@@ -103,7 +103,6 @@ end
     )
 
     config = HallThruster.Config(;
-        solve_background_neutrals = false,
         background_pressure = 0.0u"Torr",
         background_neutral_temperature = 0.0u"K",
         common_opts...
@@ -149,7 +148,6 @@ end
     TB = 120u"K"
 
     config_bg = HallThruster.Config(;
-        solve_background_neutrals = true,
         background_pressure = pB,
         background_neutral_temperature = TB,
         common_opts...

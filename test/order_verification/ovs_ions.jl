@@ -94,7 +94,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         conductivity_model = HallThruster.LANDMARK_conductivity(),
         ion_wall_losses = false,
         anode_boundary_condition = :dirichlet,
-        solve_background_neutrals = false,
     )
 
     z_edge = grid.edges

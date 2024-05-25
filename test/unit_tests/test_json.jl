@@ -15,7 +15,6 @@
     @test config.thruster.name == "SPT-100"
     @test config.propellant == Xenon
     @test config.anode_mass_flow_rate ≈ 3e-6
-    @test config.solve_background_neutrals == true
     @test config.ion_wall_losses == true
     @test sol.params.adaptive == true
 

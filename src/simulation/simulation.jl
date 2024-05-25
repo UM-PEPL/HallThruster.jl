@@ -132,11 +132,6 @@ function run_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    #check that user is aware of neutral backflow flag
-    if (config.background_pressure > 0.0) && (config.solve_background_neutrals == false)
-        @warn("Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?")
-    end
-
     # If duration and/or dt are provided with units, convert to seconds and then strip units
     duration = convert_to_float64(duration, u"s")
     dt = convert_to_float64(dt, u"s")
@@ -291,7 +286,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 anom_model, cathode_location_m, max_charge,
                 num_cells, dt_s, duration_s, num_save,
                 flux_function, limiter, reconstruct,
-                ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+                ion_wall_losses, electron_ion_collisions,
                 # Parameters
                 sheath_loss_coefficient,
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
@@ -313,7 +308,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
                 anom_model, cathode_location_m, max_charge,
                 num_cells, dt_s, duration_s, num_save,
                 flux_function, limiter, reconstruct,
-                ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+                ion_wall_losses, electron_ion_collisions,
                 # Parameters
                 sheath_loss_coefficient,
                 ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
@@ -358,7 +353,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
             anom_model, cathode_location_m, max_charge,
             num_cells, dt_s, duration_s, num_save,
             flux_function, limiter, reconstruct,
-            ion_wall_losses, electron_ion_collisions, solve_background_neutrals,
+            ion_wall_losses, electron_ion_collisions,
         ) = simulation
 
         (;
@@ -444,7 +439,6 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         scheme = HyperbolicScheme(;
             flux_function = eval(Symbol(flux_function)), limiter = eval(Symbol(limiter)), reconstruct
         ),
-        solve_background_neutrals = solve_background_neutrals,
         background_pressure = background_pressure_Torr * u"Torr",
         background_neutral_temperature = background_temperature_K * u"K",
         apply_thrust_divergence_correction

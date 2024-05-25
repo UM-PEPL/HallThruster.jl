@@ -118,7 +118,7 @@ function verify_energy(ncells; niters = 20000)
         ncharge = 1, source_energy = source_func, implicit_energy = 1.0,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
+        anode_boundary_condition = :dirichlet,
         conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 
@@ -165,7 +165,7 @@ function verify_energy(ncells; niters = 20000)
         ncharge = 1, source_energy = source_func, implicit_energy = 0.5,
         min_electron_temperature, transition_function, LANDMARK, propellant,
         ionization_model, excitation_model, wall_loss_model, geometry,
-        anode_boundary_condition = :dirichlet, solve_background_neutrals = false,
+        anode_boundary_condition = :dirichlet,
         conductivity_model = HallThruster.LANDMARK_conductivity(),
     )
 

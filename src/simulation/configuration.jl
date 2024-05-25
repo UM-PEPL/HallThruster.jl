@@ -41,7 +41,6 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
-    solve_background_neutrals::Bool
     background_pressure::Float64
     background_neutral_temperature::Float64
     anode_boundary_condition::Symbol
@@ -85,7 +84,6 @@ function Config(;
         scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
         ion_wall_losses                     = false,
-        solve_background_neutrals           = false,
         background_pressure                 = 0.0u"Torr",
         background_neutral_temperature      = 100.0u"K",
         anode_boundary_condition            = :sheath,
@@ -146,7 +144,6 @@ function Config(;
         LANDMARK,
         anode_mass_flow_rate,
         ion_wall_losses,
-        solve_background_neutrals,
         background_pressure,
         background_neutral_temperature,
         anode_boundary_condition,

@@ -17,17 +17,6 @@
     )
 
     @test_logs (:warn, "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.") HallThruster.run_simulation(config; dt=5e-9, duration=0e-9, grid = HallThruster.EvenGrid(2), nsave = 10, adaptive = true, CFL = 0.9)
-
-    pressure_config = HallThruster.Config(;
-        thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
-        background_pressure = 1.0u"Pa",
-    )
-
-    @test_logs (:warn, "Background neutral pressure set but solve background neutrals not enabled. Did you mean to set solve_background_neutrals to true?") HallThruster.run_simulation(pressure_config; dt=5e-9, duration=4e-9, grid = HallThruster.EvenGrid(2), nsave = 10)
-
 end
 
 @testset "Linear algebra" begin

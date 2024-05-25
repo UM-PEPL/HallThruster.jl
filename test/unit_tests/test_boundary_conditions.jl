@@ -13,7 +13,6 @@
         LANDMARK = true,
         conductivity_model = HallThruster.LANDMARK_conductivity(),
         anode_boundary_condition = :dirichlet,
-        solve_background_neutrals = :true,
         neutral_temperature = 300.0,
         ion_temperature = 300.0,
         background_pressure = 6e-4,

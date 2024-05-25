@@ -42,7 +42,6 @@
         "ion_wall_losses": true,
         "electron_ion_collisions": true,
         "anom_model": "ShiftedTwoZone",
-        "solve_background_neutrals": true,
         "adaptive": true
     }
 }
