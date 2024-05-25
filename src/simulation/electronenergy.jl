@@ -1,11 +1,11 @@
 
 
-function update_electron_energy!(U, params, dt)
-    (;Δz_cell, Δz_edge, index, config, cache, Te_L, Te_R) = params
-    (;Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ) = cache
+function update_electron_energy!(params, dt)
+    (;Δz_cell, Δz_edge, config, cache, Te_L, Te_R) = params
+    (;Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
-    ncells = size(U, 2)
+    ncells = length(ne)
     mi = params.config.propellant.m
 
     Aϵ.d[1] = 1.0
@@ -25,9 +25,9 @@ function update_electron_energy!(U, params, dt)
     bϵ[end] = 1.5 * Te_R * ne[end]
 
     @inbounds for i in 2:ncells-1
-        Q = source_electron_energy(U, params, i)
+        Q = source_electron_energy(params, i)
         # User-provided source term
-        Q += config.source_energy(U, params, i)
+        Q += config.source_energy(params, i)
 
         neL = ne[i-1]
         ne0 = ne[i]
@@ -71,10 +71,10 @@ function update_electron_energy!(U, params, dt)
                 jd = params.cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
-                ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
+                ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:params.config.ncharge)
                 je_sheath_edge = jd - ji_sheath_edge
 
-                ne_sheath_edge = sum(Z * U[index.ρi[Z], 1] for Z in 1:params.config.ncharge) / mi
+                ne_sheath_edge = sum(Z * ni[Z, 1] for Z in 1:params.config.ncharge)
                 ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
 
                 FL_factor_L = 0.0

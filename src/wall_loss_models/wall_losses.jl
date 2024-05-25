@@ -12,38 +12,35 @@ Abstract type for wall loss models in the electron energy equation. Types includ
     See `WallMaterial` for material options.
 
 Users implementing their own `WallLossModel` will need to implement at least three methods
-    1) `freq_electron_wall(model, U, params, i)`: Compute the electron-wall momentum transfer collision frequency in cell `i`
-    2) `wall_power_loss(model, U, params, i)`: Compute the electron power lost to the walls
+    1) `freq_electron_wall(model, params, i)`: Compute the electron-wall momentum transfer collision frequency in cell `i`
+    2) `wall_power_loss(model, params, i)`: Compute the electron power lost to the walls
 
-A third method, `wall_electron_current(model, U, params, i)`, will compute the electron current to the walls in cell `i`. If left unimplemented,
+A third method, `wall_electron_current(model, params, i)`, will compute the electron current to the walls in cell `i`. If left unimplemented,
 it defaults to Ie,w = e ne νew V_cell where V_cell is the cell volume.
 
-A fourth method, `wall_ion_current(model, U, params, i, Z)`, for computing the current of ions of charge Z to the walls in cell `i`, may also be implemented.
+A fourth method, `wall_ion_current(model, params, i, Z)`, for computing the current of ions of charge Z to the walls in cell `i`, may also be implemented.
 If left unimplemented, it will default to computing the current assuming Ie,w = Ii,w.
 """
 abstract type WallLossModel end
 
-function freq_electron_wall(model::WallLossModel, U, params, i)
+function freq_electron_wall(model::WallLossModel, params, i)
     error("freq_electron_wall not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_power_loss(model::WallLossModel, U, params, i)
+function wall_power_loss(model::WallLossModel, params, i)
     error("wall_power_loss not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_electron_current(::WallLossModel, U, params, i)
+function wall_electron_current(::WallLossModel, params, i)
     (;Δz_cell, cache, A_ch) = params
     (;ne, νew_momentum) = cache
     V_cell = A_ch * Δz_cell[i]
     return e * νew_momentum[i] * V_cell * ne[i]
 end
 
-function wall_ion_current(model::WallLossModel, U, params, i, Z)
-    (;index, cache, config) = params
-    (;ne) = cache
-    mi = config.propellant.m
-    ni_Z = U[index.ρi[Z], i] / mi
+function wall_ion_current(model::WallLossModel, params, i, Z)
+    (;ne, ni) = params.cache
 
-    Iew = wall_electron_current(model, U, params, i)
-    return Z * ni_Z / ne[i] * Iew * (1 - params.cache.γ_SEE[i])
+    Iew = wall_electron_current(model, params, i)
+    return Z * ni[Z, i] / ne[i] * Iew * (1 - params.cache.γ_SEE[i])
 end

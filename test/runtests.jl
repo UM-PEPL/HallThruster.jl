@@ -27,7 +27,6 @@ include("unit_tests/test_json.jl")
 using Symbolics
 include("order_verification/ovs_funcs.jl")
 include("order_verification/ovs_energy.jl")
-include("order_verification/ovs_ions.jl")
 @testset "Order verification (electron energy)" begin
 
     vfunc = x -> OVS_Energy.verify_energy(x)
@@ -49,6 +48,7 @@ include("order_verification/ovs_ions.jl")
     end
 end
 
+include("order_verification/ovs_ions.jl")
 @testset "Order verification (neutrals and ions)" begin
     refinements = refines(6, 10, 2)
 

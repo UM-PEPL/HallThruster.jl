@@ -127,15 +127,13 @@ end
         @test size(arr) == (nvars, ncells+1)
     end
 
-    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ji)
+    for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ji, nn)
         @test size(arr) == (ncells+2,)
     end
 
     for arr in (ni, ui, niui)
         @test size(arr) == (3, ncells+2)
     end
-
-    @test size(nn) == (2, ncells+2)
 
     @test size(Aϵ) == (ncells+2, ncells+2)
 

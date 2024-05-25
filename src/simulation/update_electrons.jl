@@ -77,7 +77,7 @@ function update_electrons!(U, params, t = 0)
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
-        radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
+        radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, params, i)
         νew_momentum[i] =  radial_loss_frequency[i]* params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
 
     end
@@ -100,10 +100,10 @@ function update_electrons!(U, params, t = 0)
     end
 
     # Compute anode sheath potential
-    Vs[] = anode_sheath_potential(U, params)
+    Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    Id[] = discharge_current(U, params)
+    Id[] = _discharge_current(params)
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in 1:ncells
@@ -111,7 +111,7 @@ function update_electrons!(U, params, t = 0)
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
 
         # Kinetic energy in both axial and azimuthal directions is accounted for
-        params.cache.K[i] = electron_kinetic_energy(U, params, i)
+        params.cache.K[i] = electron_kinetic_energy(params, i)
     end
 
     # Compute potential gradient and pressure gradient
@@ -127,7 +127,7 @@ function update_electrons!(U, params, t = 0)
     params.config.conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
-    update_electron_energy!(U, params, params.dt[])
+    update_electron_energy!(params, params.dt[])
 
     # Update the anomalous collision frequency multiplier to match target
     # discharge current
@@ -156,11 +156,12 @@ function update_electrons!(U, params, t = 0)
 end
 
 
-function discharge_current(U::Array, params)
+# TODO: differentiate this from the postprocessing one
+function _discharge_current(params)
     (;cache, Δz_edge, ϕ_L, ϕ_R) = params
     (;∇pe, μ, ne, ji, Vs, channel_area) = cache
 
-    ncells = size(U, 2)
+    ncells = length(ne)
 
     int1 = 0.0
     int2 = 0.0

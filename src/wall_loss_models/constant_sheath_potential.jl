@@ -4,13 +4,10 @@ Base.@kwdef struct ConstantSheathPotential <: WallLossModel
     outer_loss_coeff::Float64
 end
 
-function freq_electron_wall(::ConstantSheathPotential, U, params, i)
-    (;z_cell, L_ch) = params
-    return 1e7
-end
+freq_electron_wall(::ConstantSheathPotential, params, i) = 1e7
 
-function wall_power_loss(model::ConstantSheathPotential, U, params, i)
-    (;z_cell, index, L_ch, config, cache) = params
+function wall_power_loss(model::ConstantSheathPotential, params, i)
+    (;z_cell, L_ch, config, cache) = params
 
     ne = cache.ne[i]
     nϵ = cache.nϵ[i]
