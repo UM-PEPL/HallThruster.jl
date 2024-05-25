@@ -176,10 +176,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end-1]
-        HallThruster.ssprk22_step!(
-            U, (dU, U, params, t) -> HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false),
-            params, t, dt[]
-        )
+        HallThruster.integrate_heavy_species!(U, params, dt[]);
         t += dt[]
     end
 

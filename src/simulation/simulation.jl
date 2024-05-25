@@ -252,7 +252,7 @@ function run_simulation(
     end
 
     # make values in params available for first timestep
-    update_ions!(U, params)
+    update_heavy_species!(U, params)
     update_electrons!(params)
 
     # Set up
