@@ -29,7 +29,7 @@ function left_boundary_state!(bc_state, U, params)
     bc_state[index.ρn] = mdot_a / channel_area[1] / un
 
     # Add ingested mass flow rate at anode
-    bc_state[index.ρn] += params.background_neutral_density * params.background_neutral_velocity / un
+    bc_state[index.ρn] += params.background_neutral_density * params.background_neutral_velocity / un  * config.neutral_ingestion_multiplier
 
     @inbounds for Z in 1:params.config.ncharge
         interior_density = U[index.ρi[Z],   begin+1]
@@ -61,9 +61,6 @@ function left_boundary_state!(bc_state, U, params)
 
             # Compute boundary flux
             boundary_flux = boundary_velocity * boundary_density
-
-            #boundary_flux = interior_flux
-            #boundary_density = boundary_flux / boundary_velocity
         end
 
         bc_state[index.ρn] -= boundary_flux / un

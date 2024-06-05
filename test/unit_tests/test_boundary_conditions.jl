@@ -17,6 +17,7 @@
         ion_temperature = 300.0,
         background_pressure = 6e-4,
         background_neutral_temperature = 150.0,
+        neutral_ingestion_multiplier = 1.5
     )
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
@@ -96,13 +97,17 @@
     # when ion velocity at left boundary is less than bohm speed, it should be accelerated
     # to reach bohm speed
     HallThruster.left_boundary_state!(U_b, U1, params)
-    @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
+    @test U_b[index.ρn] ≈
+        HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +
+        background_neutral_density * background_neutral_velocity / un * config.neutral_ingestion_multiplier
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -u_bohm_1
     @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -u_bohm_2
 
     # when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
     HallThruster.left_boundary_state!(U_b, U2, params)
-    @test U_b[index.ρn] ≈ HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity + background_neutral_density * background_neutral_velocity / un
+    @test U_b[index.ρn] ≈
+        HallThruster.inlet_neutral_density(config) - (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +
+        background_neutral_density * background_neutral_velocity / un * config.neutral_ingestion_multiplier
     @test U_b[index.ρiui[1]] == U_2[index.ρiui[1]]
     @test U_b[index.ρiui[2]] == U_2[index.ρiui[2]]
     @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -2 * u_bohm_1
