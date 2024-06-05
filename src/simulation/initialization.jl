@@ -5,13 +5,13 @@ struct DefaultInitialization <: InitialCondition end
 
 initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
 
-function initialize!(U, params, model::InitialCondition)
+function initialize!(_, _, model::InitialCondition)
     throw(ArgumentError("Function HallThruster.initialize!(U, params, model::$(typeof(model)) not yet implemented. For InitialCondition types other than DefaultInitialization(), this must be defined by the user!"))
 end
 
-function initialize!(U, params, ::DefaultInitialization)
+function initialize_heavy_species_default!(U, params)
     (;z_cell, config, index, cache) = params
-    (;ncharge, anode_Te, cathode_Te, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
+    (;ncharge, anode_Te, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
@@ -44,16 +44,10 @@ function initialize!(U, params, ::DefaultInitialization)
 
     # Beam neutral density at outlet
     ρn_1 = 0.01 * ρn_0
-    neutral_function = z -> smooth_if(z-z0, L_ch / 2, ρn_0, ρn_1,  L_ch / 6)
+    neutral_function = z -> smooth_if(z-z0, L_ch / 2, ρn_0, ρn_1, L_ch / 6)
 
+    # Electron density
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
-
-    Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Te, cathode_Te)
-    Te_min = min(anode_Te, cathode_Te)
-    Te_max = (config.discharge_voltage / 10)
-    Te_width = L_ch/3
-
-    energy_function = z -> 3/2 * (Te_baseline(z) + (Te_max - Te_min) * exp(-(((z-z0) - L_ch) / Te_width)^2))
 
     # Fill the state vector
     for (i, z) in enumerate(z_cell)
@@ -65,8 +59,34 @@ function initialize!(U, params, ::DefaultInitialization)
             U[index.ρiui[Z], i] = ion_density_function(z, Z) * ion_velocity_function(z, Z)
         end
 
-        cache.nϵ[i] = number_density_function(z) * energy_function(z)
+        cache.ne[i] = number_density_function(z)
     end
 
-    return U
+    return nothing
+end
+
+function initialize_electrons_default!(params)
+    (;z_cell, config, cache) = params
+    (;anode_Te, cathode_Te, domain, thruster) = config
+    L_ch = thruster.geometry.channel_length
+    z0 = domain[1]
+    # Electron temperature
+    Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Te, cathode_Te)
+    Te_min = min(anode_Te, cathode_Te)
+    Te_max = (config.discharge_voltage / 10)
+    Te_width = L_ch/3
+
+    # Gaussian Te profile
+    energy_function = z -> 3/2 * (Te_baseline(z) + (Te_max - Te_min) * exp(-(((z-z0) - L_ch) / Te_width)^2))
+
+    for (i, z) in enumerate(z_cell)
+        cache.nϵ[i] = cache.ne[i] * energy_function(z)
+    end
+
+    return nothing
+end
+
+function initialize!(U, params, ::DefaultInitialization)
+    initialize_heavy_species_default!(U, params)
+    initialize_electrons_default!(params)
 end
