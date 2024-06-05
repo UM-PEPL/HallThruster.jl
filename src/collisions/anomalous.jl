@@ -156,10 +156,10 @@ The location of the trough is based on the background pressure and the user-prov
 - `alpha`: the slope of the pressure response curve, with a higher value corresponding to a steeper pressure response
 """
 Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
-    trough_location::Float64
-    trough_width::Float64
     trough_min::Float64
     trough_max::Float64
+    trough_location::Float64
+    trough_width::Float64
     z0::Float64
     dz::Float64
     pstar::Float64
