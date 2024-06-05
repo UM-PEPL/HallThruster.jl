@@ -146,20 +146,20 @@ the parameters trough_location, trough_width, trough_max, and trough_min where t
 The location of the trough is based on the background pressure and the user-provided coefficients.
 
 # Arguments
-- `trough_location`: the axial position (in meters) of the mean of the Gaussian trough
-- `trough_width`: the standard deviation (in meters) of the Gaussian trough
 - `trough_min`: the minimum Hall parameter
 - `trough_max`: the maximum Hall parameter
+- `trough_location`: the axial position (in meters) of the mean of the Gaussian trough
+- `trough_width`: the standard deviation (in meters) of the Gaussian trough
 - `z0`: the furthest upstream displacement permitted at high back-pressures, relative to `trough_location`
 - `dz`: the maximum allowable amount of axial displacement
 - `pstar`: the background pressure at which the shift upstream halts/plateaus
 - `alpha`: the slope of the pressure response curve, with a higher value corresponding to a steeper pressure response
 """
 Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
-    trough_location::Float64
-    trough_width::Float64
     trough_min::Float64
     trough_max::Float64
+    trough_location::Float64
+    trough_width::Float64
     z0::Float64
     dz::Float64
     pstar::Float64
