@@ -6,7 +6,7 @@ function get_key(json_content, key, default)
     end
 end
 
-function run_simulation(json_content::JSON3.Object, verbose = true)
+function run_simulation(json_content::JSON3.Object; verbose = true)
     pressure_z0 = NaN
     pressure_dz = NaN
     pressure_pstar = NaN
