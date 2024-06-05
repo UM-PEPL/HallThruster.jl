@@ -24,4 +24,10 @@
     @test config.anom_model isa HallThruster.TwoZoneBohm
     @test config.anom_model.coeffs[1] ≈ 1/160
     @test config.anom_model.coeffs[2] ≈ 1/16
+
+    json_path = joinpath(test_path, "input_newoptions.json")
+    sol = HallThruster.run_simulation(json_path)
+    config = sol.params.config
+    @test config.neutral_ingestion_multiplier == 1.0
+    @test config.apply_thrust_divergence_correction == false
 end

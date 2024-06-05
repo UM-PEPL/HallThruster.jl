@@ -6,7 +6,7 @@ function get_key(json_content, key, default)
     end
 end
 
-function run_simulation(json_content::JSON3.Object, verbose = true)
+function run_simulation(json_content::JSON3.Object; verbose = true)
     pressure_z0 = NaN
     pressure_dz = NaN
     pressure_pstar = NaN
@@ -48,7 +48,7 @@ function run_simulation(json_content::JSON3.Object, verbose = true)
     apply_thrust_divergence_correction = get_key(json_content, :apply_thrust_divergence_correction, true)
 
     # neutral ingestion multiplier
-    neutral_ingestion_multiplier = get_key(json_content, :neutral_ingestion_multiplier, 1.0)
+    neutral_ingestion_multiplier::Float64 = get_key(json_content, :neutral_ingestion_multiplier, 1.0)
 
     # Optional parameters for pressure-dependent models
     if  anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm" ||
@@ -105,7 +105,7 @@ function run_simulation(json_content::JSON3.Object, verbose = true)
         anode_mass_flow_rate = anode_mass_flow_rate,
         cathode_potential = cathode_potential,
         ncharge = max_charge,
-        wall_loss_model = WallSheath(eval(Symbol(wall_material)), sheath_loss_coefficient),
+        wall_loss_model = WallSheath(eval(Symbol(wall_material)), Float64(sheath_loss_coefficient)),
         ion_wall_losses = ion_wall_losses,
         cathode_Te = cathode_electron_temp_eV,
         LANDMARK = false,
