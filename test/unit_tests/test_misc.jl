@@ -128,36 +128,3 @@ end
 
     @test Aϵ isa SparseArrays.Tridiagonal
 end
-
-@testset "Transition functions" begin
-
-    step = HallThruster.StepFunction()
-
-    cutoff = 12
-    y1 = 17
-    y2 = 101
-
-    transition_length = 1.0
-    offset = 0.0
-
-    @test step(0, cutoff, y1, y2) == y1
-    @test step(cutoff * 2, cutoff, y1, y2) == y2
-
-    smooth = HallThruster.SmoothIf(transition_length)
-
-    @test smooth(0, cutoff, y1, y2) ≈ y1
-    @test smooth(cutoff * 2, cutoff, y1, y2) ≈ y2
-
-    linear = HallThruster.LinearTransition(transition_length, offset)
-
-    @test linear(0, cutoff, y1, y2) == y1
-    @test linear(cutoff * 2, cutoff, y1, y2) == y2
-    @test y1 < linear(cutoff + transition_length/10, cutoff, y1, y2) < y2
-    @test y1 < linear(cutoff - transition_length/10, cutoff, y1, y2) < y2
-
-    quadratic = HallThruster.QuadraticTransition(1.0, 0.0)
-    @test quadratic(0, cutoff, y1, y2) ≈ 17
-    @test quadratic(cutoff * 2000, cutoff, y1, y2) ≈ 101
-    @test quadratic(cutoff, cutoff, y1, y2) == 17
-    @test quadratic(cutoff + transition_length / 10, cutoff, y1, y2) > 1
-end

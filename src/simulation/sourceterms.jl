@@ -85,9 +85,10 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 
     @inbounds for Z in 1:ncharge
-        in_channel = config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+        in_channel = linear_transition(z_cell[i], L_ch, params.config.transition_length, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
-        νiw = α * in_channel * u_bohm / Δr
+        h = edge_to_center_density_ratio()
+        νiw = α * in_channel * u_bohm / Δr * h
 
         density_loss  = U[index.ρi[Z], i] * νiw
         momentum_loss = U[index.ρiui[Z], i] * νiw

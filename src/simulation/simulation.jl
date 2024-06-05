@@ -435,7 +435,7 @@ function run_simulation(json_content::JSON3.Object; single_section = false, nons
         neutral_velocity = neutral_velocity_m_s,
         electron_ion_collisions = electron_ion_collisions,
         min_electron_temperature = cathode_electron_temp_eV,
-        transition_function = LinearTransition(inner_outer_transition_length_m, 0.0),
+        transition_length = inner_outer_transition_length_m,
         scheme = HyperbolicScheme(;
             flux_function = eval(Symbol(flux_function)), limiter = eval(Symbol(limiter)), reconstruct
         ),

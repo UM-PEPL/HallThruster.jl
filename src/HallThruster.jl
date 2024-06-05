@@ -26,7 +26,6 @@ const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 
 include("utilities/utility_functions.jl")
-include("utilities/transition_functions.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")

@@ -14,7 +14,7 @@ function wall_power_loss(model::ConstantSheathPotential, params, i)
     ϵ = nϵ / ne
 
     (;sheath_potential, inner_loss_coeff, outer_loss_coeff) = model
-    αϵ = config.transition_function(z_cell[i], L_ch, inner_loss_coeff, outer_loss_coeff)
+    αϵ = linear_transition(z_cell[i], L_ch, config.transition_length, inner_loss_coeff, outer_loss_coeff)
 
     W = 1e7 * αϵ * ϵ * exp(-sheath_potential / ϵ)
 

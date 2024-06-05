@@ -44,7 +44,7 @@ function initialize!(U, params, ::DefaultInitialization)
 
     # Beam neutral density at outlet
     ρn_1 = 0.01 * ρn_0
-    neutral_function = z -> SmoothIf(transition_length = L_ch / 6)(z-z0, L_ch / 2, ρn_0, ρn_1)
+    neutral_function = z -> smooth_if(z-z0, L_ch / 2, ρn_0, ρn_1,  L_ch / 6)
 
     number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi for Z in 1:ncharge)
 
