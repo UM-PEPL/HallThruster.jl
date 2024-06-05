@@ -7,7 +7,7 @@ $(TYPEDFIELDS)
 """
 struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel,
               EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
-              T<:TransitionFunction, IC<:InitialCondition, HS<:HyperbolicScheme}
+              IC<:InitialCondition, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -27,7 +27,7 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     electron_ion_collisions::Bool
     min_number_density::Float64
     min_electron_temperature::Float64
-    transition_function::T
+    transition_length::Float64
     initial_condition::IC
     magnetic_field_scale::Float64
     source_neutrals::S_N
@@ -41,9 +41,9 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
-    solve_background_neutrals::Bool
     background_pressure::Float64
     background_neutral_temperature::Float64
+    neutral_ingestion_multiplier::Float64
     anode_boundary_condition::Symbol
     anom_smoothing_iters::Int
     solve_plume::Bool
@@ -59,7 +59,7 @@ function Config(;
         cathode_potential                   = 0.0,
         cathode_Te                          = 3.0,
         anode_Te                            = cathode_Te,
-        wall_loss_model::WallLossModel      = WallSheath(BNSiO2, 0.15),
+        wall_loss_model::WallLossModel      = WallSheath(BNSiO2, 1.0),
         neutral_velocity                    = 300.0u"m/s",
         neutral_temperature                 = 300.0u"K",
         implicit_energy::Number             = 1.0,
@@ -74,7 +74,7 @@ function Config(;
         electron_ion_collisions::Bool       = true,
         min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
-        transition_function::TransitionFunction = LinearTransition(0.2 * thruster.geometry.channel_length, 0.0),
+        transition_length                   = 0.2 * thruster.geometry.channel_length * u"m",
         initial_condition::IC               = DefaultInitialization(),
         magnetic_field_scale::Float64       = 1.0,
         source_neutrals::S_N                = nothing,
@@ -85,9 +85,9 @@ function Config(;
         scheme::HyperbolicScheme            = HyperbolicScheme(),
         LANDMARK                            = false,
         ion_wall_losses                     = false,
-        solve_background_neutrals           = false,
         background_pressure                 = 0.0u"Torr",
         background_neutral_temperature      = 100.0u"K",
+        neutral_ingestion_multiplier::Float64 = 1.0,
         anode_boundary_condition            = :sheath,
         anom_smoothing_iters                = 0,
         solve_plume                         = false,
@@ -101,9 +101,8 @@ function Config(;
     source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
 
     # Neutral source terms
-    num_neutral_fluids = 1
     if isnothing(source_neutrals)
-        source_neutrals = fill(Returns(0.0), num_neutral_fluids)
+        source_neutrals = fill(Returns(0.0), 1)
     end
 
     # Convert to Float64 if using Unitful
@@ -126,6 +125,8 @@ function Config(;
     background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
     background_pressure = convert_to_float64(background_pressure, u"Pa")
 
+    transition_length = convert_to_float64(transition_length, u"m")
+
     if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
         throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
     end
@@ -135,7 +136,7 @@ function Config(;
         neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge,
         ion_temperature, anom_model, conductivity_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions,
-        min_number_density, min_electron_temperature, transition_function,
+        min_number_density, min_electron_temperature, transition_length,
         initial_condition, magnetic_field_scale, source_neutrals,
         source_IC,
         source_IM,
@@ -147,9 +148,9 @@ function Config(;
         LANDMARK,
         anode_mass_flow_rate,
         ion_wall_losses,
-        solve_background_neutrals,
         background_pressure,
         background_neutral_temperature,
+        neutral_ingestion_multiplier,
         anode_boundary_condition,
         anom_smoothing_iters,
         solve_plume,
@@ -192,10 +193,10 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    neutral_fluids = [ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)]
+    neutral_fluid = ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)
     ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature) for Z in 1:config.ncharge]
 
-    fluids = [neutral_fluids; ion_fluids]
+    fluids = [neutral_fluid; ion_fluids]
 
     species = [f.species for f in fluids]
 
@@ -208,7 +209,7 @@ function configure_fluids(config)
 
     last_fluid_index = fluid_ranges[end][end]
     is_velocity_index = fill(false, last_fluid_index)
-    for i in length(neutral_fluids)+2:2:last_fluid_index
+    for i in 3:2:last_fluid_index
         is_velocity_index[i] = true
     end
 
@@ -219,9 +220,7 @@ function configure_index(fluids, fluid_ranges)
     first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
     keys_neutrals = (:ρn, )
-    values_neutrals = (
-        [f[1] for f in fluid_ranges[1:first_ion_fluid_index-1]],
-    )
+    values_neutrals = (1,)
 
     keys_ions = (:ρi, :ρiui)
     values_ions = (

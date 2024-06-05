@@ -7,16 +7,13 @@ function solve_potential!(ϕ, params)
     return ϕ
 end
 
-function anode_sheath_potential(U, params)
-    (;config, index) = params
-    (;ne, channel_area) = params.cache
-
-    mi = config.propellant.m
+function anode_sheath_potential(params)
+    (;config) = params
+    (;ne, niui, channel_area) = params.cache
 
     if params.config.LANDMARK
         return 0.0
     end
-
 
     # Compute anode sheath potential
     if config.anode_boundary_condition == :sheath
@@ -27,7 +24,7 @@ function anode_sheath_potential(U, params)
         jd = params.cache.Id[] / channel_area[1]
 
         # current densities at sheath edge
-        ji_sheath_edge = e * sum(Z * U[index.ρiui[Z], 1] for Z in 1:params.config.ncharge) / mi
+        ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:params.config.ncharge)
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath

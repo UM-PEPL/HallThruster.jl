@@ -22,21 +22,21 @@
     mi = HallThruster.Xenon.m
 
     index = (ρn = [1], ρi = [2], nϵ = 3)
-    cache = (;nn_tot = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
+    cache = (;nn = [nn], ne = [ne], B = [B], Tev = [Tev], Z_eff = [1.0], νan = [0.0], κ = [0.0],
              μ = μ_e, νc = ν_c,
     )
     c1 = 1/160
     c2 = 1/16
     anom_model = HallThruster.TwoZoneBohm(c1, c2)
     thruster = HallThruster.SPT_100
-    transition_function = HallThruster.StepFunction()
+    transition_length = 0.0
 
     wall_collision_freq = 1e7
 
-    config_landmark = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.LandmarkElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
-    config_gk = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.GKElectronNeutral(), electron_ion_collisions = true, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
-    config_complex = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.ElectronNeutralLookup(), electron_ion_collisions = true, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
-    config_none = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.NoElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_function, wall_collision_freq = 1e7)
+    config_landmark = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.LandmarkElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
+    config_gk = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.GKElectronNeutral(), electron_ion_collisions = true, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
+    config_complex = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.ElectronNeutralLookup(), electron_ion_collisions = true, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
+    config_none = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.NoElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
 
     Xe_0 = HallThruster.Xenon(0)
 
@@ -51,9 +51,9 @@
     params_none = (;cache, index, config = config_none, z_cell = [0.03], L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none)
 
     U = [mi * nn; mi * ne; ne * 3/2 * Tev ;;]
-    @test HallThruster.freq_electron_neutral(U, params_landmark, 1) == 2.5e-13 * nn
-    @test HallThruster.freq_electron_neutral(U, params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
-    @test HallThruster.freq_electron_neutral(U, params_none, 1) == 0.0
+    @test HallThruster.freq_electron_neutral(params_landmark, 1) == 2.5e-13 * nn
+    @test HallThruster.freq_electron_neutral(params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    @test HallThruster.freq_electron_neutral(params_none, 1) == 0.0
 
     Z = 1
     @test HallThruster.freq_electron_ion(ne, Tev, Z) == 2.9e-12 * Z^2 * ne * HallThruster.coulomb_logarithm(ne, Tev, Z) / Tev^1.5

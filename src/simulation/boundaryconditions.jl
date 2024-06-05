@@ -26,12 +26,10 @@ function left_boundary_state!(bc_state, U, params)
     end
 
     # Add inlet neutral density
-    bc_state[index.ρn[1]] = mdot_a / channel_area[1] / un
+    bc_state[index.ρn] = mdot_a / channel_area[1] / un
 
     # Add ingested mass flow rate at anode
-    if config.solve_background_neutrals
-        bc_state[index.ρn[1]] += params.background_neutral_density * params.background_neutral_velocity / un
-    end
+    bc_state[index.ρn] += params.background_neutral_density * params.background_neutral_velocity / un  * config.neutral_ingestion_multiplier
 
     @inbounds for Z in 1:params.config.ncharge
         interior_density = U[index.ρi[Z],   begin+1]
@@ -63,12 +61,9 @@ function left_boundary_state!(bc_state, U, params)
 
             # Compute boundary flux
             boundary_flux = boundary_velocity * boundary_density
-
-            #boundary_flux = interior_flux
-            #boundary_density = boundary_flux / boundary_velocity
         end
 
-        bc_state[index.ρn[1]] -= boundary_flux / un
+        bc_state[index.ρn] -= boundary_flux / un
         bc_state[index.ρi[Z]] = boundary_density
         bc_state[index.ρiui[Z]] = boundary_flux
     end
@@ -77,10 +72,8 @@ end
 function right_boundary_state!(bc_state, U, params)
     (;index, fluids) = params
 
-    @inbounds for j in 1:params.num_neutral_fluids
-        # Use Neumann boundary conditions for all neutral fluids
-        bc_state[index.ρn[j]] = U[index.ρn[j], end-1]
-    end
+    # Use Neumann boundary conditions for all neutral fluids
+    bc_state[index.ρn] = U[index.ρn, end-1]
 
     @inbounds for Z in 1:params.config.ncharge
         boundary_density = U[index.ρi[Z], end-1]

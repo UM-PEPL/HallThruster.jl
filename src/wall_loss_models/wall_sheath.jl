@@ -16,7 +16,7 @@ const SiliconDioxide = WallMaterial(name = "Silicon Dioxide", ϵ_star = 18, σ�
 const BNSiO2 = WallMaterial(name = "Boron Nitride Silicon Dioxide", ϵ_star = 40, σ₀ = 0.54)
 const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ₀ = 0.69)
 
-function wall_electron_temperature(U, params, i)
+function wall_electron_temperature(params, i)
     (;cache, config, z_cell) = params
 
     shielded = config.thruster.shielded
@@ -28,7 +28,7 @@ function wall_electron_temperature(U, params, i)
 
     L_ch = config.thruster.geometry.channel_length
 
-    Tev = config.transition_function(z_cell[i], L_ch, Tev_channel, Tev_plume)
+    Tev = linear_transition(z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume)
 
     return Tev
 end
@@ -49,35 +49,43 @@ Base.@kwdef struct WallSheath <: WallLossModel
     end
 end
 
-function freq_electron_wall(model::WallSheath, U, params, i)
-    (; index, config, cache) = params
+# compute the edge-to-center density ratio
+# (c.f https://iopscience.iop.org/article/10.1088/0963-0252/24/2/025017)
+# this is approximate, but deviations only become noticable when the knudsen number becomes small, which is not true in our case
+@inline edge_to_center_density_ratio() = 0.86 / sqrt(3);
+
+function freq_electron_wall(model::WallSheath, params, i)
+    (; config, cache) = params
     (; ncharge) = config
     mi = config.propellant.m
-    #compute radii difference 
+    #compute radii difference
     geometry = config.thruster.geometry
     Δr = geometry.outer_radius - geometry.inner_radius
     #compute electron wall temperature
-    Tev = wall_electron_temperature(U, params, i)
+    Tev = wall_electron_temperature(params, i)
     #calculate and store SEE coefficient
     γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
     cache.γ_SEE[i] = γ
-    #compute the ion current to the walls 
+
+    # compute the ion current to the walls
+    h = edge_to_center_density_ratio()
     j_iw = 0.0
     for Z in 1:ncharge
-        niw = U[index.ρi[Z], i] / mi
-        j_iw += model.α * Z * niw * sqrt(Z * e * Tev / mi)
+        niw = h * cache.ni[Z, i]
+        j_iw += Z * model.α * niw * sqrt(Z * e * Tev / mi)
     end
-    #compute electron wall collision frequency 
+
+    # compute electron wall collision frequency
     νew = j_iw / (Δr * (1 - γ)) / cache.ne[i]
 
-    return νew 
+    return νew
 end
 
-function wall_power_loss(model::WallSheath, U, params, i)
-    (;config) = params
+function wall_power_loss(model::WallSheath, params, i)
+    (;config, cache, z_cell, L_ch) = params
     mi = config.propellant.m
 
-    Tev = wall_electron_temperature(U, params, i)
+    Tev = wall_electron_temperature(params, i)
 
     # space charge limited SEE coefficient
     γ = params.cache.γ_SEE[i]
@@ -85,11 +93,13 @@ function wall_power_loss(model::WallSheath, U, params, i)
     # Space charge-limited sheath potential
     ϕ_s = sheath_potential(Tev, γ, mi)
 
-    # Compute electron wall collision frequency with transition function for energy wall collisions in plume 
-    νew = params.cache.radial_loss_frequency[i] * params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, params.config.electron_plume_loss_scale)
+    # Compute electron wall collision frequency with transition function for energy wall collisions in plume
+    νew = cache.radial_loss_frequency[i] * linear_transition(
+        z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale
+    )
 
     # Compute wall power loss rate
-    W = νew * (2 * (1 - 0.5 * model.material.σ₀) * Tev +  (1 - γ) * ϕ_s) / γ
+    W = νew * (2 * Tev +  (1 - γ) * ϕ_s)
 
     return W
 end

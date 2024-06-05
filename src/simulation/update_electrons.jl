@@ -1,67 +1,20 @@
+
 # update useful quantities relevant for potential, electron energy and fluid solve
-function update_electrons!(U, params, t = 0)
-    (;index, control_current, target_current, Kp, Ti, mi) = params
+function update_electrons!(params, t = 0)
+    (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, ni, ui, Vs, nn, nn_tot, niui,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
 
-    # Allow for system interrupts
-    yield()
-
-    # Update the current iteration
-    params.iteration[1] += 1
-
-    # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U, params)
-    @views right_boundary_state!(U[:, end], U, params)
-
-    ncells = size(U, 2)
-
-    # Update plasma quantities
+    # Update plasma quantities based on new density
     @inbounds for i in 1:ncells
-        # Compute number density for each neutral fluid
-        nn_tot[i] = 0.0
-        for j in 1:params.num_neutral_fluids
-            nn[j, i] = U[index.ρn[j], i] / params.config.propellant.m
-            nn_tot[i] += nn[j, i]
-        end
-
-        # Compute ion derived quantities
-        ne[i] = 0.0
-        Z_eff[i] = 0.0
-        ji[i] = 0.0
-        @inbounds for Z in 1:params.config.ncharge
-            _ni = U[index.ρi[Z], i] / mi
-            _niui = U[index.ρiui[Z], i] / mi
-            ni[Z, i] = _ni
-            niui[Z, i] = _niui
-            ui[Z, i] = _niui / _ni
-            ne[i] += Z * _ni
-            Z_eff[i] += _ni
-            ji[i] += Z * e * _niui
-        end
-
-        # Compute electron number density, making sure it is above floor
-        ne[i] = max(params.config.min_number_density, ne[i])
-
-        # Effective ion charge state (density-weighted average charge state)
-        Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
-
         # Compute new electron temperature
         Tev[i] = 2/3 * max(params.config.min_electron_temperature, nϵ[i]/ne[i])
-
         # Compute electron pressure
-        pe[i] = if params.config.LANDMARK
-            # The LANDMARK benchmark uses nϵ instead of pe in the potential solver, but we use pe, so
-            # we need to define pe = 3/2 ne Tev
-            3/2 * ne[i] * Tev[i]
-        else
-            # Otherwise, just use typical ideal gas law.
-            ne[i] * Tev[i]
-        end
+        pe[i] = pe_factor * ne[i] * Tev[i]
     end
 
     # Update electron-ion collisions
@@ -74,16 +27,15 @@ function update_electrons!(U, params, t = 0)
     # Update other collisions
     @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn_tot[i], Tev[i])
+        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn[i], Tev[i])
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
-        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume  
-        radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, U, params, i)
-        νew_momentum[i] =  radial_loss_frequency[i]* params.config.transition_function(params.z_cell[i], params.L_ch, 1.0, 0.0)
-        
+        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
+        radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, params, i)
+        νew_momentum[i] =  radial_loss_frequency[i]* linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0)
     end
 
     # Update anomalous transport
@@ -104,10 +56,10 @@ function update_electrons!(U, params, t = 0)
     end
 
     # Compute anode sheath potential
-    Vs[] = anode_sheath_potential(U, params)
+    Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    Id[] = discharge_current(U, params)
+    Id[] = _discharge_current(params)
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in 1:ncells
@@ -115,7 +67,7 @@ function update_electrons!(U, params, t = 0)
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
 
         # Kinetic energy in both axial and azimuthal directions is accounted for
-        params.cache.K[i] = electron_kinetic_energy(U, params, i)
+        params.cache.K[i] = electron_kinetic_energy(params, i)
     end
 
     # Compute potential gradient and pressure gradient
@@ -131,7 +83,7 @@ function update_electrons!(U, params, t = 0)
     params.config.conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
-    update_electron_energy!(U, params, params.dt[])
+    update_electron_energy!(params, params.dt[])
 
     # Update the anomalous collision frequency multiplier to match target
     # discharge current
@@ -160,11 +112,10 @@ function update_electrons!(U, params, t = 0)
 end
 
 
-function discharge_current(U::Array, params)
-    (;cache, Δz_edge, ϕ_L, ϕ_R) = params
+# TODO: differentiate this from the postprocessing one
+function _discharge_current(params)
+    (;cache, Δz_edge, ϕ_L, ϕ_R, ncells) = params
     (;∇pe, μ, ne, ji, Vs, channel_area) = cache
-
-    ncells = size(U, 2)
 
     int1 = 0.0
     int2 = 0.0
@@ -203,9 +154,7 @@ end
 
 function compute_pressure_gradient!(∇pe, params)
     (; pe) = params.cache
-    (;z_cell) = params
-
-    ncells = length(z_cell)
+    (;z_cell, ncells) = params
 
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])

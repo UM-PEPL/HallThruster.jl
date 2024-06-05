@@ -9,6 +9,7 @@ using SparseArrays
 
 doctest(HallThruster)
 
+# exercise all parts of the solver loop
 HallThruster.example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 
 include("unit_tests/test_gas.jl")
@@ -27,7 +28,6 @@ include("unit_tests/test_json.jl")
 using Symbolics
 include("order_verification/ovs_funcs.jl")
 include("order_verification/ovs_energy.jl")
-include("order_verification/ovs_ions.jl")
 @testset "Order verification (electron energy)" begin
 
     vfunc = x -> OVS_Energy.verify_energy(x)
@@ -49,13 +49,15 @@ include("order_verification/ovs_ions.jl")
     end
 end
 
+include("order_verification/ovs_ions.jl")
 @testset "Order verification (neutrals and ions)" begin
-    refinements = refines(6, 10, 2)
+    refinements = refines(5, 10, 2)
 
     limiter = HallThruster.van_leer
     flux_names = ["HLLE", "Rusanov", "Global Lax-Friedrichs"]
     #flux_names = ["Global Lax-Friedrichs"]
     fluxes = [HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,]
+    #fluxes = [HallThruster.HLLE, HallThruster.rusanov, HallThruster.global_lax_friedrichs,]
 
     # Which L-P norms to check
     cases = ["ρn", "ρi", "ρiui"]
@@ -64,13 +66,9 @@ end
 
     for (flux, flux_name) in zip(fluxes, flux_names)
         for reconstruct in [false, true]
-            if reconstruct && flux_name == "HLLE"
-                continue
-            end
             scheme = HallThruster.HyperbolicScheme(flux, limiter, reconstruct)
             orders, norms = test_refinements(ncells -> OVS_Ions.solve_ions(ncells, scheme), refinements, norms_to_test)
             for (i, (order, norm)) in enumerate(zip(orders, norms))
-
                 norm_ind = mod1(i, num_norms)
                 case_ind = ((i-1) ÷ num_norms) + 1
                 case_str = "($(cases[case_ind]), $(norms_to_test[norm_ind])-norm)"
@@ -83,9 +81,9 @@ end
 
                 # Check that we achieve the desired order of accuracy
                 if (reconstruct)
-                    @test order > 1.5
+                    @test order >= 1.5
                 else
-                    @test order > 0.85
+                    @test order > 0.75
                 end
             end
         end

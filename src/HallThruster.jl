@@ -26,7 +26,6 @@ const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 
 include("utilities/utility_functions.jl")
-include("utilities/transition_functions.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -55,14 +54,15 @@ include("simulation/initialization.jl")
 include("simulation/geometry.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
-include("simulation/heavy_species.jl")
+include("simulation/update_heavy_species.jl")
 include("simulation/electronenergy.jl")
 include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
-include("simulation/update_electrons.jl")
 include("simulation/configuration.jl")
+include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")
+include("simulation/json.jl")
 include("simulation/restart.jl")
 include("simulation/postprocess.jl")
 include("visualization/plotting.jl")
@@ -99,6 +99,7 @@ function example_simulation(;ncells, duration, dt, nsave)
     HallThruster.current_eff(sol_1)
     HallThruster.divergence_eff(sol_1)
     HallThruster.voltage_eff(sol_1)
+    return sol_1
 end
 
 # # Precompile statements to improve load time

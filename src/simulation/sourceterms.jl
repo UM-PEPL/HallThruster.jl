@@ -33,7 +33,7 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
             if !params.config.LANDMARK
                 # Momentum transfer due to ionization
-                if reactant_index == index.ρn[1]
+                if reactant_index == index.ρn
                     reactant_velocity = params.config.neutral_velocity
                 else
                     reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
@@ -76,7 +76,6 @@ function apply_ion_wall_losses!(dU, U, params, i)
     Δr = geometry.outer_radius - geometry.inner_radius
 
     mi = propellant.m
-
     if wall_loss_model isa WallSheath
         α = wall_loss_model.α
     elseif wall_loss_model isa NoWallLosses
@@ -86,9 +85,10 @@ function apply_ion_wall_losses!(dU, U, params, i)
     end
 
     @inbounds for Z in 1:ncharge
-        in_channel = params.config.transition_function(z_cell[i], L_ch, 1.0, 0.0)
+        in_channel = linear_transition(z_cell[i], L_ch, params.config.transition_length, 1.0, 0.0)
         u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
-        νiw = α * in_channel * u_bohm / Δr
+        h = edge_to_center_density_ratio()
+        νiw = α * in_channel * u_bohm / Δr * h
 
         density_loss  = U[index.ρi[Z], i] * νiw
         momentum_loss = U[index.ρiui[Z], i] * νiw
@@ -97,13 +97,13 @@ function apply_ion_wall_losses!(dU, U, params, i)
         dU[index.ρiui[Z], i] -= momentum_loss
 
         # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn[1], i] += density_loss
+        dU[index.ρn, i] += density_loss
     end
 end
 
-function excitation_losses!(U, params, i)
+function excitation_losses!(params, i)
     (;excitation_reactions, cache, excitation_reactant_indices) = params
-    (;νex, Tev, inelastic_losses) = cache
+    (;νex, Tev, inelastic_losses, nn) = cache
     mi = params.config.propellant.m
     ne = cache.ne[i]
 
@@ -121,8 +121,8 @@ function excitation_losses!(U, params, i)
     νex[i] = 0.0
     @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
         rate_coeff = rxn.rate_coeff(ϵ)
-        for reactant_index in reactant_inds
-            n_reactant = U[reactant_index, i] / mi
+        for _ in reactant_inds
+            n_reactant = nn[i]
             ndot = reaction_rate(rate_coeff, ne, n_reactant)
             inelastic_losses[i] += ndot * (rxn.energy - K)
             νex[i] += ndot / ne
@@ -132,7 +132,7 @@ function excitation_losses!(U, params, i)
     return inelastic_losses[i]
 end
 
-function electron_kinetic_energy(U, params, i)
+function electron_kinetic_energy(params, i)
     νe = params.cache.νe[i]
     B  = params.cache.B[i]
     ue = params.cache.ue[i]
@@ -140,7 +140,7 @@ function electron_kinetic_energy(U, params, i)
     return 0.5 *  me * (1 + Ωe^2) * ue^2 / e
 end
 
-function source_electron_energy(U, params, i)
+function source_electron_energy(params, i)
     ne = params.cache.ne[i]
     ue = params.cache.ue[i]
     ∇ϕ = params.cache.∇ϕ[i]
@@ -161,10 +161,10 @@ function source_electron_energy(U, params, i)
     end
 
     # add excitation losses to total inelastic losses
-    excitation_losses!(U, params, i)
+    excitation_losses!(params, i)
 
     # compute wall losses
-    wall_loss = ne * wall_power_loss(params.config.wall_loss_model, U, params, i)
+    wall_loss = ne * wall_power_loss(params.config.wall_loss_model, params, i)
 
     params.cache.wall_losses[i] = wall_loss
     params.cache.ohmic_heating[i] = ohmic_heating

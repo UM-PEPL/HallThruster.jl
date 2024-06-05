@@ -1,20 +1,3 @@
-# Perform one step of the Strong-stability-preserving RK22 algorithm
-function ssprk22_step!(U, f, params, t, dt)
-    (;k, u1) = params.cache
-
-    # First step of SSPRK22
-    f(k, U, params, t)
-    @. u1 = U + dt * k
-    stage_limiter!(u1, params)
-
-    # Second step of SSPRK22
-    f(k, u1, params, t+dt)
-    @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params)
-
-    return nothing
-end
-
 struct Solution{T, U, P, S}
     t::T
     u::U
@@ -35,13 +18,13 @@ end
 
 @inline _saved_fields_vector() = (
     :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn_tot,
+    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn,
     :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
     :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
     :dt
 )
 
-@inline _saved_fields_matrix() = (:ni, :ui, :niui, :nn)
+@inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat)
@@ -67,16 +50,11 @@ function solve(U, params, tspan; saveat)
 
         t += params.dt[]
 
-        # Update heavy species
-        ssprk22_step!(U, update_heavy_species!, params, t, params.dt[])
+        # update heavy species quantities
+        integrate_heavy_species!(U, params, params.dt[])
+        update_heavy_species!(U, params)
 
-        # Update electron quantities
-        update_electrons!(U, params, t)
-
-        # Update plume geometry
-        update_plume_geometry!(U, params)
-
-        # Check for NaNs and terminate if necessary
+        # Check for NaNs in heavy species solve and terminate if necessary
         nandetected = false
         infdetected = false
 
@@ -93,6 +71,22 @@ function solve(U, params, tspan; saveat)
                 break
             end
         end
+
+        if nandetected || infdetected
+            break
+        end
+
+        # Update electron quantities
+        update_electrons!(params, t)
+
+        # Update plume geometry
+        update_plume_geometry!(U, params)
+
+        # Allow for system interrupts
+        yield()
+
+        # Update the current iteration
+        params.iteration[1] += 1
 
         # Save values at designated intervals
         # TODO interpolate these to be exact and make a bit more elegant
@@ -120,10 +114,6 @@ function solve(U, params, tspan; saveat)
             end
 
             save_ind += 1
-        end
-
-        if nandetected || infdetected
-            break
         end
     end
 

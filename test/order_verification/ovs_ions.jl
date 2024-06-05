@@ -18,29 +18,22 @@ const e = HallThruster.e
 const Ti = 300
 const L = 0.05
 
-ϕ = 0.0 * sin_wave(x/L, amplitude = 300, phase = π/2, nwaves = 0.5)
+ϕ =  sin_wave(x/L, amplitude = 5, phase = π/2, nwaves = 0.5)
 ne = sin_wave(x/L, amplitude = 1e13, phase = π/2, nwaves = 2, offset = 6e13)
 nn = sin_wave(x/L, amplitude = 2e18, phase = π/2, nwaves = 1, offset = 6e18)
 ui = sin_wave(x/L, amplitude = 2000, phase = -π/2, nwaves = 0.5, offset = 3000)
-μ = sin_wave(x/L, amplitude = 1e2, phase = 3π/2, nwaves = 0.6, offset = 1.1e2)
 ϵ = sin_wave(x/L, amplitude = 3, phase = -π/2, nwaves = 1, offset = 6)
 nϵ = ne * ϵ
-pe = e * nϵ
 ∇ϕ = Dx(ϕ)
-∇pe = Dx(pe)
 ρi = ne * mi
 ρiui = ρi * ui
 ρn = nn * mi
-ue = μ * (∇ϕ - Dx(nϵ)/ne)
 p = ne * HallThruster.kB * Ti
-∇p = Dx(p)
 
 ϕ_func = eval(build_function(ϕ, [x]))
 ne_func = eval(build_function(ne, [x]))
-μ_func = eval(build_function(μ, [x]))
 ρiui_func = eval(build_function(ρiui, [x]))
 nϵ_func = eval(build_function(nϵ, [x]))
-ue_func = eval(build_function(expand_derivatives(ue), [x]))
 ∇ϕ_func = eval(build_function(expand_derivatives(∇ϕ), [x]))
 ρn_func = eval(build_function(ρn, [x]))
 ρi_func = eval(build_function(ρi, [x]))
@@ -94,7 +87,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         conductivity_model = HallThruster.LANDMARK_conductivity(),
         ion_wall_losses = false,
         anode_boundary_condition = :dirichlet,
-        solve_background_neutrals = false,
     )
 
     z_edge = grid.edges
@@ -102,8 +94,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     nedges = length(z_edge)
 
-    ue = ue_func.(z_cell)
-    μ = μ_func.(z_cell)
     nϵ = nϵ_func.(z_cell)
     ρn_exact = ρn_func.(z_cell)
     ρi_exact = ρi_func.(z_cell)
@@ -113,8 +103,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
     index = HallThruster.configure_index(fluids, fluid_ranges)
-
-    @show is_velocity_index, fluid_ranges
 
     nvars = fluid_ranges[end][end]
 
@@ -136,7 +124,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     z_end = z_cell[end]
     z_start = z_cell[1]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
-    U[index.ρn[1], :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
+    U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
 
@@ -147,9 +135,10 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     u1 = zeros(size(U))
     inelastic_losses = zeros(ncells+2)
     νiz = zeros(ncells+2)
-    cache = (;k, u1, ue, μ, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
+    cache = (;k, u1, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
 
     params = (;
+        ncells = ncells+2,
         index,
         config,
         cache,
@@ -164,7 +153,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],
-        num_neutral_fluids = 1,
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
         Δz_cell, Δz_edge,
@@ -177,16 +165,13 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end-1]
-        HallThruster.ssprk22_step!(
-            U, (dU, U, params, t) -> HallThruster.update_heavy_species!(dU, U, params, t; apply_boundary_conditions = false),
-            params, t, dt[]
-        )
-        t += dt[]
+        HallThruster.integrate_heavy_species!(U, params, cache.dt[], false);
+        t += cache.dt[]
     end
 
     sol = (;t = [t], u = [U])
 
-    ρn_sim = sol.u[end][index.ρn[1], :]
+    ρn_sim = sol.u[end][index.ρn, :]
     ρi_sim = sol.u[end][index.ρi[1], :]
     ρiui_sim = sol.u[end][index.ρiui[1], :]
     ui_sim = ρiui_sim ./ ρi_sim

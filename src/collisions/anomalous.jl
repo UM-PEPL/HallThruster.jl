@@ -58,7 +58,7 @@ function (model::TwoZoneBohm)(νan, params)
         B = params.cache.B[i]
         ωce = e * B / me
 
-        β = params.config.transition_function(params.z_cell[i], params.L_ch, c1, c2)
+        β = linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
         νan[i] = β * ωce
     end
 
@@ -221,7 +221,7 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         B = params.cache.B[i]
         ωce = HallThruster.e * B / HallThruster.me
 
-        β = params.config.transition_function(params.z_cell[i], zstar, c1, c2)
+        β = linear_transition(params.z_cell[i], zstar, params.config.transition_length, c1, c2)
         νan[i] = β * ωce
     end
 end

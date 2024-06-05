@@ -1,6 +1,6 @@
 @testset "Wall loss tests" begin
     no_losses = HallThruster.NoWallLosses()
-
+    h = HallThruster.edge_to_center_density_ratio()
     mi = HallThruster.Xenon.m
     me = HallThruster.me
 
@@ -17,18 +17,18 @@
     nϵ = 3/2 * ne * Tev
     cache = (;
         ne = [ne, ne, ne, ne],
+        ni = [ne ne ne ne],
         Tev = [Tev, Tev, Tev, Tev],
         nϵ = [nϵ, nϵ, nϵ, nϵ],
         Z_eff = [1.0, 1.0, 1.0, 1.0],
-        ni = [ne ne ne ne],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
         radial_loss_frequency = [0.0, 0.0, 0.0, 0.0],
         νew_momentum = [0.0, 0.0, 0.0, 0.0],
     )
-    transition_function = HallThruster.LinearTransition(0.2 * L_ch, 0.0)
+    transition_length = 0.2 * L_ch
     config = (;
         thruster = HallThruster.SPT_100,
-        transition_function,
+        transition_length,
         propellant = HallThruster.Xenon, ncharge = 1,
         electron_plume_loss_scale = 0.0
     )
@@ -66,16 +66,9 @@
         Δz_edge, Δz_cell, γ_SEE_max = γmax
     )
 
-    ρi = ne * mi
-
-
-    U = [
-        ρi ρi ρi ρi
-    ]
-
-    @test HallThruster.wall_power_loss(no_losses, U, params, 2) == 0.0
-    @test HallThruster.wall_power_loss(landmark_losses, U, params, 2) ≈ αin *  6.0 * 1e7 * exp(-20 / 6.0)
-    @test HallThruster.wall_power_loss(landmark_losses, U, params, 3) ≈ αout *  6.0 * 1e7 * exp(-20 / 6.0)
+    @test HallThruster.wall_power_loss(no_losses, params, 2) == 0.0
+    @test HallThruster.wall_power_loss(landmark_losses, params, 2) ≈ αin *  6.0 * 1e7 * exp(-20 / 6.0)
+    @test HallThruster.wall_power_loss(landmark_losses, params, 3) ≈ αout *  6.0 * 1e7 * exp(-20 / 6.0)
 
     γ1 = 0.5
     γ2 = 1.0
@@ -89,7 +82,6 @@
     # Check that SEE properly obeys space charge limit at high electron temps
     @test HallThruster.SEE_yield(BN, 9000.0, γmax) ≈ γmax
 
-
     @test HallThruster.SEE_yield(BN, 9000.0, γmax_kr) ≈ γmax_kr
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
@@ -102,14 +94,14 @@
     Δz = params.z_edge[2] - params.z_edge[1]
     V_cell = A_ch * Δz
 
-    @test HallThruster.freq_electron_wall(no_losses, U, params, 2) == 0.0
-    @test HallThruster.freq_electron_wall(no_losses, U, params, 3) == 0.0
+    @test HallThruster.freq_electron_wall(no_losses, params, 2) == 0.0
+    @test HallThruster.freq_electron_wall(no_losses, params, 3) == 0.0
 
-    @test HallThruster.freq_electron_wall(landmark_losses, U, params,  2) == 1e7
-    @test HallThruster.freq_electron_wall(landmark_losses, U, params, 3) * params.config.transition_function(params.z_cell[3], params.L_ch, 1.0, 0.0) == 0.0e7
+    @test HallThruster.freq_electron_wall(landmark_losses, params,  2) == 1e7
+    @test HallThruster.freq_electron_wall(landmark_losses, params, 3) * HallThruster.linear_transition(params.z_cell[3], params.L_ch, params.config.transition_length, 1.0, 0.0) == 0.0e7
 
     γ = HallThruster.SEE_yield(BN, Tev, γmax)
-    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr 
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr * h
     νew = νiw / (1 - γ)
 
     params.cache.γ_SEE .= γ
@@ -120,23 +112,24 @@
     params.cache.radial_loss_frequency[1:4] .= νew
 
 
-    Iiw = HallThruster.wall_ion_current(sheath_model, U, params, 2, 1)
-    Iew = HallThruster.wall_electron_current(sheath_model, U, params, 2)
+    Iiw = HallThruster.wall_ion_current(sheath_model, params, 2, 1)
+    Iew = HallThruster.wall_electron_current(sheath_model, params, 2)
     @test Iew ≈ Iiw / (1 - γ)
     @test Iiw ≈ νiw * HallThruster.e * V_cell * ne
     @test Iew ≈ νew * HallThruster.e * V_cell * ne
 
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 2) * params.config.transition_function(params.z_cell[2], L_ch, 1.0, 0.0) ≈ νew
-    @test HallThruster.freq_electron_wall(sheath_model, U, params, 3) * params.config.transition_function(params.z_cell[3], L_ch, 1.0, 0.0) ≈ 0.0
+    @test HallThruster.freq_electron_wall(sheath_model, params, 2) * HallThruster.linear_transition(params.z_cell[2], L_ch, params.config.transition_length, 1.0, 0.0) ≈ νew
+    @test HallThruster.freq_electron_wall(sheath_model, params, 3) * HallThruster.linear_transition(params.z_cell[3], L_ch, params.config.transition_length, 1.0, 0.0) ≈ 0.0
 
-    @test HallThruster.wall_power_loss(sheath_model, U, params, 2) ≈ νew * (2 * (1 - 0.5 * BN.σ₀) * Tev + (1 - γ) * Vs)/γ
-    @test HallThruster.wall_power_loss(sheath_model, U, params, 4) ≈ 0.0
+    @test HallThruster.wall_power_loss(sheath_model, params, 2) ≈ νew * (2 * Tev + (1 - γ) * Vs)
+    @test HallThruster.wall_power_loss(sheath_model, params, 4) ≈ 0.0
 end
 
 @testset "Ion wall losses" begin
-    config = (;thruster = HallThruster.SPT_100, propellant = HallThruster.Krypton, ncharge = 2, transition_function = HallThruster.StepFunction())
+    config = (;thruster = HallThruster.SPT_100, propellant = HallThruster.Krypton, ncharge = 2, transition_length = 0.0)
     geom = HallThruster.SPT_100.geometry
     Δr = geom.outer_radius - geom.inner_radius
+    h = HallThruster.edge_to_center_density_ratio()
 
     Tn = 300.0
     Tev = 3.0
@@ -147,7 +140,7 @@ end
     γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/mi)
 
     γ = HallThruster.SEE_yield(HallThruster.BoronNitride, Tev, γ_SEE_max)
-    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr * h
     νew = νiw * γ / (1 - γ)
 
     L_ch = HallThruster.geometry_SPT_100.channel_length
@@ -247,9 +240,9 @@ end
     params_constant_sheath = (;base_params..., config = config_constant_sheath)
 
     i = 2
-    Iiw_1 = HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 1)
-    Iiw_2 = HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 2)
-    Iew = HallThruster.wall_electron_current(constant_sheath, U, params_constant_sheath, i)
+    Iiw_1 = HallThruster.wall_ion_current(constant_sheath, params_constant_sheath, i, 1)
+    Iiw_2 = HallThruster.wall_ion_current(constant_sheath, params_constant_sheath, i, 2)
+    Iew = HallThruster.wall_electron_current(constant_sheath, params_constant_sheath, i)
 
     # Ion and electron wall currents are equivalent inside of channel
     @test Iiw_1 + Iiw_2 == Iew
@@ -259,13 +252,13 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to ni νiw
     Δz = z_edge[2] - z_edge[1]
     V_cell = A_ch * Δz
     u_bohm = sqrt(HallThruster.e * Tev / mi)
-    νiw =  u_bohm / Δr
+    νiw =  u_bohm / Δr * h
 
     @test dU[index.ρi[1], i] ≈ -U[index.ρi[1], i] * νiw
     @test dU[index.ρi[2], i] ≈ -U[index.ρi[2], i] * νiw * sqrt(2)
@@ -277,9 +270,9 @@ end
     # No wall current outside of channel
     dU .= 0.0
     i = 3
-    @test HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 1) == 0.0
-    @test HallThruster.wall_ion_current(constant_sheath, U, params_constant_sheath, i, 2) == 0.0
-    @test HallThruster.wall_electron_current(constant_sheath, U, params_constant_sheath, i) == 0.0
+    @test HallThruster.wall_ion_current(constant_sheath, params_constant_sheath, i, 1) == 0.0
+    @test HallThruster.wall_ion_current(constant_sheath, params_constant_sheath, i, 2) == 0.0
+    @test HallThruster.wall_electron_current(constant_sheath, params_constant_sheath, i) == 0.0
 
     HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, 3)
     @test all(dU[:, 3] .≈ 0.0)
@@ -292,15 +285,15 @@ end
     params_wall_sheath = (;base_params..., config = config_wall_sheath)
 
     γ = HallThruster.SEE_yield(material, Tev, γ_SEE_max)
-    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr
+    νiw = α * sqrt(HallThruster.e * Tev / mi) / Δr * h
     νew = νiw * γ / (1 - γ)
 
     params_wall_sheath.cache.νew_momentum[1:2] .= νew
     i = 2
     params_wall_sheath.cache.γ_SEE[i] = γ
-    Iiw_1 = HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 1)
-    Iiw_2 = HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 2)
-    Iew = HallThruster.wall_electron_current(wall_sheath, U, params_wall_sheath, i)
+    Iiw_1 = HallThruster.wall_ion_current(wall_sheath, params_wall_sheath, i, 1)
+    Iiw_2 = HallThruster.wall_ion_current(wall_sheath, params_wall_sheath, i, 2)
+    Iew = HallThruster.wall_electron_current(wall_sheath, params_wall_sheath, i)
 
     @test Iiw_1 ≈ Iew * ni_1 / ne * (1 - γ)
     @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
@@ -309,7 +302,7 @@ end
     HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, i)
 
     # Neutrals should recombine at walls
-    @test dU[index.ρn[1], i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+    @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
     # Rate of ion loss is equal to Iiw / e / V_cell
     @test dU[index.ρi[1], i] ≈ -νiw * U[index.ρi[1], i]
@@ -321,9 +314,9 @@ end
 
     # No wall losses in plume
     i = 3
-    @test HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 1) == 0.0
-    @test HallThruster.wall_ion_current(wall_sheath, U, params_wall_sheath, i, 2) == 0.0
-    @test HallThruster.wall_electron_current(wall_sheath, U, params_wall_sheath, i) == 0.0
+    @test HallThruster.wall_ion_current(wall_sheath, params_wall_sheath, i, 1) == 0.0
+    @test HallThruster.wall_ion_current(wall_sheath, params_wall_sheath, i, 2) == 0.0
+    @test HallThruster.wall_electron_current(wall_sheath, params_wall_sheath, i) == 0.0
 
     HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, 3)
     @test all(dU[:, 3] .≈ 0.0)

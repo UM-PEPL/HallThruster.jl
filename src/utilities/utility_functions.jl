@@ -56,6 +56,20 @@ julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
     return muladd(t, (y1 - y0), y0)
 end
 
+@inline function linear_transition(x, cutoff, L, y1, y2)
+    x1 = cutoff - L/2
+    x2 = cutoff + L/2
+    if x < x1
+        return y1
+    elseif x > x2
+        return y2
+    else
+        return lerp(x, x1, x2, y1, y2)
+    end
+end
+
+@inline smooth_if(x, cutoff, y1, y2, L) = ((y2 - y1)*tanh((x-cutoff)/(L/4)) + y1 + y2) / 2
+
 function find_left_index(value, array)
     N = length(array)
 

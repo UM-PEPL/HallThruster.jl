@@ -2,38 +2,25 @@
     test_path = joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests")
     restart_path = joinpath(test_path, "test_restart.jld2")
 
-
     config = HallThruster.Config(;
-        ncharge = 1,
-        anode_Te = 2.0,
-        cathode_Te = 2.0,
-        discharge_voltage = 300.0,
-        excitation_model = HallThruster.LandmarkExcitationLookup(),
-        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride, 1.0),
-        implicit_energy = 1.0,
-        neutral_velocity = 300.0,
-        neutral_temperature = 300.0,
-        ion_temperature = 1000.0,
         thruster = HallThruster.SPT_100,
-        anode_mass_flow_rate = 5e-6,
-        electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
-        electron_ion_collisions = true,
-        ionization_model = HallThruster.LandmarkIonizationLookup(),
-        domain = (0.0, 0.05),
-        LANDMARK = true,
-        conductivity_model = HallThruster.LANDMARK_conductivity(),
+        domain = (0.0u"cm", 8.0u"cm"),
+        discharge_voltage = 300.0u"V",
+        anode_mass_flow_rate = 5u"mg/s",
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride, 0.15)
     )
 
     ncells = 50
     grid = HallThruster.generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
 
-
-    #make a new restart from the current configuration 
-    sol = HallThruster.run_simulation(config; dt = 5e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10)
+    #make a new restart from the current configuration
+    duration=1e-7
+    dt=1e-8
+    nsave=2
+    sol = HallThruster.run_simulation(config; ncells, duration, dt, nsave, verbose = false)
     HallThruster.write_restart(restart_path, sol)
 
-    
     # Check that writing a restart of a restart does not lose any information
     # i.e. restarts are perfectly reconstructable
     restart = HallThruster.read_restart(restart_path)
@@ -59,8 +46,7 @@
     @test cache.Tev ≈ sol[:Tev][end]
     @test cache.νc ≈ sol[:νc][end]
 
-    
-    #test that a simulation can be run from the restart 
+    #test that a simulation can be run from the restart
     restart_sol = HallThruster.run_simulation(config; dt = 5e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10, restart = restart_path)
     @test restart_sol.retcode == :success
 
@@ -98,5 +84,4 @@ end
     @test landmark_1[3].u[1][1, :] ≈ landmark_1_hybrid.u[1][1, :]
     @test landmark_1[3].u[1][2, :] ≈ landmark_1_hybrid.u[1][2, :]
     @test landmark_1[3].u[1][4, :] ≈ landmark_1_hybrid.u[1][4, :]
-
 end
