@@ -200,7 +200,7 @@ function run_simulation(
 
     # Simulation parameters
     params = (;
-        ncells = ncells+2,
+        ncells = grid.ncells+2,
         ncharge = config.ncharge,
         mi,
         config = config,

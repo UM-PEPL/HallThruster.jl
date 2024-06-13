@@ -259,7 +259,7 @@ end
     if :νw in freqs
         @series begin
             label := "Wall"
-            ys = sol[:νew][frame]
+            ys = sol[:νew_momentum][frame]
             inds = findall(==(0), ys)
             ys[inds] .= NaN
             zs, ys
