@@ -45,8 +45,9 @@ function solve(U, params, tspan; saveat)
     while t < tspan[2]
         i += 1
 
-        params.dt[] = params.adaptive ? params.cache.dt[] : params.dt[]
-        params.dt[] = clamp(params.dt[], params.dtmin, params.dtmax)
+        if params.adaptive
+            params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+        end
 
         t += params.dt[]
 

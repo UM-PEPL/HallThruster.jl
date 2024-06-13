@@ -7,7 +7,8 @@
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
-        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride, 0.15)
+        wall_loss_model = HallThruster.WallSheath(HallThruster.BoronNitride),
+        transition_length = 1e-3,
     )
 
     ncells = 50

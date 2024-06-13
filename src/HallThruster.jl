@@ -78,7 +78,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
-        wall_loss_model = WallSheath(BoronNitride, 0.15)
+        wall_loss_model = WallSheath(BoronNitride)
     )
     sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
 
