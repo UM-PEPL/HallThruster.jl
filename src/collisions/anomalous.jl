@@ -170,8 +170,8 @@ function (model::ShiftedGaussianBohm)(νan, params)
     (;trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
 
     # do not recompute after a certain point - profile is meant to be fixed in time
-    if (params.iteration[] > 10)
-        return;
+    if (params.iteration[] > 5)
+        return νan;
     end
 
     pb = params.config.background_pressure
@@ -180,14 +180,18 @@ function (model::ShiftedGaussianBohm)(νan, params)
     p_ratio = pb / (pstar * torr_to_pa)
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
 
+    B_interp = LinearInterpolation(params.z_cell, params.cache.B)
+
     for i in eachindex(νan)
-        B = params.cache.B[i]
-        ωce = e * B / me
         z = params.z_cell[i] - zstar
+        B = B_interp(z)
+        ωce = e * B / me
         μ = trough_location
         c = trough_max * (1 - (1 - trough_min) * exp(-0.5 * ((z - μ) / trough_width)^2))
         νan[i] = c * ωce
     end
+
+    return νan
 end
 
 

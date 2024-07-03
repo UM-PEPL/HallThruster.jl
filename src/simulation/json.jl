@@ -12,7 +12,6 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     pressure_pstar = NaN
     pressure_alpha = NaN
     apply_thrust_divergence_correction = true
-    adaptive = true
 
     (;
         # Design
@@ -47,6 +46,12 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     # Whether inbuilt divergence model is used to correct thrust
     apply_thrust_divergence_correction = get_key(json_content, :apply_thrust_divergence_correction, true)
 
+    # Whether we solve a quasi-1D plume expansion
+    solve_plume = get_key(json_content, :solve_plume, true)
+
+    # Electron loss coeffient in the plume
+    electron_plume_loss_scale = get_key(json_content, :plume_loss_coefficient, 1.0)
+
     # neutral ingestion multiplier
     neutral_ingestion_multiplier::Float64 = get_key(json_content, :neutral_ingestion_multiplier, 1.0)
 
@@ -58,11 +63,16 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
 
     geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
 
-    if thruster_name == "SPT-100"
-        bfield_func = HallThruster.B_field_SPT_100 $ (0.016, channel_length)
-    else
+    bfield_func = try
         bfield_data = readdlm(magnetic_field_file, ',')
-        bfield_func = HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+        HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+    catch e
+        if thruster_name == "SPT-100"
+            @warn "Could not find provided magnetic field file. Using default SPT-100 field."
+            HallThruster.B_field_SPT_100 $ (0.016, channel_length)
+        else
+            error(e)
+        end
     end
 
     thruster = HallThruster.Thruster(;
@@ -121,11 +131,18 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
         background_pressure = background_pressure_Torr * u"Torr",
         background_neutral_temperature = background_temperature_K * u"K",
         neutral_ingestion_multiplier,
+        solve_plume,
         apply_thrust_divergence_correction,
+        electron_plume_loss_scale
     )
 
+    # solution = run_simulation(
+    #     config; ncells = num_cells, nsave = num_save,
+    #     duration = duration_s, dt = dt_s, verbose = verbose, adaptive
+    # )
+
     solution = run_simulation(
-        config; ncells = num_cells, nsave = num_save,
+        config; grid = UnevenGrid(num_cells), nsave = num_save,
         duration = duration_s, dt = dt_s, verbose = verbose, adaptive
     )
 
