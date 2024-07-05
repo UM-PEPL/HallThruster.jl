@@ -97,9 +97,9 @@ In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the 
 
 In Hall thrusters, the observed axial/cross-field electron current is significantly higher than that which would result from classical collisions alone (here, ``\nu_c`` represents the classical electron momentum transfer collision frequency, see [Collisions and Reactions](@ref)). We model this enhanced transport in a fluid framework as an additional anomalous collision frequency, see [Anomalous Transport](@ref). The purpose of this code is to facilitate the development and testing of models for this important parameter.
 
-## Electrostatic potential
+## Discharge current and electric field
 
-The electrostatic potential is found by first computing the electric field. To determine the electric field we generally follow the method from [V. Giannetti, et. al *Numerical and experimental investigation of longitudinal oscillations in Hall thrusters*, Aerospace 8, 148, 2021](https://www.mdpi.com/2226-4310/8/6/148) but the main steps are outlined here. By writing the discharge current as ``\frac{I_d}{A_{ch}} = j_e + j_i`` where ``A_{ch}`` is the channel area, plugging in Ohm's law for the electron current density, and integrating over the domain, we can write the discharge current as
+ To determine the electric field and dischrage current we generally follow the method from [V. Giannetti, et. al *Numerical and experimental investigation of longitudinal oscillations in Hall thrusters*, Aerospace 8, 148, 2021](https://www.mdpi.com/2226-4310/8/6/148). We outline the main steps here. By writing the discharge current as ``\frac{I_d}{A_{ch}} = j_e + j_i`` where ``A_{ch}`` is the channel area, plugging in Ohm's law for the electron current density, and integrating over the domain, we can write the discharge current as
 
 ```math
     I_d = \frac{\Delta V + \int_{z_c}^{z_a} \frac{1}{en_e}\frac{\partial p_e}{\partial z} + \frac{j_{iz}}{en_e\mu_{\perp}} dz}{\int_{z_c}^{z_a} en_e \mu_{\perp} A dz}
@@ -247,4 +247,3 @@ Bohm velocity
 ```math
     v_0 > \sqrt{\frac{kT_e}{m_i}}
 ```
-
