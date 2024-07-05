@@ -44,7 +44,7 @@ Aside from these arguments, all others have  default values provided. These are 
 - `background_pressure`: The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals.
 - `background_neutral_temperature`: The temperature of the background neutrals, in K
 - `anode_boundary_condition`: Can be either `:sheath` or `:dirichlet`
-- `anom_smoothing_iters`: How many times to smooth the anomalous transport profile
-- `solve_plume`: Whether to solve for plume area variation and divergence losses
+- `anom_smoothing_iters`: How many times to smooth the anomalous transport profile. Defaults to zero
+- `solve_plume`: Whether quasi-1D beam expansion should be modelled outside of the channel.
 - `apply_thrust_divergence_correction`: Whether the thrust output by HallThruster.jl should include a divergence correction factor of cos(δ)^2
-- `electron_losses_in_plume`: Whether electron radial/wall losses are applied in the plume region
+- `electron_plume_loss_scale`: The degree to which radial electron losses are applied in the plume. Defaults to 1. See [Wall Loss Models](@ref) for more information.
