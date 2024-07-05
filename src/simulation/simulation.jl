@@ -91,15 +91,15 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     dt = zeros(1)
 
     cache = (;
-                Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
-                νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-                ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
-                error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
-                errors, dcoeffs,
-                ohmic_heating, wall_losses, inelastic_losses,
-                channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
-                anom_variables, dt_iz, dt_E, dt_u, dt, dt_cell
-            )
+        Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+        νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
+        ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
+        error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
+        errors, dcoeffs,
+        ohmic_heating, wall_losses, inelastic_losses,
+        channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
+        anom_variables, dt_iz, dt_E, dt_u, dt, dt_cell
+    )
 
     return U, cache
 end
