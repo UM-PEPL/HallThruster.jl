@@ -127,8 +127,6 @@ function Config(;
     neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
     neutral_temperature = convert_to_float64(neutral_temperature, u"K")
 
-    @show neutral_velocity, neutral_temperature
-
     ion_temperature = convert_to_float64(ion_temperature, u"K")
     domain = (
         convert_to_float64(domain[1], u"m"),
