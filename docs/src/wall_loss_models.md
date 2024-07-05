@@ -27,13 +27,26 @@ where $\nu_{ew}$ is the electron wall collision frequency, $T_{ev}$ is the elect
 Here, $\gamma$ is the secondary electron emission coefficient, which is computed according to the choice of `WallMaterial`. For a plasma with only once charge state, the electron-wall collision frequency is:
 
 ```math
-\nu_{ew} = \frac{\alpha}{1 - \gamma}\sqrt{\frac{e T_{eV}}{m_i}}\frac{1}{R_o - R_i},
+\nu_{ew} = \frac{h}{1 - \gamma}\sqrt{\frac{e T_{eV}}{m_i}}\frac{1}{R_o - R_i},
 ```
 
-where $R_o$ and $R_i$ are the channel inner radius and outer radii respectively. For multiply-charged plasmas, the ion currents of each species are first computed as:
+where $R_o$ and $R_i$ are the channel inner radius and outer radii respectively, and $h = n_{wall} / n_e$ is the edge-to-center density ratio.
+This ratio is around 0.5 by default (c.f https://iopscience.iop.org/article/10.1088/0963-0252/24/2/025017), but can be changed by modifying the $\alpha$ parameter of the `WallSheath` model:
 
 ```math
-j_{iw,Z} = \alpha Z e n_{i,Z} \sqrt{\frac{Z e T_{eV}}{m_i}}
+h = \frac{0.86}{\sqrt{3}} \alpha.
+```
+
+In the plume, this ratio can be modified further by setting the `electron_plume_loss_scale` parameter (here called $\beta$):
+
+```math
+h = \frac{0.86}{\sqrt{3}} \alpha \beta.
+```
+
+For multiply-charged plasmas, the ion currents of each species are first computed as:
+
+```math
+j_{iw,Z} = h Z e n_{i,Z} \sqrt{\frac{Z e T_{eV}}{m_i}}
 ```
 
 Then, the electron wall current minus the secondary electron current are equal to the total ion wall current:
@@ -58,9 +71,7 @@ The ion current of each species is also used to compute ion wall losses if `ion_
 \dot{n}_{nw, Z} = -\sum_Z \dot{n}_{iw, Z}
 ```
 
-If `thruster.shielded` is `true`, the electron temperature at the walls is assumed to be equal to the electron temperature at the anode, see [Thrusters](@ref) for the option.
-
-The density relation in the `WallSheath` model is based upon the electron [`Boltzmann relation`](@ref). Note that at this point the model does not differentiate between axial positions inside and outside the thruster. The same loss model is applied over the entire domain. This approximation seems to work ok when comparing to 2D simulations due to isothermal magnetic field lines. More fidelity will most likely be added. 
+If `thruster.shielded` is `true`, the electron temperature at the walls is assumed to be equal to the electron temperature at the anode when inside the channel, see [Thrusters](@ref) for the option.
 
 ## Impact of magnetic shielding
 

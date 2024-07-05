@@ -6,7 +6,7 @@ function get_key(json_content, key, default)
     end
 end
 
-function run_simulation(json_content::JSON3.Object; verbose = true)
+function config_from_json(json_content::JSON3.Object) 
     pressure_z0 = NaN
     pressure_dz = NaN
     pressure_pstar = NaN
@@ -32,13 +32,8 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
         background_pressure_Torr, background_temperature_K,
     ) = json_content
 
-    # Handle optional keys
-
     # Thruster name
     thruster_name = get_key(json_content, :thruster_name, "Unnamed Thruster")
-
-    # Adaptive timestepping
-    adaptive = get_key(json_content, :adaptive, true)
 
     # Anom coefficients
     anom_model_coeffs = get_key(json_content, :anom_model_coeffs, [0.00625, 0.0625])
@@ -136,10 +131,29 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
         electron_plume_loss_scale
     )
 
-    # solution = run_simulation(
-    #     config; ncells = num_cells, nsave = num_save,
-    #     duration = duration_s, dt = dt_s, verbose = verbose, adaptive
-    # )
+    return config
+end
+
+function config_from_json(json_path::String; is_path = true, kwargs...) 
+    if is_path
+        json_content = JSON3.read(read(json_path, String))
+    else
+        json_content = JSON3.read(json_path)
+    end
+
+    return config_from_json(json_content)
+end
+
+
+function run_simulation(json_content::JSON3.Object; verbose = true)
+    
+    adaptive = get_key(json_content, :adaptive, true)
+    num_save = get_key(json_content, :num_save, 100)
+    num_cells = get_key(json_content, :num_cells, 150)
+    duration_s = get_key(json_content, :duration_s, 1e-3)
+    dt_s = get_key(json_content, :dt_s, 1e-8)
+
+    config = config_from_json(json_content)
 
     solution = run_simulation(
         config; grid = UnevenGrid(num_cells), nsave = num_save,

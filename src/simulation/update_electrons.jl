@@ -59,7 +59,7 @@ function update_electrons!(params, t = 0)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    Id[] = _discharge_current(params)
+    Id[] = integrate_discharge_current(params)
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in 1:ncells
@@ -111,9 +111,8 @@ function update_electrons!(params, t = 0)
     end
 end
 
-
-# TODO: differentiate this from the postprocessing one
-function _discharge_current(params)
+# Compute the axially-constant discharge current using Ohm's law
+function integrate_discharge_current(params)
     (;cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
     (;∇pe, μ, ne, ji, Vs, channel_area) = cache
 

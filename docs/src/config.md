@@ -21,13 +21,14 @@ Aside from these arguments, all others have  default values provided. These are 
 - `wall_loss_model`: How radial losses due to sheaths are computed. Defaults to `ConstantSheathPotential(sheath_potential=-20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0)`, which is the loss term from LANDMARK case 1. Other wall loss models are described on the [Wall Loss Models](@ref) page.
 - `wall_collision_freq`: Extra "wall collisions" to be added to the total electron momentum transfer collision frequency inside of the channel.  Units of Hz. Defaults to `0.0`.
 - `anom_model`: Model for computing the anomalous collision frequency. Defaults to `TwoZoneBohm(1/160, 1/16)`. Further details on the [Anomalous Transport](@ref) page.
+- `transition_length`: Distance over which the transition between inside and outside the channel is smoothed. Affects wall losses as well as two-zone Bohm-like transport models.
 - `conductivity_model`: Model for the perpendicular electron thermal conductivity. Defaults to `Mitchner()`. Further details can be found on the [Electron Thermal Conductivity](@ref) page.
 - `ionization_model`: Model for ionization. Defaults to `IonizationLookup()`, which uses a lookup table to compute ionization rate coefficients as a function of electron energy. Other options are described on the [Collisions and Reactions](@ref) page.
 - `excitation_model`: Model for excitation reactions. Defaults to `ExcitationLookup()`, which uses a lookup table to compute excitation rate coefficients as a function of electron energy.. Other models are described on the [Collisions and Reactions](@ref) page.
 - `electron_neutral_model`: Model for elastic scattering collisions between electrons and neutral atoms. Defaults to `ElectronNeutralLookup()`, which uses a lookup table to compute the elastic scattering rate coefficient. Other models are described on the [Collisions and Reactions](@ref) page.
 - `electron_ion_collisions`: Whether to include electron-ion collisions. Defaults to `true`. More information on the [Collisions and Reactions](@ref) page.
-- `neutral_velocity`: Neutral velocity in m/s. Defaults to `300.0`
-- `neutral_temperature`: Neutral temperature in Kelvins. Defaults to `300.0`.
+- `neutral_velocity`: Neutral velocity in m/s. Defaults to `300.0`. Note: If this is not set, the `neutral_temperature` is used to compute it using a one-sided maxwellian flux approximation.
+- `neutral_temperature`: Neutral temperature in Kelvins. Defaults to `500.0`. 
 - `ion_temperature`: Ion temperature in Kelvins. Defaults to 100.0
 - `implicit_energy`: The degree to which the energy is solved implicitly. `0.0` is a fully-explicit forward Euler, `0.5` is Crank-Nicholson, and `1.0` is backward Euler. Defaults to `1.0`.
 - `min_number_density`: Minimum allowable number density for any species. Defaults to `1e6`
@@ -43,7 +44,7 @@ Aside from these arguments, all others have  default values provided. These are 
 - `background_pressure`: The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals.
 - `background_neutral_temperature`: The temperature of the background neutrals, in K
 - `anode_boundary_condition`: Can be either `:sheath` or `:dirichlet`
-- `anom_smoothing_iters`: How many times to smooth the anomalous transport profile
-- `solve_plume`: Whether to solve for plume area variation and divergence losses
+- `anom_smoothing_iters`: How many times to smooth the anomalous transport profile. Defaults to zero
+- `solve_plume`: Whether quasi-1D beam expansion should be modelled outside of the channel.
 - `apply_thrust_divergence_correction`: Whether the thrust output by HallThruster.jl should include a divergence correction factor of cos(δ)^2
-- `electron_losses_in_plume`: Whether electron radial/wall losses are applied in the plume region
+- `electron_plume_loss_scale`: The degree to which radial electron losses are applied in the plume. Defaults to 1. See [Wall Loss Models](@ref) for more information.

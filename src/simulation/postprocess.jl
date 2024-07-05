@@ -8,8 +8,6 @@ function time_average(sol::Solution, tstampstart = 1)
     avg_savevals = deepcopy(sol.savevals[end])
     fields = fieldnames(typeof(avg_savevals))
 
-    num_anom_vars = num_anom_variables(sol.params.config.anom_model)
-
     # Initialize avg to zero
     for f in fields
         if f == :anom_variables

@@ -60,8 +60,8 @@ function Config(;
         cathode_Te                          = 3.0,
         anode_Te                            = cathode_Te,
         wall_loss_model::WallLossModel      = WallSheath(BNSiO2, 1.0),
-        neutral_velocity                    = 300.0u"m/s",
-        neutral_temperature                 = 300.0u"K",
+        neutral_velocity                    = nothing,
+        neutral_temperature                 = nothing,
         implicit_energy::Number             = 1.0,
         propellant::Gas                     = Xenon,
         ncharge::Int                        = 1,
@@ -74,7 +74,7 @@ function Config(;
         electron_ion_collisions::Bool       = true,
         min_number_density                  = 1e6u"m^-3",
         min_electron_temperature            = min(anode_Te, cathode_Te),
-        transition_length                   = 0.2 * thruster.geometry.channel_length * u"m",
+        transition_length                   = 0.1 * thruster.geometry.channel_length * u"m",
         initial_condition::IC               = DefaultInitialization(),
         magnetic_field_scale::Float64       = 1.0,
         source_neutrals::S_N                = nothing,
@@ -111,8 +111,22 @@ function Config(;
 
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
+    
+    default_neutral_velocity = 150u"m/s"
+    default_neutral_temp = 500u"K"
+    if isnothing(neutral_velocity) && isnothing(neutral_temperature)
+        neutral_velocity = default_neutral_velocity
+        neutral_temperature = default_neutral_temp
+    elseif isnothing(neutral_temperature)
+        neutral_temperature = default_neutral_temp
+    elseif isnothing(neutral_velocity)
+        # compute neutral velocity from thermal speed
+        neutral_velocity = 0.25 * sqrt(8 * kB * neutral_temperature / π / propellant.m)
+    end
+
     neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
     neutral_temperature = convert_to_float64(neutral_temperature, u"K")
+
     ion_temperature = convert_to_float64(ion_temperature, u"K")
     domain = (
         convert_to_float64(domain[1], u"m"),
