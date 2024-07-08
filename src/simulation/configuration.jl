@@ -112,8 +112,8 @@ function Config(;
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
     
-    default_neutral_velocity = 150u"m/s"
-    default_neutral_temp = 500u"K"
+    default_neutral_velocity = 150.0 # m/s
+    default_neutral_temp = 500.0 # K
     if isnothing(neutral_velocity) && isnothing(neutral_temperature)
         neutral_velocity = default_neutral_velocity
         neutral_temperature = default_neutral_temp

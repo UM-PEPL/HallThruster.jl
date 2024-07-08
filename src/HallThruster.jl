@@ -78,7 +78,8 @@ function example_simulation(;ncells, duration, dt, nsave)
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
-        wall_loss_model = WallSheath(BoronNitride)
+        wall_loss_model = WallSheath(BoronNitride),
+        neutral_temperature = 500,
     )
     sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
 
@@ -90,6 +91,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
+        neutral_temperature = 500u"K",
     )
     sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
     HallThruster.time_average(sol_1)
@@ -102,9 +104,9 @@ function example_simulation(;ncells, duration, dt, nsave)
     return sol_1
 end
 
-# # Precompile statements to improve load time
-# SnoopPrecompile.@precompile_all_calls begin
-#     example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
-# end
+# Precompile statements to improve load time
+SnoopPrecompile.@precompile_all_calls begin
+    example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+end
 
 end # module
