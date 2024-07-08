@@ -149,14 +149,14 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     
     adaptive = get_key(json_content, :adaptive, true)
     num_save = get_key(json_content, :num_save, 100)
-    num_cells = get_key(json_content, :num_cells, 150)
+    num_cells = get_key(json_content, :num_cells, 200)
     duration_s = get_key(json_content, :duration_s, 1e-3)
     dt_s = get_key(json_content, :dt_s, 1e-8)
 
     config = config_from_json(json_content)
 
     solution = run_simulation(
-        config; grid = UnevenGrid(num_cells), nsave = num_save,
+        config; grid = EvenGrid(num_cells), nsave = num_save,
         duration = duration_s, dt = dt_s, verbose = verbose, adaptive
     )
 
