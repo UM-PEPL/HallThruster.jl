@@ -31,12 +31,22 @@
     thruster = HallThruster.SPT_100
     transition_length = 0.0
 
-    wall_collision_freq = 1e7
-
-    config_landmark = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.LandmarkElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
-    config_gk = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.GKElectronNeutral(), electron_ion_collisions = true, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
-    config_complex = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.ElectronNeutralLookup(), electron_ion_collisions = true, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
-    config_none = (;anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.NoElectronNeutral(), electron_ion_collisions = false, ncharge = 1, thruster, transition_length, wall_collision_freq = 1e7)
+    config_landmark = (;
+        anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
+        electron_ion_collisions = false, ncharge = 1, thruster, transition_length
+    )
+    config_gk = (;
+        anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.GKElectronNeutral(),
+        electron_ion_collisions = true, ncharge = 1, thruster, transition_length,
+    )
+    config_complex = (;
+        anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.ElectronNeutralLookup(),
+        electron_ion_collisions = true, ncharge = 1, thruster, transition_length
+    )
+    config_none = (;
+        anom_model, propellant = HallThruster.Xenon, electron_neutral_model = HallThruster.NoElectronNeutral(),
+        electron_ion_collisions = false, ncharge = 1, thruster, transition_length
+    )
 
     Xe_0 = HallThruster.Xenon(0)
 
