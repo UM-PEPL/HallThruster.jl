@@ -19,7 +19,6 @@ Aside from these arguments, all others have  default values provided. These are 
 - `anode_Te`: The electron temperature at the anode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
 - `cathode_Te`: The electron temperature at the cathode, in eV. Acts as a Dirichlet boundary condition for the energy equation. Defaults to `3.0`.
 - `wall_loss_model`: How radial losses due to sheaths are computed. Defaults to `ConstantSheathPotential(sheath_potential=-20.0, inner_loss_coeff = 1.0, outer_loss_coeff = 1.0)`, which is the loss term from LANDMARK case 1. Other wall loss models are described on the [Wall Loss Models](@ref) page.
-- `wall_collision_freq`: Extra "wall collisions" to be added to the total electron momentum transfer collision frequency inside of the channel.  Units of Hz. Defaults to `0.0`.
 - `anom_model`: Model for computing the anomalous collision frequency. Defaults to `TwoZoneBohm(1/160, 1/16)`. Further details on the [Anomalous Transport](@ref) page.
 - `transition_length`: Distance over which the transition between inside and outside the channel is smoothed. Affects wall losses as well as two-zone Bohm-like transport models.
 - `conductivity_model`: Model for the perpendicular electron thermal conductivity. Defaults to `Mitchner()`. Further details can be found on the [Electron Thermal Conductivity](@ref) page.
