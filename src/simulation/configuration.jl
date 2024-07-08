@@ -119,13 +119,15 @@ function Config(;
         neutral_temperature = default_neutral_temp
     elseif isnothing(neutral_temperature)
         neutral_temperature = default_neutral_temp
+        neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
     elseif isnothing(neutral_velocity)
         # compute neutral velocity from thermal speed
+        neutral_temperature = convert_to_float64(neutral_temperature, u"K")
         neutral_velocity = 0.25 * sqrt(8 * kB * neutral_temperature / π / propellant.m)
+    else
+        neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
+        neutral_temperature = convert_to_float64(neutral_temperature, u"K")
     end
-
-    neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
-    neutral_temperature = convert_to_float64(neutral_temperature, u"K")
 
     ion_temperature = convert_to_float64(ion_temperature, u"K")
     domain = (
