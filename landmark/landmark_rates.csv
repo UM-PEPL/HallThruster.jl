@@ -1,4 +1,4 @@
-Energy(ev),rate coefficient (1/(m3 s)),energy loss (eV/(m3 s))
+Energy(ev),rate coefficient (m3/s),energy loss (eV/(m3 s))
 1,1.41E-22,3.45E-19
 2,3.94E-18,4.52E-16
 3,1.08E-16,6.23E-15
