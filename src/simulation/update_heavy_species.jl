@@ -38,14 +38,19 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
             dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z  ](U, params, i)
         end
+    end
 
-        apply_ion_acceleration!(dU, U, params, i)
-        apply_reactions!(dU, U, params, i)
+    apply_reactions!(dU, U, params)
 
-        if ion_wall_losses
-            apply_ion_wall_losses!(dU, U, params, i)
-        end
+    apply_ion_acceleration!(dU, U, params)
 
+    if ion_wall_losses
+        apply_ion_wall_losses!(dU, U, params)
+    end
+
+    @inbounds for i in 2:ncells-1
+        left = left_edge(i)
+        right = right_edge(i)
         params.cache.dt_cell[i] = min(
             sqrt(params.CFL) * params.cache.dt_E[i],
             params.CFL * params.cache.dt_iz[i],

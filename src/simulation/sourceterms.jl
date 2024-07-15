@@ -1,113 +1,124 @@
-function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::Int64) where T
-    (;index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache) = params
+function apply_reactions!(dU, U, params)
+    (;config, index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, ncells) = params
     (;inelastic_losses, νiz) = cache
 
-    ne = electron_density(U, params, i)
-
-    inv_m = inv(params.config.propellant.m)
-    inv_ne = inv(ne)
-
-    K = if params.config.LANDMARK
+    inv_m = inv(config.propellant.m)
+    K = if config.LANDMARK
         0.0
     else
-        params.cache.K[i]
+        cache.K
     end
 
-    ϵ  = cache.nϵ[i] * inv_ne + K
+    νiz .= 0.0
+    inelastic_losses .= 0.0
 
-    dt_max = Inf
-    νiz[i] = 0.0
-    inelastic_losses[i] = 0.0
+    @inbounds for i in 2:ncells-1
+        ne = electron_density(U, params, i)
+        inv_ne = inv(ne)
 
-    @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
-        product_index = product_inds[]
-        r = rate_coeff(rxn, ϵ)
+        ϵ = cache.nϵ[i] * inv_ne + K[i]
 
-        for reactant_index in reactant_inds
-            ρ_reactant = U[reactant_index, i]
-            ρdot = reaction_rate(r, ne, ρ_reactant)
-            ndot = ρdot * inv_m
-            νiz[i] += ndot * inv_ne
-            inelastic_losses[i] += ndot * rxn.energy
-            dt_max = min(dt_max, ρ_reactant / ρdot)
+        dt_max = Inf
 
-            # Change in density due to ionization
-            dU[reactant_index, i] -= ρdot
-            dU[product_index, i]  += ρdot
+        for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+            product_index = product_inds[]
+            r = rate_coeff(rxn, ϵ)
 
-            if !params.config.LANDMARK
-                # Momentum transfer due to ionization
-                if reactant_index == index.ρn
-                    reactant_velocity = params.config.neutral_velocity
-                else
-                    reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
-                    dU[reactant_index + 1, i] -= ρdot * reactant_velocity
+            for reactant_index in reactant_inds
+                ρ_reactant = U[reactant_index, i]
+                ρdot = reaction_rate(r, ne, ρ_reactant)
+                ndot = ρdot * inv_m
+                νiz[i] += ndot * inv_ne
+                inelastic_losses[i] += ndot * rxn.energy
+                dt_max = min(dt_max, ρ_reactant / ρdot)
+
+                # Change in density due to ionization
+                dU[reactant_index, i] -= ρdot
+                dU[product_index, i]  += ρdot
+
+                if !params.config.LANDMARK
+                    # Momentum transfer due to ionization
+                    if reactant_index == index.ρn
+                        reactant_velocity = params.config.neutral_velocity
+                    else
+                        reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
+                        dU[reactant_index + 1, i] -= ρdot * reactant_velocity
+                    end
+
+                    dU[product_index + 1, i] += ρdot * reactant_velocity
                 end
-
-                dU[product_index + 1, i] += ρdot * reactant_velocity
             end
         end
-    end
 
-    params.cache.dt_iz[i] = dt_max
+        params.cache.dt_iz[i] = dt_max
+    end
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
-function apply_ion_acceleration!(dU, U, params, i)
-    (;cache, config, index, z_edge) = params
-    E = -cache.∇ϕ[i]
+function apply_ion_acceleration!(dU, U, params)
+    (;cache, config, index, z_edge, ncells) = params
+
     mi = params.config.propellant.m
+    inv_m = inv(mi)
+    inv_e = inv(e)
     dt_max = Inf
 
-    Δx = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+    @inbounds for i in 2:ncells-1
+        E = -cache.∇ϕ[i]
+        Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
+        inv_E = inv(abs(E))
 
-    @inbounds for Z in 1:config.ncharge
-        Q_accel = Z * e * U[index.ρi[Z], i] / mi * E
-        dt_max = min(dt_max, sqrt(mi * Δx / Z / e / abs(E)))
-        dU[index.ρiui[Z], i] += Q_accel
+        @inbounds for Z in 1:config.ncharge
+            Q_accel = Z * e * U[index.ρi[Z], i] * inv_m * E
+            dt_max = min(dt_max, sqrt(mi * Δz * inv_e * inv_E / Z))
+            dU[index.ρiui[Z], i] += Q_accel
+        end
+
+        params.cache.dt_E[i] = dt_max
     end
-
-    params.cache.dt_E[i] = dt_max
 end
 
-function apply_ion_wall_losses!(dU, U, params, i)
-    (;index, config, z_cell, L_ch) = params
+function apply_ion_wall_losses!(dU, U, params)
+    (;index, config, z_cell, L_ch, ncells, cache) = params
     (;ncharge, propellant, wall_loss_model, thruster) = config
 
-    geometry = thruster.geometry
-    Δr = geometry.outer_radius - geometry.inner_radius
+    if wall_loss_model isa NoWallLosses
+        return
+    end
 
-    mi = propellant.m
+    inv_Δr = inv(thruster.geometry.outer_radius - thruster.geometry.inner_radius)
+    e_inv_m = e / propellant.m
+
     if wall_loss_model isa WallSheath
         α = wall_loss_model.α
-    elseif wall_loss_model isa NoWallLosses
-        return
     else
         α = 1.0
     end
 
-    @inbounds for Z in 1:ncharge
+    h = α * edge_to_center_density_ratio()
+
+    @inbounds for i in 2:ncells-1
+        u_bohm = sqrt(e_inv_m * cache.Tev[i])
         in_channel = linear_transition(z_cell[i], L_ch, params.config.transition_length, 1.0, 0.0)
-        u_bohm = sqrt(Z * e * params.cache.Tev[i] / mi)
-        h = edge_to_center_density_ratio()
-        νiw = α * in_channel * u_bohm / Δr * h
+        νiw_base = in_channel * u_bohm * inv_Δr * h
 
-        density_loss  = U[index.ρi[Z], i] * νiw
-        momentum_loss = U[index.ρiui[Z], i] * νiw
+        for Z in 1:ncharge
+            νiw = sqrt(Z) * νiw_base
+            density_loss  = U[index.ρi[Z], i] * νiw
+            momentum_loss = U[index.ρiui[Z], i] * νiw
 
-        dU[index.ρi[Z],   i] -= density_loss
-        dU[index.ρiui[Z], i] -= momentum_loss
-
-        # Neutrals gain density due to ion recombination at the walls
-        dU[index.ρn, i] += density_loss
+            # Neutrals gain density due to ion recombination at the walls
+            dU[index.ρi[Z], i] -= density_loss
+            dU[index.ρn,    i] += density_loss
+            dU[index.ρiui[Z], i] -= momentum_loss
+        end
     end
 end
 
 function excitation_losses!(params, i)
     (;excitation_reactions, cache, excitation_reactant_indices) = params
     (;νex, Tev, inelastic_losses, nn) = cache
-    mi = params.config.propellant.m
     ne = cache.ne[i]
 
     K = if params.config.LANDMARK
