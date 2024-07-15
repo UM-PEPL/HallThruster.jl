@@ -1,6 +1,6 @@
-Base.@kwdef struct ElasticCollision{I} <: Reaction
+Base.@kwdef struct ElasticCollision <: Reaction
     species::Species
-    rate_coeff::I
+    rate_coeffs::Vector{Float64}
 end
 
 abstract type ElectronNeutralModel <: ReactionModel end
@@ -10,7 +10,6 @@ struct NoElectronNeutral <: ElectronNeutralModel end
 supported_species(::NoElectronNeutral) = Gas[]
 
 load_reactions(::NoElectronNeutral, species) = ElasticCollision{Nothing}[]
-
 
 struct LandmarkElectronNeutral <: ElectronNeutralModel end
 

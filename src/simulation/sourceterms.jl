@@ -3,13 +3,17 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
     (;inelastic_losses, νiz) = cache
 
     ne = electron_density(U, params, i)
+
+    inv_m = inv(params.config.propellant.m)
+    inv_ne = inv(ne)
+
     K = if params.config.LANDMARK
         0.0
     else
         params.cache.K[i]
     end
 
-    ϵ  = cache.nϵ[i] / ne + K
+    ϵ  = cache.nϵ[i] * inv_ne + K
 
     dt_max = Inf
     νiz[i] = 0.0
@@ -17,13 +21,13 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 
     @inbounds for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         product_index = product_inds[]
-        rate_coeff = rxn.rate_coeff(ϵ)
+        r = rate_coeff(rxn, ϵ)
 
         for reactant_index in reactant_inds
             ρ_reactant = U[reactant_index, i]
-            ρdot = reaction_rate(rate_coeff, ne, ρ_reactant)
-            ndot = ρdot / params.config.propellant.m
-            νiz[i] += ndot / ne
+            ρdot = reaction_rate(r, ne, ρ_reactant)
+            ndot = ρdot * inv_m
+            νiz[i] += ndot * inv_ne
             inelastic_losses[i] += ndot * rxn.energy
             dt_max = min(dt_max, ρ_reactant / ρdot)
 
@@ -49,7 +53,6 @@ function apply_reactions!(dU::AbstractArray{T}, U::AbstractArray{T}, params, i::
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
-@inline reaction_rate(rxn, ne, n_reactant, ϵ) = rxn.rate_coeff(ϵ) * n_reactant * ne
 
 function apply_ion_acceleration!(dU, U, params, i)
     (;cache, config, index, z_edge) = params
@@ -120,10 +123,10 @@ function excitation_losses!(params, i)
 
     νex[i] = 0.0
     @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
-        rate_coeff = rxn.rate_coeff(ϵ)
+        r = rate_coeff(rxn, ϵ)
         for _ in reactant_inds
             n_reactant = nn[i]
-            ndot = reaction_rate(rate_coeff, ne, n_reactant)
+            ndot = reaction_rate(r, ne, n_reactant)
             inelastic_losses[i] += ndot * (rxn.energy - K)
             νex[i] += ndot / ne
         end

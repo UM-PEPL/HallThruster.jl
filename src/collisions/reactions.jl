@@ -1,5 +1,15 @@
 abstract type Reaction end
 
+function rate_coeff(rxn::Reaction, energy::Float64)
+    ind = Base.trunc(Int64, energy)
+    N = length(rxn.rate_coeffs) - 2
+    ind = ind > N ? N : ind
+    r1 = rxn.rate_coeffs[ind+1]
+    r2 = rxn.rate_coeffs[ind+2]
+    t = energy - ind
+    return (1 - t) * r1 + t * r2
+end
+
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
         joinpath(folder, join([reaction_type, repr(reactant)], "_") * ".dat")
@@ -56,8 +66,10 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     end
     ϵ = rates[:, 1]
     k = rates[:, 2]
-    rate_coeff = LinearInterpolation(ϵ, k, resample_uniform=true)
-    return energy, rate_coeff
+    itp = LinearInterpolation(ϵ, k, resample_uniform=true)
+    xs = 0:1.0:255
+    rate_coeffs = itp.(xs)
+    return energy, rate_coeffs
 end
 
 abstract type ReactionModel end

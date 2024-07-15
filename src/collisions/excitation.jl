@@ -1,7 +1,7 @@
-Base.@kwdef struct ExcitationReaction{I} <: Reaction
+Base.@kwdef struct ExcitationReaction <: Reaction
     energy::Float64
     reactant::Species
-    rate_coeff::I
+    rate_coeffs::Vector{Float64}
 end
 
 function Base.show(io::IO, i::ExcitationReaction)

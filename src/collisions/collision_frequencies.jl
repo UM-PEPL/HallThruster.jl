@@ -2,10 +2,10 @@
     freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-@inline function freq_electron_neutral(collisions::Vector{ElasticCollision{T}}, nn::Number, Tev::Number) where T
+@inline function freq_electron_neutral(collisions::Vector{ElasticCollision}, nn::Number, Tev::Number)
     νen = 0.0
     @inbounds for c in collisions
-        νen += c.rate_coeff(3/2 * Tev) * nn
+        νen += rate_coeff(c, 3/2 * Tev) * nn
     end
     return νen
 end

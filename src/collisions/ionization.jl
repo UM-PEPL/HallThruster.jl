@@ -1,8 +1,8 @@
-Base.@kwdef struct IonizationReaction{I} <: Reaction
+Base.@kwdef struct IonizationReaction <: Reaction
     energy::Float64
     reactant::Species
     product::Species
-    rate_coeff::I
+    rate_coeffs::Vector{Float64}
 end
 
 function Base.show(io::IO, i::IonizationReaction)
