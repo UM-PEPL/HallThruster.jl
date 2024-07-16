@@ -31,8 +31,8 @@
     @test sol.t == restart.t
 
     # test loading restart, generating cache, U, etc, without interpolation, changing number of charges, or changing domain
-    U, cache = HallThruster.load_restart(grid, fluids, config, sol)
-    U2, cache2 = HallThruster.load_restart(grid, fluids, config, restart_path)
+    U, cache = HallThruster.load_restart(grid, config, sol)
+    U2, cache2 = HallThruster.load_restart(grid, config, restart_path)
 
     # Check that we get the same result by loading solution directly or by loading filename
     @test U == U2

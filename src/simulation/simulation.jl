@@ -1,20 +1,11 @@
-function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
-    # Number of variables in the state vector U
-    nvariables = 0
-    for fluid in fluids
-        if fluid.type == _ContinuityOnly
-            nvariables += 1
-        elseif fluid.type == _IsothermalEuler
-            nvariables += 2
-        elseif fluid.type == _EulerEquations
-            nvariables += 3
-        end
-    end
+function allocate_arrays(grid, config)
+    (;ncharge, anom_model) = config
+
+    # made less general to handle common use cases as part of fluid refactor
+    nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
 
     ncells = grid.ncells + 2
     nedges = grid.ncells + 1
-
-    ncharge = maximum(f.species.Z for f in fluids)
 
     # Main state vector
     U = zeros(nvariables, ncells)
@@ -64,7 +55,7 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     ue = zeros(ncells)
     K = zeros(ncells)
 
-    λ_global = zeros(length(fluids))
+    λ_global = zeros(ncharge + 1)
 
     # Electron source terms
     ohmic_heating = zeros(ncells)
@@ -180,9 +171,9 @@ function setup_simulation(
     use_restart = restart !== nothing
 
     if use_restart
-        U, cache = load_restart(grid1d, fluids, config, restart)
+        U, cache = load_restart(grid1d, config, restart)
     else
-        U, cache = allocate_arrays(grid1d, fluids, config.anom_model)
+        U, cache = allocate_arrays(grid1d, config)
     end
 
     z_cell = grid1d.cell_centers
