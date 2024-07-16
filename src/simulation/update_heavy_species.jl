@@ -77,26 +77,27 @@ function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = tru
 end
 
 function update_heavy_species!(U, params)
-    (;index, ncells, cache) = params
-    (;nn, ne, ni, ui, niui, Z_eff, ji) = cache
+    (;index, ncells, cache, config) = params
+    (;nn, ne, ni, ui, niui, Z_eff, ji, K, ϵ, nϵ) = cache
     mi = params.config.propellant.m
+    inv_m = inv(mi)
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
 
+    # Compute neutral number density
+    @. @views nn = U[index.ρn, :] * inv_m
+
     # Update plasma quantities
     @inbounds for i in 1:ncells
-        # Compute number density for each neutral fluid
-        nn[i] = U[index.ρn, i] / params.config.propellant.m
-
         # Compute ion derived quantities
         ne[i] = 0.0
         Z_eff[i] = 0.0
         ji[i] = 0.0
         @inbounds for Z in 1:params.config.ncharge
-            _ni = U[index.ρi[Z], i] / mi
-            _niui = U[index.ρiui[Z], i] / mi
+            _ni = U[index.ρi[Z], i] * inv_m
+            _niui = U[index.ρiui[Z], i] * inv_m
             ni[Z, i] = _ni
             niui[Z, i] = _niui
             ui[Z, i] = _niui / _ni
@@ -111,4 +112,6 @@ function update_heavy_species!(U, params)
         # Effective ion charge state (density-weighted average charge state)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
+
+    @. ϵ = nϵ / ne + config.LANDMARK * K
 end

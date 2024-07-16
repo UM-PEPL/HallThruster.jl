@@ -1,13 +1,8 @@
 function apply_reactions!(dU, U, params)
     (;config, index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, ncells) = params
-    (;inelastic_losses, νiz, ϵ, ne, cell_cache_1) = cache
+    (;inelastic_losses, νiz, ϵ, ne, K) = cache
 
     inv_m = inv(config.propellant.m)
-    K = if config.LANDMARK
-        0.0
-    else
-        cache.K
-    end
 
     νiz .= 0.0
     inelastic_losses .= 0.0
@@ -18,20 +13,23 @@ function apply_reactions!(dU, U, params)
         end
         ne[i] *= inv_m
     end
-    @. cell_cache_1 = inv(cache.ne)
-    @. ϵ = cache.nϵ * cell_cache_1 + K
+    inv_ne = cache.cell_cache_1
+    @. inv_ne = inv(cache.ne)
+    @. ϵ = cache.nϵ * inv_ne
+    if !config.LANDMARK
+        @. ϵ += K
+    end
 
     dt_max = Inf
 
     @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         for i in 2:ncells-1
-            inv_ne = cell_cache_1[i]
             r = rate_coeff(rxn, ϵ[i])
             ρ_reactant = U[reactant_index, i]
             ρdot = reaction_rate(r, ne[i], ρ_reactant)
             dt_max = min(dt_max, ρ_reactant / ρdot)
             ndot = ρdot * inv_m
-            νiz[i] += ndot * inv_ne
+            νiz[i] += ndot * inv_ne[i]
 
             inelastic_losses[i] += ndot * rxn.energy
 
@@ -118,34 +116,21 @@ function apply_ion_wall_losses!(dU, U, params)
     end
 end
 
-function excitation_losses!(params, i)
-    (;excitation_reactions, cache, excitation_reactant_indices) = params
-    (;νex, Tev, inelastic_losses, nn) = cache
-    ne = cache.ne[i]
+function excitation_losses!(Q, params)
+    (;excitation_reactions, cache, ncells, config) = params
+    (;νex, ϵ, nn, ne, K) = cache
 
-    K = if params.config.LANDMARK
-        # Neglect electron kinetic energy if LANDMARK
-        0.0
-    else
-        # Include kinetic energy contribution
-        cache.K[i]
-    end
-
-    # Total electron energy
-    ϵ = 3/2 * Tev[i] + K
-
-    νex[i] = 0.0
-    @inbounds for (reactant_inds, rxn) in zip(excitation_reactant_indices, excitation_reactions)
-        r = rate_coeff(rxn, ϵ)
-        for _ in reactant_inds
-            n_reactant = nn[i]
-            ndot = reaction_rate(r, ne, n_reactant)
-            inelastic_losses[i] += ndot * (rxn.energy - K)
-            νex[i] += ndot / ne
+    @. νex = 0.0
+    @inbounds for rxn in excitation_reactions
+        for i in 2:ncells-1
+            r = rate_coeff(rxn, ϵ[i])
+            ndot = reaction_rate(r, ne[i], nn[i])
+            νex[i] += ndot / ne[i]
+            Q[i] += ndot * (rxn.energy - !config.LANDMARK * K[i])
         end
     end
 
-    return inelastic_losses[i]
+    return nothing
 end
 
 function electron_kinetic_energy(params, i)
@@ -156,34 +141,41 @@ function electron_kinetic_energy(params, i)
     return 0.5 *  me * (1 + Ωe^2) * ue^2 / e
 end
 
-function source_electron_energy(params, i)
-    ne = params.cache.ne[i]
-    ue = params.cache.ue[i]
-    ∇ϕ = params.cache.∇ϕ[i]
-
+function ohmic_heating!(Q, params)
+    (;cache, config) = params
+    (;ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
-    # drift (kinetic energy) into thermal inergy
-    if params.config.LANDMARK
+    # drift (kinetic energy) into thermal energy
+    if (config.LANDMARK)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
-        ohmic_heating  = ne * ue * ∇ϕ
+        @. Q = ne * ue * ∇ϕ
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
-        K = params.cache.K[i]
-        νe = params.cache.νe[i]
-        ∇pe = params.cache.∇pe[i]
-        ohmic_heating = 2 * ne * K * νe + ue * ∇pe
+        @. Q = 2 * ne * K * νe + ue * ∇pe
     end
+    return nothing
+end
+
+function source_electron_energy!(Q, params)
+    (;cache, config, ncells) = params
+    (;ne, ohmic_heating, wall_losses, inelastic_losses) = cache
+
+    # compute ohmic heating
+    ohmic_heating!(ohmic_heating, params)
 
     # add excitation losses to total inelastic losses
-    excitation_losses!(params, i)
+    excitation_losses!(inelastic_losses, params)
 
-    # compute wall losses
-    wall_loss = ne * wall_power_loss(params.config.wall_loss_model, params, i)
+    for i in 2:ncells-1
+        # compute wall losses
+        wall_loss = ne[i] * wall_power_loss(config.wall_loss_model, params, i)
+        params.cache.wall_losses[i] = wall_loss
+    end
 
-    params.cache.wall_losses[i] = wall_loss
-    params.cache.ohmic_heating[i] = ohmic_heating
+    # Compute net energy source, i.e heating minus losses
+    @. Q = ohmic_heating - wall_losses - inelastic_losses
 
-    return ohmic_heating - wall_loss - params.cache.inelastic_losses[i]
+    return Q
 end

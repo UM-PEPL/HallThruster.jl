@@ -121,7 +121,7 @@ function integrate_discharge_current(params)
 
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
 
-    if (apply_drag) 
+    if (apply_drag)
         (;νei, νen, νan, ui) = cache
     end
 
@@ -131,7 +131,7 @@ function integrate_discharge_current(params)
 
         int1_1 = (ji[i]   / e / μ[i]   + ∇pe[i])   / ne[i]
         int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
-        
+
         if (apply_drag)
             ion_drag_1 = ui[1, i  ] * (νei[i  ] + νan[i  ]) * me / e
             ion_drag_2 = ui[1, i+1] * (νei[i+1] + νan[i+1]) * me / e
@@ -161,14 +161,13 @@ function compute_electric_field!(∇ϕ, params)
     (;ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
-    
-    if (apply_drag) 
+
+    if (apply_drag)
         (;νei, νen, νan, ui) = cache
     end
 
 
     for i in eachindex(∇ϕ)
-
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
 
         if (apply_drag)

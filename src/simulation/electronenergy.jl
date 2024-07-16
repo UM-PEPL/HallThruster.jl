@@ -22,10 +22,13 @@ function update_electron_energy!(params, dt)
 
     bϵ[end] = 1.5 * Te_R * ne[end]
 
+    # Compute energy source terms
+    Q = cache.cell_cache_1
+    source_electron_energy!(Q, params)
+
     @inbounds for i in 2:ncells-1
-        Q = source_electron_energy(params, i)
         # User-provided source term
-        Q += config.source_energy(params, i)
+        Q[i] += config.source_energy(params, i)
 
         neL = ne[i-1]
         ne0 = ne[i]
@@ -117,7 +120,7 @@ function update_electron_energy!(params, dt)
         flux = 5/3 * nϵ0 * ue0
 
         # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q - explicit * F_explicit)
+        bϵ[i] = nϵ[i] + dt * (Q[i] - explicit * F_explicit)
         bϵ[i] -= dt * flux * dlnA_dz
     end
 
