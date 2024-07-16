@@ -76,9 +76,9 @@ function OVS_rate_coeff_ex(ϵ)
 end
 
 function HallThruster.load_reactions(::OVS_Ionization, species)
-    return [HallThruster.IonizationReaction(12.12, HallThruster.Xenon(0), HallThruster.Xenon(1), OVS_rate_coeff_iz)]
+    return [HallThruster.IonizationReaction(12.12, HallThruster.Xenon(0), HallThruster.Xenon(1), OVS_rate_coeff_iz.(0:255))]
 end
 
 function HallThruster.load_reactions(::OVS_Excitation, species)
-    return [HallThruster.ExcitationReaction(8.32, HallThruster.Xenon(0), OVS_rate_coeff_ex)]
+    return [HallThruster.ExcitationReaction(8.32, HallThruster.Xenon(0), OVS_rate_coeff_ex.(0:255))]
 end

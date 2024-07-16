@@ -9,17 +9,16 @@ struct NoElectronNeutral <: ElectronNeutralModel end
 
 supported_species(::NoElectronNeutral) = Gas[]
 
-load_reactions(::NoElectronNeutral, species) = ElasticCollision{Nothing}[]
+load_reactions(::NoElectronNeutral, species) = ElasticCollision[]
 
 struct LandmarkElectronNeutral <: ElectronNeutralModel end
 
 supported_species(::LandmarkElectronNeutral) = [Xenon]
 
 function load_reactions(::LandmarkElectronNeutral, species)
-    landmark_electron_neutral = Returns(2.5e-13)
+    landmark_electron_neutral = fill(2.5e-13, 256)
     return [ElasticCollision(Xenon(0), landmark_electron_neutral)]
 end
-
 
 struct GKElectronNeutral <: ElectronNeutralModel end
 
@@ -38,7 +37,7 @@ end
 
 function load_reactions(::GKElectronNeutral, species)
     rate_coeff(ϵ) = σ_en(2/3 * ϵ) * electron_sound_speed(2/3 * ϵ)
-    return [ElasticCollision(Xenon(0), rate_coeff)]
+    return [ElasticCollision(Xenon(0), rate_coeff.(0:255))]
 end
 
 

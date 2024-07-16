@@ -19,6 +19,7 @@
         ne = [ne, ne, ne, ne],
         ni = [ne ne ne ne],
         Tev = [Tev, Tev, Tev, Tev],
+        ϵ = 1.5 .* [Tev, Tev, Tev, Tev],
         nϵ = [nϵ, nϵ, nϵ, nϵ],
         Z_eff = [1.0, 1.0, 1.0, 1.0],
         γ_SEE = [0.0, 0.0, 0.0, 0.0],
@@ -34,6 +35,7 @@
     )
     index = (;ρi = [1], nϵ = 2)
 
+    ncells = 2
     grid = HallThruster.generate_grid(HallThruster.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2))
 
     z_cell = grid.cell_centers
@@ -63,10 +65,10 @@
     params = (;
         cache, config, index, z_cell = grid.cell_centers,
         z_edge = grid.edges, L_ch = L_ch, A_ch = A_ch,
-        Δz_edge, Δz_cell, γ_SEE_max = γmax
+        Δz_edge, Δz_cell, γ_SEE_max = γmax, ncells = ncells+2
     )
 
-    arr = zeros(6)
+    arr = zeros(ncells+2)
     HallThruster.wall_power_loss!(arr, no_losses, params)
     @test arr[2] == 0.0
 
@@ -219,7 +221,7 @@ end
     z_edge = grid.edges
     z_cell = grid.cell_centers
     γ_SEE_max = 1 - 8.3 * sqrt(HallThruster.me/mi)
-    base_params = (;cache, L_ch, A_ch, fluids, z_cell, z_edge, index, Δz_cell, Δz_edge, γ_SEE_max)
+    base_params = (;cache, L_ch, A_ch, fluids, z_cell, z_edge, index, Δz_cell, Δz_edge, γ_SEE_max, ncells=4)
 
     config_no_losses = (;config..., wall_loss_model = HallThruster.NoWallLosses())
     params_no_losses = (;base_params..., config = config_no_losses)
@@ -232,8 +234,7 @@ end
     u_bohm_2 = sqrt(2) * u_bohm
 
     # Test 1: no wall losses
-    HallThruster.apply_ion_wall_losses!(dU, U, params_no_losses, 2)
-    HallThruster.apply_ion_wall_losses!(dU, U, params_no_losses, 3)
+    HallThruster.apply_ion_wall_losses!(dU, U, params_no_losses)
 
     @test all(dU .≈ 0.0)
 
@@ -254,7 +255,7 @@ end
 
     dU .= 0.0
     # Check that wall losses work correctly
-    HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, i)
+    HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath)
 
     # Neutrals should recombine at walls
     @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
@@ -279,7 +280,7 @@ end
     @test HallThruster.wall_ion_current(constant_sheath, params_constant_sheath, i, 2) == 0.0
     @test HallThruster.wall_electron_current(constant_sheath, params_constant_sheath, i) == 0.0
 
-    HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath, 3)
+    HallThruster.apply_ion_wall_losses!(dU, U, params_constant_sheath)
     @test all(dU[:, 3] .≈ 0.0)
 
     # Test 3: Self-consistent wall sheath
@@ -304,7 +305,7 @@ end
     @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
     @test Iew ≈ inv(1 - γ) * (Iiw_1 + Iiw_2)
 
-    HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, i)
+    HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath)
 
     # Neutrals should recombine at walls
     @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
@@ -323,6 +324,6 @@ end
     @test HallThruster.wall_ion_current(wall_sheath, params_wall_sheath, i, 2) == 0.0
     @test HallThruster.wall_electron_current(wall_sheath, params_wall_sheath, i) == 0.0
 
-    HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath, 3)
+    HallThruster.apply_ion_wall_losses!(dU, U, params_wall_sheath)
     @test all(dU[:, 3] .≈ 0.0)
 end

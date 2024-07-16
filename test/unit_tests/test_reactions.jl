@@ -5,10 +5,11 @@
     Xe_III  = HallThruster.Xenon(3)
     Xe_IV   = HallThruster.Xenon(4)
 
-    rxn_0_I = HallThruster.IonizationReaction(0.0, Xe_0, Xe_I, Te -> 0.0)
-    rxn_0_II = HallThruster.IonizationReaction(0.0, Xe_0, Xe_II, Te -> 0.0)
-    rxn_0_III = HallThruster.IonizationReaction(0.0, Xe_0, Xe_III, Te -> 0.0)
-    rxn_I_III = HallThruster.IonizationReaction(0.0, Xe_I, Xe_III, Te -> 0.0)
+    r = zeros(256)
+    rxn_0_I = HallThruster.IonizationReaction(0.0, Xe_0, Xe_I, r)
+    rxn_0_II = HallThruster.IonizationReaction(0.0, Xe_0, Xe_II, r)
+    rxn_0_III = HallThruster.IonizationReaction(0.0, Xe_0, Xe_III, r)
+    rxn_I_III = HallThruster.IonizationReaction(0.0, Xe_I, Xe_III, r)
     @test repr(rxn_0_I) == "e- + Xe -> 2e- + Xe+"
     @test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
     @test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
@@ -48,7 +49,7 @@
     @test_throws ArgumentError HallThruster._load_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II, Xe_III])
     landmark_rxns = HallThruster._load_reactions(landmark_lut, [Xe_0, Xe_I])
     @test length(landmark_rxns) == 1
-    @test landmark_rxns[1].rate_coeff(19) ≈ 5.690E-14
+    @test HallThruster.rate_coeff(landmark_rxns[1], 19.0) ≈ 5.690E-14
 
     # Test behavior of general lookup
     @test_throws ArgumentError HallThruster.load_reactions(lookup, [Ar_0, Ar_I])
@@ -68,16 +69,16 @@
     lookup_2 = HallThruster.IonizationLookup([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")])
     lookup_2_rxns = HallThruster._load_reactions(lookup_2, [Ar_0, Ar_I])
     @test length(lookup_2_rxns) == 1
-    @test lookup_2_rxns[1].rate_coeff(0.3878e-01) ≈ 0.0
+    @test HallThruster.rate_coeff(lookup_2_rxns[1], 0.3878e-01) |> abs < eps(Float64)
     @test lookup_2_rxns[1].energy == 13.0
     lookup_2_rxns_Xe = HallThruster._load_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III])
     @test length(lookup_2_rxns_Xe) == 6
-    @test lookup_2_rxns_Xe[1].rate_coeff(1.0) ≈ 0.0
-    @test lookup_2_rxns_Xe[1].rate_coeff(1.0) != lookup_rxns[1].rate_coeff(1.0)
+    @test HallThruster.rate_coeff(lookup_2_rxns_Xe[1], 1.0) |> abs < eps(Float64)
+    @test HallThruster.rate_coeff(lookup_2_rxns_Xe[1], 1.0) != HallThruster.rate_coeff(lookup_rxns[1], 1.0)
     @test lookup_2_rxns_Xe[1].energy == 15.0
 
     # Excitation reactions
-    ex_1 = HallThruster.ExcitationReaction(0.0, Xe_0, Te -> 0.0)
+    ex_1 = HallThruster.ExcitationReaction(0.0, Xe_0, r)
     @test repr(ex_1) == "e- + Xe -> e- + Xe*"
 
     ex_lookup = HallThruster.ExcitationLookup()
@@ -85,13 +86,13 @@
     ex_rxns = HallThruster._load_reactions(ex_lookup, [Xe_0])
     @test length(ex_rxns) == 1
     @test ex_rxns[1].energy == 8.32
-    @test ex_rxns[1].rate_coeff(10) ≈ 2.3579448453671528e-14
+    @test HallThruster.rate_coeff(ex_rxns[1], 10.0) ≈ 2.358251483e-14
 
     ex_lookup_2 = HallThruster.ExcitationLookup([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")])
     @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Ar_0]))
     ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Ar_0])
     @test ex_rxns[1].energy == 10.0
-    @test ex_rxns[1].rate_coeff(1.0) ≈ 0.0
+    @test HallThruster.rate_coeff(ex_rxns[1], 1.0) |> abs < eps(Float64)
 
     ex_lookup_landmark = HallThruster.LandmarkExcitationLookup()
     ex_landmark_rxn = HallThruster.load_reactions(ex_lookup_landmark, [Xe_0])[1]
@@ -101,5 +102,5 @@
     loss_itp = HallThruster.LinearInterpolation(landmark_table[:, 1], landmark_table[:, 3])
     iz_landmark_rxn = landmark_rxns[1]
 
-    @test 8.32 * ex_landmark_rxn.rate_coeff(14.32) + 12.12 * iz_landmark_rxn.rate_coeff(14.32) ≈ loss_itp(14.32)
+    @test 8.32 * HallThruster.rate_coeff(ex_landmark_rxn, 14.32) + 12.12 * HallThruster.rate_coeff(iz_landmark_rxn, 14.32) ≈ loss_itp(14.32)
 end

@@ -29,7 +29,6 @@ using Symbolics
 include("order_verification/ovs_funcs.jl")
 include("order_verification/ovs_energy.jl")
 @testset "Order verification (electron energy)" begin
-
     vfunc = x -> OVS_Energy.verify_energy(x)
     refinements = refines(6, 20, 2)
 

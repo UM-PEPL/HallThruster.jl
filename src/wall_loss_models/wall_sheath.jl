@@ -81,7 +81,7 @@ function freq_electron_wall(model::WallSheath, params, i)
     return νew
 end
 
-function wall_power_loss!(Q, model::WallSheath, params)
+function wall_power_loss!(Q, ::WallSheath, params)
     (;config, cache, z_cell, L_ch, ncells) = params
     mi = config.propellant.m
 

@@ -66,7 +66,7 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     end
     ϵ = rates[:, 1]
     k = rates[:, 2]
-    itp = LinearInterpolation(ϵ, k, resample_uniform=true)
+    itp = LinearInterpolation(ϵ, k)
     xs = 0:1.0:255
     rate_coeffs = itp.(xs)
     return energy, rate_coeffs

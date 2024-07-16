@@ -80,7 +80,7 @@ function apply_ion_acceleration!(dU, U, params)
 end
 
 function apply_ion_wall_losses!(dU, U, params)
-    (;index, config, z_cell, L_ch, ncells, cache) = params
+    (;index, config, z_cell, L_ch, ncells, cache, ncells) = params
     (;ncharge, propellant, wall_loss_model, thruster) = config
 
     if wall_loss_model isa NoWallLosses

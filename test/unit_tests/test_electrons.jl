@@ -62,7 +62,7 @@
 
     U = [mi * nn; mi * ne; ne * 3/2 * Tev ;;]
     @test HallThruster.freq_electron_neutral(params_landmark, 1) == 2.5e-13 * nn
-    @test HallThruster.freq_electron_neutral(params_gk, 1) == HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me)
+    @test isapprox(HallThruster.freq_electron_neutral(params_gk, 1), HallThruster.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me), rtol = 0.01)
     @test HallThruster.freq_electron_neutral(params_none, 1) == 0.0
 
     Z = 1
