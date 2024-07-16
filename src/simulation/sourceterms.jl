@@ -133,14 +133,6 @@ function excitation_losses!(Q, params)
     return nothing
 end
 
-function electron_kinetic_energy(params, i)
-    νe = params.cache.νe[i]
-    B  = params.cache.B[i]
-    ue = params.cache.ue[i]
-    Ωe = e * B / me / νe
-    return 0.5 *  me * (1 + Ωe^2) * ue^2 / e
-end
-
 function ohmic_heating!(Q, params)
     (;cache, config) = params
     (;ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
@@ -159,7 +151,7 @@ function ohmic_heating!(Q, params)
 end
 
 function source_electron_energy!(Q, params)
-    (;cache, config, ncells) = params
+    (;cache, config) = params
     (;ne, ohmic_heating, wall_losses, inelastic_losses) = cache
 
     # compute ohmic heating
@@ -168,14 +160,11 @@ function source_electron_energy!(Q, params)
     # add excitation losses to total inelastic losses
     excitation_losses!(inelastic_losses, params)
 
-    for i in 2:ncells-1
-        # compute wall losses
-        wall_loss = ne[i] * wall_power_loss(config.wall_loss_model, params, i)
-        params.cache.wall_losses[i] = wall_loss
-    end
+    # compute wall losses
+    wall_power_loss!(wall_losses, config.wall_loss_model, params)
 
     # Compute net energy source, i.e heating minus losses
-    @. Q = ohmic_heating - wall_losses - inelastic_losses
+    @. Q = ohmic_heating - ne * wall_losses - inelastic_losses
 
     return Q
 end

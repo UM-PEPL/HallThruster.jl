@@ -13,7 +13,7 @@ Abstract type for wall loss models in the electron energy equation. Types includ
 
 Users implementing their own `WallLossModel` will need to implement at least three methods
     1) `freq_electron_wall(model, params, i)`: Compute the electron-wall momentum transfer collision frequency in cell `i`
-    2) `wall_power_loss(model, params, i)`: Compute the electron power lost to the walls
+    2) `wall_power_loss!(Q, model, params)`: Compute the electron power lost to the walls in array Q
 
 A third method, `wall_electron_current(model, params, i)`, will compute the electron current to the walls in cell `i`. If left unimplemented,
 it defaults to Ie,w = e ne νew V_cell where V_cell is the cell volume.
@@ -27,7 +27,7 @@ function freq_electron_wall(model::WallLossModel, params, i)
     error("freq_electron_wall not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_power_loss(model::WallLossModel, params, i)
+function wall_power_loss(Q, model::WallLossModel, params)
     error("wall_power_loss not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 

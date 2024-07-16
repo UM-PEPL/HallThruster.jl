@@ -66,9 +66,13 @@
         Δz_edge, Δz_cell, γ_SEE_max = γmax
     )
 
-    @test HallThruster.wall_power_loss(no_losses, params, 2) == 0.0
-    @test HallThruster.wall_power_loss(landmark_losses, params, 2) ≈ αin *  6.0 * 1e7 * exp(-20 / 6.0)
-    @test HallThruster.wall_power_loss(landmark_losses, params, 3) ≈ αout *  6.0 * 1e7 * exp(-20 / 6.0)
+    arr = zeros(6)
+    HallThruster.wall_power_loss!(arr, no_losses, params)
+    @test arr[2] == 0.0
+
+    HallThruster.wall_power_loss!(arr, landmark_losses, params)
+    @test arr[2] ≈ αin *  6.0 * 1e7 * exp(-20 / 6.0)
+    @test arr[3] ≈ αout *  6.0 * 1e7 * exp(-20 / 6.0)
 
     γ1 = 0.5
     γ2 = 1.0
@@ -121,8 +125,9 @@
     @test HallThruster.freq_electron_wall(sheath_model, params, 2) * HallThruster.linear_transition(params.z_cell[2], L_ch, params.config.transition_length, 1.0, 0.0) ≈ νew
     @test HallThruster.freq_electron_wall(sheath_model, params, 3) * HallThruster.linear_transition(params.z_cell[3], L_ch, params.config.transition_length, 1.0, 0.0) ≈ 0.0
 
-    @test HallThruster.wall_power_loss(sheath_model, params, 2) ≈ νew * (2 * Tev + (1 - γ) * Vs)
-    @test HallThruster.wall_power_loss(sheath_model, params, 4) ≈ 0.0
+    HallThruster.wall_power_loss!(arr, sheath_model, params)
+    @test arr[2] ≈ νew * (2 * Tev + (1 - γ) * Vs)
+    @test arr[4] ≈ 0.0
 end
 
 @testset "Ion wall losses" begin

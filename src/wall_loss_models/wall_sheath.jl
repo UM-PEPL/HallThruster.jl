@@ -81,25 +81,27 @@ function freq_electron_wall(model::WallSheath, params, i)
     return νew
 end
 
-function wall_power_loss(model::WallSheath, params, i)
-    (;config, cache, z_cell, L_ch) = params
+function wall_power_loss!(Q, model::WallSheath, params)
+    (;config, cache, z_cell, L_ch, ncells) = params
     mi = config.propellant.m
 
-    Tev = wall_electron_temperature(params, i)
+    @inbounds for i in 2:ncells-1
+        Tev = wall_electron_temperature(params, i)
 
-    # space charge limited SEE coefficient
-    γ = params.cache.γ_SEE[i]
+        # space charge limited SEE coefficient
+        γ = params.cache.γ_SEE[i]
 
-    # Space charge-limited sheath potential
-    ϕ_s = sheath_potential(Tev, γ, mi)
+        # Space charge-limited sheath potential
+        ϕ_s = sheath_potential(Tev, γ, mi)
 
-    # Compute electron wall collision frequency with transition function for energy wall collisions in plume
-    νew = cache.radial_loss_frequency[i] * linear_transition(
-        z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale
-    )
+        # Compute electron wall collision frequency with transition function for energy wall collisions in plume
+        νew = cache.radial_loss_frequency[i] * linear_transition(
+            z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale
+        )
 
-    # Compute wall power loss rate
-    W = νew * (2 * Tev +  (1 - γ) * ϕ_s)
+        # Compute wall power loss rate
+        Q[i] = νew * (2 * Tev +  (1 - γ) * ϕ_s)
+    end
 
-    return W
+    return nothing
 end

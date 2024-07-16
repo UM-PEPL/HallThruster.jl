@@ -4,7 +4,7 @@ function update_electrons!(params, t = 0)
     (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn, K,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -65,10 +65,10 @@ function update_electrons!(params, t = 0)
     @inbounds for i in 1:ncells
         # je + ji = Id / A
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
-
-        # Kinetic energy in both axial and azimuthal directions is accounted for
-        params.cache.K[i] = electron_kinetic_energy(params, i)
     end
+
+    # Kinetic energy in both axial and azimuthal directions is accounted for
+    electron_kinetic_energy!(K, params)
 
     # Compute potential gradient and pressure gradient
     compute_pressure_gradient!(∇pe, params)
@@ -180,6 +180,17 @@ function compute_electric_field!(∇ϕ, params)
     end
 
     return ∇ϕ
+end
+
+
+function electron_kinetic_energy!(K, params)
+    (;νe, B, ue) = params.cache
+    # K = 1/2 me ue^2
+    #   = 1/2 me (ue^2 + ue_θ^2)
+    #   = 1/2 me (ue^2 + Ωe^2 ue^2)
+    #   = 1/2 me (1 + Ωe^2) ue^2
+    #   divide by e to get units of eV
+    @. K = 0.5 *  me * (1 + (e * B / me / νe)^2) * ue^2 / e
 end
 
 function compute_pressure_gradient!(∇pe, params)
