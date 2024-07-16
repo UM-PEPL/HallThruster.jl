@@ -1,6 +1,6 @@
 function apply_reactions!(dU, U, params)
     (;config, index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, ncells) = params
-    (;inelastic_losses, νiz) = cache
+    (;inelastic_losses, νiz, ϵ, ne, cell_cache_1) = cache
 
     inv_m = inv(config.propellant.m)
     K = if config.LANDMARK
@@ -11,47 +11,49 @@ function apply_reactions!(dU, U, params)
 
     νiz .= 0.0
     inelastic_losses .= 0.0
+    @inbounds for i in 1:ncells
+        ne[i] = 0.0
+        for Z in 1:config.ncharge
+            ne[i] += Z * U[index.ρi[Z], i]
+        end
+        ne[i] *= inv_m
+    end
+    @. cell_cache_1 = inv(cache.ne)
+    @. ϵ = cache.nϵ * cell_cache_1 + K
 
-    @inbounds for i in 2:ncells-1
-        ne = electron_density(U, params, i)
-        inv_ne = inv(ne)
+    dt_max = Inf
 
-        ϵ = cache.nϵ[i] * inv_ne + K[i]
+    @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+        for i in 2:ncells-1
+            inv_ne = cell_cache_1[i]
+            r = rate_coeff(rxn, ϵ[i])
+            ρ_reactant = U[reactant_index, i]
+            ρdot = reaction_rate(r, ne[i], ρ_reactant)
+            dt_max = min(dt_max, ρ_reactant / ρdot)
+            ndot = ρdot * inv_m
+            νiz[i] += ndot * inv_ne
 
-        dt_max = Inf
+            inelastic_losses[i] += ndot * rxn.energy
 
-        for (rxn, reactant_inds, product_inds) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
-            product_index = product_inds[]
-            r = rate_coeff(rxn, ϵ)
+            # Change in density due to ionization
+            dU[reactant_index, i] -= ρdot
+            dU[product_index, i]  += ρdot
 
-            for reactant_index in reactant_inds
-                ρ_reactant = U[reactant_index, i]
-                ρdot = reaction_rate(r, ne, ρ_reactant)
-                ndot = ρdot * inv_m
-                νiz[i] += ndot * inv_ne
-                inelastic_losses[i] += ndot * rxn.energy
-                dt_max = min(dt_max, ρ_reactant / ρdot)
-
-                # Change in density due to ionization
-                dU[reactant_index, i] -= ρdot
-                dU[product_index, i]  += ρdot
-
-                if !params.config.LANDMARK
-                    # Momentum transfer due to ionization
-                    if reactant_index == index.ρn
-                        reactant_velocity = params.config.neutral_velocity
-                    else
-                        reactant_velocity = U[reactant_index + 1, i] / U[reactant_index, i]
-                        dU[reactant_index + 1, i] -= ρdot * reactant_velocity
-                    end
-
-                    dU[product_index + 1, i] += ρdot * reactant_velocity
+            if !params.config.LANDMARK
+                # Momentum transfer due to ionization
+                if reactant_index == index.ρn
+                    reactant_velocity = params.config.neutral_velocity
+                else
+                    reactant_velocity = U[reactant_index + 1, i] / ρ_reactant
+                    dU[reactant_index + 1, i] -= ρdot * reactant_velocity
                 end
+
+                dU[product_index + 1, i] += ρdot * reactant_velocity
             end
         end
-
-        params.cache.dt_iz[i] = dt_max
     end
+
+    cache.dt_iz[] = dt_max
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
@@ -74,9 +76,9 @@ function apply_ion_acceleration!(dU, U, params)
             dt_max = min(dt_max, sqrt(mi * Δz * inv_e * inv_E / Z))
             dU[index.ρiui[Z], i] += Q_accel
         end
-
-        params.cache.dt_E[i] = dt_max
     end
+
+    params.cache.dt_E[] = dt_max
 end
 
 function apply_ion_wall_losses!(dU, U, params)

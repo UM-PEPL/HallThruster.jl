@@ -115,10 +115,9 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     dA_dz = zeros(ncells+2)
 
     dt = zeros(1)
-    dt_cell = zeros(ncells+2)
     dt_u = zeros(nedges)
-    dt_iz = zeros(ncells+2)
-    dt_E = zeros(ncells+2)
+    dt_iz = zeros(1)
+    dt_E = zeros(1)
 
     U = zeros(nvars, ncells+2)
     z_end = z_cell[end]
@@ -130,12 +129,11 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     amax = maximum(abs.(ui_exact) .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
     dt .= 0.1 * minimum(Δz_cell) / amax
-    dt_cell .= dt[]
     k = zeros(size(U))
     u1 = zeros(size(U))
     inelastic_losses = zeros(ncells+2)
     νiz = zeros(ncells+2)
-    cache = (;k, u1, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt_cell, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
+    cache = (;k, u1, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
 
     params = (;
         ncells = ncells+2,

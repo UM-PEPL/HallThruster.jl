@@ -121,13 +121,11 @@ function _load_reactions(model::ReactionModel, species)
 end
 
 function _indices(symbol, reactions, species_range_dict)
-    indices = [Int[] for _ in reactions]
+    indices = zeros(Int, length(reactions))
     for (i, reaction) in enumerate(reactions)
         species = getfield(reaction, symbol).symbol
-        ranges = species_range_dict[species]
-        for r in ranges
-            push!(indices[i], r[1])
-        end
+        range = species_range_dict[species]
+        indices[i] = range[1]
     end
     return indices
 end

@@ -1,5 +1,5 @@
 function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
-    (;index, Δz_cell, config, cache, ncells) = params
+    (;index, Δz_cell, config, cache, ncells, CFL) = params
     (;
         source_neutrals, source_ion_continuity, source_ion_momentum,
         ncharge, ion_wall_losses
@@ -8,8 +8,6 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
     (;F, UL, UR, channel_area, dA_dz) = cache
 
     compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
-
-    params.cache.dt[] = Inf
 
     @inbounds for i in 2:ncells-1
         left = left_edge(i)
@@ -48,21 +46,12 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
         apply_ion_wall_losses!(dU, U, params)
     end
 
-    @inbounds for i in 2:ncells-1
-        left = left_edge(i)
-        right = right_edge(i)
-        params.cache.dt_cell[i] = min(
-            sqrt(params.CFL) * params.cache.dt_E[i],
-            params.CFL * params.cache.dt_iz[i],
-            params.CFL * params.cache.dt_u[left],
-            params.CFL * params.cache.dt_u[right]
-        )
-
-        params.cache.dt[] = min(params.cache.dt_cell[i], params.cache.dt[])
-    end
-
-    params.cache.dt_cell[1] = params.cache.dt_cell[2]
-    params.cache.dt_cell[end] = params.cache.dt_cell[end-1]
+    # Compute maximum allowable timestep
+    params.cache.dt[] = min(
+        CFL * cache.dt_iz[],                          # max ionization timestep
+        sqrt(CFL) * cache.dt_E[],                     # max acceleration timestep
+        CFL * minimum(@views cache.dt_u[1:ncells-1]), # max fluid timestep
+    )
 
     @. @views dU[:, 1] = 0.0
     @. @views dU[:, end] = 0.0

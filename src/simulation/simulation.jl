@@ -14,10 +14,16 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     ncells = grid.ncells + 2
     nedges = grid.ncells + 1
 
+    ncharge = maximum(f.species.Z for f in fluids)
+
+    # Main state vector
     U = zeros(nvariables, ncells)
-    B = zeros(ncells)
-    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1)) #for energy
-    bϵ = zeros(ncells) #for energy
+
+    # Caches for energy solve
+    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    bϵ = zeros(ncells)
+
+    # Collision frequencies
     νan = zeros(ncells)
     νc = zeros(ncells)
     νei = zeros(ncells)
@@ -25,35 +31,58 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     radial_loss_frequency = zeros(ncells)
     νew_momentum = zeros(ncells)
     νiw = zeros(ncells)
-    κ = zeros(ncells)
-    μ = zeros(ncells)
-    ϕ = zeros(ncells)
-    ∇ϕ = zeros(ncells)
-    ne = zeros(ncells)
-    nϵ = zeros(ncells)
-    Tev = zeros(ncells)
-    pe = zeros(ncells)
-    ∇pe = zeros(ncells)
-    ue = zeros(ncells)
-    F = zeros(nvariables, nedges)
-    UL = zeros(nvariables, nedges)
-    UR = zeros(nvariables, nedges)
-    Z_eff = zeros(ncells)
-    λ_global = zeros(length(fluids))
     νe = zeros(ncells)
     νiz = zeros(ncells)
     νex = zeros(ncells)
-    K   = zeros(ncells)
-    ji  = zeros(ncells)
 
+    # Magnetic field
+    B = zeros(ncells)
+
+    # Conductivity and mobility
+    κ = zeros(ncells)
+    μ = zeros(ncells)
+
+    # Potential and electric field
+    ϕ = zeros(ncells)
+    ∇ϕ = zeros(ncells)
+
+    # Electron number density
+    ne = zeros(ncells)
+
+    # Electron energy density
+    nϵ = zeros(ncells)
+
+    # Electron temperature and energy [eV]
+    Tev = zeros(ncells)
+    ϵ = zeros(ncells)
+
+    # Electron pressure and pressure gradient
+    pe = zeros(ncells)
+    ∇pe = zeros(ncells)
+
+    # Electron axial velocity and kinetic energy
+    ue = zeros(ncells)
+    K = zeros(ncells)
+
+    λ_global = zeros(length(fluids))
+
+    # Electron source terms
     ohmic_heating = zeros(ncells)
     wall_losses = zeros(ncells)
     inelastic_losses = zeros(ncells)
 
-    ncharge = maximum(f.species.Z for f in fluids)
+    # Effective charge number
+    Z_eff = zeros(ncells)
+
+    # Ion density, velocity, and number flux
     ni = zeros(ncharge, ncells)
     ui = zeros(ncharge, ncells)
     niui = zeros(ncharge, ncells)
+
+    # ion current
+    ji  = zeros(ncells)
+
+    # Neutral density
     nn = zeros(ncells)
     γ_SEE = zeros(ncells)
     Id  = [0.0]
@@ -64,6 +93,11 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     smoothing_time_constant = [0.0]
     errors = [0.0, 0.0, 0.0]
     dcoeffs = [0.0, 0.0, 0.0, 0.0]
+
+    # Edge state caches
+    F = zeros(nvariables, nedges)
+    UL = zeros(nvariables, nedges)
+    UR = zeros(nvariables, nedges)
 
     # timestepping caches
     k = copy(U)
@@ -84,21 +118,20 @@ function allocate_arrays(grid, fluids, anom_model = HallThruster.NoAnom())
     anom_variables = allocate_anom_variables(anom_model, size(U, 2))
 
     # Timesteps
-    dt_iz = zeros(ncells)
-    dt_E = zeros(ncells)
-    dt_u = zeros(nedges)
-    dt_cell = zeros(ncells)
+    dt_iz = zeros(1)
     dt = zeros(1)
+    dt_E = zeros(1)
+    dt_u = zeros(nedges)
 
     cache = (;
-        Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, Tev, pe, ue, ∇pe,
+        Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, ϵ, Tev, pe, ue, ∇pe,
         νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
         ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
         error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
         errors, dcoeffs,
         ohmic_heating, wall_losses, inelastic_losses,
         channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
-        anom_variables, dt_iz, dt_E, dt_u, dt, dt_cell
+        anom_variables, dt_iz, dt_E, dt_u, dt
     )
 
     return U, cache
@@ -114,7 +147,7 @@ function setup_simulation(
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
         dtmin = 0.0, dtmax = 1e-7,
     )
-    
+
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
@@ -180,7 +213,7 @@ function setup_simulation(
 
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
-    cache.dt_cell .= dt
+
 
     # Simulation parameters
     params = (;
