@@ -27,7 +27,7 @@ function update_electrons!(params, t = 0)
     # Update other collisions
     @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn[i], Tev[i])
+        νen[i] = freq_electron_neutral(params, i)
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions

@@ -1,14 +1,5 @@
 abstract type Reaction end
 
-function rate_coeff(rxn::Reaction, energy::Float64)
-    ind = Base.trunc(Int64, energy)
-    N = length(rxn.rate_coeffs) - 2
-    ind = ind > N ? N : ind
-    r1 = rxn.rate_coeffs[ind+1]
-    r2 = rxn.rate_coeffs[ind+2]
-    t = energy - ind
-    return (1 - t) * r1 + t * r2
-end
 
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
@@ -73,6 +64,19 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
 end
 
 abstract type ReactionModel end
+
+"""
+By default, rate_coeff looks for a lookup table stored in the reaction struct
+"""
+function rate_coeff(::ReactionModel, rxn::Reaction, energy::Float64)
+    ind = Base.trunc(Int64, energy)
+    N = length(rxn.rate_coeffs) - 2
+    ind = ind > N ? N : ind
+    r1 = rxn.rate_coeffs[ind+1]
+    r2 = rxn.rate_coeffs[ind+2]
+    t = energy - ind
+    return (1 - t) * r1 + t * r2
+end
 
 """
     load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}

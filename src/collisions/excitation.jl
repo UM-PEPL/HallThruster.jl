@@ -64,7 +64,7 @@ Supports only singly-charged Xenon.
 """
 struct LandmarkExcitationLookup <: ExcitationModel end
 
-function load_reactions(model::LandmarkExcitationLookup, species)
+function load_reactions(::LandmarkExcitationLookup, species)
     rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
     ϵ = rates[:, 1]
     k_iz = rates[:, 2]
