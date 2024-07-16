@@ -62,23 +62,18 @@ function refines(num_refinements, initial, factor)
     ]
 end
 
-struct OVS_Ionization <: HallThruster.IonizationModel end
-struct OVS_Excitation <: HallThruster.ExcitationModel end
+import HallThruster: load_reactions, rate_coeff, IonizationModel, ExcitationModel, IonizationReaction, ExcitationReaction, Reaction
 
-import HallThruster.load_reactions
+struct OVS_Ionization <: IonizationModel end
+struct OVS_Excitation <: ExcitationModel end
 
-function OVS_rate_coeff_iz(ϵ)
-    return 1e-12 * exp(-12.12/ϵ)
-end
-
-function OVS_rate_coeff_ex(ϵ)
-    return 1e-12 * exp(-8.32/ϵ)
-end
+HallThruster.rate_coeff(::OVS_Ionization, ::Reaction, ϵ) = 1e-12 * exp(-12.12/ϵ)
+HallThruster.rate_coeff(::OVS_Excitation, ::Reaction, ϵ) = 1e-12 * exp(-8.32/ϵ)
 
 function HallThruster.load_reactions(::OVS_Ionization, species)
-    return [HallThruster.IonizationReaction(12.12, HallThruster.Xenon(0), HallThruster.Xenon(1), OVS_rate_coeff_iz.(0:255))]
+    return [IonizationReaction(12.12, Xenon(0), Xenon(1), Float64[])]
 end
 
 function HallThruster.load_reactions(::OVS_Excitation, species)
-    return [HallThruster.ExcitationReaction(8.32, HallThruster.Xenon(0), OVS_rate_coeff_ex.(0:255))]
+    return [ExcitationReaction(8.32, Xenon(0), Float64[])]
 end
