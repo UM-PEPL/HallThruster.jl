@@ -34,14 +34,14 @@ function read_restart(path::AbstractString)
     )
 end
 
-function load_restart(grid, fluids, config, path::AbstractString)
+function load_restart(grid, config, path::AbstractString)
     sol = read_restart(path)
-    U, cache = load_restart(grid, fluids, config, sol)
+    U, cache = load_restart(grid, config, sol)
     return U, cache
 end
 
-function load_restart(grid, fluids, config, sol::Solution)
-    U, cache = HallThruster.allocate_arrays(grid, fluids)
+function load_restart(grid, config, sol::Solution)
+    U, cache = HallThruster.allocate_arrays(grid, config)
 
     z_cell = sol.params.z_cell
 

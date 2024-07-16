@@ -212,13 +212,15 @@ This method returns an integer corresponding to the maximum allowed charge state
 ```julia
 import HallThruster: maximum_charge_state
 
-maximum_charge_state(::MyIonizationModel) = 1
+HallThruster.maximum_charge_state(::MyIonizationModel) = 1
 ```
 
 ### `load_reactions(model::ReactionModel, species::Vector{Species})`
 
-This is the most important method to define. `load_reactions` takes our model along with a vector of `Species` (generated using the `propellant` and `ncharge` fields in the user-provided `Config`) and returns a vector of `IonizationReaction{I}` or `ExcitationReaction{I}`, where `I` is the type of the rate coefficient function. It is important that the `Reactions` all have the same type so that the returned vector will have a concrete type, which will prevent dynamic dispatch during runtime and prevent unnecessary slowdowns. This means that if you have multiple reactions with different rate coefficient functions, you should use something like [`FunctionWrappers.jl`](https://github.com/yuyichao/FunctionWrappers.jl).  Let's implement a simple ionization curve with the form
+`load_reactions` takes our model along with a vector of `Species` (generated using the `propellant` and `ncharge` fields in the user-provided `Config`) and returns a vector of `IonizationReaction` or `ExcitationReaction`. If you are not using a lookup table for this purpose, the `rate_coeffs` field
+of these structs can be left empty. In that case you also need to define the `rate_coeff` function, as by default that looks for a lookup table in the reaction struct.
 
+Let's say our ionization rate coefficient is
 ```math
 k_{iz}(\epsilon) = 4\times 10^{-20} \exp\left(\frac{-7.3}{\frac{2}{3} \epsilon}\right)\sqrt{\frac{8 (\frac{2}{3}\epsilon)}{\pi m_e}}
 ```
@@ -226,12 +228,14 @@ k_{iz}(\epsilon) = 4\times 10^{-20} \exp\left(\frac{-7.3}{\frac{2}{3} \epsilon}\
 We would implement this as so:
 
 ```julia
-using FunctionWrappers
-import HallThruster: e, me, load_reactions
+import HallThruster: e, me, load_reactions, rate_coefficient
 
-kiz(ϵ) = 4e-20 * exp(-7.3 / (2/3 * ϵ)) * sqrt(8 * 2/3 * ϵ / pi / me)
+function rate_coeff(::MyIonizationModel, ::Reaction, energy::Float64)
+    Tev = 2/3 * energy
+    return 4e-20 * exp(-7.3 / Tev) * sqrt(8 * Tev / pi / me)
+end
 
-function load_reactions(model::MyIonizationModel, species)
+function load_reactions(::MyIonizationModel, species)
     rxn = IonizationReaction(
     	energy = -7.3,
         #=
@@ -241,8 +245,8 @@ function load_reactions(model::MyIonizationModel, species)
         =#
         reactant = species[1],
         product = species[2],
-        # Use a function wrapper here, though not necessary with only one reaction
-        rate_coeff = FunctionWrapper{Float64, Tuple{Float64}}(kiz)
+        # Empty lookup table, as we will not be using it
+        rate_coeff = Float64[]
     )
     return rxn
 end

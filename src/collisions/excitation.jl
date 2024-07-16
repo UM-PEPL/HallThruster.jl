@@ -1,7 +1,7 @@
-Base.@kwdef struct ExcitationReaction{I} <: Reaction
+Base.@kwdef struct ExcitationReaction <: Reaction
     energy::Float64
     reactant::Species
-    rate_coeff::I
+    rate_coeffs::Vector{Float64}
 end
 
 function Base.show(io::IO, i::ExcitationReaction)
@@ -64,7 +64,7 @@ Supports only singly-charged Xenon.
 """
 struct LandmarkExcitationLookup <: ExcitationModel end
 
-function load_reactions(model::LandmarkExcitationLookup, species)
+function load_reactions(::LandmarkExcitationLookup, species)
     rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
     ϵ = rates[:, 1]
     k_iz = rates[:, 2]
@@ -75,6 +75,8 @@ function load_reactions(model::LandmarkExcitationLookup, species)
     # We infer the excitation loss coefficient by subtracting the contribution of the ionization
     # loss coefficient from the inelastic loss term
     k_excitation = @. (k_loss - ionization_energy * k_iz) / excitation_energy
-    rate_coeff = LinearInterpolation(ϵ, k_excitation)
-    return [ExcitationReaction(excitation_energy, Xenon(0), rate_coeff)]
+    itp = LinearInterpolation(ϵ, k_excitation)
+    xs = 0:1.0:255
+    rate_coeffs = itp.(xs)
+    return [ExcitationReaction(excitation_energy, Xenon(0), rate_coeffs)]
 end

@@ -1,8 +1,8 @@
-Base.@kwdef struct IonizationReaction{I} <: Reaction
+Base.@kwdef struct IonizationReaction <: Reaction
     energy::Float64
     reactant::Species
     product::Species
-    rate_coeff::I
+    rate_coeffs::Vector{Float64}
 end
 
 function Base.show(io::IO, i::IonizationReaction)
@@ -74,6 +74,8 @@ function load_reactions(::LandmarkIonizationLookup, species)
     rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
     ϵ = rates[:, 1]
     k = rates[:, 2]
-    rate_coeff = LinearInterpolation(ϵ, k)
-    return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeff)]
+    itp = LinearInterpolation(ϵ, k)
+    xs = 0:1.0:255
+    rate_coeffs = itp.(xs)
+    return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeffs)]
 end

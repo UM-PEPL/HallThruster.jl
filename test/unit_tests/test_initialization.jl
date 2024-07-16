@@ -27,7 +27,7 @@
     ncells = 100
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     grid = HallThruster.generate_grid(config.thruster.geometry, domain, EvenGrid(ncells))
-    U, cache = HallThruster.allocate_arrays(grid, fluids, config.anom_model)
+    U, cache = HallThruster.allocate_arrays(grid, config)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
     params = (;
@@ -113,10 +113,10 @@ end
     @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
     @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
     @test species_range_dict == Dict(
-        Symbol("Xe") => [1:1],
-        Symbol("Xe+") => [2:3],
-        Symbol("Xe2+") => [4:5],
-        Symbol("Xe3+") => [6:7],
+        Symbol("Xe") => 1:1,
+        Symbol("Xe+") => 2:3,
+        Symbol("Xe2+") => 4:5,
+        Symbol("Xe3+") => 6:7,
     )
 
     @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
@@ -133,14 +133,14 @@ end
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))
     ionization_reactant_indices = HallThruster.reactant_indices(ionization_reactions, species_range_dict)
-    @test ionization_reactant_indices == [[1], [1], [1], [2], [2], [4]]
+    @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
 
     ionization_product_indices = HallThruster.product_indices(ionization_reactions, species_range_dict)
-    @test ionization_product_indices == [[2], [4], [6], [4], [6], [6]]
+    @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
-    @test excitation_reactant_indices == [[1]]
+    @test excitation_reactant_indices == [1]
 
     # Test that initialization and configuration works properly when background neutrals are included
 
@@ -157,10 +157,10 @@ end
     @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
     @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
     @test species_range_dict == Dict(
-        Symbol("Xe") => [1:1],
-        Symbol("Xe+") => [2:3],
-        Symbol("Xe2+") => [4:5],
-        Symbol("Xe3+") => [6:7],
+        Symbol("Xe") => 1:1,
+        Symbol("Xe+") => 2:3,
+        Symbol("Xe2+") => 4:5,
+        Symbol("Xe3+") => 6:7,
     )
 
     @test fluids[1] == HallThruster.ContinuityOnly(species[1], config.neutral_velocity, config.neutral_temperature)
@@ -177,12 +177,12 @@ end
     # load collisions and reactions
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, unique(species))
     ionization_reactant_indices = HallThruster.reactant_indices(ionization_reactions, species_range_dict)
-    @test ionization_reactant_indices == [[1], [1], [1], [2], [2], [4]]
+    @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
 
     ionization_product_indices = HallThruster.product_indices(ionization_reactions, species_range_dict)
-    @test ionization_product_indices == [[2], [4], [6], [4], [6], [6]]
+    @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
     excitation_reactions = HallThruster._load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = HallThruster.reactant_indices(excitation_reactions, species_range_dict)
-    @test excitation_reactant_indices == [[1]]
+    @test excitation_reactant_indices == [1]
 end

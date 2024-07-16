@@ -92,21 +92,20 @@ end
     @test length(grid.edges) == ncells+1
 
     Xe_0 = HallThruster.Fluid(HallThruster.Xenon(0), 100., 100.)
-    Xe_0_background = HallThruster.Fluid(HallThruster.Xenon(0), 100., 100.)
     Xe_I = HallThruster.Fluid(HallThruster.Xenon(1), T = 100.)
     Xe_II = HallThruster.Fluid(HallThruster.Xenon(2), T = 100.)
-    Xe_III = HallThruster.Fluid(HallThruster.Xenon(3))
+    Xe_III = HallThruster.Fluid(HallThruster.Xenon(3), T = 300.0)
     fluids = [
-        Xe_0,
         Xe_0,
         Xe_I,
         Xe_II,
         Xe_III
     ]
 
-    nvars = 2 + 2 + 2 + 3
+    nvars = 1 + 2 + 2 + 2
+    config = (;ncharge = 3, anom_model = HallThruster.NoAnom())
 
-    U, cache = HallThruster.allocate_arrays(grid, fluids)
+    U, cache = HallThruster.allocate_arrays(grid, config)
 
     @test size(U) == (nvars, ncells+2)
 

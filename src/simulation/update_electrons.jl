@@ -4,7 +4,7 @@ function update_electrons!(params, t = 0)
     (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
     (;
         B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn,
+        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn, K,
         Id_smoothed, smoothing_time_constant, anom_multiplier,
         errors, channel_area
     ) = params.cache
@@ -27,7 +27,7 @@ function update_electrons!(params, t = 0)
     # Update other collisions
     @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params.electron_neutral_collisions, nn[i], Tev[i])
+        νen[i] = freq_electron_neutral(params, i)
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
@@ -65,10 +65,10 @@ function update_electrons!(params, t = 0)
     @inbounds for i in 1:ncells
         # je + ji = Id / A
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
-
-        # Kinetic energy in both axial and azimuthal directions is accounted for
-        params.cache.K[i] = electron_kinetic_energy(params, i)
     end
+
+    # Kinetic energy in both axial and azimuthal directions is accounted for
+    electron_kinetic_energy!(K, params)
 
     # Compute potential gradient and pressure gradient
     compute_pressure_gradient!(∇pe, params)
@@ -121,7 +121,7 @@ function integrate_discharge_current(params)
 
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
 
-    if (apply_drag) 
+    if (apply_drag)
         (;νei, νen, νan, ui) = cache
     end
 
@@ -131,7 +131,7 @@ function integrate_discharge_current(params)
 
         int1_1 = (ji[i]   / e / μ[i]   + ∇pe[i])   / ne[i]
         int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
-        
+
         if (apply_drag)
             ion_drag_1 = ui[1, i  ] * (νei[i  ] + νan[i  ]) * me / e
             ion_drag_2 = ui[1, i+1] * (νei[i+1] + νan[i+1]) * me / e
@@ -161,14 +161,13 @@ function compute_electric_field!(∇ϕ, params)
     (;ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
-    
-    if (apply_drag) 
+
+    if (apply_drag)
         (;νei, νen, νan, ui) = cache
     end
 
 
     for i in eachindex(∇ϕ)
-
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
 
         if (apply_drag)
@@ -181,6 +180,17 @@ function compute_electric_field!(∇ϕ, params)
     end
 
     return ∇ϕ
+end
+
+
+function electron_kinetic_energy!(K, params)
+    (;νe, B, ue) = params.cache
+    # K = 1/2 me ue^2
+    #   = 1/2 me (ue^2 + ue_θ^2)
+    #   = 1/2 me (ue^2 + Ωe^2 ue^2)
+    #   = 1/2 me (1 + Ωe^2) ue^2
+    #   divide by e to get units of eV
+    @. K = 0.5 *  me * (1 + (e * B / me / νe)^2) * ue^2 / e
 end
 
 function compute_pressure_gradient!(∇pe, params)

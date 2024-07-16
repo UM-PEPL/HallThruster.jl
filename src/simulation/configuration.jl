@@ -111,7 +111,7 @@ function Config(;
 
     anode_Te = convert_to_float64(anode_Te, u"eV")
     cathode_Te = convert_to_float64(cathode_Te, u"eV")
-    
+
     default_neutral_velocity = 150.0 # m/s
     default_neutral_temp = 500.0 # K
     if isnothing(neutral_velocity) && isnothing(neutral_temperature)
@@ -217,10 +217,10 @@ function configure_fluids(config)
     species = [f.species for f in fluids]
 
     fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => UnitRange{Int64}[] for fluid in fluids)
+    species_range_dict = Dict(Symbol(fluid.species) => 0:0 for fluid in fluids)
 
     for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-        push!(species_range_dict[Symbol(fluid.species)], fluid_range)
+        species_range_dict[Symbol(fluid.species)] = fluid_range
     end
 
     last_fluid_index = fluid_ranges[end][end]
