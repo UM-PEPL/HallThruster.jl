@@ -6,12 +6,15 @@ using HallThruster
 using LinearAlgebra
 using Symbolics
 
+struct R <: HallThruster.Reaction end
+
 @variables x t
 
 Dt = Differential(t)
 Dx = Differential(x)
 
-const k_ionization = OVS_rate_coeff_iz
+k_ionization(ϵ) = rate_coeff(OVS_Ionization(), R(), ϵ)
+
 const un = 1000
 const mi = HallThruster.Xenon.m
 const e = HallThruster.e
@@ -50,28 +53,17 @@ source_ρi = eval(build_function(expand_derivatives(continuity_ions), [x]))
 source_ρiui = eval(build_function(expand_derivatives(momentum_ions), [x]))
 
 function solve_ions(ncells, scheme; t_end = 1e-4)
-    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
-
-    Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
-    propellant = HallThruster.Xenon
-
+    # Create config struct
     thruster = HallThruster.SPT_100
-
     A_ch = HallThruster.channel_area(thruster)
     anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un * ρi_func(0.0))* A_ch
 
     config = (;
         thruster,
-        source_neutrals = (
-            (U, p, i) -> source_ρn(p.z_cell[i]),
-        ),
-        source_ion_continuity = (
-            (U, p, i) -> source_ρi(p.z_cell[i]),
-        ),
-        source_ion_momentum = (
-            (U, p, i) -> source_ρiui(p.z_cell[i]),
-        ),
-        propellant,
+        source_neutrals = ((_, p, i) -> source_ρn(p.z_cell[i]),),
+        source_ion_continuity = ((_, p, i) -> source_ρi(p.z_cell[i]),),
+        source_ion_momentum = ((_, p, i) -> source_ρiui(p.z_cell[i]),),
+        propellant = HallThruster.Xenon,
         ncharge = 1,
         min_electron_temperature = 1.0,
         neutral_velocity = un,
@@ -87,56 +79,45 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         conductivity_model = HallThruster.LANDMARK_conductivity(),
         ion_wall_losses = false,
         anode_boundary_condition = :dirichlet,
+        anom_model = HallThruster.NoAnom(),
     )
 
+    # Construct grid
+    grid = HallThruster.generate_grid(HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells))
+    Δz_cell, Δz_edge = HallThruster.grid_spacing(grid)
     z_edge = grid.edges
     z_cell = grid.cell_centers
 
-    nedges = length(z_edge)
-
-    nϵ = nϵ_func.(z_cell)
-    ρn_exact = ρn_func.(z_cell)
-    ρi_exact = ρi_func.(z_cell)
-    ui_exact = ui_func.(z_cell)
-    ∇ϕ = ∇ϕ_func.(z_cell)
-
+    # Create fluids
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = HallThruster.configure_fluids(config)
     ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
     index = HallThruster.configure_index(fluids, fluid_ranges)
 
-    nvars = fluid_ranges[end][end]
+    # Allocate arrays and fill variables
+    U, cache = HallThruster.allocate_arrays(grid, config)
+    ρn_exact = ρn_func.(z_cell)
+    ρi_exact = ρi_func.(z_cell)
+    ui_exact = ui_func.(z_cell)
+    @. cache.nϵ = nϵ_func.(z_cell)
+    @. cache.ϵ = ϵ_func.(z_cell)
+    @. cache.∇ϕ = ∇ϕ_func.(z_cell)
+    @. cache.channel_area = A_ch
 
-    F = zeros(nvars, nedges)
-    UL = zeros(nvars, nedges)
-    UR = zeros(nvars, nedges)
-    λ_global = zeros(2)
-
-    channel_area = A_ch .* ones(ncells+2)
-    dA_dz = zeros(ncells+2)
-
-    dt = zeros(1)
-    dt_u = zeros(nedges)
-    dt_iz = zeros(1)
-    dt_E = zeros(1)
-
-    U = zeros(nvars, ncells+2)
-    z_end = z_cell[end]
+    # Fill initial condition
     z_start = z_cell[1]
+    z_end = z_cell[end]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
     U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
     U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
 
+    # Compute timestep
     amax = maximum(abs.(ui_exact) .+ sqrt.(2/3 * e * ϵ_func.(z_cell) / mi))
-    dt .= 0.1 * minimum(Δz_cell) / amax
-    k = zeros(size(U))
-    u1 = zeros(size(U))
-    inelastic_losses = zeros(ncells+2)
-    νiz = zeros(ncells+2)
-    cache = (;k, u1, F, UL, UR, ∇ϕ, λ_global, channel_area, dA_dz, dt, dt_u, dt_iz, dt_E, nϵ, νiz, inelastic_losses)
+    cache.dt[] = 0.1 * minimum(Δz_cell) / amax
 
+    # Create params struct
     params = (;
-        ncells = ncells+2,
+        ncells = length(z_cell),
         index,
         config,
         cache,
@@ -157,8 +138,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         adaptive = false,
         CFL = 0.9,
     )
-
-    dU = copy(U)
 
     t = 0.0
     while t < t_end

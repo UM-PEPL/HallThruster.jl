@@ -48,8 +48,8 @@ include("order_verification/ovs_funcs.jl")
     end
 end
 
-include("order_verification/ovs_ions.jl")
 @testset "Order verification (neutrals and ions)" begin
+    include("order_verification/ovs_ions.jl")
     refinements = refines(5, 10, 2)
 
     limiter = HallThruster.van_leer
