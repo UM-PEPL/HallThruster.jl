@@ -28,8 +28,7 @@ end
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat)
-    i = 1
-    save_ind = 2
+
     t = tspan[1]
 
     retcode = :success
@@ -41,9 +40,16 @@ function solve(U, params, tspan; saveat)
     savevals = [deepcopy(first_saveval) for _ in saveat]
 
     (nvars, ncells) = size(U)
+    iteration = params.iteration
+
+    iteration[] = 1
+
+    # Yield to signals only every few iterations
+    yield_interval = 1
+    next_yield = yield_interval
+    save_ind = 2
 
     while t < tspan[2]
-        i += 1
 
         if params.adaptive
             params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
@@ -83,11 +89,14 @@ function solve(U, params, tspan; saveat)
         # Update plume geometry
         update_plume_geometry!(U, params)
 
-        # Allow for system interrupts
-        yield()
-
         # Update the current iteration
-        params.iteration[1] += 1
+        iteration[] += 1
+
+        # Allow for system interrupts
+        if iteration[] == next_yield
+            yield()
+            iteration[] += yield_interval
+        end
 
         # Save values at designated intervals
         # TODO interpolate these to be exact and make a bit more elegant
