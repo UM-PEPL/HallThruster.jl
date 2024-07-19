@@ -45,7 +45,7 @@ function solve(U, params, tspan; saveat)
     iteration[] = 1
 
     # Yield to signals only every few iterations
-    yield_interval = 1
+    yield_interval = 2
     next_yield = yield_interval
     save_ind = 2
 
