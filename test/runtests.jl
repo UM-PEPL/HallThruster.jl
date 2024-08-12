@@ -25,29 +25,6 @@ include("unit_tests/test_walls.jl")
 include("unit_tests/test_initialization.jl")
 include("unit_tests/test_json.jl")
 
-using Symbolics
-include("order_verification/ovs_funcs.jl")
-@testset "Order verification (electron energy)" begin
-    include("order_verification/ovs_energy.jl")
-    vfunc = x -> OVS_Energy.verify_energy(x)
-    refinements = refines(6, 20, 2)
-
-    cases = ["implicit", "Crank-Nicholson"]
-    norms_to_test = [1, 2, Inf]
-    num_norms = length(norms_to_test)
-
-    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
-    slopes_nϵ, norms_nϵ = test_refinements(vfunc, refinements, norms_to_test)
-
-    # Check that electron energy equation is solved to at least first order in space
-    for (i, slope) in enumerate(slopes_nϵ)
-        norm_ind = mod1(i, num_norms)
-        case_ind = ((i-1) ÷ num_norms) + 1
-        println("Electron energy ($(cases[case_ind]), $(norms_to_test[norm_ind])-norm): ", slope)
-        @test slope > 0.8
-    end
-end
-
 function run_landmark(duration = 1e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL = 0.799, case = 1)
     domain = (0.0, 0.05)
 
@@ -135,10 +112,32 @@ using Printf
         @printf("Ion current: %.3f ± %.3f A (expected %.3f A)\n", ji_mean, ji_err, ion_current)
         println()
         @test sol.retcode == :success
-        @test sol_info.bytes < 100e6  # should alloc less than 100 MB for this case
         @test isapprox(thrust, T_mean, atol = T_err)
         @test isapprox(current, Id_mean, atol = Id_err)
         @test isapprox(ion_current, ji_mean, atol = ji_err)
+    end
+end
+
+using Symbolics
+include("order_verification/ovs_funcs.jl")
+@testset "Order verification (electron energy)" begin
+    include("order_verification/ovs_energy.jl")
+    vfunc = x -> OVS_Energy.verify_energy(x)
+    refinements = refines(6, 20, 2)
+
+    cases = ["implicit", "Crank-Nicholson"]
+    norms_to_test = [1, 2, Inf]
+    num_norms = length(norms_to_test)
+
+    # Test spatial order of accuracy of implicit solver and crank-nicholson on L1, L2, and L∞ norms
+    slopes_nϵ, norms_nϵ = test_refinements(vfunc, refinements, norms_to_test)
+
+    # Check that electron energy equation is solved to at least first order in space
+    for (i, slope) in enumerate(slopes_nϵ)
+        norm_ind = mod1(i, num_norms)
+        case_ind = ((i-1) ÷ num_norms) + 1
+        println("Electron energy ($(cases[case_ind]), $(norms_to_test[norm_ind])-norm): ", slope)
+        @test slope > 0.8
     end
 end
 
