@@ -1,6 +1,5 @@
 @recipe function f(sol::Solution, frame::Int = length(sol.u))
     (;z_cell, ionization_reactions, ncharge, L_ch) = sol.params
-    model = sol.params.config.ionization_model
 
     subplot_width = 500
     subplot_height = 500
@@ -106,7 +105,7 @@
                     else
                         reactant_density = sol[:ni, rxn.reactant.Z][frame]
                     end
-                    ionization_rate .+= reactant_density .* ne .* [rate_coeff(model, rxn, 3/2 .* T) for T in Tev]
+                    ionization_rate .+= reactant_density .* ne .* [rate_coeff(sol.params.config.ionization_model, rxn, 3/2 .* T) for T in Tev]
                 end
             end
         end

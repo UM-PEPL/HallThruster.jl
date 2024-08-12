@@ -244,6 +244,7 @@ function load_landmark_data(case, suffix; ncells = 100)
         ionization_reactions,
         config = (;
             propellant = Xenon,
+            ionization_model = LandmarkIonizationLookup()
         )
     )
 
