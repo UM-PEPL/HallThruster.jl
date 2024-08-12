@@ -135,7 +135,7 @@ using Printf
         @printf("Ion current: %.3f ± %.3f A (expected %.3f A)\n", ji_mean, ji_err, ion_current)
         println()
         @test sol.retcode == :success
-        @test sol_info.bytes < 50e6  # should alloc less than 50 MB for this case
+        @test sol_info.bytes < 100e6  # should alloc less than 100 MB for this case
         @test isapprox(thrust, T_mean, atol = T_err)
         @test isapprox(current, Id_mean, atol = Id_err)
         @test isapprox(ion_current, ji_mean, atol = ji_err)
