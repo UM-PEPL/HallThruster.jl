@@ -157,7 +157,7 @@ function setup_simulation(
     end
 
     # load collisions and reactions
-    ionization_reactions = _load_reactions(config.ionization_model, unique(species))
+    ionization_reactions = _load_reactions(config.ionization_model, unique(species); directories = config.reaction_rate_directories)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 

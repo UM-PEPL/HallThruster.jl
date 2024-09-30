@@ -6,11 +6,14 @@ HallThruster.jl provides sensible defaults for simulation initialization, or all
 
 The default is `DefaultInitialization()`, which initializes the solution domain as described in the following sections. Below, ``z_0`` and ``z_N`` are `domain[1]` and `domain[2]`, as passed into the `Config` object (see [Configuration](@ref)), ``L_{ch}`` and ``A_{ch}`` are `config.thruster.geometry.channel_length` and `config.thruster.geometry.channel_area`, respectively, and ``\dot{m}`` is `config.anode_mass_flow_rate`.
 
+The `DefaultInitialization` has parameters `max_electron_temperature`, `min_ion_density`, and `max_ion_density`, which can be used to scale the default initialized.
+These default to `config.discharge_voltage/10`, `2e17`, and `1e18`, respectively.
+
 ### Ion densities
 
 The ion densities are Gaussian with a constant offset and a scaling factor proportional to the mass flow rate and discharge voltage.  For ions with charge 1, the density is
 ```math
-\rho_{i} = 2 \times 10^{17} m_i \sqrt{\frac{V_d}{300}}\frac{\dot{m}}{5\times10^{-6}}\left(1 + 5 \exp\left[-\left(\frac{z - z_0 - L_{ch}/2}{L_{ch}/3}\right)^2\right]\right)
+\rho_{i} = \rho_min m_i \sqrt{\frac{V_d}{300}}\frac{\dot{m}}{5\times10^{-6}}\left(1 + \frac{\rho_max}{\rho_min} \exp\left[-\left(\frac{z - z_0 - L_{ch}/2}{L_{ch}/3}\right)^2\right]\right)
 ```
 For ions with charge `Z`, the density is assumed to scale as
 ```math
@@ -52,7 +55,7 @@ The density at the cathode is assumed to be 1/100 that at the anode. In the doma
 
 The number density is computed from the ion densities. The electron temperature is a Gaussian with height ``V_d / 10`` eV plus a linear baseline to make sure the boundary conditions are satisfied:
 ```math
-T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + \frac{V_d}{10}\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
+T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + T_{e,max}\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
 ```
 
 ### Example

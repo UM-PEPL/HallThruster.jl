@@ -82,7 +82,7 @@ end
     load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}
 Load ionization reactions for the provided species and ionization model
 """
-@inline load_reactions(model::ReactionModel, species) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
+@inline load_reactions(model::ReactionModel, species; kwargs...) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
 
 function check_species(model::ReactionModel, species)
     supported = supported_gases(model)
@@ -118,10 +118,10 @@ function check_charge_states(model::ReactionModel, species)
     end
 end
 
-function _load_reactions(model::ReactionModel, species)
+function _load_reactions(model::ReactionModel, species; kwargs...)
     check_species(model, species)
     check_charge_states(model, species)
-    load_reactions(model, species)
+    load_reactions(model, species; kwargs...)
 end
 
 function _indices(symbol, reactions, species_range_dict)

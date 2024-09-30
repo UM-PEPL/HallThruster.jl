@@ -29,14 +29,12 @@ load_reactions(::NoExcitation, species) = ExcitationReaction{Nothing}[]
 Default excitation model for HallThruster.jl.
 Reads excitation rate coefficients from file. Looks (preferentially) in provided directories and in the reactions subfolder for rate coefficient files
 """
-Base.@kwdef struct ExcitationLookup <: ExcitationModel
-    directories::Vector{String} = String[]
-end
+struct ExcitationLookup <: ExcitationModel end
 
-function load_reactions(model::ExcitationLookup, species)
+function load_reactions(model::ExcitationLookup, species; directories = String[], kwargs...)
     species_sorted = sort(species; by=x -> x.Z)
     reactions = []
-    folders = [model.directories; REACTION_FOLDER]
+    folders = [directories; REACTION_FOLDER]
     product = nothing
     for i in 1:length(species)
         reactant = species_sorted[i]

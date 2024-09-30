@@ -22,17 +22,15 @@ abstract type IonizationModel <: ReactionModel end
 Default ionization model for HallThruster.jl.
 Reads ionization rate coefficients from file. Looks (preferentially) in provided directories and in the reactions subfolder for rate coefficient files
 """
-Base.@kwdef struct IonizationLookup <: IonizationModel
-    directories::Vector{String} = String[]
-end
+struct IonizationLookup <: IonizationModel end
 
 @inline supported_gases(::IonizationLookup) = Gas[]
 @inline maximum_charge_state(::IonizationLookup) = 0
 
-function load_reactions(model::IonizationLookup, species)
+function load_reactions(model::IonizationLookup, species; directories = String[], kwargs...)
     species_sorted = sort(species; by=x -> x.Z)
     reactions = []
-    folders = [model.directories; REACTION_FOLDER]
+    folders = [directories; REACTION_FOLDER]
     for i in 1:length(species)
         for j in (i + 1):length(species)
             found = false
@@ -49,7 +47,7 @@ function load_reactions(model::IonizationLookup, species)
                 end
             end
             if !found
-                throw(ArgumentError("No reactions including $(reactant) and $(product) in provided directories."))
+                throw(ArgumentError("No reactions including $(reactant) and $(product) in provided directories $(folders)."))
             end
         end
     end
@@ -70,7 +68,7 @@ struct LandmarkIonizationLookup <: IonizationModel end
 @inline supported_gases(::LandmarkIonizationLookup) = [Xenon]
 @inline maximum_charge_state(::LandmarkIonizationLookup) = 1
 
-function load_reactions(::LandmarkIonizationLookup, species)
+function load_reactions(::LandmarkIonizationLookup, species; kwargs...)
     rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
     ϵ = rates[:, 1]
     k = rates[:, 2]

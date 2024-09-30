@@ -49,6 +49,7 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     solve_plume::Bool
     apply_thrust_divergence_correction::Bool
     electron_plume_loss_scale::Float64
+    reaction_rate_directories::Vector{String}
 end
 
 function Config(;
@@ -92,7 +93,8 @@ function Config(;
         anom_smoothing_iters                = 0,
         solve_plume                         = false,
         apply_thrust_divergence_correction  = false,
-        electron_plume_loss_scale           = 1.0
+        electron_plume_loss_scale           = 1.0,
+        reaction_rate_directories                  = String[],
     ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
@@ -172,6 +174,7 @@ function Config(;
         solve_plume,
         apply_thrust_divergence_correction,
         electron_plume_loss_scale,
+        reaction_rate_directories,
     )
 end
 

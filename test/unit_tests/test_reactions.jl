@@ -66,12 +66,13 @@
     @test count(rxn -> rxn.product == Xe_III, lookup_rxns) == 3
 
     # Test behavior of user-provided ionization reactions
-    lookup_2 = HallThruster.IonizationLookup([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")])
-    lookup_2_rxns = HallThruster._load_reactions(lookup_2, [Ar_0, Ar_I])
+    directories = [joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")]
+    lookup_2 = HallThruster.IonizationLookup()
+    lookup_2_rxns = HallThruster._load_reactions(lookup_2, [Ar_0, Ar_I]; directories)
     @test length(lookup_2_rxns) == 1
     @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns[1], 0.3878e-01) |> abs < eps(Float64)
     @test lookup_2_rxns[1].energy == 13.0
-    lookup_2_rxns_Xe = HallThruster._load_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III])
+    lookup_2_rxns_Xe = HallThruster._load_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III]; directories)
     @test length(lookup_2_rxns_Xe) == 6
     @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns_Xe[1], 1.0) |> abs < eps(Float64)
     @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns_Xe[1], 1.0) != HallThruster.rate_coeff(lookup, lookup_rxns[1], 1.0)
@@ -88,9 +89,9 @@
     @test ex_rxns[1].energy == 8.32
     @test HallThruster.rate_coeff(ex_lookup, ex_rxns[1], 10.0) ≈ 2.358251483e-14
 
-    ex_lookup_2 = HallThruster.ExcitationLookup([joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")])
-    @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Ar_0]))
-    ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Ar_0])
+    ex_lookup_2 = HallThruster.ExcitationLookup()
+    @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Ar_0]; directories))
+    ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Ar_0]; directories)
     @test ex_rxns[1].energy == 10.0
     @test HallThruster.rate_coeff(ex_lookup_2, ex_rxns[1], 1.0) |> abs < eps(Float64)
 

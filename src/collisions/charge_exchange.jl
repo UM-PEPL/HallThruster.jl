@@ -18,7 +18,7 @@ supported_species(::ChargeExchangeFit) = [Xenon, Krypton]
 """
     Charge exchange fits from Hause, Prince and Bemish, 2013
 """
-function load_reactions(::ChargeExchangeFit, species)
+function load_reactions(::ChargeExchangeFit, species; kwargs...)
 
     CEX_fit(A, B, mi, ui) = let E = 0.5 * mi * ui^2 / e
         1e-20 * max(0.0, abs(ui) * (A - B * log(E)))

@@ -39,6 +39,11 @@ Neon
 ```
 
 If we then selected `Neon` as a propellant in our `Config` struct and used one of the lookup table models for ionization, HallThruster.jl would know to search for files beginning `ionization_Ne...`.
+The same is true for excitation reactions (`excitation_Ne...`) and elastic collisions (`elastic_Ne...`).
+In addition to the `reactions` path in the HallThruster.jl directory, the user can specify other paths in which rate coefficient files can be found using the `reaction_rate_directories` option in the `Config` struct.
+These directories will be checked, in order, before the HallThruster.jl directory is checked.
+For example, if we passed `reaction_rate_directories = ["reactions", "more_reactions"], the code will first look in "reactions", then in "more_reactions", before finally checking "HallThruster.jl/reactions".
+An error will be emitted if the reaction rate files cannot be found.
 
 
 
