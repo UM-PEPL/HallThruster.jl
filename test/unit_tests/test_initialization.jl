@@ -17,7 +17,7 @@
         neutral_velocity = 300.0,
         neutral_temperature = 100.0,
         ion_temperature = 300.0,
-        initial_condition = HallThruster.DefaultInitialization(),
+        initial_condition = HallThruster.DefaultInitialization(; max_electron_temperature = 10.0),
         anode_mass_flow_rate = 3e-6,
         discharge_voltage = 500.0
     )
@@ -43,6 +43,9 @@
 
     ne = [HallThruster.electron_density(U, params, i) for i in 1:ncells+2]
     ϵ = params.cache.nϵ ./ ne
+
+    max_Te = 2/3 * maximum(ϵ)
+    @test 9 <= max_Te <= 11
 
     ui = [
         U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:config.ncharge
