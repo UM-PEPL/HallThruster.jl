@@ -48,11 +48,32 @@ function solve(U, params, tspan; saveat)
     yield_interval = 2
     next_yield = yield_interval
     save_ind = 2
+    small_step_count = 0
+    uniform_steps = false
 
     while t < tspan[2]
-
+        # compute new timestep 
         if params.adaptive
-            params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+            if uniform_steps
+                params.dt[] = params.dtbase
+                #println(small_step_count)
+                small_step_count -= 1
+            else
+                params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+            end
+        end
+
+        # Count number of minimal timesteps in a row
+        if params.dt[] == params.dtmin
+            small_step_count += 1
+        elseif !uniform_steps
+            small_step_count = 0
+        end
+
+        if small_step_count >= params.max_small_steps
+            uniform_steps = true
+        elseif small_step_count == 0
+            uniform_steps = false
         end
 
         t += params.dt[]
@@ -131,3 +152,4 @@ function solve(U, params, tspan; saveat)
 
     return Solution(saveat[1:ind], u_save[1:ind], savevals[1:ind], retcode, params)
 end
+

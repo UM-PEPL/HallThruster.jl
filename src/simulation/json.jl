@@ -152,12 +152,16 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     num_cells = get_key(json_content, :num_cells, 200)
     duration_s = get_key(json_content, :duration_s, 1e-3)
     dt_s = get_key(json_content, :dt_s, 1e-8)
+    dtmin = get_key(json_content, :min_dt_s, 1e-10)
+    dtmax = get_key(json_content, :max_dt_s, 1e-7)
+    max_small_steps = get_key(json_content, :max_small_steps, 100)
 
     config = config_from_json(json_content)
 
     solution = run_simulation(
         config; grid = EvenGrid(num_cells), nsave = num_save,
-        duration = duration_s, dt = dt_s, verbose = verbose, adaptive
+        duration = duration_s, dt = dt_s, verbose = verbose, adaptive,
+        dtmin, dtmax, max_small_steps,
     )
 
     return solution
