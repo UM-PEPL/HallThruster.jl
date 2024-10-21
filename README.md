@@ -1,5 +1,5 @@
 ![HallThruster.jl Logo](./docs/src/assets/banner_light.svg#gh-dark-mode-only)
-![HallThruster.jl Logo](./docs/src/assets/banner_dark.svg#gh-light-mode-only)
+![HallThruster.jl Logo](./docs/src/assets/banner.svg#gh-light-mode-only)
 
 | **Documentation** | **Build Status**| **Paper**| **Repository DOI**|
 |:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
