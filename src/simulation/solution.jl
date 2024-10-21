@@ -71,11 +71,8 @@ function solve(U, params, tspan; saveat)
         end
 
         if small_step_count >= params.max_small_steps
-            println("taking uniform steps: time  = ", t)
-            println("expected increment: ", params.max_small_steps * params.dtbase)
             uniform_steps = true
         elseif small_step_count == 0
-            println("done taking uniform steps: time = ", t)
             uniform_steps = false
         end
 
@@ -125,7 +122,6 @@ function solve(U, params, tspan; saveat)
         # Save values at designated intervals
         # TODO interpolate these to be exact and make a bit more elegant
         if t > saveat[save_ind]
-            println(params.dt[])
             u_save[save_ind] .= U
 
             # save vector fields
