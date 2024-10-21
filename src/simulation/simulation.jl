@@ -136,7 +136,7 @@ function setup_simulation(
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 0.0, dtmax = 1e-7,
+        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
     )
 
     #check that Landmark uses the correct thermal conductivity
@@ -146,6 +146,7 @@ function setup_simulation(
 
     # If dt is provided with units, convert to seconds and then strip units
     dt = convert_to_float64(dt, u"s")
+    dtbase = dt
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
 
@@ -238,7 +239,7 @@ function setup_simulation(
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
-        dtmin, dtmax,
+        dtbase, dtmin, dtmax, max_small_steps,
         # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
         pe_factor = config.LANDMARK ? 3/2 : 1.0
     )
