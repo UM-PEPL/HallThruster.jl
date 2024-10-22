@@ -1,3 +1,6 @@
+# Ionization: Xenon -> Xenon+
+# Integrated from cross sections derived from S. F. Biagi's FORTRAN code MagBoltz, version 7.1 (Nov 2010)
+# Cross sections obtained from https://github.com/ECP-WarpX/warpx-data/tree/master/MCC_cross_sections/Xe
 Ionization energy (eV): 12.1298437
 Energy (eV)     Rate coefficient (m3/s)
 0.000000000000000000e+00 0.000000000000000000e+00
