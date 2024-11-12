@@ -100,12 +100,14 @@ function example_simulation(;ncells, duration, dt, nsave)
     HallThruster.current_eff(sol_1)
     HallThruster.divergence_eff(sol_1)
     HallThruster.voltage_eff(sol_1)
-    return sol_1
+    HallThruster.write_to_json("test.json", sol_1)
+    rm("test.json")
+    return sol_1, sol_2
 end
 
 # Precompile statements to improve load time
 SnoopPrecompile.@precompile_all_calls begin
-    example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+    sol_1, sol_2 = example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 end
 
 end # module

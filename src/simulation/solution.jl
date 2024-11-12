@@ -51,100 +51,109 @@ function solve(U, params, tspan; saveat)
     small_step_count = 0
     uniform_steps = false
 
-    while t < tspan[2]
-        # compute new timestep 
-        if params.adaptive
-            if uniform_steps
-                params.dt[] = params.dtbase
-                #println(small_step_count)
-                small_step_count -= 1
-            else
-                params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
-            end
-        end
-
-        # Count number of minimal timesteps in a row
-        if params.dt[] == params.dtmin
-            small_step_count += 1
-        elseif !uniform_steps
-            small_step_count = 0
-        end
-
-        if small_step_count >= params.max_small_steps
-            uniform_steps = true
-        elseif small_step_count == 0
-            uniform_steps = false
-        end
-
-        t += params.dt[]
-
-        # update heavy species quantities
-        integrate_heavy_species!(U, params, params.dt[])
-        update_heavy_species!(U, params)
-
-        # Check for NaNs in heavy species solve and terminate if necessary
-        nandetected = false
-        infdetected = false
-
-        @inbounds for j in 1:ncells, i in 1:nvars
-            if isnan(U[i, j])
-                @warn("NaN detected in variable $i in cell $j at time $(t)")
-                nandetected = true
-                retcode = :NaNDetected
-                break
-            elseif isinf(U[i, j])
-                @warn("Inf detected in variable $i in cell $j at time $(t)")
-                infdetected = true
-                retcode = :InfDetected
-                break
-            end
-        end
-
-        if nandetected || infdetected
-            break
-        end
-
-        # Update electron quantities
-        update_electrons!(params, t)
-
-        # Update plume geometry
-        update_plume_geometry!(U, params)
-
-        # Update the current iteration
-        iteration[] += 1
-
-        # Allow for system interrupts
-        if iteration[] == next_yield
-            yield()
-            iteration[] += yield_interval
-        end
-
-        # Save values at designated intervals
-        # TODO interpolate these to be exact and make a bit more elegant
-        if t > saveat[save_ind]
-            u_save[save_ind] .= U
-
-            # save vector fields
-            for field in _saved_fields_vector()
-                if field == :anom_variables
-                    for i in 1:num_anom_variables(params.config.anom_model)
-                        savevals[save_ind][field][i] .= params.cache[field][i]
-                    end
+    try
+        while t < tspan[2]
+            # compute new timestep 
+            if params.adaptive
+                if uniform_steps
+                    params.dt[] = params.dtbase
+                    #println(small_step_count)
+                    small_step_count -= 1
                 else
-                    cached_field::Vector{Float64} = params.cache[field]
-                    sv::Vector{Float64} = savevals[save_ind][field]
-                    sv .= cached_field
+                    params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
                 end
             end
 
-            # save matrix fields
-            for field in _saved_fields_matrix()
-                cached_field::Matrix{Float64} = params.cache[field]
-                sv::Matrix{Float64} = savevals[save_ind][field]
-                sv .= cached_field
+            # Count number of minimal timesteps in a row
+            if params.dt[] == params.dtmin
+                small_step_count += 1
+            elseif !uniform_steps
+                small_step_count = 0
             end
 
-            save_ind += 1
+            if small_step_count >= params.max_small_steps
+                uniform_steps = true
+            elseif small_step_count == 0
+                uniform_steps = false
+            end
+
+            t += params.dt[]
+
+            # update heavy species quantities
+            integrate_heavy_species!(U, params, params.dt[])
+            update_heavy_species!(U, params)
+
+            # Check for NaNs in heavy species solve and terminate if necessary
+            nandetected = false
+            infdetected = false
+
+            @inbounds for j in 1:ncells, i in 1:nvars
+                if isnan(U[i, j])
+                    @warn("NaN detected in variable $i in cell $j at time $(t)")
+                    nandetected = true
+                    retcode = :NaNDetected
+                    break
+                elseif isinf(U[i, j])
+                    @warn("Inf detected in variable $i in cell $j at time $(t)")
+                    infdetected = true
+                    retcode = :InfDetected
+                    break
+                end
+            end
+
+            if nandetected || infdetected
+                break
+            end
+
+            # Update electron quantities
+            update_electrons!(params, t)
+
+            # Update plume geometry
+            update_plume_geometry!(U, params)
+
+            # Update the current iteration
+            iteration[] += 1
+
+            # Allow for system interrupts
+            if iteration[] == next_yield
+                yield()
+                iteration[] += yield_interval
+            end
+
+            # Save values at designated intervals
+            # TODO interpolate these to be exact and make a bit more elegant
+            if t > saveat[save_ind]
+                u_save[save_ind] .= U
+
+                # save vector fields
+                for field in _saved_fields_vector()
+                    if field == :anom_variables
+                        for i in 1:num_anom_variables(params.config.anom_model)
+                            savevals[save_ind][field][i] .= params.cache[field][i]
+                        end
+                    else
+                        cached_field::Vector{Float64} = params.cache[field]
+                        sv::Vector{Float64} = savevals[save_ind][field]
+                        sv .= cached_field
+                    end
+                end
+
+                # save matrix fields
+                for field in _saved_fields_matrix()
+                    cached_field::Matrix{Float64} = params.cache[field]
+                    sv::Matrix{Float64} = savevals[save_ind][field]
+                    sv .= cached_field
+                end
+
+                save_ind += 1
+            end
+        end
+    catch e
+        if e isa InexactError || e isa DomainError
+            @warn("$(typeof(e)) encountered at time $(t)")
+            retcode = :Error
+        else
+            error(e)
         end
     end
 
