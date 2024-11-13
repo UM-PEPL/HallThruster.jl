@@ -51,6 +51,7 @@ function solve(U, params, tspan; saveat)
     small_step_count = 0
     uniform_steps = false
 
+    try
     while t < tspan[2]
         # compute new timestep 
         if params.adaptive
@@ -104,11 +105,18 @@ function solve(U, params, tspan; saveat)
             break
         end
 
-        # Update electron quantities
-        update_electrons!(params, t)
+        try
+            # Update electron quantities
+            update_electrons!(params, t)
 
-        # Update plume geometry
-        update_plume_geometry!(U, params)
+            # Update plume geometry
+            update_plume_geometry!(U, params)
+        catch e
+            if (e isa InexactError)
+                retcode = :Failure
+                break
+            end
+        end
 
         # Update the current iteration
         iteration[] += 1
