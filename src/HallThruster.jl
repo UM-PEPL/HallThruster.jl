@@ -9,7 +9,7 @@ using QuadGK: quadgk
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
-import SnoopPrecompile
+using PrecompileTools: @setup_workload, @compile_workload, @recompile_invalidations
 
 using JSON3
 using JLD2
@@ -91,6 +91,7 @@ function example_simulation(;ncells, duration, dt, nsave)
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
         neutral_temperature = 500u"K",
+        propellant = Krypton,
     )
     sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
     HallThruster.time_average(sol_1)
@@ -100,14 +101,38 @@ function example_simulation(;ncells, duration, dt, nsave)
     HallThruster.current_eff(sol_1)
     HallThruster.divergence_eff(sol_1)
     HallThruster.voltage_eff(sol_1)
-    HallThruster.write_to_json("test.json", sol_1)
-    rm("test.json")
     return sol_1, sol_2
 end
 
 # Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
-    sol_1, sol_2 = example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+@recompile_invalidations begin
+@setup_workload begin
+    JSON_DIR = joinpath(PACKAGE_ROOT, "test", "json")
+    JSON_FILES = readdir(JSON_DIR, join=true)
+    outfile = joinpath(JSON_DIR, "_out.json")
+
+    @compile_workload begin
+        try
+            sol1, sol2 = example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+            avg1 = time_average(sol1)
+            write_to_json(outfile, sol1)
+            write_to_json(outfile, avg1)
+            avg2 = time_average(sol2)
+            write_to_json(outfile, sol2)
+            write_to_json(outfile, avg2)
+            for file in JSON_FILES
+                sol = HallThruster.run_simulation(file, verbose = false)
+                avg = time_average(sol)
+                write_to_json(outfile, sol)
+                write_to_json(outfile, avg)
+            end
+        catch err
+            rm(outfile)
+            error(err)
+        end
+        rm(outfile)
+    end
+end
 end
 
 end # module

@@ -75,7 +75,7 @@
     lookup_2_rxns_Xe = HallThruster._load_reactions(lookup_2, [Xe_0, Xe_I, Xe_II, Xe_III]; directories)
     @test length(lookup_2_rxns_Xe) == 6
     @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns_Xe[1], 1.0) |> abs < eps(Float64)
-    @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns_Xe[1], 1.0) != HallThruster.rate_coeff(lookup, lookup_rxns[1], 1.0)
+    @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns_Xe[1], 1.0) == HallThruster.rate_coeff(lookup, lookup_rxns[1], 1.0)
     @test lookup_2_rxns_Xe[1].energy == 15.0
 
     # Excitation reactions

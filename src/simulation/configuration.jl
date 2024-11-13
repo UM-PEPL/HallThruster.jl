@@ -8,6 +8,8 @@ $(TYPEDFIELDS)
 struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel,
               EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
               IC<:InitialCondition, HS<:HyperbolicScheme}
+    # TODO: instead of embedding S_N, etc in config, have a flag for OVS and compile these normally?
+    # Otherwise, find a way to reduce the number of parameterizations here
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64

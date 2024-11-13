@@ -1,4 +1,7 @@
+using Preferences
 using HallThruster
+# disable precompilation to speed up tests
+set_preferences!(HallThruster, "precompile_workload" => false; force=true)
 using Test
 using Documenter
 using Statistics
@@ -6,6 +9,7 @@ using DelimitedFiles
 using LinearAlgebra
 using Unitful
 using SparseArrays
+
 
 doctest(HallThruster)
 

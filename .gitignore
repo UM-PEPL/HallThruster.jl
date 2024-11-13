@@ -13,6 +13,7 @@ test/*.png
 !docs/*.png
 run
 *.json
+!test/json/*
 !test/unit_tests/bfield_spt100.csv
 !test/unit_tests/input_twozone.json
 !test/unit_tests/input_shifted.json
