@@ -51,7 +51,6 @@ function solve(U, params, tspan; saveat)
     small_step_count = 0
     uniform_steps = false
 
-    try
     while t < tspan[2]
         # compute new timestep 
         if params.adaptive
@@ -115,6 +114,8 @@ function solve(U, params, tspan; saveat)
             if (e isa InexactError)
                 retcode = :Failure
                 break
+            else
+                throw(e)
             end
         end
 
