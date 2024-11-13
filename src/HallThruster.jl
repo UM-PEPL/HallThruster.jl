@@ -5,7 +5,6 @@ using DocStringExtensions
 
 using SparseArrays: Tridiagonal
 using PartialFunctions
-using QuadGK: quadgk
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
@@ -46,7 +45,6 @@ include("collisions/reactions.jl")
 include("collisions/ionization.jl")
 include("collisions/excitation.jl")
 include("collisions/elastic.jl")
-include("collisions/charge_exchange.jl")
 include("collisions/collision_frequencies.jl")
 
 include("simulation/initialization.jl")

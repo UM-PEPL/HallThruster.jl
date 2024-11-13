@@ -10,36 +10,6 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
     return fname
 end
 
-@inline function maxwellian_vdf(Tev, v)
-    sqrt(2/π) * v^2 * (me / e / Tev)^(3/2) * exp(-me * v^2 / 2 / e/ Tev)
-end
-
-function compute_rate_coeffs(energies, cross_section_func)
-    integrand(Te, v) = let ϵ = 1/2 * me * v^2 / e
-        cross_section_func(ϵ) * v * maxwellian_vdf(Te, v)
-    end
-
-    rate_coeffs = [
-        quadgk(integrand $ (2/3 * ϵ), 0.0, 10 * sqrt(2 * e * ϵ / me))[1] for ϵ in energies
-    ]
-    return rate_coeffs
-end
-
-function compute_rate_coeffs(cross_section_filename)
-    data = readdlm(cross_section_filename, ',')
-    energies = 1.0:150.0
-
-    ϵ, σ = data[:, 1], data[:, 2] * 1e-20
-    cross_section_func = LinearInterpolation(ϵ, σ)
-    rate_coeffs = compute_rate_coeffs(energies, cross_section_func)
-
-    fname = splitpath(cross_section_filename)[end]
-    open("reactions/$fname", "w") do io
-        println(io, "Energy (eV)	Rate coefficient (m3/s)")
-        writedlm(io, [energies rate_coeffs])
-    end
-end
-
 function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FOLDER)
     rates_file = rate_coeff_filename(reactant, product, reaction_type, folder)
     if ispath(rates_file)
