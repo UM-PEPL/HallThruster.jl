@@ -78,33 +78,33 @@ function solve(U, params, tspan; saveat)
 
         t += params.dt[]
 
-        # update heavy species quantities
-        integrate_heavy_species!(U, params, params.dt[])
-        update_heavy_species!(U, params)
+        try
+            # update heavy species quantities
+            integrate_heavy_species!(U, params, params.dt[])
+            update_heavy_species!(U, params)
 
-        # Check for NaNs in heavy species solve and terminate if necessary
-        nandetected = false
-        infdetected = false
+            # Check for NaNs in heavy species solve and terminate if necessary
+            nandetected = false
+            infdetected = false
 
-        @inbounds for j in 1:ncells, i in 1:nvars
-            if isnan(U[i, j])
-                @warn("NaN detected in variable $i in cell $j at time $(t)")
-                nandetected = true
-                retcode = :NaNDetected
-                break
-            elseif isinf(U[i, j])
-                @warn("Inf detected in variable $i in cell $j at time $(t)")
-                infdetected = true
-                retcode = :InfDetected
+            @inbounds for j in 1:ncells, i in 1:nvars
+                if isnan(U[i, j])
+                    @warn("NaN detected in variable $i in cell $j at time $(t)")
+                    nandetected = true
+                    retcode = :NaNDetected
+                    break
+                elseif isinf(U[i, j])
+                    @warn("Inf detected in variable $i in cell $j at time $(t)")
+                    infdetected = true
+                    retcode = :InfDetected
+                    break
+                end
+            end
+
+            if nandetected || infdetected
                 break
             end
-        end
 
-        if nandetected || infdetected
-            break
-        end
-
-        try
             # Update electron quantities
             update_electrons!(params, t)
 
