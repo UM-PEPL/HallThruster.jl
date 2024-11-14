@@ -25,7 +25,7 @@ function apply_reactions!(dU, U, params)
 
     @inbounds for (rxn, reactant_index, product_index) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
         for i in 2:ncells-1
-            r = rate_coeff(model, rxn, ϵ[i])
+            r = rate_coeff(rxn, ϵ[i])
             ρ_reactant = U[reactant_index, i]
             ρdot = reaction_rate(r, ne[i], ρ_reactant)
             dt_max = min(dt_max, ρ_reactant / ρdot)
@@ -120,12 +120,11 @@ end
 function excitation_losses!(Q, params)
     (;excitation_reactions, cache, ncells, config) = params
     (;νex, ϵ, nn, ne, K) = cache
-    model = config.excitation_model
 
     @. νex = 0.0
     @inbounds for rxn in excitation_reactions
         for i in 2:ncells-1
-            r = rate_coeff(model, rxn, ϵ[i])
+            r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], nn[i])
             νex[i] += ndot / ne[i]
             Q[i] += ndot * (rxn.energy - !config.LANDMARK * K[i])
