@@ -14,11 +14,11 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     if ispath(rates_file)
         energy, rates = open(rates_file) do io
             if reaction_type == "ionization" || reaction_type == "excitation"
-                energy = split(readline(io), ':')[2] |> strip |> parse $ (Float64)
+                energy = parse(Float64, strip(split(readline(io), ':')[2]))
             else
                 energy = 0.0
             end
-            rates = readdlm(io, skipstart=1)
+            rates = readdlm(io, skipstart = 1)
             energy, rates
         end
     else
@@ -32,17 +32,18 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     return energy, rate_coeffs
 end
 
+@inline lerp(a, b, t) = (1.0 - t) * a + t * b
+
 """
 By default, rate_coeff looks for a lookup table stored in the reaction struct
 """
 function rate_coeff(rxn::Reaction, energy)
-    ind = Base.trunc(Int64, energy)
+    ind = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind
-    r1 = rxn.rate_coeffs[ind+1]
-    r2 = rxn.rate_coeffs[ind+2]
-    t = energy - ind
-    return (1 - t) * r1 + t * r2
+    r1 = rxn.rate_coeffs[ind + 1]
+    r2 = rxn.rate_coeffs[ind + 2]
+    return lerp(r1, r2, energy - ind)
 end
 
 function _indices(symbol, reactions, species_range_dict)
@@ -55,5 +56,9 @@ function _indices(symbol, reactions, species_range_dict)
     return indices
 end
 
-reactant_indices(reactions, species_range_dict) = _indices(:reactant, reactions, species_range_dict)
-product_indices(reactions, species_range_dict) = _indices(:product, reactions, species_range_dict)
+function reactant_indices(reactions, species_range_dict)
+    _indices(:reactant, reactions, species_range_dict)
+end
+function product_indices(reactions, species_range_dict)
+    _indices(:product, reactions, species_range_dict)
+end

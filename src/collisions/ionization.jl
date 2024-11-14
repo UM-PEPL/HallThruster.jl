@@ -15,7 +15,8 @@ function Base.show(io::IO, i::IonizationReaction)
     return print(io, rxn_str)
 end
 
-function load_ionization_reactions(model::Symbol, species; directories = String[], kwargs...)
+function load_ionization_reactions(
+        model::Symbol, species; directories = String[], kwargs...)
     if model == :Landmark
         rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
         ϵ = rates[:, 1]
@@ -25,7 +26,7 @@ function load_ionization_reactions(model::Symbol, species; directories = String[
         rate_coeffs = itp.(xs)
         return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeffs)]
     elseif model == :Lookup
-        species_sorted = sort(species; by=x -> x.Z)
+        species_sorted = sort(species; by = x -> x.Z)
         reactions = IonizationReaction[]
         folders = [directories; REACTION_FOLDER]
         for i in 1:length(species)
@@ -36,7 +37,8 @@ function load_ionization_reactions(model::Symbol, species; directories = String[
                 for folder in folders
                     filename = rate_coeff_filename(reactant, product, "ionization", folder)
                     if ispath(filename)
-                        energy, rate_coeff = load_rate_coeffs(reactant, product, "ionization",folder)
+                        energy, rate_coeff = load_rate_coeffs(
+                            reactant, product, "ionization", folder)
                         reaction = IonizationReaction(energy, reactant, product, rate_coeff)
                         push!(reactions, reaction)
                         found = true

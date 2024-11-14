@@ -7,8 +7,6 @@ using LinearAlgebra: Tridiagonal
 using PartialFunctions
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
-
-# TODO: use json files for restarts
 using JSON3
 
 # path to the HallThruster directory
