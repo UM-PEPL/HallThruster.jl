@@ -158,14 +158,19 @@ function setup_simulation(
     end
 
     # load collisions and reactions
-    ionization_reactions = load_ionization_reactions(config.ionization_model, species; directories = config.reaction_rate_directories)
+    directories = config.reaction_rate_directories
+    if config.LANDMARK
+        landmark_rates_dir = joinpath(LANDMARK_FOLDER, "reactions")
+        directories = [landmark_rates_dir; directories]
+    end
+    ionization_reactions = load_ionization_reactions(config.ionization_model, species; directories)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
-    excitation_reactions = load_excitation_reactions(config.excitation_model, species)
+    excitation_reactions = load_excitation_reactions(config.excitation_model, species; directories)
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = load_elastic_collsions(config.electron_neutral_model, species)
+    electron_neutral_collisions = load_elastic_collsions(config.electron_neutral_model, species; directories)
 
     index = configure_index(fluids, fluid_ranges)
 

@@ -7,7 +7,7 @@ function load_elastic_collsions(model::Symbol, species; directories = String[], 
     if model == :None
         return ElasticCollision[]
     elseif model == :Landmark
-        return [ElasticCollision(Xenon(0), Float64[2.5e-13])]
+        return [ElasticCollision(Xenon(0), Float64[2.5e-13, 2.5e-13, 2.5e-13])]
     elseif model == :Lookup
         species_sorted = sort(species; by=x -> x.Z)
         reactions = ElasticCollision[]

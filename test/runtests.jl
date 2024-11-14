@@ -5,7 +5,7 @@ using Statistics
 using DelimitedFiles
 using LinearAlgebra
 using Unitful
-using SparseArrays
+using Printf
 
 doctest(HallThruster)
 
@@ -56,9 +56,9 @@ function run_landmark(duration = 1e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL
         anode_Te = 2/3 * ϵ_anode,
         cathode_Te = 2/3 * ϵ_cathode,
         discharge_voltage = 300.0,
-        ionization_model = HallThruster.LandmarkIonizationLookup(),
-        excitation_model = HallThruster.LandmarkExcitationLookup(),
-        electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
+        ionization_model = :Landmark,
+        excitation_model = :Landmark,
+        electron_neutral_model = :Landmark,
         electron_ion_collisions = false,
         wall_loss_model = HallThruster.ConstantSheathPotential(20, αϵ_in, αϵ_out),
         LANDMARK = true,
@@ -79,8 +79,6 @@ function run_landmark(duration = 1e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL
     )
     return sol
 end;
-
-using Printf
 
 @testset "LANDMARK regression tests" begin
     CFLs = [0.25, 0.799, 0.799]

@@ -16,7 +16,15 @@ function Base.show(io::IO, i::IonizationReaction)
 end
 
 function load_ionization_reactions(model::Symbol, species; directories = String[], kwargs...)
-    if model == :Lookup
+    if model == :Landmark
+        rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
+        ϵ = rates[:, 1]
+        k = rates[:, 2]
+        itp = LinearInterpolation(ϵ, k)
+        xs = 0:1.0:255
+        rate_coeffs = itp.(xs)
+        return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeffs)]
+    elseif model == :Lookup
         species_sorted = sort(species; by=x -> x.Z)
         reactions = IonizationReaction[]
         folders = [directories; REACTION_FOLDER]
@@ -42,15 +50,7 @@ function load_ionization_reactions(model::Symbol, species; directories = String[
         end
 
         return reactions
-    elseif model == :Landmark
-        rates = readdlm(LANDMARK_RATES_FILE, ',', skipstart = 1)
-        ϵ = rates[:, 1]
-        k = rates[:, 2]
-        itp = LinearInterpolation(ϵ, k)
-        xs = 0:1.0:255
-        rate_coeffs = itp.(xs)
-        return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeffs)]
     else
-        throw(ArgumentError("Invalid ionization moddl $(model)"))
+        throw(ArgumentError("Invalid ionization moddl $(model). Select :Landmark or :Lookup"))
     end
 end
