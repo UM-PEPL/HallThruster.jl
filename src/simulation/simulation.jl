@@ -176,11 +176,11 @@ function setup_simulation(
 
     use_restart = restart !== nothing
 
-    if use_restart
-        U, cache = load_restart(grid1d, config, restart)
-    else
+    #if use_restart
+        #U, cache = load_restart(grid1d, config, restart)
+    #else
         U, cache = allocate_arrays(grid1d, config)
-    end
+    #end
 
     z_cell = grid1d.cell_centers
     z_edge = grid1d.edges
@@ -248,7 +248,7 @@ function setup_simulation(
     )
 
     # Compute maximum allowed iterations
-    if !use_restart
+    #if !use_restart
         initialize!(U, params)
 
         # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
@@ -256,7 +256,7 @@ function setup_simulation(
 
         # Initialize plume
         update_plume_geometry!(U, params, initialize = true)
-    end
+    #end
 
     # make values in params available for first timestep
     update_heavy_species!(U, params)
