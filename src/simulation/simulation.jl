@@ -170,7 +170,7 @@ function setup_simulation(
     excitation_reactions = load_excitation_reactions(config.excitation_model, species; directories)
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = load_elastic_collsions(config.electron_neutral_model, species; directories)
+    electron_neutral_collisions = load_elastic_collisions(config.electron_neutral_model, species; directories)
 
     index = configure_index(fluids, fluid_ranges)
 

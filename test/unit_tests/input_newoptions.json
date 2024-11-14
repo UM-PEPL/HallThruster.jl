@@ -26,7 +26,7 @@
     "propellant": "Xenon",
     "num_cells": 100,
     "dt_s": 1.25e-08,
-    "duration_s": 0.002,
+    "duration_s": 1e-7,
     "num_save": 1000,
     "cathode_location_m": 0.08,
     "max_charge": 1,

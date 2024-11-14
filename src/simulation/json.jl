@@ -6,7 +6,7 @@ function get_key(json_content, key, default)
     end
 end
 
-function config_from_json(json_content::JSON3.Object) 
+function config_from_json(json_content::JSON3.Object; verbose=true) 
     pressure_z0 = NaN
     pressure_dz = NaN
     pressure_pstar = NaN
@@ -63,7 +63,9 @@ function config_from_json(json_content::JSON3.Object)
         HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
     catch e
         if thruster_name == "SPT-100"
-            @warn "Could not find provided magnetic field file. Using default SPT-100 field."
+            if verbose
+                @warn "Could not find provided magnetic field file. Using default SPT-100 field."
+            end
             HallThruster.B_field_SPT_100 $ (0.016, channel_length)
         else
             error(e)
@@ -156,7 +158,7 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     dtmax = get_key(json_content, :max_dt_s, 1e-7)
     max_small_steps = get_key(json_content, :max_small_steps, 100)
 
-    config = config_from_json(json_content)
+    config = config_from_json(json_content; verbose)
 
     solution = run_simulation(
         config; grid = EvenGrid(num_cells), nsave = num_save,

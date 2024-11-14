@@ -1,26 +1,22 @@
 module HallThruster
 
-using DocStringExtensions
+using PrecompileTools: @compile_workload, @recompile_invalidations
 
+using DocStringExtensions
 using LinearAlgebra: Tridiagonal
 using PartialFunctions
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
-using PrecompileTools: @compile_workload
-
+# TODO: use json files for restarts
 using JSON3
-using JLD2
-
-# Packages used for making plots
-using Measures: mm
-using RecipesBase
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
+const TEST_DIR = joinpath(PACKAGE_ROOT, "test", "unit_tests")
 
 include("utilities/utility_functions.jl")
 
@@ -59,10 +55,7 @@ include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")
 include("simulation/json.jl")
-include("simulation/restart.jl")
 include("simulation/postprocess.jl")
-include("visualization/plotting.jl")
-include("visualization/recipes.jl")
 
 export time_average, Xenon, Krypton
 
@@ -103,6 +96,18 @@ end
 # Precompile statements to improve load time
 @compile_workload begin
     example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+    outfile = joinpath(TEST_DIR, "_out.json")
+
+    for file in readdir(TEST_DIR, join=true) 
+        if isdir(file) || splitext(file)[end] != ".json"
+            continue
+        end
+        sim = run_simulation(file, verbose=false)
+        avg = time_average(sim)
+        write_to_json(outfile, sim)
+        write_to_json(outfile, avg)
+    end
+    rm(outfile, force=true)
 end
 
 end # module

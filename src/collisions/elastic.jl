@@ -3,7 +3,7 @@ Base.@kwdef struct ElasticCollision <: Reaction
     rate_coeffs::Vector{Float64}
 end
 
-function load_elastic_collsions(model::Symbol, species; directories = String[], kwargs...)
+function load_elastic_collisions(model::Symbol, species; directories = String[], kwargs...)
     if model == :None
         return ElasticCollision[]
     elseif model == :Landmark
