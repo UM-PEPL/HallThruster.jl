@@ -6,7 +6,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 $(TYPEDFIELDS)
 """
 struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel,
-              EX<:ExcitationModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
+              HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
               IC<:InitialCondition, HS<:HyperbolicScheme}
     discharge_voltage::Float64
     cathode_potential::Float64
@@ -22,7 +22,7 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     anom_model::A
     conductivity_model::TC
     ionization_model::IZ
-    excitation_model::EX
+    excitation_model::Symbol
     electron_neutral_model::Symbol
     electron_ion_collisions::Bool
     min_number_density::Float64
@@ -70,7 +70,7 @@ function Config(;
         anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
         conductivity_model::ThermalConductivityModel = Mitchner(),
         ionization_model::IonizationModel   = IonizationLookup(),
-        excitation_model::ExcitationModel   = ExcitationLookup(),
+        excitation_model::Symbol            = :Lookup, 
         electron_neutral_model::Symbol      = :Lookup,
         electron_ion_collisions::Bool       = true,
         min_number_density                  = 1e6u"m^-3",

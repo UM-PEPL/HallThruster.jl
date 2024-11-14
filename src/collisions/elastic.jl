@@ -32,5 +32,7 @@ function load_elastic_collsions(model::Symbol, species; directories = String[], 
             end
         end
         return reactions
+    else
+        throw(ArgumentError("Invalid elastic collision model $(model). Choose :None, :Landmark, or :Lookup."))
     end
 end
