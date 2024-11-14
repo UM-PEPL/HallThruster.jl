@@ -6,30 +6,45 @@ function get_key(json_content, key, default)
     end
 end
 
-function config_from_json(json_content::JSON3.Object; verbose=true) 
-    pressure_z0 = NaN
-    pressure_dz = NaN
-    pressure_pstar = NaN
-    pressure_alpha = NaN
-    apply_thrust_divergence_correction = true
+function assign_json_key(keyname, opt, pairs...)
+    sym = Symbol(opt)
+    dict = Dict(pairs...)
+    if !haskey(dict, sym)
+        valid_options = map(string, [k for (k, _) in dict])
+        throw(ArgumentError("Invalid $(keyname) '$(opt)' for JSON input. \
+                            Please select one of $(valid_options)"))
+    end
+    return dict[sym]
+end
 
-    (;
-        # Design
-        channel_length, inner_radius, outer_radius,
-        magnetic_field_file, magnetically_shielded,
-        propellant, wall_material,
-        anode_potential, cathode_potential,
-        anode_mass_flow_rate,
-        # Simulation
-        anom_model, cathode_location_m, max_charge,
-        num_cells, dt_s, duration_s, num_save,
-        flux_function, limiter, reconstruct,
-        ion_wall_losses, electron_ion_collisions,
-        # Parameters
+function config_from_json(json_content::JSON3.Object; verbose=true)
+    (;     # Design
+        channel_length,
+        inner_radius,
+        outer_radius,
+        magnetic_field_file,
+        magnetically_shielded,
+        propellant,
+        wall_material,
+        anode_potential,
+        cathode_potential,
+        anode_mass_flow_rate,     # Simulation
+        anom_model,
+        cathode_location_m,
+        max_charge,
+        flux_function,
+        limiter,
+        reconstruct,
+        ion_wall_losses,
+        electron_ion_collisions,     # Parameters
         sheath_loss_coefficient,
-        ion_temp_K, neutral_temp_K, neutral_velocity_m_s,
-        cathode_electron_temp_eV, inner_outer_transition_length_m,
-        background_pressure_Torr, background_temperature_K,
+        ion_temp_K,
+        neutral_temp_K,
+        neutral_velocity_m_s,
+        cathode_electron_temp_eV,
+        inner_outer_transition_length_m,
+        background_pressure_Torr,
+        background_temperature_K,
     ) = json_content
 
     # Thruster name
@@ -39,7 +54,9 @@ function config_from_json(json_content::JSON3.Object; verbose=true)
     anom_model_coeffs = get_key(json_content, :anom_model_coeffs, [0.00625, 0.0625])
 
     # Whether inbuilt divergence model is used to correct thrust
-    apply_thrust_divergence_correction = get_key(json_content, :apply_thrust_divergence_correction, true)
+    apply_thrust_divergence_correction = get_key(
+        json_content, :apply_thrust_divergence_correction, true
+    )
 
     # Whether we solve a quasi-1D plume expansion
     solve_plume = get_key(json_content, :solve_plume, true)
@@ -48,15 +65,11 @@ function config_from_json(json_content::JSON3.Object; verbose=true)
     electron_plume_loss_scale = get_key(json_content, :plume_loss_coefficient, 1.0)
 
     # neutral ingestion multiplier
-    neutral_ingestion_multiplier::Float64 = get_key(json_content, :neutral_ingestion_multiplier, 1.0)
+    neutral_ingestion_multiplier::Float64 = get_key(
+        json_content, :neutral_ingestion_multiplier, 1.0
+    )
 
-    # Optional parameters for pressure-dependent models
-    if  anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm" ||
-        anom_model == "ShiftedMultiBohm" || anom_model == "ShiftedGaussianBohm"
-        (;pressure_z0, pressure_dz, pressure_pstar, pressure_alpha) = json_content
-    end
-
-    geometry = Geometry1D(;channel_length, outer_radius, inner_radius)
+    geometry = Geometry1D(; channel_length, outer_radius, inner_radius)
 
     bfield_func = try
         bfield_data = readdlm(magnetic_field_file, ',')
@@ -66,77 +79,109 @@ function config_from_json(json_content::JSON3.Object; verbose=true)
             if verbose
                 @warn "Could not find provided magnetic field file. Using default SPT-100 field."
             end
-            HallThruster.B_field_SPT_100 $ (0.016, channel_length)
+            HallThruster.B_field_SPT_100$(0.016, channel_length)
         else
             error(e)
         end
     end
 
+    # Construct a `thruster`
     thruster = HallThruster.Thruster(;
-        name = thruster_name,
-        geometry = geometry,
-        magnetic_field = bfield_func,
-        shielded = magnetically_shielded
+        name=thruster_name,
+        geometry=geometry,
+        magnetic_field=bfield_func,
+        shielded=magnetically_shielded,
     )
 
-    # assign anomalous transport model
-    anom_model = if anom_model == "NoAnom"
-        NoAnom()
-    elseif anom_model == "Bohm"
-        Bohm(anom_model_coeffs[1])
-    elseif anom_model == "TwoZoneBohm"
-        TwoZoneBohm((anom_model_coeffs[1], anom_model_coeffs[2]))
-    elseif anom_model == "MultiLogBohm"
-        MultiLogBohm(anom_model_coeffs)
-    elseif anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
-        coeff_tuple = (anom_model_coeffs[1], anom_model_coeffs[2])
-        ShiftedTwoZoneBohm(coeff_tuple, pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
-    elseif anom_model == "ShiftedMultiBohm"
-        N = length(anom_model_coeffs)
-        ShiftedMultiBohm(
-            anom_model_coeffs[1:N÷2], anom_model_coeffs[N÷2 + 1], pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
-        )
-    elseif anom_model == "ShiftedGaussianBohm"
-        ShiftedGaussianBohm(
-            anom_model_coeffs[1], anom_model_coeffs[2], anom_model_coeffs[3], anom_model_coeffs[4],
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha
-        )
-    end
+    # Assign anomalous transport models
+    anom_model_fn = assign_json_key(
+        "anom_model",
+        anom_model,
+        :NoAnom => (_, _) -> NoAnom(),
+        :Bohm => (_, c) -> Bohm(c[1]),
+        :TwoZoneBohm => (_, c) -> TwoZoneBohm(c[1], c[2]),
+        :MultiLogBohm => (_, c) -> MultiLogBohm(c),
+        :ShiftedTwoZone =>
+            (js, c) -> ShiftedTwoZoneBohm(
+                (c[1], c[2]),
+                js.pressure_z0,
+                js.pressure_dz,
+                js.pressure_pstar,
+                js.pressure_alpha,
+            ),
+        :ShiftedMultiBohm =>
+            (js, c) -> ShiftedMultiBohm(
+                c[1:(length(c) ÷ 2)],
+                c[length(c) ÷ 2 + 1],
+                js.pressure_z0,
+                js.pressure_dz,
+                js.pressure_pstar,
+                js.pressure_alpha,
+            ),
+        :ShiftedGaussianBohm =>
+            (js, c) -> ShiftedGaussianBohm(
+                c[1],
+                c[2],
+                c[3],
+                c[4],
+                js.pressure_z0,
+                js.pressure_dz,
+                js.pressure_pstar,
+                js.pressure_alpha,
+            ),
+    )
+    anom_model = anom_model_fn(json_content, anom_model_coeffs)
+
+    propellant = assign_json_key(
+        "propellant", propellant, :Xenon => Xenon, :Krypton => Krypton, :Argon => Argon
+    )
+
+    wall_material = assign_json_key(
+        "wall material", wall_material, :BNSiO2 => BNSiO2, :BoronNitride => BoronNitride
+    )
+
+    flux_function = assign_json_key(
+        "flux function",
+        flux_function,
+        :rusanov => rusanov,
+        :HLLE => HLLE,
+        :global_lax_friedrichs => global_lax_friedrichs,
+    )
+
+    limiter = assign_json_key("limiter", limiter, :van_leer => van_leer, :minmod => minmod)
 
     config = HallThruster.Config(;
         thruster,
-        propellant = eval(Symbol(propellant)),
+        propellant=propellant,
         anom_model,
-        domain = (0.0, cathode_location_m),
-        discharge_voltage = anode_potential - cathode_potential,
-        anode_mass_flow_rate = anode_mass_flow_rate,
-        cathode_potential = cathode_potential,
-        ncharge = max_charge,
-        wall_loss_model = WallSheath(eval(Symbol(wall_material)), Float64(sheath_loss_coefficient)),
-        ion_wall_losses = ion_wall_losses,
-        cathode_Te = cathode_electron_temp_eV,
-        LANDMARK = false,
-        ion_temperature = ion_temp_K,
-        neutral_temperature = neutral_temp_K,
-        neutral_velocity = neutral_velocity_m_s,
-        electron_ion_collisions = electron_ion_collisions,
-        min_electron_temperature = cathode_electron_temp_eV,
-        transition_length = inner_outer_transition_length_m,
-        scheme = HyperbolicScheme(;
-            flux_function = eval(Symbol(flux_function)), limiter = eval(Symbol(limiter)), reconstruct
-        ),
-        background_pressure = background_pressure_Torr * u"Torr",
-        background_neutral_temperature = background_temperature_K * u"K",
+        domain=(0.0, cathode_location_m),
+        discharge_voltage=anode_potential - cathode_potential,
+        anode_mass_flow_rate=anode_mass_flow_rate,
+        cathode_potential=cathode_potential,
+        ncharge=max_charge,
+        wall_loss_model=WallSheath(wall_material, Float64(sheath_loss_coefficient)),
+        ion_wall_losses=ion_wall_losses,
+        cathode_Te=cathode_electron_temp_eV,
+        LANDMARK=false,
+        ion_temperature=ion_temp_K,
+        neutral_temperature=neutral_temp_K,
+        neutral_velocity=neutral_velocity_m_s,
+        electron_ion_collisions=electron_ion_collisions,
+        min_electron_temperature=cathode_electron_temp_eV,
+        transition_length=inner_outer_transition_length_m,
+        scheme=HyperbolicScheme(; flux_function, limiter, reconstruct),
+        background_pressure=background_pressure_Torr * u"Torr",
+        background_neutral_temperature=background_temperature_K * u"K",
         neutral_ingestion_multiplier,
         solve_plume,
         apply_thrust_divergence_correction,
-        electron_plume_loss_scale
+        electron_plume_loss_scale,
     )
 
     return config
 end
 
-function config_from_json(json_path::String; is_path = true, kwargs...) 
+function config_from_json(json_path::String; is_path=true, kwargs...)
     if is_path
         json_content = JSON3.read(read(json_path, String))
     else
@@ -146,9 +191,7 @@ function config_from_json(json_path::String; is_path = true, kwargs...)
     return config_from_json(json_content)
 end
 
-
-function run_simulation(json_content::JSON3.Object; verbose = true)
-    
+function run_simulation(json_content::JSON3.Object; verbose=true)
     adaptive = get_key(json_content, :adaptive, true)
     num_save = get_key(json_content, :num_save, 100)
     num_cells = get_key(json_content, :num_cells, 200)
@@ -161,21 +204,27 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
     config = config_from_json(json_content; verbose)
 
     solution = run_simulation(
-        config; grid = EvenGrid(num_cells), nsave = num_save,
-        duration = duration_s, dt = dt_s, verbose = verbose, adaptive,
-        dtmin, dtmax, max_small_steps,
+        config;
+        grid=EvenGrid(num_cells),
+        nsave=num_save,
+        duration=duration_s,
+        dt=dt_s,
+        verbose=verbose,
+        adaptive,
+        dtmin,
+        dtmax,
+        max_small_steps,
     )
 
     return solution
 end
 
-function run_simulation(json_path::String; is_path = true, kwargs...)
-
+function run_simulation(json_path::String; is_path=true, kwargs...)
     if is_path
         json_content = JSON3.read(read(json_path, String))
     else
         json_content = JSON3.read(json_path)
     end
 
-    run_simulation(json_content; kwargs...)
+    return run_simulation(json_content; kwargs...)
 end
