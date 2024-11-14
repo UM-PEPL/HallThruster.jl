@@ -1,14 +1,13 @@
 module HallThruster
 
-using LinearAlgebra
 using DocStringExtensions
 
-using SparseArrays: Tridiagonal
+using LinearAlgebra: Tridiagonal
 using PartialFunctions
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
-import SnoopPrecompile
+using PrecompileTools: @compile_workload
 
 using JSON3
 using JLD2
@@ -91,18 +90,18 @@ function example_simulation(;ncells, duration, dt, nsave)
         neutral_temperature = 500u"K",
     )
     sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
-    HallThruster.time_average(sol_1)
-    HallThruster.discharge_current(sol_1)
-    HallThruster.thrust(sol_1)
-    HallThruster.mass_eff(sol_1)
-    HallThruster.current_eff(sol_1)
-    HallThruster.divergence_eff(sol_1)
-    HallThruster.voltage_eff(sol_1)
+    time_average(sol_1)
+    discharge_current(sol_1)
+    thrust(sol_1)
+    mass_eff(sol_1)
+    current_eff(sol_1)
+    divergence_eff(sol_1)
+    voltage_eff(sol_1)
     return sol_1
 end
 
 # Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
+@compile_workload begin
     example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
 end
 

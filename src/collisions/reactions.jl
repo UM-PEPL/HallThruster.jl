@@ -38,7 +38,7 @@ abstract type ReactionModel end
 """
 By default, rate_coeff looks for a lookup table stored in the reaction struct
 """
-function rate_coeff(::ReactionModel, rxn::Reaction, energy)
+function rate_coeff(::Any, rxn::Reaction, energy)
     ind = Base.trunc(Int64, energy)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind

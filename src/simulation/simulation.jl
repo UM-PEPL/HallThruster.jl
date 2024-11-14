@@ -165,7 +165,7 @@ function setup_simulation(
     excitation_reactions = _load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = _load_reactions(config.electron_neutral_model, unique(species))
+    electron_neutral_collisions = load_elastic_collsions(config.electron_neutral_model, unique(species))
 
     index = configure_index(fluids, fluid_ranges)
 
@@ -205,7 +205,6 @@ function setup_simulation(
 
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
-
 
     # Simulation parameters
     params = (;
