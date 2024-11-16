@@ -244,9 +244,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions=false)
             UR_ions = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i])
 
             uL = velocity(UL_ions, fluid)
-            TL = temperature(UL_ions, fluid)
             uR = velocity(UR_ions, fluid)
-            TR = temperature(UR_ions, fluid)
             aL = sound_speed(UL_ions, fluid)
             aR = sound_speed(UL_ions, fluid)
 
