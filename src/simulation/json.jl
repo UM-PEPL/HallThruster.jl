@@ -72,14 +72,13 @@ function config_from_json(json_content::JSON3.Object; verbose=true)
     geometry = Geometry1D(; channel_length, outer_radius, inner_radius)
 
     bfield_func = try
-        bfield_data = readdlm(magnetic_field_file, ',')
-        HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+        MagneticField(magnetic_field_file)
     catch e
         if thruster_name == "SPT-100"
             if verbose
                 @warn "Could not find provided magnetic field file. Using default SPT-100 field."
             end
-            HallThruster.B_field_SPT_100$(0.016, channel_length)
+            B_field_SPT_100()
         else
             error(e)
         end

@@ -1,5 +1,5 @@
 function allocate_arrays(grid, config)
-    (;ncharge, anom_model) = config
+    (; ncharge, anom_model) = config
 
     # made less general to handle common use cases as part of fluid refactor
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
@@ -11,7 +11,7 @@ function allocate_arrays(grid, config)
     U = zeros(nvariables, ncells)
 
     # Caches for energy solve
-    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1))
     bϵ = zeros(ncells)
 
     # Collision frequencies
@@ -71,12 +71,12 @@ function allocate_arrays(grid, config)
     niui = zeros(ncharge, ncells)
 
     # ion current
-    ji  = zeros(ncells)
+    ji = zeros(ncells)
 
     # Neutral density
     nn = zeros(ncells)
     γ_SEE = zeros(ncells)
-    Id  = [0.0]
+    Id = [0.0]
     error_integral = [0.0]
     Id_smoothed = [0.0]
     Vs = [0.0]
@@ -115,46 +115,111 @@ function allocate_arrays(grid, config)
     dt_u = zeros(nedges)
 
     cache = (;
-        Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, ϵ, Tev, pe, ue, ∇pe,
-        νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
-        ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
-        error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
-        errors, dcoeffs,
-        ohmic_heating, wall_losses, inelastic_losses,
-        channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
-        anom_variables, dt_iz, dt_E, dt_u, dt
+        Aϵ,
+        bϵ,
+        nϵ,
+        B,
+        νan,
+        νc,
+        μ,
+        ϕ,
+        ∇ϕ,
+        ne,
+        ϵ,
+        Tev,
+        pe,
+        ue,
+        ∇pe,
+        νen,
+        νei,
+        radial_loss_frequency,
+        νew_momentum,
+        νiw,
+        νe,
+        κ,
+        F,
+        UL,
+        UR,
+        Z_eff,
+        λ_global,
+        νiz,
+        νex,
+        K,
+        Id,
+        ji,
+        ni,
+        ui,
+        Vs,
+        niui,
+        nn,
+        k,
+        u1,
+        γ_SEE,
+        cell_cache_1,
+        error_integral,
+        Id_smoothed,
+        anom_multiplier,
+        smoothing_time_constant,
+        errors,
+        dcoeffs,
+        ohmic_heating,
+        wall_losses,
+        inelastic_losses,
+        channel_area,
+        dA_dz,
+        channel_height,
+        inner_radius,
+        outer_radius,
+        tanδ,
+        anom_variables,
+        dt_iz,
+        dt_E,
+        dt_u,
+        dt,
     )
 
     return U, cache
 end
 
 function setup_simulation(
-        config::Config;
-        grid::HallThrusterGrid = EvenGrid(0),
-        ncells = 0,
-        dt, restart = nothing,
-        CFL = 0.799, adaptive = false,
-        control_current = false, target_current = 0.0,
-        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
-    )
+    config::Config;
+    grid::HallThrusterGrid=EvenGrid(0),
+    ncells=0,
+    dt,
+    restart=nothing,
+    CFL=0.799,
+    adaptive=false,
+    control_current=false,
+    target_current=0.0,
+    Kp=0.0,
+    Ti=Inf,
+    Td=0.0,
+    time_constant=5e-4,
+    dtmin=1e-10,
+    dtmax=1e-7,
+    max_small_steps=100,
+)
 
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
-        error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
+        error(
+            "LANDMARK configuration needs to use the LANDMARK thermal conductivity model."
+        )
     end
 
     # If dt is provided with units, convert to seconds and then strip units
     dt = convert_to_float64(dt, u"s")
     dtbase = dt
 
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
+    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(
+        config
+    )
 
     if (grid.ncells == 0)
         # backwards compatability for unspecified grid type
-        grid1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
+        grid_1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     else
-        grid1d = generate_grid(config.thruster.geometry, config.domain, grid)
+        grid_1d = generate_grid(config.thruster.geometry, config.domain, grid)
     end
 
     # load collisions and reactions
@@ -163,34 +228,42 @@ function setup_simulation(
         landmark_rates_dir = joinpath(LANDMARK_FOLDER, "reactions")
         directories = [landmark_rates_dir; directories]
     end
-    ionization_reactions = load_ionization_reactions(config.ionization_model, species; directories)
+    ionization_reactions = load_ionization_reactions(
+        config.ionization_model, species; directories
+    )
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
-    excitation_reactions = load_excitation_reactions(config.excitation_model, species; directories)
+    excitation_reactions = load_excitation_reactions(
+        config.excitation_model, species; directories
+    )
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = load_elastic_collisions(config.electron_neutral_model, species; directories)
+    electron_neutral_collisions = load_elastic_collisions(
+        config.electron_neutral_model, species; directories
+    )
 
     index = configure_index(fluids, fluid_ranges)
 
     use_restart = restart !== nothing
 
     #if use_restart
-        #U, cache = load_restart(grid1d, config, restart)
+    #U, cache = load_restart(grid1d, config, restart)
     #else
-        U, cache = allocate_arrays(grid1d, config)
+    U, cache = allocate_arrays(grid_1d, config)
     #end
 
-    z_cell = grid1d.cell_centers
-    z_edge = grid1d.edges
+    z_cell = grid_1d.cell_centers
+    z_edge = grid_1d.edges
 
     # Fill up cell lengths and magnetic field vectors
-    for (i, z) in enumerate(grid1d.cell_centers)
-        cache.B[i] = config.thruster.magnetic_field(z)
+    bfield = config.thruster.magnetic_field
+    bfield_func = LinearInterpolation(bfield.z, bfield.B)
+    for (i, z) in enumerate(grid_1d.cell_centers)
+        cache.B[i] = bfield_func(z)
     end
 
-    Δz_cell, Δz_edge = grid_spacing(grid1d)
+    Δz_cell, Δz_edge = grid_spacing(grid_1d)
 
     mi = config.propellant.m
 
@@ -202,7 +275,9 @@ function setup_simulation(
         # this limit is mainly due to empirical testing, but there
         # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
         if CFL >= 0.8
-            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
+            @warn(
+                "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799."
+            )
             CFL = 0.799
         end
     end
@@ -212,50 +287,63 @@ function setup_simulation(
 
     # Simulation parameters
     params = (;
-        ncells = grid1d.ncells+2,
-        ncharge = config.ncharge,
+        ncells=grid_1d.ncells + 2,
+        ncharge=config.ncharge,
         mi,
-        config = config,
-        ϕ_L = config.discharge_voltage + config.cathode_potential,
-        ϕ_R = config.cathode_potential,
-        Te_L = config.anode_Te,
-        Te_R = config.cathode_Te,
-        L_ch = config.thruster.geometry.channel_length,
-        A_ch = config.thruster.geometry.channel_area,
+        config=config,
+        ϕ_L=config.discharge_voltage + config.cathode_potential,
+        ϕ_R=config.cathode_potential,
+        Te_L=config.anode_Te,
+        Te_R=config.cathode_Te,
+        L_ch=config.thruster.geometry.channel_length,
+        A_ch=config.thruster.geometry.channel_area,
         z_cell,
         z_edge,
-        index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
-        iteration = [-1],
+        index,
+        cache,
+        fluids,
+        fluid_ranges,
+        species_range_dict,
+        is_velocity_index,
+        iteration=[-1],
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        dt = [dt],
+        dt=[dt],
         CFL,
         adaptive,
-        background_neutral_velocity = background_neutral_velocity(config),
-        background_neutral_density = background_neutral_density(config),
-        Bmax = maximum(cache.B),
-        γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
-        Δz_cell, Δz_edge,
-        control_current, target_current, Kp, Ti, Td,
-        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
-        dtbase, dtmin, dtmax, max_small_steps,
+        background_neutral_velocity=background_neutral_velocity(config),
+        background_neutral_density=background_neutral_density(config),
+        Bmax=maximum(cache.B),
+        γ_SEE_max=1 - 8.3 * sqrt(me / mi),
+        Δz_cell,
+        Δz_edge,
+        control_current,
+        target_current,
+        Kp,
+        Ti,
+        Td,
+        exit_plane_index=findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
+        dtbase,
+        dtmin,
+        dtmax,
+        max_small_steps,
         # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3/2 : 1.0
+        pe_factor=config.LANDMARK ? 3 / 2 : 1.0,
     )
 
     # Compute maximum allowed iterations
     #if !use_restart
-        initialize!(U, params)
+    initialize!(U, params)
 
-        # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
-        TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
+    # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
+    TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
 
-        # Initialize plume
-        update_plume_geometry!(U, params, initialize = true)
+    # Initialize plume
+    update_plume_geometry!(U, params; initialize=true)
     #end
 
     # make values in params available for first timestep
@@ -269,18 +357,20 @@ end
     $(SIGNATURES)
 Given a state vector `U` and params struct generated by `setup_simulation`, run for provided `duration`, saving `nsave` snapshots.
 """
-function run_from_setup(U, params; duration, nsave, verbose = true)
+function run_from_setup(U, params; duration, nsave, verbose=true)
     duration = convert_to_float64(duration, u"s")
 
     tspan = (0.0, duration)
-    saveat = range(tspan[1], tspan[2], length = nsave)
+    saveat = range(tspan[1], tspan[2]; length=nsave)
 
     sol_info = @timed solve(U, params, tspan; saveat)
     sol = sol_info.value
 
     # Print some diagnostic information
     if sol.retcode != :Success && verbose
-        println("Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sol_info.time) seconds.")
+        println(
+            "Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sol_info.time) seconds.",
+        )
     end
 
     return sol
@@ -297,7 +387,7 @@ Run a Hall thruster simulation using the provided Config object.
 - `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
 - `nsave`: How many frames to save.
 """
-function run_simulation(config::Config; duration, nsave, verbose = true, kwargs...)
+function run_simulation(config::Config; duration, nsave, verbose=true, kwargs...)
     U, params = setup_simulation(config; kwargs...)
     return run_from_setup(U, params; duration, nsave, verbose)
 end

@@ -4,7 +4,6 @@ using PrecompileTools: @compile_workload, @recompile_invalidations
 
 using DocStringExtensions
 using LinearAlgebra: Tridiagonal
-using PartialFunctions
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 using JSON3
