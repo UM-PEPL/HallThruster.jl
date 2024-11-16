@@ -67,9 +67,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         wall_loss_model=WallSheath(BoronNitride),
         neutral_temperature=500,
     )
-    sol_1 = HallThruster.run_simulation(
-        config_1; ncells, duration, dt, nsave, verbose=false
-    )
+    sol_1 = run_simulation(config_1; ncells, duration, dt, nsave, verbose=false)
 
     config_2 = HallThruster.Config(;
         thruster=HallThruster.SPT_100,
@@ -81,7 +79,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         conductivity_model=LANDMARK_conductivity(),
         neutral_temperature=500u"K",
     )
-    sol_2 = HallThruster.run_simulation(
+    sol_2 = run_simulation(
         config_2; ncells, duration, dt, nsave, adaptive=true, CFL=0.75, verbose=false
     )
     time_average(sol_1)
