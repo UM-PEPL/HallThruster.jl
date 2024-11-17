@@ -1,4 +1,4 @@
-struct Solution{T, U, P, S}
+struct Solution{T,U,P,S}
     t::T
     u::U
     savevals::S
@@ -6,29 +6,55 @@ struct Solution{T, U, P, S}
     params::P
 end
 
-function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
+function Solution(sol::S, params::P, savevals::SV) where {S,P,SV}
     return Solution(sol.t, sol.u, savevals, sol.retcode, params)
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
     println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
     println(io, "Retcode: $(string(sol.retcode))")
-    print(io, "End time: $(sol.t[end]) seconds")
+    return print(io, "End time: $(sol.t[end]) seconds")
 end
 
 @inline _saved_fields_vector() = (
-    :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex, :νe, :Id, :ji, :nn,
-    :anom_multiplier, :ohmic_heating, :wall_losses, :inelastic_losses, :Vs,
-    :channel_area, :inner_radius, :outer_radius, :dA_dz, :tanδ, :anom_variables,
-    :dt
+    :μ,
+    :Tev,
+    :ϕ,
+    :∇ϕ,
+    :ne,
+    :pe,
+    :ue,
+    :∇pe,
+    :νan,
+    :νc,
+    :νen,
+    :νei,
+    :radial_loss_frequency,
+    :νew_momentum,
+    :νiz,
+    :νex,
+    :νe,
+    :Id,
+    :ji,
+    :nn,
+    :anom_multiplier,
+    :ohmic_heating,
+    :wall_losses,
+    :inelastic_losses,
+    :Vs,
+    :channel_area,
+    :inner_radius,
+    :outer_radius,
+    :dA_dz,
+    :tanδ,
+    :anom_variables,
+    :dt,
 )
 
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat)
-
     t = tspan[1]
 
     retcode = :success
@@ -45,8 +71,7 @@ function solve(U, params, tspan; saveat)
     iteration[] = 1
 
     # Yield to signals only every few iterations
-    yield_interval = 2
-    next_yield = yield_interval
+    yield_interval = 100
     save_ind = 2
     small_step_count = 0
     uniform_steps = false
@@ -56,14 +81,20 @@ function solve(U, params, tspan; saveat)
         if params.adaptive
             if uniform_steps
                 params.dt[] = params.dtbase
-                #println(small_step_count)
                 small_step_count -= 1
             else
                 params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
             end
         end
 
-        # Count number of minimal timesteps in a row
+        t += params.dt[]
+
+        #====
+        Count how many times we've taken the minimum allowable timestep.
+        If we exceed the threshold, then start taking longer uniform steps for a bit.
+        This helps break out of cases where adaptive timestepping gets stuck ---
+        either by resolving the situation or by causing the simulation to fail fast
+        ====#
         if params.dt[] == params.dtmin
             small_step_count += 1
         elseif !uniform_steps
@@ -75,8 +106,6 @@ function solve(U, params, tspan; saveat)
         elseif small_step_count == 0
             uniform_steps = false
         end
-
-        t += params.dt[]
 
         try
             # update heavy species quantities
@@ -123,9 +152,8 @@ function solve(U, params, tspan; saveat)
         iteration[] += 1
 
         # Allow for system interrupts
-        if iteration[] == next_yield
+        if iteration[] % yield_interval == 0
             yield()
-            iteration[] += yield_interval
         end
 
         # Save values at designated intervals
@@ -157,8 +185,7 @@ function solve(U, params, tspan; saveat)
         end
     end
 
-    ind = min(save_ind, length(savevals)+1)-1
+    ind = min(save_ind, length(savevals) + 1) - 1
 
     return Solution(saveat[1:ind], u_save[1:ind], savevals[1:ind], retcode, params)
 end
-
