@@ -2,15 +2,16 @@ struct Solution{T,U,P,S}
     t::T
     u::U
     savevals::S
-    retcode::Symbol
     params::P
+    retcode::Symbol
+    error::String
 end
 
-function Solution(sol::S, params::P, savevals::SV) where {S,P,SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
+function Solution(sol::S, params::P, savevals::SV, error::String="") where {S,P,SV}
+    return Solution(sol.t, sol.u, savevals, params, sol.retcode, error)
 end
 
-function Base.show(io::IO, mime::MIME"text/plain", sol::Solution)
+function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
     println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
     println(io, "Retcode: $(string(sol.retcode))")
     return print(io, "End time: $(sol.t[end]) seconds")
@@ -55,24 +56,28 @@ end
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat)
-    t = tspan[1]
-
-    retcode = :success
-
-    fields_to_save = saved_fields()
-
-    first_saveval = NamedTuple{fields_to_save}(params.cache)
-    u_save = [deepcopy(U) for _ in saveat]
-    savevals = [deepcopy(first_saveval) for _ in saveat]
-
     (nvars, ncells) = size(U)
-    iteration = params.iteration
 
+    # Initialie starting time and iterations
+    iteration = params.iteration
+    t = tspan[1]
     iteration[] = 1
 
     # Yield to signals only every few iterations
     yield_interval = 100
+
+    # Error handling
+    errstring = ""
+    retcode = :success
+
+    # Frame saving setup
     save_ind = 2
+    fields_to_save = saved_fields()
+    first_saveval = NamedTuple{fields_to_save}(params.cache)
+    u_save = [deepcopy(U) for _ in saveat]
+    savevals = [deepcopy(first_saveval) for _ in saveat]
+
+    # Parameters for adaptive timestep escape hatch
     small_step_count = 0
     uniform_steps = false
 
@@ -187,5 +192,7 @@ function solve(U, params, tspan; saveat)
 
     ind = min(save_ind, length(savevals) + 1) - 1
 
-    return Solution(saveat[1:ind], u_save[1:ind], savevals[1:ind], retcode, params)
+    return Solution(
+        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, retcode, errstring
+    )
 end
