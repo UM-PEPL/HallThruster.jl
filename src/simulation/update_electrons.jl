@@ -2,8 +2,9 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
     (; control_current, target_current, Kp, Ti, pe_factor, ncells) = params
-    (; B, ue, Tev, electric_field, potential, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei,
-    radial_loss_frequency, Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
+    (; B, ue, Tev, electric_field, potential, pe, ne, nϵ, grad_pe,
+    mobility, νan, νc, νen, νei, νiz, νex, νe,
+    radial_loss_frequency, Z_eff, ji, Id, νew_momentum, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
     errors, channel_area) = params.cache
 
@@ -52,7 +53,7 @@ function update_electrons!(params, t = 0)
 
         # Compute total collision frequency and electron mobility
         νe[i] = νc[i] + νan[i] + νew_momentum[i]
-        μ[i] = electron_mobility(νe[i], B[i])
+        mobility[i] = electron_mobility(νe[i], B[i])
     end
 
     # Compute anode sheath potential
@@ -71,7 +72,7 @@ function update_electrons!(params, t = 0)
     electron_kinetic_energy!(K, params)
 
     # Compute potential gradient and pressure gradient
-    compute_pressure_gradient!(∇pe, params)
+    compute_pressure_gradient!(grad_pe, params)
 
     # Compute electric field
     compute_electric_field!(electric_field, params)
@@ -113,24 +114,24 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; cache, Δz_edge, V_L, V_R, ncells, iteration) = params
-    (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
+    (; cache, Δz_edge, V_L, V_R, ncells, iteration, config) = params
+    (; grad_pe, mobility, ne, ji, Vs, channel_area) = cache
 
     int1 = 0.0
     int2 = 0.0
 
-    apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
+    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
     end
-    un = params.config.neutral_velocity
+    un = config.neutral_velocity
 
     @inbounds for i in 1:(ncells - 1)
         Δz = Δz_edge[i]
 
-        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
-        int1_2 = (ji[i + 1] / e / μ[i + 1] + ∇pe[i + 1]) / ne[i + 1]
+        int1_1 = (ji[i] / e / mobility[i] + grad_pe[i]) / ne[i]
+        int1_2 = (ji[i + 1] / e / mobility[i + 1] + grad_pe[i + 1]) / ne[i + 1]
 
         if (apply_drag)
             ion_drag_1 = ui[1, i] * (νei[i] + νan[i]) * me / e
@@ -143,8 +144,8 @@ function integrate_discharge_current(params)
 
         int1 += 0.5 * Δz * (int1_1 + int1_2)
 
-        int2_1 = inv(e * ne[i] * μ[i] * channel_area[i])
-        int2_2 = inv(e * ne[i + 1] * μ[i + 1] * channel_area[i + 1])
+        int2_1 = inv(e * ne[i] * mobility[i] * channel_area[i])
+        int2_2 = inv(e * ne[i + 1] * mobility[i + 1] * channel_area[i + 1])
 
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
@@ -157,18 +158,18 @@ function integrate_discharge_current(params)
 end
 
 function compute_electric_field!(electric_field, params)
-    (; cache, iteration) = params
-    (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
+    (; cache, iteration, config) = params
+    (; ji, Id, ne, mobility, grad_pe, channel_area, ui, νei, νen, νan) = cache
 
-    apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
+    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
     end
-    un = params.config.neutral_velocity
+    un = config.neutral_velocity
 
     for i in eachindex(electric_field)
-        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+        E = ((Id[] / channel_area[i] - ji[i]) / e / mobility[i] - grad_pe[i]) / ne[i]
 
         if (apply_drag)
             ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e

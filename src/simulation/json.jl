@@ -7,6 +7,7 @@ function frame_dict(sol, frame)
         "mass_eff" => mass_eff(sol, frame),
         "voltage_eff" => voltage_eff(sol, frame),
         "current_eff" => current_eff(sol, frame),
+        "divergence_eff" => divergence_eff(sol, frame),
         "t" => sol.t[frame],
         "z" => sol.params.z_cell,
         "nn" => sol[:nn, 1][frame],
@@ -25,12 +26,12 @@ function frame_dict(sol, frame)
         "electric_field" => sol[:electric_field][frame],
         "Tev" => sol[:Tev][frame],
         "pe" => sol[:pe][frame],
-        "grad_pe" => sol[:∇pe][frame],
+        "grad_pe" => sol[:grad_pe][frame],
         "nu_en" => sol[:νen][frame],
         "nu_ei" => sol[:νei][frame],
         "nu_anom" => sol[:νan][frame],
         "nu_class" => sol[:νc][frame],
-        "mobility" => sol[:μ][frame]
+        "mobility" => sol[:mobility][frame]
     )
 end
 

@@ -1,5 +1,7 @@
 function apply_reactions!(dU, U, params)
-    (; config, index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, ncells) = params
+    (; config, index, ionization_reactions, index,
+    ionization_reactant_indices, ionization_product_indices,
+    cache, ncells) = params
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
     inv_m = inv(config.propellant.m)
@@ -137,7 +139,7 @@ end
 
 function ohmic_heating!(Q, params)
     (; cache, config) = params
-    (; ne, ue, electric_field, K, νe, ue, ∇pe) = cache
+    (; ne, ue, electric_field, K, νe, ue, grad_pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
     if (config.LANDMARK)
@@ -147,7 +149,7 @@ function ohmic_heating!(Q, params)
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
-        @. Q = 2 * ne * K * νe + ue * ∇pe
+        @. Q = 2 * ne * K * νe + ue * grad_pe
     end
     return nothing
 end

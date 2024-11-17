@@ -25,9 +25,9 @@ function allocate_arrays(grid, config)
         Tev = zeros(ncells),    # electron temperautre
         ϵ = zeros(ncells),      # mean electron energy
         pe = zeros(ncells),     # electron pressure
-        ∇pe = zeros(ncells),    # electron pressure gradient
+        grad_pe = zeros(ncells),    # electron pressure gradient
         κ = zeros(ncells),      # electron thermal conductivyt
-        μ = zeros(ncells),      # electron mobility
+        mobility = zeros(ncells),      # electron mobility
         potential = zeros(ncells),      # electrostatic potential
         electric_field = zeros(ncells),     # electric field
         B = zeros(ncells),      # magnetic field

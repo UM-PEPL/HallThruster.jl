@@ -40,14 +40,14 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
 end
 
 @inline _saved_fields_vector() = (
-    :μ,
+    :mobility,
     :Tev,
     :potential,
     :electric_field,
     :ne,
     :pe,
     :ue,
-    :∇pe,
+    :grad_pe,
     :νan,
     :νc,
     :νen,

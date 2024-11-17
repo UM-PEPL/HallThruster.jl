@@ -93,7 +93,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
         γ = params.cache.see_yield[i]
 
         # Space charge-limited sheath potential
-        ϕ_s = sheath_potential(Tev, γ, mi)
+        V_s = sheath_potential(Tev, γ, mi)
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
         νew = cache.radial_loss_frequency[i] * linear_transition(
@@ -101,7 +101,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
         )
 
         # Compute wall power loss rate
-        Q[i] = νew * (2 * Tev + (1 - γ) * ϕ_s)
+        Q[i] = νew * (2 * Tev + (1 - γ) * V_s)
     end
 
     return nothing
