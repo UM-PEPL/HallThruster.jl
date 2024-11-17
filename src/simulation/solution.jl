@@ -55,7 +55,7 @@ end
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
-function solve(U, params, tspan; saveat)
+function solve(U, params, tspan; saveat, show_errors=true)
     (nvars, ncells) = size(U)
 
     # Initialie starting time and iterations
@@ -81,61 +81,54 @@ function solve(U, params, tspan; saveat)
     small_step_count = 0
     uniform_steps = false
 
-    while t < tspan[2]
-        # compute new timestep 
-        if params.adaptive
-            if uniform_steps
-                params.dt[] = params.dtbase
-                small_step_count -= 1
-            else
-                params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+    try
+        while t < tspan[2]
+            # compute new timestep 
+            if params.adaptive
+                if uniform_steps
+                    params.dt[] = params.dtbase
+                    small_step_count -= 1
+                else
+                    params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+                end
             end
-        end
 
-        t += params.dt[]
+            t += params.dt[]
 
-        #====
-        Count how many times we've taken the minimum allowable timestep.
-        If we exceed the threshold, then start taking longer uniform steps for a bit.
-        This helps break out of cases where adaptive timestepping gets stuck ---
-        either by resolving the situation or by causing the simulation to fail fast
-        ====#
-        if params.dt[] == params.dtmin
-            small_step_count += 1
-        elseif !uniform_steps
-            small_step_count = 0
-        end
+            #====
+            Count how many times we've taken the minimum allowable timestep.
+            If we exceed the threshold, then start taking longer uniform steps for a bit.
+            This helps break out of cases where adaptive timestepping gets stuck ---
+            either by resolving the situation or by causing the simulation to fail fast
+            ====#
+            if params.dt[] == params.dtmin
+                small_step_count += 1
+            elseif !uniform_steps
+                small_step_count = 0
+            end
 
-        if small_step_count >= params.max_small_steps
-            uniform_steps = true
-        elseif small_step_count == 0
-            uniform_steps = false
-        end
+            if small_step_count >= params.max_small_steps
+                uniform_steps = true
+            elseif small_step_count == 0
+                uniform_steps = false
+            end
 
-        try
             # update heavy species quantities
             integrate_heavy_species!(U, params, params.dt[])
             update_heavy_species!(U, params)
 
-            # Check for NaNs in heavy species solve and terminate if necessary
-            nandetected = false
-            infdetected = false
-
-            @inbounds for j in 1:ncells, i in 1:nvars
-                if isnan(U[i, j])
-                    @warn("NaN detected in variable $i in cell $j at time $(t)")
-                    nandetected = true
-                    retcode = :NaNDetected
-                    break
-                elseif isinf(U[i, j])
-                    @warn("Inf detected in variable $i in cell $j at time $(t)")
-                    infdetected = true
-                    retcode = :InfDetected
+            # Check for NaNs or Infs in heavy species solve and terminate if necessary
+            @inbounds for i in 1:ncells, j in 1:nvars
+                if !isfinite(U[j, i])
+                    if show_errors
+                        @warn("NaN or Inf detected in variable $j in cell $i at time $(t)")
+                    end
+                    retcode = :failure
                     break
                 end
             end
 
-            if nandetected || infdetected
+            if retcode == :failure
                 break
             end
 
@@ -144,49 +137,48 @@ function solve(U, params, tspan; saveat)
 
             # Update plume geometry
             update_plume_geometry!(U, params)
-        catch e
-            if (e isa InexactError)
-                retcode = :Failure
-                break
-            else
-                throw(e)
+
+            # Update the current iteration
+            iteration[] += 1
+
+            # Allow for system interrupts
+            if iteration[] % yield_interval == 0
+                yield()
             end
-        end
 
-        # Update the current iteration
-        iteration[] += 1
+            # Save values at designated intervals
+            # TODO interpolate these to be exact and make a bit more elegant
+            if t > saveat[save_ind]
+                u_save[save_ind] .= U
 
-        # Allow for system interrupts
-        if iteration[] % yield_interval == 0
-            yield()
-        end
-
-        # Save values at designated intervals
-        # TODO interpolate these to be exact and make a bit more elegant
-        if t > saveat[save_ind]
-            u_save[save_ind] .= U
-
-            # save vector fields
-            for field in _saved_fields_vector()
-                if field == :anom_variables
-                    for i in 1:num_anom_variables(params.config.anom_model)
-                        savevals[save_ind][field][i] .= params.cache[field][i]
+                # save vector fields
+                for field in _saved_fields_vector()
+                    if field == :anom_variables
+                        for i in 1:num_anom_variables(params.config.anom_model)
+                            savevals[save_ind][field][i] .= params.cache[field][i]
+                        end
+                    else
+                        cached_field::Vector{Float64} = params.cache[field]
+                        sv::Vector{Float64} = savevals[save_ind][field]
+                        sv .= cached_field
                     end
-                else
-                    cached_field::Vector{Float64} = params.cache[field]
-                    sv::Vector{Float64} = savevals[save_ind][field]
+                end
+
+                # save matrix fields
+                for field in _saved_fields_matrix()
+                    cached_field::Matrix{Float64} = params.cache[field]
+                    sv::Matrix{Float64} = savevals[save_ind][field]
                     sv .= cached_field
                 end
-            end
 
-            # save matrix fields
-            for field in _saved_fields_matrix()
-                cached_field::Matrix{Float64} = params.cache[field]
-                sv::Matrix{Float64} = savevals[save_ind][field]
-                sv .= cached_field
+                save_ind += 1
             end
-
-            save_ind += 1
+        end
+    catch e
+        errstring = sprint(showerror, e, backtrace())
+        retcode = :error
+        if show_errors
+            @warn "Error detected in solution: $(errstring)"
         end
     end
 
