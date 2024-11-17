@@ -1,8 +1,6 @@
 function apply_reactions!(dU, U, params)
     (; config, index, ionization_reactions, index, ionization_reactant_indices, ionization_product_indices, cache, ncells) = params
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
-    rate_coeffs = cache.cell_cache_1
-    model = config.ionization_model
 
     inv_m = inv(config.propellant.m)
 
@@ -68,7 +66,7 @@ function apply_ion_acceleration!(dU, U, params)
     dt_max = Inf
 
     @inbounds for i in 2:(ncells - 1)
-        E = -cache.∇ϕ[i]
+        E = cache.electric_field[i]
         Δz = z_edge[right_edge(i)] - z_edge[left_edge(i)]
         inv_E = inv(abs(E))
 
@@ -139,13 +137,13 @@ end
 
 function ohmic_heating!(Q, params)
     (; cache, config) = params
-    (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
+    (; ne, ue, electric_field, K, νe, ue, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
     if (config.LANDMARK)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
-        @. Q = ne * ue * ∇ϕ
+        @. Q = -ne * ue * electric_field
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²

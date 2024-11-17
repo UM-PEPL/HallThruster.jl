@@ -15,7 +15,7 @@ function allocate_arrays(grid, config)
         ui = zeros(ncharge, ncells),    # ion velocity
         niui = zeros(ncharge, ncells),  # ion flux
         ji = zeros(ncells),             # ion current
-        λ_global = zeros(ncharge + 1),  # maximum wavespeed per species
+        max_wave_speed = zeros(ncharge + 1),  # maximum wavespeed per species
         Z_eff = zeros(ncells),          # effective charge number
         # Electron properties
         ne = zeros(ncells),     # electron number density
@@ -28,8 +28,8 @@ function allocate_arrays(grid, config)
         ∇pe = zeros(ncells),    # electron pressure gradient
         κ = zeros(ncells),      # electron thermal conductivyt
         μ = zeros(ncells),      # electron mobility
-        ϕ = zeros(ncells),      # electrostatic potential
-        ∇ϕ = zeros(ncells),     # electric field
+        potential = zeros(ncells),      # electrostatic potential
+        electric_field = zeros(ncells),     # electric field
         B = zeros(ncells),      # magnetic field
         # Collision frequencies
         νan = zeros(ncells),    # anomalous 
@@ -49,7 +49,7 @@ function allocate_arrays(grid, config)
         Vs = [0.0],                 # anode sheath potential
         see_yield = zeros(ncells),  # secondary electron emission yield
         # PID control 
-        Id = [0.0],                 # discharge current
+        Id = [0.0],                 # dischargemax_wave_speed
         error_integral = [0.0],
         Id_smoothed = [0.0],
         anom_multiplier = [1.0],
@@ -64,8 +64,8 @@ function allocate_arrays(grid, config)
         k = copy(U),
         u1 = copy(U),
         # Caches for energy solve
-        Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
-        bϵ = zeros(ncells),
+        A_energy = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
+        b_energy = zeros(ncells),
         # other caches
         cell_cache_1 = zeros(ncells),
         # Plume divergence variables
@@ -151,19 +151,14 @@ function setup_simulation(
 
     index = configure_index(fluids, fluid_ranges)
 
-    use_restart = restart !== nothing
-
-    #if use_restart
-    #U, cache = load_restart(grid1d, config, restart)
-    #else
     U, cache = allocate_arrays(grid_1d, config)
-    #end
 
     z_cell = grid_1d.cell_centers
     z_edge = grid_1d.edges
 
     # Fill up cell lengths and magnetic field vectors
-    bfield = config.thruster.magnetic_field
+    thruster = config.thruster
+    bfield = thruster.magnetic_field
     bfield_func = LinearInterpolation(bfield.z, bfield.B)
     for (i, z) in enumerate(grid_1d.cell_centers)
         cache.B[i] = bfield_func(z)
@@ -195,12 +190,12 @@ function setup_simulation(
         ncharge = config.ncharge,
         mi,
         config = config,
-        ϕ_L = config.discharge_voltage + config.cathode_potential,
-        ϕ_R = config.cathode_potential,
+        V_L = config.discharge_voltage,
+        V_R = config.cathode_potential,
         Te_L = config.anode_Te,
         Te_R = config.cathode_Te,
-        L_ch = config.thruster.geometry.channel_length,
-        A_ch = config.thruster.geometry.channel_area,
+        L_ch = thruster.geometry.channel_length,
+        A_ch = thruster.geometry.channel_area,
         z_cell,
         z_edge,
         index,
@@ -230,8 +225,7 @@ function setup_simulation(
         Kp,
         Ti,
         Td,
-        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) -
-                           1,
+        exit_plane_index = findfirst(>=(thruster.geometry.channel_length), z_cell) - 1,
         dtbase,
         dtmin,
         dtmax,
@@ -241,7 +235,6 @@ function setup_simulation(
     )
 
     # Compute maximum allowed iterations
-    #if !use_restart
     initialize!(U, params)
 
     # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration

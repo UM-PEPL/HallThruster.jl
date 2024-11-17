@@ -1,15 +1,15 @@
 function solve_potential!(ϕ, params)
-    (;z_cell, cache, ϕ_L) = params
-    (;∇ϕ, Vs) = cache
+    (; z_cell, cache, V_L) = params
+    (; electric_field, Vs) = cache
 
-    cumtrapz!(ϕ, z_cell, ∇ϕ, ϕ_L + Vs[])
+    cumtrapz!(ϕ, z_cell, electric_field, V_L + Vs[])
 
     return ϕ
 end
 
 function anode_sheath_potential(params)
-    (;config) = params
-    (;ne, niui, channel_area) = params.cache
+    (; config) = params
+    (; ne, niui, channel_area) = params.cache
 
     if params.config.LANDMARK
         return 0.0
@@ -24,7 +24,7 @@ function anode_sheath_potential(params)
         jd = params.cache.Id[] / channel_area[1]
 
         # current densities at sheath edge
-        ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:params.config.ncharge)
+        ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:(params.config.ncharge))
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath

@@ -2,8 +2,8 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
     (; control_current, target_current, Kp, Ti, pe_factor, ncells) = params
-    (; B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-    Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
+    (; B, ue, Tev, electric_field, potential, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei,
+    radial_loss_frequency, Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
     errors, channel_area) = params.cache
 
@@ -74,10 +74,10 @@ function update_electrons!(params, t = 0)
     compute_pressure_gradient!(∇pe, params)
 
     # Compute electric field
-    compute_electric_field!(∇ϕ, params)
+    compute_electric_field!(electric_field, params)
 
     # update electrostatic potential and potential gradient on edges
-    solve_potential!(ϕ, params)
+    solve_potential!(potential, params)
 
     #update thermal conductivity
     params.config.conductivity_model(κ, params)
@@ -113,7 +113,7 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
+    (; cache, Δz_edge, V_L, V_R, ncells, iteration) = params
     (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     int1 = 0.0
@@ -124,6 +124,7 @@ function integrate_discharge_current(params)
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
     end
+    un = params.config.neutral_velocity
 
     @inbounds for i in 1:(ncells - 1)
         Δz = Δz_edge[i]
@@ -134,8 +135,8 @@ function integrate_discharge_current(params)
         if (apply_drag)
             ion_drag_1 = ui[1, i] * (νei[i] + νan[i]) * me / e
             ion_drag_2 = ui[1, i + 1] * (νei[i + 1] + νan[i + 1]) * me / e
-            neutral_drag_1 = params.config.neutral_velocity * νen[i] * me / e
-            neutral_drag_2 = params.config.neutral_velocity * νen[i + 1] * me / e
+            neutral_drag_1 = un * νen[i] * me / e
+            neutral_drag_2 = un * νen[i + 1] * me / e
             int1_1 -= ion_drag_1 + neutral_drag_1
             int1_2 -= ion_drag_2 + neutral_drag_2
         end
@@ -148,14 +149,14 @@ function integrate_discharge_current(params)
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
 
-    ΔV = ϕ_L - ϕ_R + Vs[]
+    ΔV = V_L - V_R + Vs[]
 
     I = (ΔV + int1) / int2
 
     return I
 end
 
-function compute_electric_field!(∇ϕ, params)
+function compute_electric_field!(electric_field, params)
     (; cache, iteration) = params
     (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
@@ -164,20 +165,21 @@ function compute_electric_field!(∇ϕ, params)
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
     end
+    un = params.config.neutral_velocity
 
-    for i in eachindex(∇ϕ)
+    for i in eachindex(electric_field)
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
 
         if (apply_drag)
             ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = params.config.neutral_velocity * (νen[i]) * me / e
+            neutral_drag = un * (νen[i]) * me / e
             E += ion_drag + neutral_drag
         end
 
-        ∇ϕ[i] = -E
+        electric_field[i] = E
     end
 
-    return ∇ϕ
+    return electric_field
 end
 
 function electron_kinetic_energy!(K, params)

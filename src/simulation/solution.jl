@@ -1,4 +1,4 @@
-struct Solution{T,U,P,S}
+struct Solution{T, U, P, S}
     t::T
     u::U
     savevals::S
@@ -7,7 +7,7 @@ struct Solution{T,U,P,S}
     error::String
 end
 
-function Solution(sol::S, params::P, savevals::SV, error::String="") where {S,P,SV}
+function Solution(sol::S, params::P, savevals::SV, error::String = "") where {S, P, SV}
     return Solution(sol.t, sol.u, savevals, params, sol.retcode, error)
 end
 
@@ -17,11 +17,33 @@ function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
     return print(io, "End time: $(sol.t[end]) seconds")
 end
 
+function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
+    if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
+        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
+             Maximum charge state in provided solution is $(sol.params.config.ncharge).",
+        ))
+    end
+
+    if field == :ni
+        return [saved[:ni][charge, :] for saved in sol.savevals]
+    elseif field == :ui
+        return [saved[:ui][charge, :] for saved in sol.savevals]
+    elseif field == :niui
+        return [saved[:niui][charge, :] for saved in sol.savevals]
+    elseif field == :B
+        return [sol.params.cache.B]
+    elseif field == :cyclotron_frequency
+        return [e * sol[:B, charge][1] / me]
+    else
+        return [getproperty(saved, field) for saved in sol.savevals]
+    end
+end
+
 @inline _saved_fields_vector() = (
     :μ,
     :Tev,
-    :ϕ,
-    :∇ϕ,
+    :potential,
+    :electric_field,
     :ne,
     :pe,
     :ue,
@@ -49,13 +71,13 @@ end
     :dA_dz,
     :tan_div_angle,
     :anom_variables,
-    :dt,
+    :dt
 )
 
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
-function solve(U, params, tspan; saveat, show_errors=true)
+function solve(U, params, tspan; saveat, show_errors = true)
     # Initialie starting time and iterations
     iteration = params.iteration
     t = tspan[1]
