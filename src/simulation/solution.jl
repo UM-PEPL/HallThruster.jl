@@ -47,7 +47,7 @@ end
     :inner_radius,
     :outer_radius,
     :dA_dz,
-    :tanδ,
+    :tan_div_angle,
     :anom_variables,
     :dt,
 )
@@ -56,8 +56,6 @@ end
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
 function solve(U, params, tspan; saveat, show_errors=true)
-    (nvars, ncells) = size(U)
-
     # Initialie starting time and iterations
     iteration = params.iteration
     t = tspan[1]

@@ -108,7 +108,7 @@ function voltage_eff(sol, frame)
 end
 
 function divergence_eff(sol, frame)
-    tanδ = sol.savevals[frame].tanδ[end]
+    tanδ = sol.savevals[frame].tan_div_angle[end]
     δ = atan(tanδ)
     return cos(δ)^2
 end

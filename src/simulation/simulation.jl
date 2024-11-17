@@ -85,35 +85,6 @@ function allocate_arrays(grid, config)
     errors = [0.0, 0.0, 0.0]
     dcoeffs = [0.0, 0.0, 0.0, 0.0]
 
-    # Edge state caches
-    F = zeros(nvariables, nedges)
-    UL = zeros(nvariables, nedges)
-    UR = zeros(nvariables, nedges)
-
-    # timestepping caches
-    k = copy(U)
-    u1 = copy(U)
-
-    # other caches
-    cell_cache_1 = zeros(ncells)
-
-    # Plume divergence variables
-    channel_area = zeros(ncells)    # Area of channel / plume
-    dA_dz = zeros(ncells)           # derivative of area w.r.t. axial coordinate
-    channel_height = zeros(ncells)  # Height of channel / plume (outer - inner)
-    inner_radius = zeros(ncells)    # Channel/plume inner radius
-    outer_radius = zeros(ncells)    # Channel/plume outer radius
-    tanδ = zeros(ncells)            # Tangent of divergence half-angle
-
-    # Anomalous transport variables
-    anom_variables = allocate_anom_variables(anom_model, size(U, 2))
-
-    # Timesteps
-    dt_iz = zeros(1)
-    dt = zeros(1)
-    dt_E = zeros(1)
-    dt_u = zeros(nedges)
-
     cache = (;
         Aϵ,
         bϵ,
@@ -137,9 +108,6 @@ function allocate_arrays(grid, config)
         νiw,
         νe,
         κ,
-        F,
-        UL,
-        UR,
         Z_eff,
         λ_global,
         νiz,
@@ -152,10 +120,7 @@ function allocate_arrays(grid, config)
         Vs,
         niui,
         nn,
-        k,
-        u1,
         γ_SEE,
-        cell_cache_1,
         error_integral,
         Id_smoothed,
         anom_multiplier,
@@ -165,17 +130,29 @@ function allocate_arrays(grid, config)
         ohmic_heating,
         wall_losses,
         inelastic_losses,
-        channel_area,
-        dA_dz,
-        channel_height,
-        inner_radius,
-        outer_radius,
-        tanδ,
-        anom_variables,
-        dt_iz,
-        dt_E,
-        dt_u,
-        dt,
+        # Edge state caches
+        F=zeros(nvariables, nedges),
+        UL=zeros(nvariables, nedges),
+        UR=zeros(nvariables, nedges),
+        # timestepping caches
+        k=copy(U),
+        u1=copy(U),
+        # other caches
+        cell_cache_1=zeros(ncells),
+        # Plume divergence variables
+        channel_area=zeros(ncells),     # Area of channel / plume
+        dA_dz=zeros(ncells),            # derivative of area w.r.t. axial coordinate
+        channel_height=zeros(ncells),   # Height of channel / plume (outer - inner)
+        inner_radius=zeros(ncells),     # Channel/plume inner radius
+        outer_radius=zeros(ncells),     # Channel/plume outer radius
+        tan_div_angle=zeros(ncells),    # Tangent of divergence half-angle
+        # Anomalous transport variables
+        anom_variables=allocate_anom_variables(anom_model, size(U, 2)),
+        # Timesteps
+        dt_u=zeros(nedges),
+        dt_iz=zeros(1),
+        dt_E=zeros(1),
+        dt=zeros(1),
     )
 
     return U, cache
