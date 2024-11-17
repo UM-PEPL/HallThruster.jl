@@ -5,7 +5,7 @@ Base.@kwdef struct WallMaterial
 end
 
 @inline @fastmath function SEE_yield(material::WallMaterial, Tev, γ_max)
-    (;σ₀, ϵ_star) = material
+    (; σ₀, ϵ_star) = material
     γ = min(γ_max, σ₀ + 1.5 * Tev / ϵ_star * (1 - σ₀))
     return γ
 end
@@ -17,7 +17,7 @@ const BNSiO2 = WallMaterial(name = "Boron Nitride Silicon Dioxide", ϵ_star = 40
 const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ₀ = 0.69)
 
 function wall_electron_temperature(params, i)
-    (;cache, config, z_cell) = params
+    (; cache, config, z_cell) = params
 
     shielded = config.thruster.shielded
 
@@ -28,7 +28,8 @@ function wall_electron_temperature(params, i)
 
     L_ch = config.thruster.geometry.channel_length
 
-    Tev = linear_transition(z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume)
+    Tev = linear_transition(
+        z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume)
 
     return Tev
 end
@@ -39,7 +40,7 @@ compute wall sheath to be used for radiative losses and loss to wall.
 Goebel Katz equ. 7.3-29, 7.3-44. Assumed nₑuₑ/nᵢuᵢ ≈ 0.5
 Sheath potentials are positive by convention in HallThruster.jl.
 """
-@inline @fastmath sheath_potential(Tev, γ, mi) = Tev * log((1 - γ) * sqrt(mi/π/me/2))
+@inline @fastmath sheath_potential(Tev, γ, mi) = Tev * log((1 - γ) * sqrt(mi / π / me / 2))
 
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
@@ -65,7 +66,7 @@ function freq_electron_wall(model::WallSheath, params, i)
     Tev = wall_electron_temperature(params, i)
     #calculate and store SEE coefficient
     γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
-    cache.γ_SEE[i] = γ
+    cache.see_yield[i] = γ
 
     # compute the ion current to the walls
     h = edge_to_center_density_ratio()
@@ -82,14 +83,14 @@ function freq_electron_wall(model::WallSheath, params, i)
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
-    (;config, cache, z_cell, L_ch, ncells) = params
+    (; config, cache, z_cell, L_ch, ncells) = params
     mi = config.propellant.m
 
-    @inbounds for i in 2:ncells-1
+    @inbounds for i in 2:(ncells - 1)
         Tev = wall_electron_temperature(params, i)
 
         # space charge limited SEE coefficient
-        γ = params.cache.γ_SEE[i]
+        γ = params.cache.see_yield[i]
 
         # Space charge-limited sheath potential
         ϕ_s = sheath_potential(Tev, γ, mi)
@@ -100,7 +101,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
         )
 
         # Compute wall power loss rate
-        Q[i] = νew * (2 * Tev +  (1 - γ) * ϕ_s)
+        Q[i] = νew * (2 * Tev + (1 - γ) * ϕ_s)
     end
 
     return nothing

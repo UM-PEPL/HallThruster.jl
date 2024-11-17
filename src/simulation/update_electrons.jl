@@ -1,18 +1,16 @@
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (;control_current, target_current, Kp, Ti, pe_factor, ncells) = params
-    (;
-        B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn, K,
-        Id_smoothed, smoothing_time_constant, anom_multiplier,
-        errors, channel_area
-    ) = params.cache
+    (; control_current, target_current, Kp, Ti, pe_factor, ncells) = params
+    (; B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
+    Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
+    Id_smoothed, smoothing_time_constant, anom_multiplier,
+    errors, channel_area) = params.cache
 
     # Update plasma quantities based on new density
     @inbounds for i in 1:ncells
         # Compute new electron temperature
-        Tev[i] = 2/3 * max(params.config.min_electron_temperature, nϵ[i]/ne[i])
+        Tev[i] = 2 / 3 * max(params.config.min_electron_temperature, nϵ[i] / ne[i])
         # Compute electron pressure
         pe[i] = pe_factor * ne[i] * Tev[i]
     end
@@ -34,8 +32,10 @@ function update_electrons!(params, t = 0)
         νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
-        radial_loss_frequency[i] = freq_electron_wall(params.config.wall_loss_model, params, i)
-        νew_momentum[i] =  radial_loss_frequency[i]* linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0)
+        radial_loss_frequency[i] = freq_electron_wall(
+            params.config.wall_loss_model, params, i)
+        νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
+            params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0)
     end
 
     # Update anomalous transport
@@ -90,10 +90,10 @@ function update_electrons!(params, t = 0)
     if control_current && t > 0
         Ki = Kp / Ti
 
-        A1 = Kp + Ki*dt
+        A1 = Kp + Ki * params.dt[]
         A2 = -Kp
 
-        α = 1 - exp(-params.dt[]/smoothing_time_constant[])
+        α = 1 - exp(-params.dt[] / smoothing_time_constant[])
         Id_smoothed[] = α * Id[] + (1 - α) * Id_smoothed[]
 
         errors[3] = errors[2]
@@ -113,8 +113,8 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (;cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
-    (;∇pe, μ, ne, ji, Vs, channel_area) = cache
+    (; cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
+    (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     int1 = 0.0
     int2 = 0.0
@@ -122,21 +122,20 @@ function integrate_discharge_current(params)
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
-        (;νei, νen, νan, ui) = cache
+        (; νei, νen, νan, ui) = cache
     end
 
-    @inbounds for i in 1:ncells-1
+    @inbounds for i in 1:(ncells - 1)
         Δz = Δz_edge[i]
 
-
-        int1_1 = (ji[i]   / e / μ[i]   + ∇pe[i])   / ne[i]
-        int1_2 = (ji[i+1] / e / μ[i+1] + ∇pe[i+1]) / ne[i+1]
+        int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
+        int1_2 = (ji[i + 1] / e / μ[i + 1] + ∇pe[i + 1]) / ne[i + 1]
 
         if (apply_drag)
-            ion_drag_1 = ui[1, i  ] * (νei[i  ] + νan[i  ]) * me / e
-            ion_drag_2 = ui[1, i+1] * (νei[i+1] + νan[i+1]) * me / e
-            neutral_drag_1 = params.config.neutral_velocity * νen[i  ] * me / e
-            neutral_drag_2 = params.config.neutral_velocity * νen[i+1] * me / e
+            ion_drag_1 = ui[1, i] * (νei[i] + νan[i]) * me / e
+            ion_drag_2 = ui[1, i + 1] * (νei[i + 1] + νan[i + 1]) * me / e
+            neutral_drag_1 = params.config.neutral_velocity * νen[i] * me / e
+            neutral_drag_2 = params.config.neutral_velocity * νen[i + 1] * me / e
             int1_1 -= ion_drag_1 + neutral_drag_1
             int1_2 -= ion_drag_2 + neutral_drag_2
         end
@@ -144,7 +143,7 @@ function integrate_discharge_current(params)
         int1 += 0.5 * Δz * (int1_1 + int1_2)
 
         int2_1 = inv(e * ne[i] * μ[i] * channel_area[i])
-        int2_2 = inv(e * ne[i+1] * μ[i+1] * channel_area[i+1])
+        int2_2 = inv(e * ne[i + 1] * μ[i + 1] * channel_area[i + 1])
 
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
@@ -157,15 +156,14 @@ function integrate_discharge_current(params)
 end
 
 function compute_electric_field!(∇ϕ, params)
-    (;cache, iteration) = params
-    (;ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
+    (; cache, iteration) = params
+    (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
     apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
-        (;νei, νen, νan, ui) = cache
+        (; νei, νen, νan, ui) = cache
     end
-
 
     for i in eachindex(∇ϕ)
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
@@ -182,50 +180,52 @@ function compute_electric_field!(∇ϕ, params)
     return ∇ϕ
 end
 
-
 function electron_kinetic_energy!(K, params)
-    (;νe, B, ue) = params.cache
+    (; νe, B, ue) = params.cache
     # K = 1/2 me ue^2
     #   = 1/2 me (ue^2 + ue_θ^2)
     #   = 1/2 me (ue^2 + Ωe^2 ue^2)
     #   = 1/2 me (1 + Ωe^2) ue^2
     #   divide by e to get units of eV
-    @. K = 0.5 *  me * (1 + (e * B / me / νe)^2) * ue^2 / e
+    @. K = 0.5 * me * (1 + (e * B / me / νe)^2) * ue^2 / e
 end
 
 function compute_pressure_gradient!(∇pe, params)
     (; pe) = params.cache
-    (;z_cell, ncells) = params
+    (; z_cell, ncells) = params
 
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
 
     # Centered difference in interior cells
-    @inbounds for j in 2:ncells-1
+    @inbounds for j in 2:(ncells - 1)
         # Compute pressure gradient
-        ∇pe[j] = central_difference(pe[j-1], pe[j], pe[j+1], z_cell[j-1], z_cell[j], z_cell[j+1])
+        ∇pe[j] = central_difference(
+            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1])
     end
 
     # pressure gradient (backward)
-    ∇pe[end] = backward_difference(pe[end-2], pe[end-1], pe[end], z_cell[end-2], z_cell[end-1], z_cell[end])
+    ∇pe[end] = backward_difference(
+        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end])
 
     return nothing
 end
 
-function smooth!(x, x_cache; iters=1)
+function smooth!(x, x_cache; iters = 1)
     if iters > 0
         x_cache .= x
         x_cache[1] = x[2]
-        x_cache[end-1] = x[end]
-        for i in 2:length(x)-1
-            if i == 2 || i == length(x)-1
-                x_cache[i] = 0.5 * x[i] + 0.25 * (x[i-1] + x[i+1])
+        x_cache[end - 1] = x[end]
+        for i in 2:(length(x) - 1)
+            if i == 2 || i == length(x) - 1
+                x_cache[i] = 0.5 * x[i] + 0.25 * (x[i - 1] + x[i + 1])
             else
-                x_cache[i] = 0.4 * x[i] + 0.24 * (x[i-1] + x[i+1]) + 0.06 * (x[i-2] + x[i+2])
+                x_cache[i] = 0.4 * x[i] + 0.24 * (x[i - 1] + x[i + 1]) +
+                             0.06 * (x[i - 2] + x[i + 2])
             end
         end
         x .= x_cache
-        smooth!(x, x_cache; iters = iters-1)
+        smooth!(x, x_cache; iters = iters - 1)
     else
         return x
     end
