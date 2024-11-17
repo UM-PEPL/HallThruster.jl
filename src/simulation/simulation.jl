@@ -32,16 +32,15 @@ function allocate_arrays(grid, config)
         electric_field = zeros(ncells),     # electric field
         B = zeros(ncells),      # magnetic field
         # Collision frequencies
-        νan = zeros(ncells),    # anomalous 
-        νc = zeros(ncells),     # classical
-        νei = zeros(ncells),    # electron-ion
-        νen = zeros(ncells),    # electron-neutral
+        nu_anom = zeros(ncells),    # anomalous 
+        nu_class = zeros(ncells),     # classical
+        nu_ei = zeros(ncells),    # electron-ion
+        nu_en = zeros(ncells),    # electron-neutral
         radial_loss_frequency = zeros(ncells),
-        νew_momentum = zeros(ncells),   # momentum transfer with walls
-        νiw = zeros(ncells),            # ion wall collision freq.
-        νe = zeros(ncells),     # total electron collision freq.
-        νiz = zeros(ncells),    # ionization freq.
-        νex = zeros(ncells),    # excitation freq.
+        nu_wall = zeros(ncells),   # momentum transfer with walls
+        nu_e = zeros(ncells),     # total electron collision freq.
+        nu_iz = zeros(ncells),    # ionization freq.
+        nu_ex = zeros(ncells),    # excitation freq.
         # Electron source terms
         ohmic_heating = zeros(ncells),
         wall_losses = zeros(ncells),
@@ -238,7 +237,7 @@ function setup_simulation(
     initialize!(U, params)
 
     # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
-    TwoZoneBohm(1 // 160, 1 // 16)(params.cache.νan, params)
+    TwoZoneBohm(1 // 160, 1 // 16)(params.cache.nu_anom, params)
 
     # Initialize plume
     update_plume_geometry!(U, params; initialize = true)

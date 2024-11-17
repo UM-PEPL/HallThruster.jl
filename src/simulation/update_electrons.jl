@@ -1,59 +1,59 @@
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (; control_current, target_current, Kp, Ti, pe_factor, ncells) = params
+    (; control_current, target_current, Kp, Ti, pe_factor, ncells, cache, config) = params
     (; B, ue, Tev, electric_field, potential, pe, ne, nϵ, grad_pe,
-    mobility, νan, νc, νen, νei, νiz, νex, νe,
-    radial_loss_frequency, Z_eff, ji, Id, νew_momentum, κ, Vs, K,
+    mobility, nu_e, nu_anom, nu_en, nu_ei, nu_class, nu_wall, nu_iz, nu_ex,
+    radial_loss_frequency, Z_eff, ji, Id, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
-    errors, channel_area) = params.cache
+    errors, channel_area) = cache
 
     # Update plasma quantities based on new density
     @inbounds for i in 1:ncells
         # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(params.config.min_electron_temperature, nϵ[i] / ne[i])
+        Tev[i] = 2 / 3 * max(config.min_electron_temperature, nϵ[i] / ne[i])
         # Compute electron pressure
         pe[i] = pe_factor * ne[i] * Tev[i]
     end
 
     # Update electron-ion collisions
-    if (params.config.electron_ion_collisions)
+    if (config.electron_ion_collisions)
         @inbounds for i in 1:ncells
-            νei[i] = freq_electron_ion(ne[i], Tev[i], Z_eff[i])
+            nu_ei[i] = freq_electron_ion(ne[i], Tev[i], Z_eff[i])
         end
     end
 
     # Update other collisions
     @inbounds for i in 1:ncells
         # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params, i)
+        nu_en[i] = freq_electron_neutral(params, i)
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
-        νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
+        nu_class[i] = nu_en[i] + nu_ei[i] + !config.LANDMARK * (nu_iz[i] + nu_ex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            params.config.wall_loss_model, params, i)
-        νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0)
+            config.wall_loss_model, params, i)
+        nu_wall[i] = radial_loss_frequency[i] * linear_transition(
+            params.z_cell[i], params.L_ch, config.transition_length, 1.0, 0.0)
     end
 
     # Update anomalous transport
-    t > 0 && params.config.anom_model(νan, params)
+    t > 0 && config.anom_model(nu_anom, params)
 
     # Smooth anomalous transport model
-    if params.config.anom_smoothing_iters > 0
-        smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
+    if config.anom_smoothing_iters > 0
+        smooth!(nu_anom, params.cache.cell_cache_1, iters = config.anom_smoothing_iters)
     end
 
     @inbounds for i in 1:ncells
         # Multiply by anom anom multiplier for PID control
-        νan[i] *= anom_multiplier[]
+        nu_anom[i] *= anom_multiplier[]
 
         # Compute total collision frequency and electron mobility
-        νe[i] = νc[i] + νan[i] + νew_momentum[i]
-        mobility[i] = electron_mobility(νe[i], B[i])
+        nu_e[i] = nu_class[i] + nu_anom[i] + nu_wall[i]
+        mobility[i] = electron_mobility(nu_e[i], B[i])
     end
 
     # Compute anode sheath potential
@@ -81,7 +81,7 @@ function update_electrons!(params, t = 0)
     solve_potential!(potential, params)
 
     #update thermal conductivity
-    params.config.conductivity_model(κ, params)
+    config.conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
     update_electron_energy!(params, params.dt[])
@@ -159,21 +159,18 @@ end
 
 function compute_electric_field!(electric_field, params)
     (; cache, iteration, config) = params
-    (; ji, Id, ne, mobility, grad_pe, channel_area, ui, νei, νen, νan) = cache
+    (; ji, Id, ne, mobility, grad_pe, channel_area, ui, nu_ei, nu_en, nu_anom) = cache
 
     apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
-    if (apply_drag)
-        (; νei, νen, νan, ui) = cache
-    end
     un = config.neutral_velocity
 
     for i in eachindex(electric_field)
         E = ((Id[] / channel_area[i] - ji[i]) / e / mobility[i] - grad_pe[i]) / ne[i]
 
         if (apply_drag)
-            ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = un * (νen[i]) * me / e
+            ion_drag = ui[1, i] * (nu_ei[i] + nu_anom[i]) * me / e
+            neutral_drag = un * (nu_en[i]) * me / e
             E += ion_drag + neutral_drag
         end
 
@@ -184,13 +181,13 @@ function compute_electric_field!(electric_field, params)
 end
 
 function electron_kinetic_energy!(K, params)
-    (; νe, B, ue) = params.cache
+    (; nu_e, B, ue) = params.cache
     # K = 1/2 me ue^2
     #   = 1/2 me (ue^2 + ue_θ^2)
     #   = 1/2 me (ue^2 + Ωe^2 ue^2)
     #   = 1/2 me (1 + Ωe^2) ue^2
     #   divide by e to get units of eV
-    @. K = 0.5 * me * (1 + (e * B / me / νe)^2) * ue^2 / e
+    @. K = 0.5 * me * (1 + (e * B / me / nu_e)^2) * ue^2 / e
 end
 
 function compute_pressure_gradient!(∇pe, params)

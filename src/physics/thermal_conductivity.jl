@@ -25,12 +25,12 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
 struct Braginskii <: ThermalConductivityModel end
 
 function (model::Braginskii)(κ, params)
-    (; νc, νew_momentum, νan, B, ne, Tev, Z_eff) = params.cache
+    (; nu_class, nu_wall, nu_anom, B, ne, Tev, Z_eff) = params.cache
     @inbounds for i in eachindex(κ)
         #get coefficient from charge states
         κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(Z_eff[i])
         #use both classical and anomalous collision frequencies
-        ν = νc[i] + νew_momentum[i] + νan[i]
+        ν = nu_class[i] + nu_wall[i] + nu_anom[i]
         # calculate mobility using above collision frequency
         μ = electron_mobility(ν, B[i])
         #final calculation
@@ -46,14 +46,14 @@ end
 struct Mitchner <: ThermalConductivityModel end
 
 function (model::Mitchner)(κ, params)
-    (; νc, νew_momentum, νei, νan, B, ne, Tev) = params.cache
+    (; nu_class, nu_wall, nu_ei, nu_anom, B, ne, Tev) = params.cache
     @inbounds for i in eachindex(κ)
         # use both classical and anomalous collision frequencies
-        ν = νc[i] + νew_momentum[i] + νan[i]
+        ν = nu_class[i] + nu_wall[i] + nu_anom[i]
         # calculate mobility using above collision frequency
         μ = electron_mobility(ν, B[i])
         # final calculation
-        κ[i] = (2.4 / (1 + νei[i] / (√(2) * ν))) * μ * ne[i] * Tev[i]
+        κ[i] = (2.4 / (1 + nu_ei[i] / (√(2) * ν))) * μ * ne[i] * Tev[i]
     end
     return κ
 end

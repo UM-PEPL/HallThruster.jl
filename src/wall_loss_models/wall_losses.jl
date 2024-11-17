@@ -32,14 +32,14 @@ function wall_power_loss(Q, model::WallLossModel, params)
 end
 
 function wall_electron_current(::WallLossModel, params, i)
-    (;Δz_cell, cache, A_ch) = params
-    (;ne, νew_momentum) = cache
+    (; Δz_cell, cache, A_ch) = params
+    (; ne, nu_wall) = cache
     V_cell = A_ch * Δz_cell[i]
-    return e * νew_momentum[i] * V_cell * ne[i]
+    return e * nu_wall[i] * V_cell * ne[i]
 end
 
 function wall_ion_current(model::WallLossModel, params, i, Z)
-    (;ne, ni) = params.cache
+    (; ne, ni) = params.cache
 
     Iew = wall_electron_current(model, params, i)
     return Z * ni[Z, i] / ne[i] * Iew * (1 - params.cache.γ_SEE[i])

@@ -27,10 +27,13 @@ function frame_dict(sol, frame)
         "Tev" => sol[:Tev][frame],
         "pe" => sol[:pe][frame],
         "grad_pe" => sol[:grad_pe][frame],
-        "nu_en" => sol[:νen][frame],
-        "nu_ei" => sol[:νei][frame],
-        "nu_anom" => sol[:νan][frame],
-        "nu_class" => sol[:νc][frame],
+        "nu_en" => sol[:nu_en][frame],
+        "nu_ei" => sol[:nu_ei][frame],
+        "nu_anom" => sol[:nu_anom][frame],
+        "nu_iz" => sol[:nu_iz][frame],
+        "nu_ex" => sol[:nu_ex][frame],
+        "nu_wall" => sol[:nu_wall][frame],
+        "nu_class" => sol[:nu_class][frame],
         "mobility" => sol[:mobility][frame]
     )
 end
