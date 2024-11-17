@@ -118,17 +118,11 @@ function solve(U, params, tspan; saveat, show_errors=true)
             update_heavy_species!(U, params)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
-            @inbounds for i in 1:ncells, j in 1:nvars
-                if !isfinite(U[j, i])
-                    if show_errors
-                        @warn("NaN or Inf detected in variable $j in cell $i at time $(t)")
-                    end
-                    retcode = :failure
-                    break
+            if any(!isfinite, U)
+                if show_errors
+                    @warn("Nan or Inf detected in heavy species solver at time $(t)")
                 end
-            end
-
-            if retcode == :failure
+                retcode = :failure
                 break
             end
 
