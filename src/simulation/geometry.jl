@@ -34,6 +34,10 @@ struct Geometry1D
     end
 end
 
+function Geometry1D(channel_length, inner_radius, outer_radius, channel_area = nothing)
+    return Geometry1D(; channel_length, inner_radius, outer_radius)
+end
+
 """
     Magnetic field
 
@@ -82,8 +86,8 @@ Compute the cross-sectional area of a Hall thruster channel from its dimensions
 Compute the perimeteter of the thruster channel, equal to the sum of the inner and outer circumferences
 """
 @inline channel_perimeter(outer_radius, inner_radius) = 2π * (outer_radius + inner_radius)
-@inline channel_perimeter(geometry::Geometry1D) =
-    channel_perimeter(geometry.outer_radius, geometry.inner_radius)
+@inline channel_perimeter(geometry::Geometry1D) = channel_perimeter(
+    geometry.outer_radius, geometry.inner_radius)
 @inline channel_perimeter(thruster::Thruster) = channel_perimeter(thruster.geometry)
 
 """
@@ -91,8 +95,8 @@ Compute the perimeteter of the thruster channel, equal to the sum of the inner a
 Compute the thruster channel width
 """
 @inline channel_width(outer_radius, inner_radius) = outer_radius - inner_radius
-@inline channel_width(geometry::Geometry1D) =
-    channel_width(geometry.outer_radius, geometry.inner_radius)
+@inline channel_width(geometry::Geometry1D) = channel_width(
+    geometry.outer_radius, geometry.inner_radius)
 @inline channel_width(thruster::Thruster) = channel_width(thruster.geometry)
 
 struct Grid1D
@@ -119,7 +123,7 @@ Construct an unevenly-spaced grid according to provided density function. Defaul
 Provided density functions must have a signature of (z, z0, z1, Lch) where z is the location,
 (z0, z1) are the extents of the domain and Lch is the channel length
 """
-UnevenGrid(n, f=default_density) = HallThrusterGrid(n, f)
+UnevenGrid(n, f = default_density) = HallThrusterGrid(n, f)
 
 function default_density(z, z0, z1, Lch)
     center = 1.5 * Lch
@@ -168,9 +172,8 @@ function Grid1D(geometry, z_edge)
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
 
     # get cell area
-    cell_volume =
-        channel_area(geometry.outer_radius, geometry.inner_radius) *
-        abs(domain[2] - domain[1]) / ncells
+    cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius) *
+                  abs(domain[2] - domain[1]) / ncells
 
     return Grid1D(ncells, z_edge, z_cell, cell_volume)
 end
@@ -199,37 +202,37 @@ Given bounds x0, x1, a number of points N, and a density function density(x), ge
 to the provided desity function using inverse CDF transformation.
 """
 function nodes_from_density(density, x0, x1, Lch, N)
-    xs = range(x0, x1; length=N)
+    xs = range(x0, x1; length = N)
     den = [density(x, x0, x1, Lch) for x in xs]
     cdf = cumsum(den)
     cdf_min, cdf_max = extrema(cdf)
-    cdf_pts = range(cdf_min, cdf_max; length=N)
+    cdf_pts = range(cdf_min, cdf_max; length = N)
     xs_density = [HallThruster.interpolate(c, cdf, xs) for c in cdf_pts]
     return xs_density
 end
 
 const geometry_SPT_100 = Geometry1D(;
-    inner_radius=0.0345, outer_radius=0.05, channel_length=0.025
+    inner_radius = 0.0345, outer_radius = 0.05, channel_length = 0.025
 )
 
-function B_field_SPT_100() #same in Landmark and in FFM model Hara
+function B_field_SPT_100() # same in Landmark and in FFM model Hara
     L_ch = geometry_SPT_100.channel_length
     B_max = 0.015 # T
-    zs = LinRange(0, 4 * L_ch, 512)
+    zs = LinRange(0, 4 * L_ch, 256)
     Bs = zeros(length(zs))
-    for (i, z) in enumerate(Bs)
+    for (i, z) in enumerate(zs)
         Bs[i] = if z < L_ch
-            B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2) #for SPT_100
+            B_max * exp(-0.5 * ((z - L_ch) / (0.011))^2)
         else
             B_max * exp(-0.5 * ((z - L_ch) / (0.018))^2)
         end
     end
-    return MagneticField("SPT-100", zs, Bs)
+    return MagneticField("SPT-100 Default", zs, Bs)
 end
 
 const SPT_100 = Thruster(;
-    name="SPT-100",
-    geometry=geometry_SPT_100,
-    magnetic_field=B_field_SPT_100(),
-    shielded=false,
+    name = "SPT-100",
+    geometry = geometry_SPT_100,
+    magnetic_field = B_field_SPT_100(),
+    shielded = false
 )

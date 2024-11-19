@@ -1,5 +1,6 @@
 module HallThruster
 
+using Accessors: @reset
 using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using JSON3: JSON3, StructTypes
@@ -16,6 +17,7 @@ const TEST_DIR = joinpath(PACKAGE_ROOT, "test", "unit_tests")
 
 include("utilities/utility_functions.jl")
 include("utilities/macros.jl")
+include("utilities/keywords.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -65,27 +67,28 @@ export time_average, Xenon, Krypton
 function example_simulation(; ncells, duration, dt, nsave)
     config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        domain = (0.0, 8.0),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
         wall_loss_model = WallSheath(BoronNitride),
-        neutral_temperature = 500
+        neutral_temperature_K = 500.0,
     )
     sol_1 = run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
 
     config_2 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        domain = (0.0, 8.0),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
-        neutral_temperature = 500u"K"
+        neutral_temperature_K = 500.0,
     )
     sol_2 = run_simulation(
-        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false
+        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
     )
+
     time_average(sol_1)
     discharge_current(sol_1)
     thrust(sol_1)

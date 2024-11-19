@@ -34,7 +34,7 @@ function frame_dict(sol, frame)
         "nu_ex" => sol[:nu_ex][frame],
         "nu_wall" => sol[:nu_wall][frame],
         "nu_class" => sol[:nu_class][frame],
-        "mobility" => sol[:mobility][frame]
+        "mobility" => sol[:mobility][frame],
     )
 end
 
@@ -101,7 +101,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
 
     # Whether inbuilt divergence model is used to correct thrust
     apply_thrust_divergence_correction = get_key(
-        json_content, :apply_thrust_divergence_correction, true
+        json_content, :apply_thrust_divergence_correction, true,
     )
 
     # Whether we solve a quasi-1D plume expansion
@@ -112,7 +112,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
 
     # neutral ingestion multiplier
     neutral_ingestion_multiplier::Float64 = get_key(
-        json_content, :neutral_ingestion_multiplier, 1.0
+        json_content, :neutral_ingestion_multiplier, 1.0,
     )
 
     geometry = Geometry1D(; channel_length, outer_radius, inner_radius)
@@ -135,7 +135,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
         name = thruster_name,
         geometry = geometry,
         magnetic_field = bfield_func,
-        shielded = magnetically_shielded
+        shielded = magnetically_shielded,
     )
 
     # Assign anomalous transport models
@@ -151,7 +151,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
             js.pressure_z0,
             js.pressure_dz,
             js.pressure_pstar,
-            js.pressure_alpha
+            js.pressure_alpha,
         ),
         :ShiftedMultiBohm => (js, c) -> ShiftedMultiBohm(
             c[1:(length(c) ÷ 2)],
@@ -159,7 +159,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
             js.pressure_z0,
             js.pressure_dz,
             js.pressure_pstar,
-            js.pressure_alpha
+            js.pressure_alpha,
         ),
         :ShiftedGaussianBohm => (js, c) -> ShiftedGaussianBohm(
             c[1],
@@ -169,17 +169,17 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
             js.pressure_z0,
             js.pressure_dz,
             js.pressure_pstar,
-            js.pressure_alpha
-        )
+            js.pressure_alpha,
+        ),
     )
     anom_model = anom_model_fn(json_content, anom_model_coeffs)
 
     propellant = assign_json_key(
-        "propellant", propellant, :Xenon => Xenon, :Krypton => Krypton, :Argon => Argon
+        "propellant", propellant, :Xenon => Xenon, :Krypton => Krypton, :Argon => Argon,
     )
 
     wall_material = assign_json_key(
-        "wall material", wall_material, :BNSiO2 => BNSiO2, :BoronNitride => BoronNitride
+        "wall material", wall_material, :BNSiO2 => BNSiO2, :BoronNitride => BoronNitride,
     )
 
     flux_function = assign_json_key(
@@ -187,7 +187,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
         flux_function,
         :rusanov => rusanov,
         :HLLE => HLLE,
-        :global_lax_friedrichs => global_lax_friedrichs
+        :global_lax_friedrichs => global_lax_friedrichs,
     )
 
     limiter = assign_json_key("limiter", limiter, :van_leer => van_leer, :minmod => minmod)
@@ -203,21 +203,20 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
         ncharge = max_charge,
         wall_loss_model = WallSheath(wall_material, Float64(sheath_loss_coefficient)),
         ion_wall_losses = ion_wall_losses,
-        cathode_Te = cathode_electron_temp_eV,
+        cathode_Tev = cathode_electron_temp_eV,
         LANDMARK = false,
-        ion_temperature = ion_temp_K,
-        neutral_temperature = neutral_temp_K,
+        ion_temperature_K = ion_temp_K,
+        neutral_temperature_K = neutral_temp_K,
         neutral_velocity = neutral_velocity_m_s,
         electron_ion_collisions = electron_ion_collisions,
-        min_electron_temperature = cathode_electron_temp_eV,
         transition_length = inner_outer_transition_length_m,
         scheme = HyperbolicScheme(; flux_function, limiter, reconstruct),
-        background_pressure = background_pressure_Torr,
-        background_neutral_temperature = background_temperature_K,
+        background_pressure_Torr = background_pressure_Torr,
+        background_neutral_temperature_K = background_temperature_K,
         neutral_ingestion_multiplier,
         solve_plume,
         apply_thrust_divergence_correction,
-        electron_plume_loss_scale
+        electron_plume_loss_scale,
     )
 
     return config
@@ -255,7 +254,7 @@ function run_simulation(json_content::JSON3.Object; verbose = true)
         adaptive,
         dtmin,
         dtmax,
-        max_small_steps
+        max_small_steps,
     )
 
     return solution

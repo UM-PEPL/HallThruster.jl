@@ -133,8 +133,8 @@ function update_electron_energy!(params, dt)
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     @inbounds for i in 1:ncells
         if !isfinite(nϵ[i]) ||
-           nϵ[i] / ne[i] < params.config.min_electron_temperature
-            nϵ[i] = 3 / 2 * params.config.min_electron_temperature * ne[i]
+           nϵ[i] / ne[i] < params.Te_min
+            nϵ[i] = 3 / 2 * params.Te_min * ne[i]
         end
 
         # update Tev and pe

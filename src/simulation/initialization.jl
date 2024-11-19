@@ -15,9 +15,9 @@ function initialize!(_, _, model::InitialCondition)
 end
 
 function initialize_heavy_species_default!(
-        U, params; min_ion_density = 2e17, max_ion_density = 1e18)
+        U, params; min_ion_density = 2e17, max_ion_density = 1e18,)
     (; z_cell, config, index, cache) = params
-    (; ncharge, anode_Te, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
+    (; ncharge, anode_Tev, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
     mi = propellant.m
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
@@ -32,7 +32,7 @@ function initialize_heavy_species_default!(
                                       (ni_max - ni_min) *
                                       exp(-(((z - z0) - ni_center) / ni_width)^2)) / Z^2
 
-    bohm_velocity = Z -> -sqrt(Z * e * anode_Te / mi)
+    bohm_velocity = Z -> -sqrt(Z * e * anode_Tev / mi)
 
     final_velocity = Z -> sqrt(2 * Z * e * discharge_voltage / mi)
     scale(Z) = 2 / 3 * (final_velocity(Z) - bohm_velocity(Z))
@@ -78,13 +78,13 @@ function initialize_heavy_species_default!(
 end
 
 function initialize_electrons_default!(params; max_electron_temperature = -1.0)
-    (; z_cell, config, cache) = params
-    (; anode_Te, cathode_Te, domain, thruster) = config
+    (; z_cell, config::Config, cache) = params
+    (; anode_Tev, cathode_Tev, domain, thruster) = config
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
     # Electron temperature
-    Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Te, cathode_Te)
-    Te_min = min(config.anode_Te, config.cathode_Te)
+    Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Tev, cathode_Tev)
+    Te_min = min(anode_Tev, cathode_Tev)
     Te_max = max_electron_temperature > 0.0 ? max_electron_temperature :
              config.discharge_voltage / 10
     Te_width = L_ch / 3

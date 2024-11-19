@@ -33,14 +33,13 @@ const slope_limiters = (;
     van_leer,
     van_albada,
     minmod,
-    koren
+    koren,
 )
 
 @__register_stringtype(SlopeLimiter, slope_limiters)
 
 function stage_limiter!(U, params)
-    (; ncells, cache, config, index) = params
-    (; nϵ) = cache
+    (; ncells, config::Config, index) = params
     min_density = config.min_number_density * config.propellant.m
     @inbounds for i in 1:ncells
         U[index.ρn, i] = max(U[index.ρn, i], min_density)
@@ -51,6 +50,5 @@ function stage_limiter!(U, params)
             U[index.ρi[Z], i] = density_floor
             U[index.ρiui[Z], i] = density_floor * velocity
         end
-        nϵ[i] = max(nϵ[i], config.min_number_density * config.min_electron_temperature)
     end
 end

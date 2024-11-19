@@ -11,7 +11,7 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
 """
 @inline function anom_models()
     return (; NoAnom, Bohm, TwoZoneBohm, MultiLogBohm,
-        ShiftedTwoZoneBohm, ShiftedMultiBohm, ShiftedGaussianBohm)
+        ShiftedTwoZoneBohm, ShiftedMultiBohm, ShiftedGaussianBohm,)
 end
 
 @__register_abstracttype(AnomalousTransportModel, anom_models())
@@ -70,7 +70,7 @@ function (model::TwoZoneBohm)(νan, params)
         ωce = e * B / me
 
         β = linear_transition(
-            params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
+            params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2,)
         νan[i] = β * ωce
     end
 
@@ -136,7 +136,7 @@ end
 function (model::ShiftedMultiBohm)(νan, params)
     (; zs, cs, z0, dz, alpha, pstar) = model
 
-    pb = params.config.background_pressure
+    pb = params.config.background_pressure_Torr
 
     torr_to_pa = 133.322
 
@@ -186,7 +186,7 @@ function (model::ShiftedGaussianBohm)(νan, params)
         return νan
     end
 
-    pb = params.config.background_pressure
+    pb = params.config.background_pressure_Torr
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
@@ -223,7 +223,7 @@ end
 function (model::ShiftedTwoZoneBohm)(νan, params)
     (; coeffs, z0, dz, alpha, pstar) = model
 
-    pb = params.config.background_pressure
+    pb = params.config.background_pressure_Torr
 
     torr_to_pa = 133.322
 
@@ -237,7 +237,7 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         ωce = HallThruster.e * B / HallThruster.me
 
         β = linear_transition(
-            params.z_cell[i], zstar, params.config.transition_length, c1, c2)
+            params.z_cell[i], zstar, params.config.transition_length, c1, c2,)
         νan[i] = β * ωce
     end
 end

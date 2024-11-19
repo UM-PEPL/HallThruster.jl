@@ -1,4 +1,3 @@
-
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
     (; control_current, target_current, Kp, Ti, pe_factor, ncells, cache, config) = params
@@ -11,7 +10,7 @@ function update_electrons!(params, t = 0)
     # Update plasma quantities based on new density
     @inbounds for i in 1:ncells
         # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(config.min_electron_temperature, nϵ[i] / ne[i])
+        Tev[i] = 2 / 3 * max(params.Te_min, nϵ[i] / ne[i])
         # Compute electron pressure
         pe[i] = pe_factor * ne[i] * Tev[i]
     end
@@ -34,9 +33,9 @@ function update_electrons!(params, t = 0)
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            config.wall_loss_model, params, i)
+            config.wall_loss_model, params, i,)
         nu_wall[i] = radial_loss_frequency[i] * linear_transition(
-            params.z_cell[i], params.L_ch, config.transition_length, 1.0, 0.0)
+            params.z_cell[i], params.L_ch, config.transition_length, 1.0, 0.0,)
     end
 
     # Update anomalous transport
@@ -201,12 +200,12 @@ function compute_pressure_gradient!(∇pe, params)
     @inbounds for j in 2:(ncells - 1)
         # Compute pressure gradient
         ∇pe[j] = central_difference(
-            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1])
+            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1],)
     end
 
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(
-        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end])
+        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],)
 
     return nothing
 end
