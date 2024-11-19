@@ -17,7 +17,7 @@
     "inner_radius": 0.035,
     "outer_radius": 0.05,
     "channel_length": 0.025,
-    "magnetic_field_file": "unit_tests/bfield_spt100.csv",
+    "magnetic_field_file": "bfield_spt100.csv",
     "wall_material": "BNSiO2",
     "magnetically_shielded": false,
     "anode_potential": 360.31297211799335,

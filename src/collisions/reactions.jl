@@ -1,6 +1,5 @@
 abstract type Reaction end
 
-
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
         joinpath(folder, join([reaction_type, repr(reactant)], "_") * ".dat")
@@ -10,46 +9,16 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
     return fname
 end
 
-@inline function maxwellian_vdf(Tev, v)
-    sqrt(2/π) * v^2 * (me / e / Tev)^(3/2) * exp(-me * v^2 / 2 / e/ Tev)
-end
-
-function compute_rate_coeffs(energies, cross_section_func)
-    integrand(Te, v) = let ϵ = 1/2 * me * v^2 / e
-        cross_section_func(ϵ) * v * maxwellian_vdf(Te, v)
-    end
-
-    rate_coeffs = [
-        quadgk(integrand $ (2/3 * ϵ), 0.0, 10 * sqrt(2 * e * ϵ / me))[1] for ϵ in energies
-    ]
-    return rate_coeffs
-end
-
-function compute_rate_coeffs(cross_section_filename)
-    data = readdlm(cross_section_filename, ',')
-    energies = 1.0:150.0
-
-    ϵ, σ = data[:, 1], data[:, 2] * 1e-20
-    cross_section_func = LinearInterpolation(ϵ, σ)
-    rate_coeffs = compute_rate_coeffs(energies, cross_section_func)
-
-    fname = splitpath(cross_section_filename)[end]
-    open("reactions/$fname", "w") do io
-        println(io, "Energy (eV)	Rate coefficient (m3/s)")
-        writedlm(io, [energies rate_coeffs])
-    end
-end
-
 function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FOLDER)
     rates_file = rate_coeff_filename(reactant, product, reaction_type, folder)
     if ispath(rates_file)
         energy, rates = open(rates_file) do io
             if reaction_type == "ionization" || reaction_type == "excitation"
-                energy = split(readline(io), ':')[2] |> strip |> parse $ (Float64)
+                energy = parse(Float64, strip(split(readline(io), ':')[2]))
             else
                 energy = 0.0
             end
-            rates = readdlm(io, skipstart=1)
+            rates = readdlm(io, skipstart = 1)
             energy, rates
         end
     else
@@ -72,8 +41,8 @@ function rate_coeff(::ReactionModel, rxn::Reaction, energy)
     ind = Base.trunc(Int64, energy)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind
-    r1 = rxn.rate_coeffs[ind+1]
-    r2 = rxn.rate_coeffs[ind+2]
+    r1 = rxn.rate_coeffs[ind + 1]
+    r2 = rxn.rate_coeffs[ind + 2]
     t = energy - ind
     return (1 - t) * r1 + t * r2
 end
@@ -134,5 +103,9 @@ function _indices(symbol, reactions, species_range_dict)
     return indices
 end
 
-reactant_indices(reactions, species_range_dict) = _indices(:reactant, reactions, species_range_dict)
-product_indices(reactions, species_range_dict) = _indices(:product, reactions, species_range_dict)
+function reactant_indices(reactions, species_range_dict)
+    _indices(:reactant, reactions, species_range_dict)
+end
+function product_indices(reactions, species_range_dict)
+    _indices(:product, reactions, species_range_dict)
+end

@@ -1,11 +1,8 @@
 module HallThruster
 
-using LinearAlgebra
+using LinearAlgebra: Tridiagonal
 using DocStringExtensions
 
-using SparseArrays: Tridiagonal
-using PartialFunctions
-using QuadGK: quadgk
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
@@ -23,6 +20,7 @@ const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
+const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
 include("utilities/utility_functions.jl")
 
@@ -71,16 +69,17 @@ export time_average, Xenon, Krypton
 
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
-function example_simulation(;ncells, duration, dt, nsave)
+function example_simulation(; ncells, duration, dt, nsave)
     config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
         wall_loss_model = WallSheath(BoronNitride),
-        neutral_temperature = 500,
+        neutral_temperature = 500
     )
-    sol_1 = HallThruster.run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
+    sol_1 = HallThruster.run_simulation(
+        config_1; ncells, duration, dt, nsave, verbose = false)
 
     config_2 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
@@ -90,9 +89,10 @@ function example_simulation(;ncells, duration, dt, nsave)
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
-        neutral_temperature = 500u"K",
+        neutral_temperature = 500u"K"
     )
-    sol_2 = HallThruster.run_simulation(config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
+    sol_2 = HallThruster.run_simulation(
+        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
     HallThruster.time_average(sol_1)
     HallThruster.discharge_current(sol_1)
     HallThruster.thrust(sol_1)
@@ -105,7 +105,7 @@ end
 
 # Precompile statements to improve load time
 SnoopPrecompile.@precompile_all_calls begin
-    example_simulation(;ncells=20, duration=1e-7, dt=1e-8, nsave=2)
+    example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
 end
 
 end # module

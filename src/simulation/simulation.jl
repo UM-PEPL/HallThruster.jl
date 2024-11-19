@@ -1,5 +1,5 @@
 function allocate_arrays(grid, config)
-    (;ncharge, anom_model) = config
+    (; ncharge, anom_model) = config
 
     # made less general to handle common use cases as part of fluid refactor
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
@@ -11,7 +11,7 @@ function allocate_arrays(grid, config)
     U = zeros(nvariables, ncells)
 
     # Caches for energy solve
-    Aϵ = Tridiagonal(ones(ncells-1), ones(ncells), ones(ncells-1))
+    Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1))
     bϵ = zeros(ncells)
 
     # Collision frequencies
@@ -71,12 +71,12 @@ function allocate_arrays(grid, config)
     niui = zeros(ncharge, ncells)
 
     # ion current
-    ji  = zeros(ncells)
+    ji = zeros(ncells)
 
     # Neutral density
     nn = zeros(ncells)
     γ_SEE = zeros(ncells)
-    Id  = [0.0]
+    Id = [0.0]
     error_integral = [0.0]
     Id_smoothed = [0.0]
     Vs = [0.0]
@@ -116,7 +116,8 @@ function allocate_arrays(grid, config)
 
     cache = (;
         Aϵ, bϵ, nϵ, B, νan, νc, μ, ϕ, ∇ϕ, ne, ϵ, Tev, pe, ue, ∇pe,
-        νen, νei, radial_loss_frequency, νew_momentum, νiw, νe, κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
+        νen, νei, radial_loss_frequency, νew_momentum, νiw, νe,
+        κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
         ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
         error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
         errors, dcoeffs,
@@ -136,8 +137,8 @@ function setup_simulation(
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
-    )
+        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100
+)
 
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
@@ -158,14 +159,16 @@ function setup_simulation(
     end
 
     # load collisions and reactions
-    ionization_reactions = _load_reactions(config.ionization_model, unique(species); directories = config.reaction_rate_directories)
+    ionization_reactions = _load_reactions(config.ionization_model, unique(species);
+        directories = config.reaction_rate_directories)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
     excitation_reactions = _load_reactions(config.excitation_model, unique(species))
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = _load_reactions(config.electron_neutral_model, unique(species))
+    electron_neutral_collisions = _load_reactions(
+        config.electron_neutral_model, unique(species))
 
     index = configure_index(fluids, fluid_ranges)
 
@@ -206,14 +209,13 @@ function setup_simulation(
     cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
 
-
     # Simulation parameters
     params = (;
-        ncells = grid1d.ncells+2,
+        ncells = grid1d.ncells + 2,
         ncharge = config.ncharge,
         mi,
         config = config,
-        ϕ_L = config.discharge_voltage + config.cathode_potential,
+        ϕ_L = config.discharge_voltage,
         ϕ_R = config.cathode_potential,
         Te_L = config.anode_Te,
         Te_R = config.cathode_Te,
@@ -238,10 +240,11 @@ function setup_simulation(
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
         Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
-        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) - 1,
+        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) -
+                           1,
         dtbase, dtmin, dtmax, max_small_steps,
         # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3/2 : 1.0
+        pe_factor = config.LANDMARK ? 3 / 2 : 1.0
     )
 
     # Compute maximum allowed iterations
@@ -249,7 +252,7 @@ function setup_simulation(
         initialize!(U, params)
 
         # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
-        TwoZoneBohm(1//160, 1//16)(params.cache.νan, params)
+        TwoZoneBohm(1 // 160, 1 // 16)(params.cache.νan, params)
 
         # Initialize plume
         update_plume_geometry!(U, params, initialize = true)
