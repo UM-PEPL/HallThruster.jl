@@ -87,7 +87,7 @@ Compute the perimeteter of the thruster channel, equal to the sum of the inner a
 """
 @inline channel_perimeter(outer_radius, inner_radius) = 2π * (outer_radius + inner_radius)
 @inline channel_perimeter(geometry::Geometry1D) = channel_perimeter(
-    geometry.outer_radius, geometry.inner_radius)
+    geometry.outer_radius, geometry.inner_radius,)
 @inline channel_perimeter(thruster::Thruster) = channel_perimeter(thruster.geometry)
 
 """
@@ -96,7 +96,7 @@ Compute the thruster channel width
 """
 @inline channel_width(outer_radius, inner_radius) = outer_radius - inner_radius
 @inline channel_width(geometry::Geometry1D) = channel_width(
-    geometry.outer_radius, geometry.inner_radius)
+    geometry.outer_radius, geometry.inner_radius,)
 @inline channel_width(thruster::Thruster) = channel_width(thruster.geometry)
 
 struct Grid1D
@@ -189,7 +189,7 @@ function generate_grid(geometry, domain, grid::HallThrusterGrid{F}) where {F}
 
     # generate edge coordinates
     z_edge = nodes_from_density(
-        grid.density, domain[1], domain[2], geometry.channel_length, grid.ncells + 1
+        grid.density, domain[1], domain[2], geometry.channel_length, grid.ncells + 1,
     )
 
     # compute centers and volumes and return
@@ -212,7 +212,7 @@ function nodes_from_density(density, x0, x1, Lch, N)
 end
 
 const geometry_SPT_100 = Geometry1D(;
-    inner_radius = 0.0345, outer_radius = 0.05, channel_length = 0.025
+    inner_radius = 0.0345, outer_radius = 0.05, channel_length = 0.025,
 )
 
 function B_field_SPT_100() # same in Landmark and in FFM model Hara
@@ -234,5 +234,5 @@ const SPT_100 = Thruster(;
     name = "SPT-100",
     geometry = geometry_SPT_100,
     magnetic_field = B_field_SPT_100(),
-    shielded = false
+    shielded = false,
 )

@@ -10,17 +10,16 @@ end
 (f::FluxFunction)(args...; kwargs...) = f.flux(args...; kwargs...)
 
 # dummy methods for each flux function
-__rusanov() = nothing
-__global_lax_friedrichs() = nothing
-__HLLE() = nothing
+function __rusanov end
+function __global_lax_friedrichs end
+function __HLLE end
 
 # Define all flux functions
 const rusanov = FluxFunction(__rusanov)
 const global_lax_friedrichs = FluxFunction(__global_lax_friedrichs)
 const HLLE = FluxFunction(__HLLE)
 
-const flux_functions = (; rusanov, global_lax_friedrichs, HLLE = HLLE)
-
+const flux_functions = (; rusanov, global_lax_friedrichs, HLLE)
 @__register_stringtype(FluxFunction, flux_functions)
 
 # Compute flux vector for 1D flows
@@ -54,7 +53,7 @@ for NUM_CONSERVATIVE in 1:3
                 UL::NTuple{$NUM_CONSERVATIVE, T},
                 UR::NTuple{$NUM_CONSERVATIVE, T},
                 fluid,
-                args...
+                args...,
         ) where {T}
             γ = fluid.species.element.γ
             Z = fluid.species.Z
@@ -83,7 +82,7 @@ for NUM_CONSERVATIVE in 1:3
                 UL::NTuple{$NUM_CONSERVATIVE, T},
                 UR::NTuple{$NUM_CONSERVATIVE, T},
                 fluid,
-                args...
+                args...,
         ) where {T}
             γ = fluid.species.element.γ
             Z = fluid.species.Z
@@ -116,7 +115,7 @@ for NUM_CONSERVATIVE in 1:3
                 UR::NTuple{$NUM_CONSERVATIVE, T},
                 fluid,
                 max_wave_speed = 0.0,
-                args...
+                args...,
         ) where {T}
             γ = fluid.species.element.γ
             Z = fluid.species.Z

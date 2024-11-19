@@ -5,6 +5,7 @@ version = "0.17.3"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+Configurations = "5218b696-f38b-4ac9-8b61-a12ec717816d"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
@@ -18,6 +19,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 Accessors = "0.1.38"
+Configurations = "0.17.6"
 DelimitedFiles = "1"
 DocStringExtensions = "0.9"
 Documenter = "0.27, 1"

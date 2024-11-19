@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-@keywords mutable struct Config{
+@keywords struct Config{
     A <: AnomalousTransportModel,
     TC <: ThermalConductivityModel,
     W <: WallLossModel,
@@ -17,13 +17,10 @@ $(TYPEDFIELDS)
     S_IM,
     S_E,
 }
-    # Mandatory options
     thruster::Thruster
     discharge_voltage::Float64
     domain::Tuple{Float64, Float64}
     anode_mass_flow_rate::Float64
-
-    # Optional options
     cathode_potential::Float64                = 0.0
     anode_Tev::Float64                        = 3.0
     cathode_Tev::Float64                      = 3.0
@@ -66,7 +63,12 @@ end
  Serialization of Config to JSON
 ==============================================================================#
 
-StructTypes.StructType(::Config) = StructTypes.OrderedStruct()
+# fallback constructor to intercept instances where JSON spits a bunch of Nothing at us
+function StructTypes.construct(args...)
+    return Config(;
+        (k=>v for (k, v) in zip(fieldnames(Config), args) if !isnothing(v))...
+    )
+end
 
 # Don't write source terms to output
 function StructTypes.excludes(::Type{C}) where {C <: Config}

@@ -68,9 +68,9 @@ function example_simulation(; ncells, duration, dt, nsave)
     config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0, 8.0),
-        discharge_voltage = 300.0,
+        discharge_voltage = 300,
         anode_mass_flow_rate = 5e-6,
-        wall_loss_model = WallSheath(BoronNitride),
+        wall_loss_model = WallSheath(BoronNitride, 1.0),
         neutral_temperature_K = 500.0,
     )
     sol_1 = run_simulation(config_1; ncells, duration, dt, nsave, verbose = false)
@@ -85,6 +85,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         conductivity_model = LANDMARK_conductivity(),
         neutral_temperature_K = 500.0,
     )
+
     sol_2 = run_simulation(
         config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
     )

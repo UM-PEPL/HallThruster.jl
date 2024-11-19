@@ -20,6 +20,6 @@ const BoronNitride = WallMaterial(name = "Boron Nitride", ϵ_star = 45, σ₀ = 
 const SiliconDioxide = WallMaterial(name = "Silicon Dioxide", ϵ_star = 18, σ₀ = 0.5)
 const BNSiO2 = WallMaterial(name = "Borosil", ϵ_star = 40, σ₀ = 0.54)
 const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ₀ = 0.69)
-const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, SiliconCarbide)
 
+const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, SiliconCarbide)
 @__register_stringtype(WallMaterial, wall_materials)

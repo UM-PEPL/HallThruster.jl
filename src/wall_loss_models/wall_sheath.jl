@@ -11,7 +11,7 @@ function wall_electron_temperature(params, i)
     L_ch = config.thruster.geometry.channel_length
 
     Tev = linear_transition(
-        z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume)
+        z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume,)
 
     return Tev
 end
@@ -27,9 +27,6 @@ Sheath potentials are positive by convention in HallThruster.jl.
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
     alpha::Float64 = 0.15
-    function WallSheath(material::WallMaterial, α::Float64 = 0.15)
-        return new(material, α)
-    end
 end
 
 # compute the edge-to-center density ratio
@@ -79,7 +76,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
         νew = cache.radial_loss_frequency[i] * linear_transition(
-            z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale
+            z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale,
         )
 
         # Compute wall power loss rate
