@@ -4,6 +4,43 @@ The abstract supertype of all types of anomalous transport models.
 Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
+
+"""
+$(SIGNATURES)
+Returns a NamedTuple mapping symbols to transport models for all built-in models.
+"""
+@inline function anom_models()
+    return (;
+        NoAnom = NoAnom,
+        Bohm = Bohm,
+        TwoZoneBohm = TwoZoneBohm,
+        MultiLogBohm = MultiLogBohm,
+        ShiftedTwoZoneBohm = ShiftedTwoZoneBohm,
+        ShiftedMultiBohm = ShiftedMultiBohm,
+        ShiftedGaussianBohm = ShiftedGaussianBohm
+    )
+end
+
+#=============================================================================
+ Serialization of AnomalousTransportModel to JSON
+==============================================================================#
+StructTypes.StructType(::Type{AnomalousTransportModel}) = StructTypes.AbstractType()
+StructTypes.subtypes(::Type{AnomalousTransportModel}) = anom_models()
+StructTypes.subtypekey(::Type{AnomalousTransportModel}) = :type
+
+function StructTypes.StructType(::Type{T}) where {T <: AnomalousTransportModel}
+    return StructTypes.DictType()
+end
+
+function StructTypes.construct(
+        ::Type{T}, d::Dict; kw...) where {T <: AnomalousTransportModel}
+    return T((d[name] for name in fieldnames(T))...)
+end
+
+function StructTypes.keyvaluepairs(x::T) where {T <: AnomalousTransportModel}
+    p1 = :type => nameof(T)
+    return [p1; [name => getfield(x, name) for name in fieldnames(T)]]
+end
 #=============================================================================
  Begin definition of built-in models
 ==============================================================================#
@@ -30,7 +67,6 @@ struct Bohm <: AnomalousTransportModel
 end
 
 function (model::Bohm)(νan, params)
-
     for i in eachindex(νan)
         B = params.cache.B[i]
         ωce = e * B / me
@@ -58,7 +94,8 @@ function (model::TwoZoneBohm)(νan, params)
         B = params.cache.B[i]
         ωce = e * B / me
 
-        β = linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
+        β = linear_transition(
+            params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
         νan[i] = β * ωce
     end
 
@@ -91,13 +128,13 @@ end
 function MultiLogBohm(coeffs)
     N = length(coeffs) ÷ 2
     zs = coeffs[1:N]
-    cs = coeffs[N+1:end]
+    cs = coeffs[(N + 1):end]
     return MultiLogBohm(zs, cs)
 end
 
 function (model::MultiLogBohm)(νan, params)
-    (;z_cell) = params
-    (;B) = params.cache
+    (; z_cell) = params
+    (; B) = params.cache
 
     for i in eachindex(νan)
         ωce = e * B[i] / me
@@ -122,14 +159,14 @@ Base.@kwdef struct ShiftedMultiBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedMultiBohm)(νan, params)
-    (;zs, cs, z0, dz, alpha, pstar) = model
+    (; zs, cs, z0, dz, alpha, pstar) = model
 
     pb = params.config.background_pressure
 
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     for i in eachindex(νan)
         B = params.cache.B[i]
@@ -167,18 +204,18 @@ Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedGaussianBohm)(νan, params)
-    (;trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
+    (; trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
 
     # do not recompute after a certain point - profile is meant to be fixed in time
     if (params.iteration[] > 5)
-        return νan;
+        return νan
     end
 
     pb = params.config.background_pressure
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     B_interp = LinearInterpolation(params.z_cell, params.cache.B)
 
@@ -193,7 +230,6 @@ function (model::ShiftedGaussianBohm)(νan, params)
 
     return νan
 end
-
 
 """
     ShiftedTwoZoneBohm(coeffs, z0, dz, alpha, pstar) <: AnomalousTransportModel
@@ -210,14 +246,14 @@ Base.@kwdef struct ShiftedTwoZoneBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedTwoZoneBohm)(νan, params)
-    (;coeffs, z0, dz, alpha, pstar) = model
+    (; coeffs, z0, dz, alpha, pstar) = model
 
     pb = params.config.background_pressure
 
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = params.L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = params.L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     c1, c2 = coeffs
 
@@ -225,7 +261,8 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         B = params.cache.B[i]
         ωce = HallThruster.e * B / HallThruster.me
 
-        β = linear_transition(params.z_cell[i], zstar, params.config.transition_length, c1, c2)
+        β = linear_transition(
+            params.z_cell[i], zstar, params.config.transition_length, c1, c2)
         νan[i] = β * ωce
     end
 end

@@ -197,7 +197,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
         propellant = propellant,
         anom_model,
         domain = (0.0, cathode_location_m),
-        discharge_voltage = anode_potential - cathode_potential,
+        discharge_voltage = anode_potential,
         anode_mass_flow_rate = anode_mass_flow_rate,
         cathode_potential = cathode_potential,
         ncharge = max_charge,

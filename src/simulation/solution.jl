@@ -140,7 +140,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)
                 if show_errors
-                    @warn("Nan or Inf detected in heavy species solver at time $(t)")
+                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
                 end
                 retcode = :failure
                 break
@@ -189,7 +189,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
             end
         end
     catch e
-        errstring = sprint(showerror, e, backtrace())
+        errstring = sprint(showerror, e, catch_backtrace())
         retcode = :error
         if show_errors
             @warn "Error detected in solution: $(errstring)"

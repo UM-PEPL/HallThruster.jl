@@ -25,10 +25,14 @@ function update_electron_energy!(params, dt)
     Q = cache.cell_cache_1
     source_electron_energy!(Q, params)
 
-    @inbounds for i in 2:(ncells - 1)
-        # User-provided source term
-        Q[i] += config.source_energy(params, i)
+    # Apply user-provided source terms
+    if !isnothing(config.source_energy)
+        @inbounds for i in 2:(ncells - 1)
+            Q[i] += config.source_energy(params, i)
+        end
+    end
 
+    @inbounds for i in 2:(ncells - 1)
         neL = ne[i - 1]
         ne0 = ne[i]
         neR = ne[i + 1]
