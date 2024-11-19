@@ -94,7 +94,7 @@ function apply_ion_wall_losses!(dU, U, params)
     e_inv_m = e / propellant.m
 
     if wall_loss_model isa WallSheath
-        α = wall_loss_model.α
+        α = wall_loss_model.alpha
     else
         α = 1.0
     end

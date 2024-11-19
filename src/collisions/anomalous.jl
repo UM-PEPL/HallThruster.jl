@@ -10,37 +10,12 @@ $(SIGNATURES)
 Returns a NamedTuple mapping symbols to transport models for all built-in models.
 """
 @inline function anom_models()
-    return (;
-        NoAnom = NoAnom,
-        Bohm = Bohm,
-        TwoZoneBohm = TwoZoneBohm,
-        MultiLogBohm = MultiLogBohm,
-        ShiftedTwoZoneBohm = ShiftedTwoZoneBohm,
-        ShiftedMultiBohm = ShiftedMultiBohm,
-        ShiftedGaussianBohm = ShiftedGaussianBohm
-    )
+    return (; NoAnom, Bohm, TwoZoneBohm, MultiLogBohm,
+        ShiftedTwoZoneBohm, ShiftedMultiBohm, ShiftedGaussianBohm)
 end
 
-#=============================================================================
- Serialization of AnomalousTransportModel to JSON
-==============================================================================#
-StructTypes.StructType(::Type{AnomalousTransportModel}) = StructTypes.AbstractType()
-StructTypes.subtypes(::Type{AnomalousTransportModel}) = anom_models()
-StructTypes.subtypekey(::Type{AnomalousTransportModel}) = :type
+@__register_abstracttype(AnomalousTransportModel, anom_models())
 
-function StructTypes.StructType(::Type{T}) where {T <: AnomalousTransportModel}
-    return StructTypes.DictType()
-end
-
-function StructTypes.construct(
-        ::Type{T}, d::Dict; kw...) where {T <: AnomalousTransportModel}
-    return T((d[name] for name in fieldnames(T))...)
-end
-
-function StructTypes.keyvaluepairs(x::T) where {T <: AnomalousTransportModel}
-    p1 = :type => nameof(T)
-    return [p1; [name => getfield(x, name) for name in fieldnames(T)]]
-end
 #=============================================================================
  Begin definition of built-in models
 ==============================================================================#
@@ -51,7 +26,7 @@ No anomalous collision frequency included in simulation
 """
 struct NoAnom <: AnomalousTransportModel end
 
-function (::NoAnom)(νan, params)
+function (::NoAnom)(νan, ::Any)
     for i in eachindex(νan)
         νan[i] = 0.0
     end

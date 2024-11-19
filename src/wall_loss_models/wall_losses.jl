@@ -23,11 +23,14 @@ If left unimplemented, it will default to computing the current assuming Ie,w = 
 """
 abstract type WallLossModel end
 
-function freq_electron_wall(model::WallLossModel, params, i)
+@__register_abstracttype(WallLossModel,
+    ()->(; NoWallLosses, ConstantSheathPotential, WallSheath))
+
+function freq_electron_wall(model::WallLossModel, ::Any, ::Any)
     error("freq_electron_wall not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_power_loss(Q, model::WallLossModel, params)
+function wall_power_loss(::Any, model::WallLossModel, ::Any)
     error("wall_power_loss not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
 end
 

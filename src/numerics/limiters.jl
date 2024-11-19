@@ -1,5 +1,5 @@
 """
-    $(TYPEDFIELDS)
+    $(TYPEDEF)
 Defines a slope limiter for a second-order fluid solve.
 See `HallThruster.slope_limiters` for a list of available limiters.
 """

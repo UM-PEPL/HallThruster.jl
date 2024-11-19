@@ -1,9 +1,19 @@
 """
-    Thermal_Conductivity
+    ThermalConductivityModel
 The abstract supertype of all types of thermal conductivity models.
 Subtype this to define your own model.
 """
 abstract type ThermalConductivityModel end
+
+@inline function thermal_conductivity_models()
+    return (; Braginskii, Mitchner, LANDMARK_conductivity)
+end
+
+@__register_abstracttype(ThermalConductivityModel, thermal_conductivity_models())
+
+#=============================================================================
+ Begin definition of built-in models
+==============================================================================#
 
 """
 Lookup for thermal conductivity coefficients, from Table 1 of
@@ -13,10 +23,6 @@ const LOOKUP_ZS = range(1, 5, length = 5)
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
 const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
     LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
-
-#=============================================================================
- Begin definition of built-in models
-==============================================================================#
 
 """
     Braginskii conductivity model for fully-ionized plasmasa

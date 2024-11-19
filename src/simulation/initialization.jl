@@ -6,6 +6,8 @@ Base.@kwdef struct DefaultInitialization <: InitialCondition
     max_ion_density::Float64 = 1e18
 end
 
+@__register_abstracttype(InitialCondition, ()->(; DefaultInitialization))
+
 initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
 
 function initialize!(_, _, model::InitialCondition)

@@ -1,5 +1,5 @@
 """
-    $(TYPEDFIELDS)
+    $(TYPEDEF)
 Defines a numerical flux function used in the heavy-species solve.
 See `HallThruster.flux_functions` to see a list of available flux functions.
 """

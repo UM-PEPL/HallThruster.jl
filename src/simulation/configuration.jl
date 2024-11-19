@@ -17,7 +17,10 @@ mutable struct Config{
     IC <: InitialCondition,
     HS <: HyperbolicScheme
 }
-    discharge_voltage::Float64
+    thruster::Thruster                  # Mandatory
+    discharge_voltage::Float64          # Mandatory
+    domain::Tuple{Float64, Float64}     # Mandatory
+    anode_mass_flow_rate::Float64       # Mandatory
     cathode_potential::Float64
     anode_Te::Float64
     cathode_Te::Float64
@@ -45,10 +48,7 @@ mutable struct Config{
     source_potential::S_ϕ
     source_energy::S_E
     scheme::HS
-    thruster::Thruster
-    domain::Tuple{Float64, Float64}
     LANDMARK::Bool
-    anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
     background_pressure::Float64
     background_neutral_temperature::Float64
@@ -65,12 +65,20 @@ end
  Serialization of Config to JSON
 ==============================================================================#
 
+StructTypes.StructType(::Config) = StructTypes.OrderedStruct()
+
+# Don't write source terms to output
+function StructTypes.excludes(::Type{C}) where {C <: Config}
+    return (:source_neutrals, :source_ion_continuity,
+        :source_ion_momentum, :source_potential, :source_energy)
+end
+
 #=============================================================================#
 
 function Config(;
         thruster::Thruster,                 # MANDATORY ARGUMENT
-        domain,                             # MANDATORY ARGUMENT
         discharge_voltage,                  # MANDATORY ARGUMENT
+        domain,                             # MANDATORY ARGUMENT
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential = 0.0,
         cathode_Te = 3.0,
@@ -155,15 +163,17 @@ function Config(;
     transition_length = convert_to_float64(transition_length, u"m")
 
     if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
-        throw(
-            ArgumentError(
-            "Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)",
-        ),
-        )
+        throw(ArgumentError(
+            "Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. \
+            Got: $(anode_boundary_condition)",
+        ))
     end
 
     return Config(
+        thruster,
         discharge_voltage,
+        domain,
+        anode_mass_flow_rate,
         cathode_potential,
         anode_Te,
         cathode_Te,
@@ -191,10 +201,7 @@ function Config(;
         source_potential,
         source_energy,
         scheme,
-        thruster,
-        domain,
         LANDMARK,
-        anode_mass_flow_rate,
         ion_wall_losses,
         background_pressure,
         background_neutral_temperature,

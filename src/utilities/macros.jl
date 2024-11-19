@@ -4,12 +4,14 @@ Registers a type as serializable to JSON as a StringType
 This means that that the type should be read as a string, and written as a string,
 but may be something else internally.
 
-Arguments:
+# Arguments 
+---
 - type: the type to register 
-- options: a NamedTuple mapping strings to values for this type.
+- options: a NamedTuple mapping symbols to values for this type.
 
-Example:
-
+# Example
+---
+```julia
 struct MyStruct
     x::Int
 end
@@ -23,7 +25,7 @@ const structs = (;struct_1, struct_2, struct_3)
 
 s = JSON3.write(struct_1) // "struct1"
 s = JSON3.read("struct2") // struct2
-
+```
 """
 macro __register_stringtype(type, options)
     return quote
@@ -49,6 +51,56 @@ macro __register_stringtype(type, options)
             throw(
                 ArgumentError("Invalid $(nameof($type)), select one of $(keys($options)).")
             )
+        end
+    end
+end
+
+"""
+    @__register_abstracttype(type, options)
+Registers a type as serializable to an AbstractType
+Works the same as the normal StructTypes.AbstractType(), but preserves the "type: " key
+when serialized.
+
+# Arguments 
+---
+- type: the type to register 
+- options: a NamedTuple mapping symbols to values for this type.
+
+#Example
+---
+```julia
+abstract type MyAbstract end
+
+struct Concrete1 <: MyAbstract
+    x::Int
+end
+
+struct Concrete2 <: MyAbstract
+    s::String
+end
+
+@__register_abstracttype(MyAbstract, (;Concrete1, Concrete2))
+
+json3.write(Concrete1(1))                                       // {"type": "Concrete1", "x": 1}
+json3.read(\"\"\"{"type": "Concrete2", "s": "test" }\"\"\")     // Concrete2("test")
+```
+
+"""
+macro __register_abstracttype(type, options)
+    return quote
+        StructTypes.StructType(::Type{$type}) = StructTypes.AbstractType()
+        StructTypes.subtypes(::Type{$type}) = $options
+        StructTypes.subtypekey(::Type{$type}) = :type
+
+        StructTypes.StructType(::Type{T}) where {T <: $type} = StructTypes.DictType()
+
+        function StructTypes.construct(::Type{T}, d::Dict; kw...) where {T <: $type}
+            return T((d[name] for name in fieldnames(T))...)
+        end
+
+        function StructTypes.keyvaluepairs(x::T) where {T <: $type}
+            p1 = :type => nameof(T)
+            return [p1; [name => getfield(x, name) for name in fieldnames(T)]]
         end
     end
 end
