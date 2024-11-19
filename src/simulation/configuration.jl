@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef mutable struct Config{
+@keywords mutable struct Config{
     A <: AnomalousTransportModel,
     TC <: ThermalConductivityModel,
     W <: WallLossModel,

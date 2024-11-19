@@ -1,12 +1,12 @@
 using Base: isexpr
 
 """
-    @kwdef
+    @keywords
 Version of @kwdef that supplies correct constructor, to allow Int->Float64, etc.
 Stolen directly from this open PR: https://github.com/JuliaLang/julia/pull/54774
 If this gets merged, this file can safely be removed.
 """
-macro kwdef(expr)
+macro keywords(expr)
     expr = macroexpand(__module__, expr) # to expand @static
     isexpr(expr, :struct) || error("Invalid usage of @keywords")
     _, T, fieldsblock = expr.args
