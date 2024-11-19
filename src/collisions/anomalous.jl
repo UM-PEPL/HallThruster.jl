@@ -57,13 +57,12 @@ Model where the anomalous collision frequency has two values: c1 * ωce inside t
 Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
 """
 struct TwoZoneBohm <: AnomalousTransportModel
-    coeffs::NTuple{2, Float64}
-    TwoZoneBohm(c1, c2) = new((c1, c2))
-    TwoZoneBohm(t) = new(t)
+    c1::Float64
+    c2::Float64
 end
 
 function (model::TwoZoneBohm)(νan, params)
-    c1, c2 = model.coeffs
+    (;c1, c2) = model
 
     for i in eachindex(νan)
         B = params.cache.B[i]

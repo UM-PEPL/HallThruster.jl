@@ -72,7 +72,7 @@ function Config(args...; kwargs...)
     return config
 end
 
-# Don't write source terms to output
+# Don't write source terms to output or read them from input
 function StructTypes.excludes(::Type{C}) where {C <: Config}
     return (:source_neutrals, :source_ion_continuity,
         :source_ion_momentum, :source_potential, :source_energy,)
