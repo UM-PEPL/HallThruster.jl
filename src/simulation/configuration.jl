@@ -38,7 +38,7 @@ $(TYPEDFIELDS)
     electron_neutral_model::Symbol            = :Lookup
     electron_ion_collisions::Bool             = true
     min_number_density::Float64               = 1e6
-    transition_length::Float64                = 0.1
+    transition_length::Float64                = 1e-3
     initial_condition::IC                     = DefaultInitialization()
     scheme::HS                                = HyperbolicScheme()
     magnetic_field_scale::Float64             = 1.0
@@ -64,10 +64,12 @@ end
 ==============================================================================#
 
 # fallback constructor to intercept instances where JSON spits a bunch of Nothing at us
-function StructTypes.construct(args...)
-    return Config(;
+function Config(args...; kwargs...)
+    config = Config(;
         (k=>v for (k, v) in zip(fieldnames(Config), args) if !isnothing(v))...
     )
+    validate_config!(config)
+    return config
 end
 
 # Don't write source terms to output
@@ -78,8 +80,7 @@ end
 
 #=============================================================================#
 
-function validate_config(config::Config)
-
+function validate_config!(config::Config)
     # check that anode BC selection is valid
     if config.anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
         throw(ArgumentError(
@@ -94,11 +95,6 @@ function validate_config(config::Config)
         config.ncharge, config.source_ion_continuity, "continuity",)
     @reset config.source_ion_momentum = check_ion_source_terms(
         config.ncharge, config.source_ion_momentum, "momentum",)
-
-    # Set transition length default
-    if config.transition_length === nothing
-        @reset config.transition_length = 0.1 * config.thruster.geometry.channel_length
-    end
 
     return config
 end

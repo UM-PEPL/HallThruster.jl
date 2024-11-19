@@ -25,7 +25,7 @@ function apply_reactions!(dU, U, params)
     dt_max = Inf
 
     @inbounds for (rxn, reactant_index, product_index) in zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+        ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
         for i in 2:(ncells - 1)
             r = rate_coeff(rxn, ϵ[i])
             ρ_reactant = U[reactant_index, i]
@@ -94,7 +94,7 @@ function apply_ion_wall_losses!(dU, U, params)
     e_inv_m = e / propellant.m
 
     if wall_loss_model isa WallSheath
-        α = wall_loss_model.alpha
+        α = wall_loss_model.loss_coefficient
     else
         α = 1.0
     end
@@ -104,7 +104,7 @@ function apply_ion_wall_losses!(dU, U, params)
     @inbounds for i in 2:(ncells - 1)
         u_bohm = sqrt(e_inv_m * cache.Tev[i])
         in_channel = linear_transition(
-            z_cell[i], L_ch, params.config.transition_length, 1.0, 0.0)
+            z_cell[i], L_ch, params.config.transition_length, 1.0, 0.0,)
         νiw_base = in_channel * u_bohm * inv_Δr * h
 
         for Z in 1:ncharge

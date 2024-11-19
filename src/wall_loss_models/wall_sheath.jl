@@ -26,7 +26,7 @@ Sheath potentials are positive by convention in HallThruster.jl.
 
 Base.@kwdef struct WallSheath <: WallLossModel
     material::WallMaterial
-    alpha::Float64 = 0.15
+    loss_coefficient::Float64 = 1.0
 end
 
 # compute the edge-to-center density ratio
@@ -52,7 +52,7 @@ function freq_electron_wall(model::WallSheath, params, i)
     j_iw = 0.0
     for Z in 1:ncharge
         niw = h * cache.ni[Z, i]
-        j_iw += Z * model.alpha * niw * sqrt(Z * e * Tev / mi)
+        j_iw += Z * model.loss_coefficient * niw * sqrt(Z * e * Tev / mi)
     end
 
     # compute electron wall collision frequency

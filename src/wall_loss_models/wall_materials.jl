@@ -1,7 +1,9 @@
 """
-    $(TYPEDFIELDS)
+    $(TYPEDEF)
 Defines a channel wall material, for use with the `WallSheath` wall loss model.
 See `HallThruster.wall_materials` for a list of built-in wall materials.
+
+$(TYPEDFIELDS)
 """
 Base.@kwdef struct WallMaterial
     name::String
