@@ -40,11 +40,11 @@
     @test HallThruster.supported_gases(lookup) == HallThruster.Gas[]
     @test HallThruster.maximum_charge_state(lookup) == 0
 
-    Ar_0 = HallThruster.Argon(0)
-    Ar_I = HallThruster.Argon(1)
+    Bi_0 = HallThruster.Bismuth(0)
+    Bi_I = HallThruster.Bismuth(1)
 
     # Test behavior of landmark lookup
-    @test_throws ArgumentError HallThruster._load_reactions(landmark_lut, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster._load_reactions(landmark_lut, [Bi_0, Bi_I])
     @test_throws ArgumentError HallThruster._load_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II])
     @test_throws ArgumentError HallThruster._load_reactions(landmark_lut, [Xe_0, Xe_I, Xe_II, Xe_III])
     landmark_rxns = HallThruster._load_reactions(landmark_lut, [Xe_0, Xe_I])
@@ -52,7 +52,7 @@
     @test HallThruster.rate_coeff(landmark_lut, landmark_rxns[1], 19.0) ≈ 5.690E-14
 
     # Test behavior of general lookup
-    @test_throws ArgumentError HallThruster.load_reactions(lookup, [Ar_0, Ar_I])
+    @test_throws ArgumentError HallThruster.load_reactions(lookup, [Bi_0, Bi_I])
     @test_throws ArgumentError HallThruster.load_reactions(lookup, [Xe_0, Xe_I, Xe_II, Xe_III, Xe_IV])
     lookup_rxns = HallThruster._load_reactions(lookup, [Xe_0, Xe_I, Xe_II, Xe_III])
     @test length(lookup_rxns) == 6
@@ -68,7 +68,7 @@
     # Test behavior of user-provided ionization reactions
     directories = [joinpath(HallThruster.PACKAGE_ROOT, "test", "unit_tests", "reaction_tests")]
     lookup_2 = HallThruster.IonizationLookup()
-    lookup_2_rxns = HallThruster._load_reactions(lookup_2, [Ar_0, Ar_I]; directories)
+    lookup_2_rxns = HallThruster._load_reactions(lookup_2, [Bi_0, Bi_I]; directories)
     @test length(lookup_2_rxns) == 1
     @test HallThruster.rate_coeff(lookup_2, lookup_2_rxns[1], 0.3878e-01) |> abs < eps(Float64)
     @test lookup_2_rxns[1].energy == 13.0
@@ -83,15 +83,15 @@
     @test repr(ex_1) == "e- + Xe -> e- + Xe*"
 
     ex_lookup = HallThruster.ExcitationLookup()
-    @test isempty(HallThruster._load_reactions(ex_lookup, [Ar_0]))
+    @test isempty(HallThruster._load_reactions(ex_lookup, [Bi_0]))
     ex_rxns = HallThruster._load_reactions(ex_lookup, [Xe_0])
     @test length(ex_rxns) == 1
     @test ex_rxns[1].energy == 8.32
     @test HallThruster.rate_coeff(ex_lookup, ex_rxns[1], 10.0) ≈ 2.358251483e-14
 
     ex_lookup_2 = HallThruster.ExcitationLookup()
-    @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Ar_0]; directories))
-    ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Ar_0]; directories)
+    @test !isempty(HallThruster._load_reactions(ex_lookup_2, [Bi_0]; directories))
+    ex_rxns = HallThruster._load_reactions(ex_lookup_2, [Bi_0]; directories)
     @test ex_rxns[1].energy == 10.0
     @test HallThruster.rate_coeff(ex_lookup_2, ex_rxns[1], 1.0) |> abs < eps(Float64)
 
