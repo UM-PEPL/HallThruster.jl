@@ -6,7 +6,8 @@ Base.@kwdef struct DefaultInitialization <: InitialCondition
     max_ion_density::Float64 = 1e18
 end
 
-@__register_abstracttype(InitialCondition, (; DefaultInitialization))
+Serialization.SType(::Type{InitialCondition}) = Serialization.TaggedUnion
+Serialization.options(::Type{InitialCondition}) = (; DefaultInitialization)
 
 initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
 

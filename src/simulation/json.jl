@@ -124,7 +124,7 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
             if verbose
                 @warn "Could not find provided magnetic field file. Using default SPT-100 field."
             end
-            B_field_SPT_100()
+            spt100_analytic_field()
         else
             error(e)
         end

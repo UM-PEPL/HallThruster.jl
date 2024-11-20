@@ -94,5 +94,5 @@ const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
  Serialization
 ==============================================================================#
 const propellants = (; Xenon, Krypton, Argon, Air, Bismuth, Mercury)
-
-@__register_stringtype(Gas, propellants)
+Serialization.SType(::Type{Gas}) = Serialization.Enum()
+Serialization.options(::Type{Gas}) = propellants

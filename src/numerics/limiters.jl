@@ -27,17 +27,6 @@ const van_albada = SlopeLimiter(__van_albada)
 const minmod = SlopeLimiter(__minmod)
 const koren = SlopeLimiter(__koren)
 
-const slope_limiters = (;
-    piecewise_constant,
-    no_limiter,
-    van_leer,
-    van_albada,
-    minmod,
-    koren,
-)
-
-@__register_stringtype(SlopeLimiter, slope_limiters)
-
 function stage_limiter!(U, params)
     (; ncells, config::Config, index) = params
     min_density = config.min_number_density * config.propellant.m
@@ -52,3 +41,13 @@ function stage_limiter!(U, params)
         end
     end
 end
+
+#=============================================================================
+ Serialization
+==============================================================================#
+const slope_limiters = (;
+    piecewise_constant, no_limiter, van_leer,
+    van_albada, minmod, koren,
+)
+Serialization.SType(::Type{T}) where {T <: SlopeLimiter} = Serialization.Enum()
+Serialization.options(::Type{T}) where {T <: SlopeLimiter} = slope_limiters

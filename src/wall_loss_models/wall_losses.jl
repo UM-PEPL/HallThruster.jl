@@ -28,7 +28,8 @@ abstract type WallLossModel end
 ==============================================================================#
 
 wall_loss_models() = (; NoWallLosses, ConstantSheathPotential, WallSheath)
-@__register_abstracttype(WallLossModel, wall_loss_models())
+Serialization.SType(::Type{T}) where {T <: WallLossModel} = Serialization.TaggedUnion()
+Serialization.options(::Type{T}) where {T <: WallLossModel} = wall_loss_models()
 
 #=============================================================================
  Placeholder definitions

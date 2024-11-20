@@ -27,5 +27,5 @@ const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ�
  Serialization
 ==============================================================================#
 const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, SiliconCarbide)
-
-@__register_stringtype(WallMaterial, wall_materials)
+Serialization.SType(::Type{WallMaterial}) = Serialization.Enum()
+Serialization.options(::Type{WallMaterial}) = wall_materials

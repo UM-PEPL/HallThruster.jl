@@ -12,7 +12,13 @@ abstract type ThermalConductivityModel end
     return (; Braginskii, Mitchner, LANDMARK_conductivity)
 end
 
-@__register_abstracttype(ThermalConductivityModel, thermal_conductivity_models())
+function Serialization.SType(::Type{T}) where {T <: ThermalConductivityModel}
+    Serialization.TaggedUnion()
+end
+
+function Serialization.options(::Type{T}) where {T <: ThermalConductivityModel}
+    thermal_conductivity_models()
+end
 
 #=============================================================================
  Begin definition of built-in models

@@ -18,7 +18,10 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
         LogisticPressureShift,)
 end
 
-@__register_abstracttype(AnomalousTransportModel, anom_models())
+function Serialization.SType(::Type{T}) where {T <: AnomalousTransportModel}
+    Serialization.TaggedUnion()
+end
+Serialization.options(::Type{T}) where {T <: AnomalousTransportModel} = anom_models()
 
 #=============================================================================
  Begin definition of built-in models

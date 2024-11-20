@@ -5,7 +5,6 @@ using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using JSON3: JSON3, StructTypes
 using LinearAlgebra: Tridiagonal
-using OrderedCollections: OrderedDict
 using PrecompileTools: @compile_workload, @recompile_invalidations
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
@@ -47,8 +46,13 @@ include("collisions/excitation.jl")
 include("collisions/elastic.jl")
 include("collisions/collision_frequencies.jl")
 
+include("thruster/geometry.jl")
+include("thruster/magneticfield.jl")
+include("thruster/thruster.jl")
+include("thruster/spt100.jl")
+
 include("simulation/initialization.jl")
-include("simulation/geometry.jl")
+include("simulation/grid.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/update_heavy_species.jl")
@@ -63,6 +67,7 @@ include("simulation/json.jl")
 include("simulation/postprocess.jl")
 
 export time_average, Xenon, Krypton
+export EvenGrid, UnevenGrid
 
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time

@@ -19,8 +19,12 @@ const rusanov = FluxFunction(__rusanov)
 const global_lax_friedrichs = FluxFunction(__global_lax_friedrichs)
 const HLLE = FluxFunction(__HLLE)
 
+#=============================================================================
+ Serialization
+==============================================================================#
 const flux_functions = (; rusanov, global_lax_friedrichs, HLLE)
-@__register_stringtype(FluxFunction, flux_functions)
+Serialization.SType(::Type{T}) where {T <: FluxFunction} = Serialization.Enum()
+Serialization.options(::Type{T}) where {T <: FluxFunction} = flux_functions
 
 # Compute flux vector for 1D flows
 @inline function flux(U::NTuple{1, T}, fluid) where {T}
