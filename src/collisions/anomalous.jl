@@ -5,6 +5,9 @@ Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
 
+#=============================================================================
+ Serialization
+==============================================================================#
 """
 $(SIGNATURES)
 Returns a NamedTuple mapping symbols to transport models for all built-in models.
@@ -15,26 +18,7 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
         LogisticPressureShift,)
 end
 
-#=============================================================================
- Serialization
-==============================================================================#
-
-function serialize(model::T) where {T <: AnomalousTransportModel}
-    return OrderedDict(
-        "type" => nameof(T),
-        (string(field) => serialize(getfield(model, field)) for field in fieldnames(T))...,
-    )
-end
-
-function deserialize(
-        ::Type{T}, d::AbstractDict{String, Any},) where {T <: AnomalousTransportModel}
-    model = anom_models()[d["type"]]
-    args = (NamedTuple(
-        field => deserialize(field_type, d[string(field)])
-    for (field, field_type) in zip(fieldnames(model), fieldtypes(model))
-    ))
-    return model(args...)
-end
+@__register_abstracttype(AnomalousTransportModel, anom_models())
 
 #=============================================================================
  Begin definition of built-in models
@@ -221,7 +205,7 @@ follows a logistic curve.
 - pstar: the "turning point" pressure
 - alpha: the slope of the pressure-displacement response curve
 """
-struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
+@kwdef struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
     model::A
     z0::Float64
     dz::Float64

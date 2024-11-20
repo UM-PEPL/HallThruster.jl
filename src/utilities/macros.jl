@@ -28,30 +28,17 @@ s = JSON3.read("struct2") // struct2
 ```
 """
 macro __register_stringtype(type, options)
-    return quote
-        StructTypes.StructType(::Type{$type}) = StructTypes.StringType()
-
-        function StructTypes.construct(::Type{$type}, x::String; kw...)
-            sym = Symbol(x)
-            if haskey($options, sym)
-                return $options[sym]
-            else
-                throw(
-                    ArgumentError("Invalid $(nameof($type)), select one of $(keys($options)).")
-                )
+    @eval function serialize(x::$(type))
+        for (k, v) in pairs($(options))
+            if v == x
+                return string(k)
             end
         end
+        throw(ArgumentError("Invalid option $(x) for type $($(type))"))
+    end
 
-        function Base.string(x::$type)
-            for k in keys($options)
-                if $options[k] == x
-                    return string(k)
-                end
-            end
-            throw(
-                ArgumentError("Invalid $(nameof($type)), select one of $(keys($options)).")
-            )
-        end
+    @eval function deserialize(::Type{$(type)}, s)
+        return $(options)[Symbol(s)]
     end
 end
 
@@ -80,31 +67,33 @@ struct Concrete2 <: MyAbstract
 end
 
 @__register_abstracttype(MyAbstract, (;Concrete1, Concrete2))
-
-json3.write(Concrete1(1))                                       // {"type": "Concrete1", "x": 1}
-json3.read(\"\"\"{"type": "Concrete2", "s": "test" }\"\"\")     // Concrete2("test")
 ```
-
 """
 macro __register_abstracttype(type, options)
-    return quote
-        StructTypes.StructType(::Type{$type}) = StructTypes.AbstractType()
-        StructTypes.subtypes(::Type{$type}) = $options
-        StructTypes.subtypekey(::Type{$type}) = :type
-
-        StructTypes.StructType(::Type{T}) where {T <: $type} = StructTypes.DictType()
-
-        function StructTypes.construct(
-                ::Type{T}, d::Dict{S, Any}; kw...,) where {T <: $type, S}
-            return T(
-                (StructTypes.construct(ft, d[S(name)])
-            for (ft, name) in zip(fieldtypes(T), fieldnames(T)))...
+    @eval begin
+        function serialize(model::T) where {T <: $(type)}
+            type_pair = "type" => string(nameof(T))
+            kv_pairs = (
+                string(field) => serialize(getfield(model, field))
+            for field in fieldnames(T)
             )
+
+            return OrderedDict(type_pair, kv_pairs...)
         end
 
-        function StructTypes.keyvaluepairs(x::T) where {T <: $type}
-            p1 = :type => nameof(T)
-            return [p1; [name => getfield(x, name) for name in fieldnames(T)]]
+        function deserialize(
+                ::Type{T}, dict::AbstractDict,) where {T <: $(type)}
+            # Get the specific concrete type
+            model = $(options)[Symbol(dict["type"])]
+
+            # Map keys to fieldnames of this type
+            args = NamedTuple(
+                field => deserialize(field_type, dict[string(field)])
+            for (field, field_type) in zip(fieldnames(model), fieldtypes(model))
+            )
+
+            # Pass args into keyword constructor of this type
+            return model(args...)
         end
     end
 end

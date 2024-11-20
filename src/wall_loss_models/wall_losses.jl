@@ -23,29 +23,12 @@ If left unimplemented, it will default to computing the current assuming Ie,w = 
 """
 abstract type WallLossModel end
 
-wall_loss_models() = (; NoWallLosses, ConstantSheathPotential, WallSheath)
-
 #=============================================================================
  Serialization
 ==============================================================================#
 
-# TODO: this is basically identical to anom_model
-function serialize(model::T) where {T <: WallLossModel}
-    return OrderedDict(
-        "type" => nameof(T),
-        (string(field) => serialize(getfield(model, field)) for field in fieldnames(T))...,
-    )
-end
-
-function deserialize(
-        ::Type{T}, d::AbstractDict{String, Any},) where {T <: WallLossModel}
-    model = wall_loss_models()[d["type"]]
-    args = (NamedTuple(
-        field => deserialize(field_type, d[string(field)])
-    for (field, field_type) in zip(fieldnames(model), fieldtypes(model))
-    ))
-    return model(args...)
-end
+wall_loss_models() = (; NoWallLosses, ConstantSheathPotential, WallSheath)
+@__register_abstracttype(WallLossModel, wall_loss_models())
 
 #=============================================================================
  Placeholder definitions

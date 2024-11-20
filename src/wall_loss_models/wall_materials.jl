@@ -28,15 +28,4 @@ const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ�
 ==============================================================================#
 const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, SiliconCarbide)
 
-function serialize(m::WallMaterial)
-    for w in keys(wall_materials)
-        if (wall_materials[w] == m)
-            return string(w)
-        end
-    end
-    return "invalid material"
-end
-
-function deserialize(::Type{WallMaterial}, s)
-    return wall_materials[Symbol(s)]
-end
+@__register_stringtype(WallMaterial, wall_materials)

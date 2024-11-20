@@ -5,6 +5,9 @@ Subtype this to define your own model.
 """
 abstract type ThermalConductivityModel end
 
+#=============================================================================
+ Serialization
+==============================================================================#
 @inline function thermal_conductivity_models()
     return (; Braginskii, Mitchner, LANDMARK_conductivity)
 end
@@ -22,7 +25,7 @@ S. I. Braginskii, in Reviews of Plasma Physics (1965), Vol. 1, p. 205.
 const LOOKUP_ZS = range(1, 5, length = 5)
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
 const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
-    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
+    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS,)
 
 """
     Braginskii conductivity model for fully-ionized plasmasa
