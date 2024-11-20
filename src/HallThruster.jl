@@ -5,6 +5,7 @@ using DelimitedFiles: readdlm, writedlm
 using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using JSON3: JSON3, StructTypes
 using LinearAlgebra: Tridiagonal
+using OrderedCollections: OrderedDict
 using PrecompileTools: @compile_workload, @recompile_invalidations
 using Unitful: @u_str, uconvert, ustrip, Quantity
 
@@ -18,6 +19,7 @@ const TEST_DIR = joinpath(PACKAGE_ROOT, "test", "unit_tests")
 include("utilities/utility_functions.jl")
 include("utilities/macros.jl")
 include("utilities/keywords.jl")
+include("utilities/serialization.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")

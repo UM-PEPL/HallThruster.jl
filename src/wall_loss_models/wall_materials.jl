@@ -23,5 +23,20 @@ const SiliconDioxide = WallMaterial(name = "Silicon Dioxide", ϵ_star = 18, σ�
 const BNSiO2 = WallMaterial(name = "Borosil", ϵ_star = 40, σ₀ = 0.54)
 const SiliconCarbide = WallMaterial(name = "Silicon Carbide", ϵ_star = 43, σ₀ = 0.69)
 
+#=============================================================================
+ Serialization
+==============================================================================#
 const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, SiliconCarbide)
-@__register_stringtype(WallMaterial, wall_materials)
+
+function serialize(m::WallMaterial)
+    for w in keys(wall_materials)
+        if (wall_materials[w] == m)
+            return string(w)
+        end
+    end
+    return "invalid material"
+end
+
+function deserialize(::Type{WallMaterial}, s)
+    return wall_materials[Symbol(s)]
+end

@@ -145,32 +145,8 @@ function config_from_json(json_content::JSON3.Object; verbose = true)
         :NoAnom => (_, _) -> NoAnom(),
         :Bohm => (_, c) -> Bohm(c[1]),
         :TwoZoneBohm => (_, c) -> TwoZoneBohm(c[1], c[2]),
-        :MultiLogBohm => (_, c) -> MultiLogBohm(c),
-        :ShiftedTwoZone => (js, c) -> ShiftedTwoZoneBohm(
-            (c[1], c[2]),
-            js.pressure_z0,
-            js.pressure_dz,
-            js.pressure_pstar,
-            js.pressure_alpha,
-        ),
-        :ShiftedMultiBohm => (js, c) -> ShiftedMultiBohm(
-            c[1:(length(c) ÷ 2)],
-            c[length(c) ÷ 2 + 1],
-            js.pressure_z0,
-            js.pressure_dz,
-            js.pressure_pstar,
-            js.pressure_alpha,
-        ),
-        :ShiftedGaussianBohm => (js, c) -> ShiftedGaussianBohm(
-            c[1],
-            c[2],
-            c[3],
-            c[4],
-            js.pressure_z0,
-            js.pressure_dz,
-            js.pressure_pstar,
-            js.pressure_alpha,
-        ),
+        :MultiLogBohm => (_, c) -> MultiLogBohm(
+            c[1:(length(c) ÷ 2)], c[(length(c) ÷ 2 + 1):end],),
     )
     anom_model = anom_model_fn(json_content, anom_model_coeffs)
 

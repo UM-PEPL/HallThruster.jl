@@ -17,10 +17,10 @@ $(TYPEDFIELDS)
     S_IM,
     S_E,
 }
-    thruster::Thruster
-    discharge_voltage::Float64
-    domain::Tuple{Float64, Float64}
-    anode_mass_flow_rate::Float64
+    thruster                                  :: Thruster
+    discharge_voltage                         :: Float64
+    domain                                    :: Tuple{Float64, Float64}
+    anode_mass_flow_rate                      :: Float64
     cathode_potential::Float64                = 0.0
     anode_Tev::Float64                        = 3.0
     cathode_Tev::Float64                      = 3.0
@@ -66,10 +66,9 @@ end
 # fallback constructor to intercept instances where JSON spits a bunch of Nothing at us
 function Config(args...; kwargs...)
     config = Config(;
-        (k=>v for (k, v) in zip(fieldnames(Config), args) if !isnothing(v))...
+        (k => v for (k, v) in zip(fieldnames(Config), args) if !isnothing(v))...
     )
-    validate_config!(config)
-    return config
+    return validate_config(config)
 end
 
 # Don't write source terms to output or read them from input
@@ -80,7 +79,7 @@ end
 
 #=============================================================================#
 
-function validate_config!(config::Config)
+function validate_config(config::Config)
     # check that anode BC selection is valid
     if config.anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
         throw(ArgumentError(

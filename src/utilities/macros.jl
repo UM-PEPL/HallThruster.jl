@@ -94,9 +94,10 @@ macro __register_abstracttype(type, options)
 
         StructTypes.StructType(::Type{T}) where {T <: $type} = StructTypes.DictType()
 
-        function StructTypes.construct(::Type{T}, d::Dict; kw...) where {T <: $type}
+        function StructTypes.construct(
+                ::Type{T}, d::Dict{S, Any}; kw...,) where {T <: $type, S}
             return T(
-                (StructTypes.construct(ft, d[name])
+                (StructTypes.construct(ft, d[S(name)])
             for (ft, name) in zip(fieldtypes(T), fieldnames(T)))...
             )
         end
