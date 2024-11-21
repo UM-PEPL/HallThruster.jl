@@ -5,9 +5,9 @@
 $(TYPEDFIELDS)
 """
 @kwdef struct MagneticField
-    file::String
-    z::Vector{Float64}
-    B::Vector{Float64}
+    file::String = ""
+    z::Vector{Float64} = []
+    B::Vector{Float64} = []
 end
 
 function MagneticField(file::String)

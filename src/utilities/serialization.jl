@@ -25,7 +25,7 @@ SType(::Type{T}) where {T <: AbstractVector} = ArrayType()
 
 exclude(::Any) = Symbol[]
 options(::Any) = NamedTuple()
-typetag(::Any) = :type
+typetag(::Any) = "type"
 iterate_fields(::Type{T}) where {T} = iterate_fields(SType(T), T)
 
 function iterate_fields(::Composite, ::Type{T}) where {T}
@@ -41,8 +41,8 @@ deserialize(::Type{T}, x) where {T} = deserialize(SType(T), T, x)
 serialize(::Null, x) = :null
 deserialize(::Null, ::Type{Null}, x) = nothing
 
-serialize(::Bool, x) = x ? :true : :false
-deserialize(::Bool, ::Type{Bool}, x) = x == :true ? true : false
+serialize(::Boolean, x) = x ? :true : :false
+deserialize(::Boolean, ::Type{Bool}, x) = x == :true ? true : false
 
 serialize(::Number, x) = x
 deserialize(::Number, ::Type{T}, x) where {T} = T(x)
@@ -55,15 +55,15 @@ deserialize(::ArrayType, ::Type{T}, x) where {T} = deserialize.(eltype(T), x)
 
 function serialize(::Struct, x::T) where {T}
     return OrderedDict(
-        field => serialize(getfield(x, field))
+        string(field) => serialize(getfield(x, field))
     for (field, _) in iterate_fields(T)
     )
 end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
     args = NamedTuple(
-        field => deserialize(type, dict[field])
-    for (field, type) in iterate_fields(T)
+        Symbol(field) => deserialize(fieldtype(T, Symbol(field)), dict[field])
+    for field in keys(dict)
     )
     return T(; args...)
 end
@@ -73,7 +73,7 @@ function serialize(::TaggedUnion, x::T) where {T}
     for k in keys(opts)
         if T <: opts[k]
             pairs = (
-                field => serialize(getfield(x, field))
+                string(field) => serialize(getfield(x, field))
             for (field, _) in iterate_fields(T)
             )
             return OrderedDict(typetag(T) => k, pairs...)
@@ -84,7 +84,7 @@ end
 
 function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
     tag = dict[typetag(T)]
-    subtype = getfield(options(T), tag)
+    subtype = getfield(options(T), Symbol(tag))
 
     pairs = NamedTuple(
         field => deserialize(type, dict[field])
