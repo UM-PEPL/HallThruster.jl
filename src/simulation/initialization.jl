@@ -6,8 +6,15 @@ abstract type InitialCondition end
     max_ion_density::Float64 = 1e18
 end
 
+#=============================================================================
+ Serialization
+==============================================================================#
 Serialization.SType(::Type{T}) where {T <: InitialCondition} = Serialization.TaggedUnion()
 Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultInitialization,)
+
+#=============================================================================
+ Definitions
+==============================================================================#
 
 initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
 

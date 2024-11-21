@@ -1,6 +1,6 @@
 @kwdef struct Postprocess
-    output_file::String = "",
-    average_start_time::Float64 = -1,
+    output_file::String = ""
+    average_start_time::Float64 = -1.0
     save_time_resolved::Bool = false
 end
 

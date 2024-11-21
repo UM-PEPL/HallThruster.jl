@@ -20,6 +20,8 @@ include("utilities/macros.jl")
 include("utilities/keywords.jl")
 include("utilities/serialization.jl")
 
+using .Serialization: serialize, deserialize
+
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
 include("physics/species.jl")
@@ -51,7 +53,9 @@ include("thruster/magneticfield.jl")
 include("thruster/thruster.jl")
 include("thruster/spt100.jl")
 
+include("simulation/current_control.jl")
 include("simulation/initialization.jl")
+include("simulation/allocate.jl")
 include("simulation/grid.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
@@ -64,7 +68,8 @@ include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")
 include("simulation/json.jl")
-include("simulation/postprocess.jl")
+
+include("output/postprocess.jl")
 
 export time_average, Xenon, Krypton
 export EvenGrid, UnevenGrid

@@ -3,7 +3,6 @@
 docs/build
 .vscode
 landmark/webplotdigitizer
-output
 
 #*.png
 test/*.png

@@ -29,7 +29,7 @@ SType(::Type{Symbol}) = String()
 
 exclude(::Any) = Symbol[]
 options(::Any) = NamedTuple()
-typetag(::Any) = "type"
+typetag(::Any) = :type
 iterate_fields(::Type{T}) where {T} = iterate_fields(SType(T), T)
 
 function iterate_fields(::Composite, ::Type{T}) where {T}
@@ -61,20 +61,18 @@ serialize(::TupleType, x) = serialize.(x)
 deserialize(::TupleType, ::Type{T}, x) where {T} = T(deserialize(eltype(T), _x) for _x in x)
 
 # Fallback for Any
-deserialize(::S, ::Type{Any}, x::T) where {S<:SType, T} = deserialize(T, x)
+deserialize(::S, ::Type{Any}, x::T) where {S <: SType, T} = deserialize(T, x)
 
 function serialize(::Struct, x::T) where {T}
     return OrderedDict(
-        string(field) => serialize(getfield(x, field))
+        field => serialize(getfield(x, field))
     for (field, _) in iterate_fields(T)
     )
 end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
     args = NamedTuple(
-        let key = Symbol(field)
-            key => deserialize(fieldtype(T, key), dict[field])
-        end
+        field => deserialize(fieldtype(T, field), dict[field])
     for field in keys(dict)
     )
     return T(; args...)
@@ -85,7 +83,7 @@ function serialize(::TaggedUnion, x::T) where {T}
     for k in keys(opts)
         if T <: opts[k]
             pairs = (
-                string(field) => serialize(getfield(x, field))
+                field => serialize(getfield(x, field))
             for (field, _) in iterate_fields(T)
             )
             return OrderedDict(typetag(T) => string(k), pairs...)
@@ -95,14 +93,18 @@ function serialize(::TaggedUnion, x::T) where {T}
 end
 
 function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
-    tag = dict[typetag(T)]
-    subtype = getfield(options(T), Symbol(tag))
+    tag = typetag(T)
+    type = dict[tag]
+    subtype = getfield(options(T), Symbol(type))
 
-    pairs = NamedTuple(
-        field => deserialize(type, dict[string(field)])
-    for (field, type) in iterate_fields(subtype)
+    args = NamedTuple(
+        let
+            key = Symbol(field)
+            key => deserialize(fieldtype(T, key), dict[field])
+        end
+    for field in keys(dict) if field != tag
     )
-    return subtype(; pairs...)
+    return subtype(; args...)
 end
 
 function serialize(::Enum, x::T) where {T}
