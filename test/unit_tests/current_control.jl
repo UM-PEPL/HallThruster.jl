@@ -1,6 +1,5 @@
 using HallThruster: HallThruster as ht
 using Test
-using UnicodePlots: UnicodePlots as plt
 
 include("serialization_test_utils.jl")
 

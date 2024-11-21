@@ -20,7 +20,7 @@ include("utilities/macros.jl")
 include("utilities/keywords.jl")
 include("utilities/serialization.jl")
 
-using .Serialization: serialize, deserialize
+using .Serialization: serialize, deserialize, OrderedDict
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -53,10 +53,12 @@ include("thruster/magneticfield.jl")
 include("thruster/thruster.jl")
 include("thruster/spt100.jl")
 
+include("grid/grid.jl")
+include("grid/gridspec.jl")
+
 include("simulation/current_control.jl")
 include("simulation/initialization.jl")
 include("simulation/allocate.jl")
-include("simulation/grid.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/update_heavy_species.jl")

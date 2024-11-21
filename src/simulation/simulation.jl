@@ -1,12 +1,10 @@
-
-@kwdef struct SimParams{G <: HallThrusterGrid, C <: CurrentController}
+@kwdef struct SimParams{G <: GridSpec, C <: CurrentController}
     # Grid setup
     grid::G = EvenGrid(0)
-    ncells::Int = 0
 
     # Timestep control
-    base_dt::Float64
-    min_dt::Float64 = 1e-8
+    base_dt::Float64 = 1e-8
+    min_dt::Float64 = 1e-10
     max_dt::Float64 = 1e-7
     CFL::Float64 = 0.799
     adaptive::Bool = false
@@ -22,7 +20,7 @@ end
 
 function setup_simulation(
         config::Config;
-        grid::HallThrusterGrid = EvenGrid(0),
+        grid::GridSpec = EvenGrid(0),
         ncells = 0,
         dt,
         restart = nothing,
@@ -52,7 +50,7 @@ function setup_simulation(
         config
     )
 
-    if (grid.ncells == 0)
+    if (grid.num_cells == 0)
         # backwards compatability for unspecified grid type
         grid_1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     else
@@ -117,7 +115,7 @@ function setup_simulation(
 
     # Simulation parameters
     params = (;
-        ncells = grid_1d.ncells + 2,
+        ncells = grid_1d.num_cells + 2,
         ncharge = config.ncharge,
         mi,
         config = config,
