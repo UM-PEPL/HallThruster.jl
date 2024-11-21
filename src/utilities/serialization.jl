@@ -100,7 +100,7 @@ function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
     args = NamedTuple(
         let
             key = Symbol(field)
-            key => deserialize(fieldtype(T, key), dict[field])
+            key => deserialize(fieldtype(subtype, key), dict[field])
         end
     for field in keys(dict) if field != tag
     )

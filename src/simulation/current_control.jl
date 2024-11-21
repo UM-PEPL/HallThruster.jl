@@ -7,8 +7,6 @@ struct NoController <: CurrentController end
     proportional_constant::Float64 = 1.0
     integral_constant::Float64 = 0.0
     derivative_constant::Float64 = 0.0
-    smoothing_time::Float64 = 5e-4
-    smoothed_value::Float64 = 0.0
     errors::NTuple{3, Float64} = (0.0, 0.0, 0.0)
 end
 
@@ -25,12 +23,9 @@ Serialization.exclude(::Type{T}) where {T <: CurrentController} = (:errors, :smo
  Definitions
 ==============================================================================#
 
-function apply_pid_controller(pid::PIDController, present_value, control_value, dt)
+apply_controller(::CurrentController, ::Any, control_value, ::Any) = control_value
 
-    # Apply exponential smoothing to input signal
-    K_smooth = 1 - exp(-dt / pid.smoothing_time)
-    pid.smoothed_value = K_smooth * present_value + (1 - K_smooth) * pid.smoothed_value
-
+function apply_controller(pid::PIDController, present_value, control_value, dt)
     #=
     Use discrete form of PID control
     derived from
@@ -57,30 +52,19 @@ function apply_pid_controller(pid::PIDController, present_value, control_value, 
 
         u(t) - u(t-dt) = K_p (e(t) - e(t-dt)) + K_i e(t) dt + K_d (e'(t) - e'(t-dt)).
 
-    Take derivatives again:
+    Take derivatives again and rearrange: 
 
-        u(t) - u(t-dt) = 
-            K_p (e(t) - e(t-dt)) + K_i e(t) dt + K_d ((e(t) - e(t-dt)) - (e(t-dt) - e(t-2dt)))/dt.
-
-    Rearrange:
-
-        u(t) = u(t-dt) + C1 e(t) + C2 e(t-dt) + C3 e(t-2dt),
-
-    with
-        C1 = K_p + K_i dt + K_d/dt,
-        C2 = -K_p - 2 K_d/dt,
-        C3 = K_d/dt.
+        u(t) = u(t-dt) +
+            K_p (e(t) - e(t-dt)) + 
+            K_i e(t) dt +
+            K_d (e(t) - 2 e(t-dt) _ e(t-2dt))/dt.
     =#
 
-    K_p = pid.proportional_constant
-    K_i = pid.integral_constant
-    K_d = pid.derivative_constant
-    err = pid.target_value - pid.smoothed_value
-    pid.errors = (err, pid.errors[1], pid.errors[2])
+    pid.errors = (pid.target_value - present_value, pid.errors[1], pid.errors[2])
 
-    C1 = K_p + K_i * dt + K_d / dt
-    C2 = -K_p - 2 * K_d / dt
-    C3 = K_d / dt
+    P = pid.proportional_constant * (pid.errors[1] - pid.errors[2])
+    I = pid.integral_constant * pid.errors[1] * dt
+    D = pid.derivative_constant * (pid.errors[1] - 2 * pid.errors[2] + pid.errors[3]) / dt
 
-    return control_value + C1 * pid.errors[1] + C2 * pid.errors[2] + C3 * pid.errors[3]
+    return control_value + P + I + D
 end
