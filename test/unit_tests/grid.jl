@@ -56,7 +56,7 @@ function test_even_grid()
     grid = ht.generate_grid(geom, dom, spec)
     test_grid_invariants(grid, dom, spec)
 
-    dz_cell, dz_edge = ht.grid_spacing(grid)
+    (; dz_cell, dz_edge) = grid
     @testset "Spacing" begin
         @test all(dz_cell .≈ dz_cell[1])
         @test all(dz_edge[2:(end - 1)] .≈ dz_edge[2])
@@ -74,7 +74,7 @@ function test_uneven_grid()
     grid = ht.generate_grid(geom, dom, spec)
     test_grid_invariants(grid, dom, spec)
 
-    dz_cell, dz_edge = ht.grid_spacing(grid)
+    (; edges, cell_centers, dz_cell, dz_edge) = grid
 
     @testset "Spacing" begin
         # Grid spacing at right side of domain should be 2x spacing at left end
@@ -82,7 +82,7 @@ function test_uneven_grid()
         @test isapprox(dz_edge[end - 1], 2 * dz_edge[2], rtol = 1e-3)
 
         # Cell widths (dz_cell) should be unifom until 1.5 * channel_length
-        for (i, z) in enumerate(grid.edges)
+        for (i, z) in enumerate(edges)
             if (i == 1)
                 continue
             end
@@ -93,7 +93,7 @@ function test_uneven_grid()
         end
 
         # Distance between cell centers (dz_edge) should be uniform until 1.5 * channel_length
-        for (i, z) in enumerate(grid.cell_centers)
+        for (i, z) in enumerate(cell_centers)
             if (i == 1)
                 continue
             end

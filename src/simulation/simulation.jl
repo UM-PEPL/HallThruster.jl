@@ -84,6 +84,7 @@ function setup_simulation(
 
     z_cell = grid_1d.cell_centers
     z_edge = grid_1d.edges
+    (; dz_cell, dz_edge) = grid_1d
 
     # Fill up cell lengths and magnetic field vectors
     thruster = config.thruster
@@ -92,8 +93,6 @@ function setup_simulation(
     for (i, z) in enumerate(grid_1d.cell_centers)
         cache.B[i] = bfield_func(z)
     end
-
-    Δz_cell, Δz_edge = grid_spacing(grid_1d)
 
     mi = config.propellant.m
 
@@ -148,8 +147,8 @@ function setup_simulation(
         background_neutral_density = background_neutral_density(config),
         Bmax = maximum(cache.B),
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
-        Δz_cell,
-        Δz_edge,
+        Δz_cell = dz_cell,
+        Δz_edge = dz_edge,
         control_current,
         target_current,
         Kp,
