@@ -1,13 +1,13 @@
 abstract type InitialCondition end
 
-Base.@kwdef struct DefaultInitialization <: InitialCondition
+@kwdef struct DefaultInitialization <: InitialCondition
     max_electron_temperature::Float64 = -1.0
     min_ion_density::Float64 = 2e17
     max_ion_density::Float64 = 1e18
 end
 
-Serialization.SType(::Type{InitialCondition}) = Serialization.TaggedUnion
-Serialization.options(::Type{InitialCondition}) = (; DefaultInitialization)
+Serialization.SType(::Type{T}) where {T <: InitialCondition} = Serialization.TaggedUnion()
+Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultInitialization,)
 
 initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
 

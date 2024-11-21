@@ -10,6 +10,7 @@ struct Boolean <: SType end
 struct Number <: SType end
 struct String <: SType end
 struct ArrayType <: SType end
+struct TupleType <: SType end
 struct Enum <: SType end
 
 abstract type Composite <: SType end
@@ -17,11 +18,14 @@ struct TaggedUnion <: Composite end
 struct Struct <: Composite end
 
 SType(::Type{T}) where {T}                   = Struct()
-SType(::Type{Bool})                          = Boolean()
-SType(::Type{Nothing})                       = Null()
+SType(::Type{T}) where {T <: Base.Bool}      = Boolean()
+SType(::Type{T}) where {T <: Base.Nothing}   = Null()
 SType(::Type{T}) where {T <: Base.Number}    = Number()
 SType(::Type{T}) where {T <: AbstractString} = String()
 SType(::Type{T}) where {T <: AbstractVector} = ArrayType()
+SType(::Type{T}) where {T <: Tuple}          = TupleType()
+
+SType(::Type{Symbol}) = String()
 
 exclude(::Any) = Symbol[]
 options(::Any) = NamedTuple()
@@ -38,11 +42,11 @@ end
 serialize(x::T) where {T} = serialize(SType(T), x)
 deserialize(::Type{T}, x) where {T} = deserialize(SType(T), T, x)
 
-serialize(::Null, x) = :null
-deserialize(::Null, ::Type{Null}, x) = nothing
+serialize(::Null, x) = nothing
+deserialize(::Null, ::Type{T}, x) where {T} = nothing
 
-serialize(::Boolean, x) = x ? :true : :false
-deserialize(::Boolean, ::Type{Bool}, x) = x == :true ? true : false
+serialize(::Boolean, x) = x ? true : false
+deserialize(::Boolean, ::Type{T}, x) where {T} = T(x)
 
 serialize(::Number, x) = x
 deserialize(::Number, ::Type{T}, x) where {T} = T(x)
@@ -53,6 +57,12 @@ deserialize(::String, ::Type{T}, x) where {T} = T(x)
 serialize(::ArrayType, x) = serialize.(x)
 deserialize(::ArrayType, ::Type{T}, x) where {T} = deserialize.(eltype(T), x)
 
+serialize(::TupleType, x) = serialize.(x)
+deserialize(::TupleType, ::Type{T}, x) where {T} = T(deserialize(eltype(T), _x) for _x in x)
+
+# Fallback for Any
+deserialize(::S, ::Type{Any}, x::T) where {S<:SType, T} = deserialize(T, x)
+
 function serialize(::Struct, x::T) where {T}
     return OrderedDict(
         string(field) => serialize(getfield(x, field))
@@ -62,7 +72,9 @@ end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
     args = NamedTuple(
-        Symbol(field) => deserialize(fieldtype(T, Symbol(field)), dict[field])
+        let key = Symbol(field)
+            key => deserialize(fieldtype(T, key), dict[field])
+        end
     for field in keys(dict)
     )
     return T(; args...)
@@ -76,7 +88,7 @@ function serialize(::TaggedUnion, x::T) where {T}
                 string(field) => serialize(getfield(x, field))
             for (field, _) in iterate_fields(T)
             )
-            return OrderedDict(typetag(T) => k, pairs...)
+            return OrderedDict(typetag(T) => string(k), pairs...)
         end
     end
     throw(ArgumentError("Invalid type $(T). Valid options are $(keys(opts))"))
@@ -87,7 +99,7 @@ function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
     subtype = getfield(options(T), Symbol(tag))
 
     pairs = NamedTuple(
-        field => deserialize(type, dict[field])
+        field => deserialize(type, dict[string(field)])
     for (field, type) in iterate_fields(subtype)
     )
     return subtype(; pairs...)

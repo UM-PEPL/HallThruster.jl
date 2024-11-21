@@ -17,10 +17,13 @@ $(TYPEDFIELDS)
     S_IM,
     S_E,
 }
-    thruster                                  :: Thruster
-    discharge_voltage                         :: Float64
-    domain                                    :: Tuple{Float64, Float64}
-    anode_mass_flow_rate                      :: Float64
+    # Mandatory fields
+    thruster::Thruster
+    discharge_voltage::Float64
+    domain::Tuple{Float64, Float64}
+    anode_mass_flow_rate::Float64
+
+    # Optional fields
     cathode_potential::Float64                = 0.0
     anode_Tev::Float64                        = 3.0
     cathode_Tev::Float64                      = 3.0
@@ -63,16 +66,8 @@ end
  Serialization of Config to JSON
 ==============================================================================#
 
-# fallback constructor to intercept instances where JSON spits a bunch of Nothing at us
-function Config(args...; kwargs...)
-    config = Config(;
-        (k => v for (k, v) in zip(fieldnames(Config), args) if !isnothing(v))...
-    )
-    return validate_config(config)
-end
-
 # Don't write source terms to output or read them from input
-function StructTypes.excludes(::Type{C}) where {C <: Config}
+function Serialization.exclude(::Type{C}) where {C <: Config}
     return (:source_neutrals, :source_ion_continuity,
         :source_ion_momentum, :source_potential, :source_energy,)
 end
