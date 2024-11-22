@@ -22,6 +22,11 @@ const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
 include("utilities/utility_functions.jl")
+include("utilities/interpolation.jl")
+include("utilities/smoothing.jl")
+include("utilities/statistics.jl")
+include("utilities/linearalgebra.jl")
+include("utilities/integration.jl")
 include("utilities/serialization.jl")
 
 using .Serialization: serialize, deserialize, OrderedDict
