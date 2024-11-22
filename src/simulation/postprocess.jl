@@ -59,7 +59,7 @@ function compute_current(sol, location = "cathode")
         error("Type anode or cathode as location argument")
     end
     for i in 1:length(sol.t)
-        (;ue, ne) = sol.savevals[i]
+        (; ue, ne) = sol.savevals[i]
         Id = sol.savevals[i].Id[]
         Ie = -ne[loc] * ue[loc] * e * sol.savevals[i].channel_area[loc]
         current[1, i] = Id - Ie # Ion current
@@ -74,9 +74,11 @@ function thrust(sol, frame)
     left_area = sol.savevals[frame].channel_area[1]
     right_area = sol.savevals[frame].channel_area[end]
     thrust = 0.0
-    for Z in 1:sol.params.config.ncharge
-        thrust += right_area * sol.u[frame][index.ρiui[Z], end]^2 / sol.u[frame][index.ρi[Z], end]
-        thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 / sol.u[frame][index.ρi[Z], 1]
+    for Z in 1:(sol.params.config.ncharge)
+        thrust += right_area * sol.u[frame][index.ρiui[Z], end]^2 /
+                  sol.u[frame][index.ρi[Z], end]
+        thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 /
+                  sol.u[frame][index.ρi[Z], 1]
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
@@ -102,7 +104,8 @@ function voltage_eff(sol, frame)
     Vd = sol.params.config.discharge_voltage
     mi = sol.params.config.propellant.m
 
-    ui = sol.u[frame][sol.params.index.ρiui[1], end] / sol.u[frame][sol.params.index.ρi[1], end]
+    ui = sol.u[frame][sol.params.index.ρiui[1], end] /
+         sol.u[frame][sol.params.index.ρi[1], end]
     voltage_eff = 0.5 * mi * ui^2 / e / Vd
     return voltage_eff
 end
@@ -117,7 +120,7 @@ function ion_current(sol, frame)
     Ii = 0.0
     right_area = sol.savevals[frame].channel_area[end]
     mi = sol.params.config.propellant.m
-    for Z in 1:sol.params.config.ncharge
+    for Z in 1:(sol.params.config.ncharge)
         Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
     end
 
@@ -132,26 +135,27 @@ function mass_eff(sol, frame)
     right_area = sol.savevals[frame].channel_area[end]
     mdot = sol.params.config.anode_mass_flow_rate
 
-    for Z in 1:sol.params.config.ncharge
+    for Z in 1:(sol.params.config.ncharge)
         mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mdot
     end
 
     return mass_eff
 end
 
-for func in [:thrust, :discharge_current, :ion_current, :electron_current, :mass_eff, :voltage_eff, :anode_eff, :current_eff, :divergence_eff]
+for func in [:thrust, :discharge_current, :ion_current, :electron_current,
+    :mass_eff, :voltage_eff, :anode_eff, :current_eff, :divergence_eff]
     eval(quote
         $(func)(sol) = [$(func)(sol, i) for i in eachindex(sol.t)]
     end)
 end
 
 function cut_solution(sol, tstampstart)
-    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end], sol.savevals[tstampstart:end], sol.retcode, sol.params)
+    sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end],
+        sol.savevals[tstampstart:end], sol.retcode, sol.params)
     return sol_cut
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
-
     if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
@@ -176,7 +180,7 @@ end
 function load_landmark_data(case; ncells = 100)
     fluid_1 = load_landmark_data(case, "fluid_1"; ncells)
     fluid_2 = load_landmark_data(case, "fluid_2"; ncells)
-    hybrid  = load_landmark_data(case, "hybrid"; ncells)
+    hybrid = load_landmark_data(case, "hybrid"; ncells)
     return (fluid_1, fluid_2, hybrid)
 end
 
@@ -213,7 +217,7 @@ function load_landmark_data(case, suffix; ncells = 100)
 
     cache = (;
         ue = ue,
-        Tev = 2/3 * ϵ_itp.(zs),
+        Tev = 2 / 3 * ϵ_itp.(zs),
         pe = ϵ_itp.(zs),
         ne = ne_itp.(zs),
         ni = nes' |> collect,
@@ -221,10 +225,11 @@ function load_landmark_data(case, suffix; ncells = 100)
         niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        nn = nns,
+        nn = nns
     )
 
-    ionization_reactions = HallThruster.load_reactions(LandmarkIonizationLookup(), [Xenon(0), Xenon(1)]);
+    ionization_reactions = HallThruster.load_reactions(
+        LandmarkIonizationLookup(), [Xenon(0), Xenon(1)])
 
     mi = Xenon.m
 
@@ -239,7 +244,7 @@ function load_landmark_data(case, suffix; ncells = 100)
             ρn = 1,
             ρi = [2],
             ρiui = [3],
-            nϵ = 4,
+            nϵ = 4
         ),
         ionization_reactions,
         config = (;
@@ -297,7 +302,7 @@ function frame_dict(sol, frame)
         "nu_ei" => sol[:νei][frame],
         "nu_anom" => sol[:νan][frame],
         "nu_class" => sol[:νc][frame],
-        "mobility" => sol[:μ][frame],
+        "mobility" => sol[:μ][frame]
     )
 end
 

@@ -24,8 +24,9 @@ include("$(HallThruster.TEST_DIR)/unit_tests/test_walls.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_initialization.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_json.jl")
 
-# LANDMARK regression tests
-include("$(HallThruster.TEST_DIR)/unit_tests/test_landmark_regression.jl")
+# Regression tests
+include("$(HallThruster.TEST_DIR)/test_regression.jl")
+test_regression()
 
 # Order verification tests
 include("$(HallThruster.TEST_DIR)/unit_tests/test_ovs.jl")

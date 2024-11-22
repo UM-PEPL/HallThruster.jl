@@ -1,1 +1,4 @@
 style = "sciml"
+align_assignment = true
+align_struct_field = true
+trailing_comma=true

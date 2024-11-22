@@ -1,3 +1,10 @@
+mean(x) = sum(x) / length(x)
+function var(x)
+    μ = mean(x)
+    return mean((_x - μ)^2 for _x in x)
+end
+std(x) = sqrt(var(x))
+
 struct LinearInterpolation{X, Y}
     xs::X
     ys::Y
@@ -14,35 +21,37 @@ struct LinearInterpolation{X, Y}
             resampled_y = [interpolate(_x, x, y) for _x in resampled_x]
             return LinearInterpolation(resampled_x, resampled_y; resample_uniform = false)
         else
-            return new{typeof(x),typeof(y)}(x, y)
+            return new{typeof(x), typeof(y)}(x, y)
         end
     end
 end
 
 @fastmath function interpolate(x::T, xs, ys; use_log = false) where {T}
     i = find_left_index(x, xs)
-    i < 1          && return ys[1] / oneunit(T)
+    i < 1 && return ys[1] / oneunit(T)
     i ≥ length(xs) && return ys[end] / oneunit(T)
-    use_log && return exp(lerp(x, xs[i], xs[i+1], log(ys[i]), log(ys[i+1])))
-    return lerp(x, xs[i], xs[i+1], ys[i], ys[i+1])
+    use_log && return exp(lerp(x, xs[i], xs[i + 1], log(ys[i]), log(ys[i + 1])))
+    return lerp(x, xs[i], xs[i + 1], ys[i], ys[i + 1])
 end
 
 @inbounds @fastmath function interpolate(x::T, xs::StepRangeLen, ys; use_log) where {T}
     dx_inv = inv(xs.step.hi)
     i = 1 + floor(Int, (x - xs[1]) * dx_inv)
-    i < 1          && return T(ys[1])
+    i < 1 && return T(ys[1])
     i ≥ length(xs) && return T(ys[end])
     t = (x - xs[i]) * dx_inv
     if (use_log)
-        y1 = log(ys[i+1])
+        y1 = log(ys[i + 1])
         y0 = log(ys[i])
         return exp(muladd(t, y1 - y0, y0))
     else
-        return muladd(t, ys[i+1] - ys[i], ys[i])
+        return muladd(t, ys[i + 1] - ys[i], ys[i])
     end
 end
 
-(itp::LinearInterpolation)(x::T; use_log = false) where {T} = interpolate(x, itp.xs, itp.ys; use_log)
+function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
+    interpolate(x, itp.xs, itp.ys; use_log)
+end
 
 """
     lerp(x, x0, x1, y0, y1)
@@ -57,8 +66,8 @@ julia> lerp(0.5, 0.0, 1.0, 0.0, 2.0)
 end
 
 @inline function linear_transition(x, cutoff, L, y1, y2)
-    x1 = cutoff - L/2
-    x2 = cutoff + L/2
+    x1 = cutoff - L / 2
+    x2 = cutoff + L / 2
     if x < x1
         return y1
     elseif x > x2
@@ -68,13 +77,14 @@ end
     end
 end
 
-@inline smooth_if(x, cutoff, y1, y2, L) = ((y2 - y1)*tanh((x-cutoff)/(L/4)) + y1 + y2) / 2
+@inline smooth_if(x, cutoff, y1, y2, L) = ((y2 - y1) * tanh((x - cutoff) / (L / 4)) + y1 +
+                                           y2) / 2
 
 function find_left_index(value, array)
     N = length(array)
 
     left = 0
-    right = N+1
+    right = N + 1
 
     @inbounds while (right - left) > 1
         mid = (left + right) >>> 0x01
@@ -84,7 +94,7 @@ function find_left_index(value, array)
 
         # conditional assignments
         right = cond * mid + not_cond * right
-        left  = not_cond * mid + cond * left
+        left = not_cond * mid + cond * left
     end
     return left
 end
@@ -92,15 +102,23 @@ end
 @inline left_edge(i) = i - 1
 @inline right_edge(i) = i
 
-@inline electron_density(U, p, i) = sum(Z * U[p.index.ρi[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
+@inline electron_density(U, p, i) = sum(Z * U[p.index.ρi[Z], i]
+for Z in 1:(p.config.ncharge)) / p.config.propellant.m
 
-@inline inlet_neutral_density(config) = config.anode_mass_flow_rate / config.neutral_velocity / config.thruster.geometry.channel_area
+@inline inlet_neutral_density(config) = config.anode_mass_flow_rate /
+                                        config.neutral_velocity /
+                                        config.thruster.geometry.channel_area
 
-@inline background_neutral_density(config) = config.propellant.m * config.background_pressure / kB / config.background_neutral_temperature
+@inline background_neutral_density(config) = config.propellant.m *
+                                             config.background_pressure / kB /
+                                             config.background_neutral_temperature
 
-@inline background_neutral_velocity(config) = 0.25 * sqrt(8 * kB * config.background_neutral_temperature / π / config.propellant.m)
+@inline background_neutral_velocity(config) = 0.25 * sqrt(8 * kB *
+                                                   config.background_neutral_temperature /
+                                                   π / config.propellant.m)
 
-@inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i] for Z in 1:p.config.ncharge) / p.config.propellant.m
+@inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i]
+for Z in 1:(p.config.ncharge)) / p.config.propellant.m
 
 function cumtrapz(x, y, y0 = zero(typeof(y[1] * x[1])))
     int = zeros(typeof(y[1] * x[1]), length(x))
@@ -110,8 +128,8 @@ end
 function cumtrapz!(cache, x, y, y0 = zero(typeof(y[1] * x[1])))
     cache[1] = y0
     @inbounds for i in 2:lastindex(x)
-        Δx = x[i] - x[i-1]
-        cache[i] = cache[i-1] + 0.5 * Δx * (y[i] + y[i-1])
+        Δx = x[i] - x[i - 1]
+        cache[i] = cache[i - 1] + 0.5 * Δx * (y[i] + y[i - 1])
     end
 
     return cache
@@ -157,7 +175,7 @@ function myerf(x)
     x_sqrt_pi = x * √(π)
     x_squared = x^2
 
-    h = x_sqrt_pi + (π-2)*x_squared
+    h = x_sqrt_pi + (π - 2) * x_squared
     g = h / (1 + h)
     return 1 - exp(-x_squared) / x_sqrt_pi * g
 end
