@@ -16,14 +16,14 @@ function test_spt100_case(case)
         n_avg = nsave - avg_start
         avg = het.time_average(sol, avg_start)
 
-        T = HallThruster.thrust(sol) .* 1000
-        T = [HallThruster.thrust(sol, i) for i in avg_start:nsave] .* 1000
+        T = het.thrust(sol) .* 1000
+        T = [het.thrust(sol, i) for i in avg_start:nsave] .* 1000
         T_mean = het.mean(T)
         T_err = het.std(T) / sqrt(n_avg)
-        Id = [HallThruster.discharge_current(sol, i) for i in avg_start:nsave]
+        Id = [het.discharge_current(sol, i) for i in avg_start:nsave]
         Id_mean = het.mean(Id)
         Id_err = het.std(Id) / sqrt(n_avg)
-        ji = [HallThruster.ion_current(sol, i) for i in avg_start:nsave]
+        ji = [het.ion_current(sol, i) for i in avg_start:nsave]
         ji_mean = het.mean(ji)
         ji_err = het.std(ji) / sqrt(n_avg)
 

@@ -1,5 +1,9 @@
+using HallThruster: HallThruster as het
+using Test
+using Printf
+
 function run_landmark(
-        duration = 1e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL = 0.799, case = 1)
+        duration = 1e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL = 0.799, case = 1,)
     domain = (0.0, 0.05)
 
     #Landmark cases loss frequencies
@@ -11,45 +15,45 @@ function run_landmark(
         (0.4, 1.0)
     end
 
-    scheme = HallThruster.HyperbolicScheme(
+    scheme = het.HyperbolicScheme(
         # We use global_lax_friedrichs here to better handle case 1, as it is very oscillatory and this
         # scheme is the most diffusive
         # In general, prefer rusanov or HLLE
-        flux_function = HallThruster.global_lax_friedrichs,
-        limiter = HallThruster.minmod,
-        reconstruct = true
+        flux_function = het.global_lax_friedrichs,
+        limiter = het.minmod,
+        reconstruct = true,
     )
 
     ϵ_anode = 3.0
     ϵ_cathode = 3.0
 
-    config = HallThruster.Config(;
+    config = het.Config(;
         ncharge = 1,
         scheme,
         domain,
         anode_Te = 2 / 3 * ϵ_anode,
         cathode_Te = 2 / 3 * ϵ_cathode,
         discharge_voltage = 300.0,
-        ionization_model = HallThruster.LandmarkIonizationLookup(),
-        excitation_model = HallThruster.LandmarkExcitationLookup(),
-        electron_neutral_model = HallThruster.LandmarkElectronNeutral(),
+        ionization_model = het.LandmarkIonizationLookup(),
+        excitation_model = het.LandmarkExcitationLookup(),
+        electron_neutral_model = het.LandmarkElectronNeutral(),
         electron_ion_collisions = false,
-        wall_loss_model = HallThruster.ConstantSheathPotential(20, αϵ_in, αϵ_out),
+        wall_loss_model = het.ConstantSheathPotential(20, αϵ_in, αϵ_out),
         LANDMARK = true,
         neutral_velocity = 150.0,
         ion_temperature = 0.0,
-        thruster = HallThruster.SPT_100,
+        thruster = het.SPT_100,
         anode_mass_flow_rate = 5e-6,
         transition_length = 1e-3,
         ion_wall_losses = false,
-        anom_model = HallThruster.TwoZoneBohm(1 / 160, 1 / 16),
+        anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
         anode_boundary_condition = :dirichlet,
-        conductivity_model = HallThruster.LANDMARK_conductivity()
+        conductivity_model = het.LANDMARK_conductivity(),
     )
 
-    @time sol = HallThruster.run_simulation(
-        config; duration, grid = EvenGrid(ncells), nsave,
-        dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false
+    @time sol = het.run_simulation(
+        config; duration, grid = het.EvenGrid(ncells), nsave,
+        dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,
     )
     return sol
 end;
@@ -62,7 +66,7 @@ function test_landmark_regression()
         expected_ion_currents = [3.719, 3.642, 3.612]
 
         for (i, (CFL, thrust, current, ion_current)) in enumerate(zip(
-            CFLs, expected_thrusts, expected_currents, expected_ion_currents))
+            CFLs, expected_thrusts, expected_currents, expected_ion_currents,))
             nsave = 1000
             avg_start = 250
             n_avg = nsave - avg_start
@@ -70,15 +74,15 @@ function test_landmark_regression()
             println("               Case $i                ")
             println("======================================")
             sol_info = @timed run_landmark(
-                1e-3; ncells = 150, nsave = nsave, case = i, CFL = CFL)
+                1e-3; ncells = 150, nsave = nsave, case = i, CFL = CFL,)
             sol = sol_info.value
-            T = [HallThruster.thrust(sol, i) for i in avg_start:nsave] .* 1000
+            T = [het.thrust(sol, i) for i in avg_start:nsave] .* 1000
             T_mean = het.mean(T)
             T_err = het.std(T) / sqrt(n_avg)
-            Id = [HallThruster.discharge_current(sol, i) for i in avg_start:nsave]
+            Id = [het.discharge_current(sol, i) for i in avg_start:nsave]
             Id_mean = het.mean(Id)
             Id_err = het.std(Id) / sqrt(n_avg)
-            ji = [HallThruster.ion_current(sol, i) for i in avg_start:nsave]
+            ji = [het.ion_current(sol, i) for i in avg_start:nsave]
             ji_mean = het.mean(ji)
             ji_err = het.std(ji) / sqrt(n_avg)
             @printf("Thrust: %.3f ± %.3f mN (expected %.3f mN)\n", T_mean, T_err, thrust)

@@ -39,8 +39,9 @@ function time_average(sol::Solution, tstampstart = 1)
         sol.t[end:end],
         [avg],
         [avg_savevals],
+        sol.params,
         sol.retcode,
-        sol.params
+        sol.error,
     )
 end
 
@@ -143,7 +144,7 @@ function mass_eff(sol, frame)
 end
 
 for func in [:thrust, :discharge_current, :ion_current, :electron_current,
-    :mass_eff, :voltage_eff, :anode_eff, :current_eff, :divergence_eff]
+    :mass_eff, :voltage_eff, :anode_eff, :current_eff, :divergence_eff,]
     eval(quote
         $(func)(sol) = [$(func)(sol, i) for i in eachindex(sol.t)]
     end)
@@ -151,7 +152,7 @@ end
 
 function cut_solution(sol, tstampstart)
     sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end],
-        sol.savevals[tstampstart:end], sol.retcode, sol.params)
+        sol.savevals[tstampstart:end], sol.retcode, sol.params,)
     return sol_cut
 end
 
@@ -225,11 +226,11 @@ function load_landmark_data(case, suffix; ncells = 100)
         niui = ui' |> collect,
         ∇ϕ = -E_itp.(zs),
         ϕ = ϕ_itp.(zs),
-        nn = nns
+        nn = nns,
     )
 
     ionization_reactions = HallThruster.load_reactions(
-        LandmarkIonizationLookup(), [Xenon(0), Xenon(1)])
+        LandmarkIonizationLookup(), [Xenon(0), Xenon(1)],)
 
     mi = Xenon.m
 
@@ -244,13 +245,13 @@ function load_landmark_data(case, suffix; ncells = 100)
             ρn = 1,
             ρi = [2],
             ρiui = [3],
-            nϵ = 4
+            nϵ = 4,
         ),
         ionization_reactions,
         config = (;
             propellant = Xenon,
-            ionization_model = LandmarkIonizationLookup()
-        )
+            ionization_model = LandmarkIonizationLookup(),
+        ),
     )
 
     retcode = :LANDMARK
@@ -302,7 +303,7 @@ function frame_dict(sol, frame)
         "nu_ei" => sol[:νei][frame],
         "nu_anom" => sol[:νan][frame],
         "nu_class" => sol[:νc][frame],
-        "mobility" => sol[:μ][frame]
+        "mobility" => sol[:μ][frame],
     )
 end
 

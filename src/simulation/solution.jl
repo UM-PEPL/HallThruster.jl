@@ -2,12 +2,13 @@ struct Solution{T, U, P, S}
     t::T
     u::U
     savevals::S
-    retcode::Symbol
     params::P
+    retcode::Symbol
+    error::String
 end
 
-function Solution(sol::S, params::P, savevals::SV) where {S, P, SV}
-    return Solution(sol.t, sol.u, savevals, sol.retcode, params)
+function Solution(sol::S, params::P, savevals::SV, error::String = "") where {S, P, SV}
+    return Solution(sol.t, sol.u, savevals, params, sol.retcode, error)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
@@ -23,28 +24,34 @@ end
     :inelastic_losses, :Vs,
     :channel_area, :inner_radius, :outer_radius, :dA_dz,
     :tanδ, :anom_variables,
-    :dt)
+    :dt,)
 
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
-function solve(U, params, tspan; saveat)
-    fields_to_save = saved_fields()
-
-    first_saveval = NamedTuple{fields_to_save}(params.cache)
-    u_save = [deepcopy(U) for _ in saveat]
-    savevals = [deepcopy(first_saveval) for _ in saveat]
-
+function solve(U, params, tspan; saveat, show_errors = true)
+    # Initialie starting time and iterations
     iteration = params.iteration
     t = tspan[1]
     iteration[] = 1
 
     # Yield to signals only every few iterations
     yield_interval = 100
+
+    # Error handling
+    errstring = ""
+    retcode = :success
+
+    # Frame saving setup
     save_ind = 2
+    fields_to_save = saved_fields()
+    first_saveval = NamedTuple{fields_to_save}(params.cache)
+    u_save = [deepcopy(U) for _ in saveat]
+    savevals = [deepcopy(first_saveval) for _ in saveat]
+
+    # Parameters for adaptive timestep escape hatch
     small_step_count = 0
     uniform_steps = false
-    retcode = :success
 
     try
         while t < tspan[2]
@@ -52,14 +59,20 @@ function solve(U, params, tspan; saveat)
             if params.adaptive
                 if uniform_steps
                     params.dt[] = params.dtbase
-                    #println(small_step_count)
                     small_step_count -= 1
                 else
                     params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
                 end
             end
 
-            # Count number of minimal timesteps in a row
+            t += params.dt[]
+
+            #====
+            Count how many times we've taken the minimum allowable timestep.
+            If we exceed the threshold, then start taking longer uniform steps for a bit.
+            This helps break out of cases where adaptive timestepping gets stuck ---
+            either by resolving the situation or by causing the simulation to fail fast
+            ====#
             if params.dt[] == params.dtmin
                 small_step_count += 1
             elseif !uniform_steps
@@ -72,15 +85,15 @@ function solve(U, params, tspan; saveat)
                 uniform_steps = false
             end
 
-            t += params.dt[]
-
             # update heavy species quantities
             integrate_heavy_species!(U, params, params.dt[])
             update_heavy_species!(U, params)
 
-            # Check for NaNs in heavy species solve and terminate if necessary
+            # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)
-                @warn "Nan or Inf detected in heavy species solve at time $(t)"
+                if show_errors
+                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
+                end
                 retcode = :failure
                 break
             end
@@ -128,13 +141,16 @@ function solve(U, params, tspan; saveat)
             end
         end
     catch e
-        # catch and print error, but return a normal retcode
         errstring = sprint(showerror, e, catch_backtrace())
-        println(errstring)
         retcode = :error
+        if show_errors
+            @warn "Error detected in solution: $(errstring)"
+        end
     end
 
     ind = min(save_ind, length(savevals) + 1) - 1
 
-    return Solution(saveat[1:ind], u_save[1:ind], savevals[1:ind], retcode, params)
+    return Solution(
+        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, retcode, errstring,
+    )
 end
