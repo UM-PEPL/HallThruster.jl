@@ -1,18 +1,19 @@
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (; control_current, target_current, Kp, Ti, pe_factor, ncells) = params
+    (; control_current, target_current, Kp, Ti, ncells, config) = params
     (;
     B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-    Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, nn, K,
+    Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
     errors, channel_area
 ) = params.cache
 
     # Update plasma quantities based on new density
+    pe_factor = config.LANDMARK ? 1.5 : 1.0
     @inbounds for i in 1:ncells
         # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(params.config.min_electron_temperature, nϵ[i] / ne[i])
+        Tev[i] = 2 / 3 * max(config.min_electron_temperature, nϵ[i] / ne[i])
         # Compute electron pressure
         pe[i] = pe_factor * ne[i] * Tev[i]
     end
@@ -31,13 +32,13 @@ function update_electrons!(params, t = 0)
 
         # Compute total classical collision frequency
         # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
-        νc[i] = νen[i] + νei[i] + !params.config.LANDMARK * (νiz[i] + νex[i])
+        νc[i] = νen[i] + νei[i] + !config.LANDMARK * (νiz[i] + νex[i])
 
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            params.config.wall_loss_model, params, i)
+            params.config.wall_loss_model, params, i,)
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0)
+            params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0,)
     end
 
     # Update anomalous transport
@@ -115,13 +116,13 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
+    (; config, cache, Δz_edge, ϕ_L, ϕ_R, ncells, iteration) = params
     (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     int1 = 0.0
     int2 = 0.0
 
-    apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
+    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
@@ -158,10 +159,10 @@ function integrate_discharge_current(params)
 end
 
 function compute_electric_field!(∇ϕ, params)
-    (; cache, iteration) = params
+    (; config, cache, iteration) = params
     (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
-    apply_drag = false & !params.config.LANDMARK & (iteration[] > 5)
+    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
@@ -172,7 +173,7 @@ function compute_electric_field!(∇ϕ, params)
 
         if (apply_drag)
             ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = params.config.neutral_velocity * (νen[i]) * me / e
+            neutral_drag = config.neutral_velocity * (νen[i]) * me / e
             E += ion_drag + neutral_drag
         end
 
@@ -203,12 +204,12 @@ function compute_pressure_gradient!(∇pe, params)
     @inbounds for j in 2:(ncells - 1)
         # Compute pressure gradient
         ∇pe[j] = central_difference(
-            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1])
+            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1],)
     end
 
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(
-        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end])
+        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],)
 
     return nothing
 end

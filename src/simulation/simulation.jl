@@ -211,6 +211,10 @@ function setup_simulation(
 
     # Simulation parameters
     params = (;
+        grid = grid1d,
+        z_cell,
+        z_edge,
+        Δz_cell, Δz_edge,
         ncells = grid1d.ncells + 2,
         ncharge = config.ncharge,
         mi,
@@ -221,8 +225,6 @@ function setup_simulation(
         Te_R = config.cathode_Te,
         L_ch = config.thruster.geometry.channel_length,
         A_ch = config.thruster.geometry.channel_area,
-        z_cell,
-        z_edge,
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
         iteration = [-1],
         ionization_reactions,
@@ -236,15 +238,11 @@ function setup_simulation(
         adaptive,
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
-        Bmax = maximum(cache.B),
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
-        Δz_cell, Δz_edge,
         control_current, target_current, Kp, Ti, Td,
         exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) -
                            1,
         dtbase, dtmin, dtmax, max_small_steps,
-        # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3 / 2 : 1.0,
     )
 
     # Compute maximum allowed iterations

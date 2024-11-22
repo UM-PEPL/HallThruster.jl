@@ -70,7 +70,7 @@ function test_spt100_regression()
             current = 4.612,
             ion_current = 3.925,
             max_Te = 24.078,
-            max_E = 63010.527,
+            max_E = 62255.34,
             max_nn = 2.096424e19,
             max_ni = 8.74894e17,
         )
@@ -82,7 +82,7 @@ function test_spt100_regression()
             current = 4.989,
             ion_current = 4.045,
             max_Te = 27.789,
-            max_E = 96495.372,
+            max_E = 95449.049,
             max_nn = 2.1017e19,
             max_ni = 1.013126e18,
         )

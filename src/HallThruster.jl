@@ -93,6 +93,8 @@ function example_simulation(; ncells, duration, dt, nsave)
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
         neutral_temperature = 500u"K",
+        ion_wall_losses = true,
+        solve_plume = true,
     )
     sol_2 = HallThruster.run_simulation(
         config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
