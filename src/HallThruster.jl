@@ -48,7 +48,11 @@ include("collisions/excitation.jl")
 include("collisions/elastic.jl")
 include("collisions/collision_frequencies.jl")
 
-include("simulation/geometry.jl")
+include("thruster/geometry.jl")
+include("thruster/magnetic_field.jl")
+include("thruster/thruster.jl")
+include("thruster/spt100.jl")
+
 include("grid/gridspec.jl")
 include("grid/grid.jl")
 include("simulation/allocation.jl")

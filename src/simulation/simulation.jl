@@ -51,9 +51,9 @@ function setup_simulation(
     end
 
     # Fill up cell lengths and magnetic field vectors
-    for (i, z) in enumerate(grid1d.cell_centers)
-        cache.B[i] = config.thruster.magnetic_field(z)
-    end
+    thruster = config.thruster
+    itp = LinearInterpolation(thruster.magnetic_field.z, thruster.magnetic_field.B)
+    @. cache.B = itp(grid1d.cell_centers)
 
     # make the adaptive timestep independent of input condition
     if adaptive

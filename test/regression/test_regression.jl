@@ -6,7 +6,7 @@ include("$(het.TEST_DIR)/regression/landmark.jl")
 include("$(het.TEST_DIR)/regression/spt100.jl")
 
 function test_regression()
-    @testset "Regression_tests" begin
+    @testset "Regression tests" begin
         test_landmark_regression()
         test_spt100_regression()
     end

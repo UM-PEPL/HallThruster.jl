@@ -11,7 +11,8 @@ using HallThruster: HallThruster as het
 
     landmark_losses = het.ConstantSheathPotential(20.0, αin, αout)
 
-    L_ch = het.geometry_SPT_100.channel_length
+    geom = het.SPT_100.geometry
+    L_ch = geom.channel_length
     A_ch = het.channel_area(het.SPT_100)
 
     Tev = 4.0
@@ -38,8 +39,7 @@ using HallThruster: HallThruster as het
     index = (; ρi = [1], nϵ = 2)
 
     ncells = 2
-    grid = het.generate_grid(
-        het.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2),)
+    grid = het.generate_grid(geom, (0, 2 * L_ch), het.EvenGrid(2))
 
     mi_kr = het.Krypton.m
     γmax = 1 - 8.3 * sqrt(me / mi)
@@ -81,8 +81,7 @@ using HallThruster: HallThruster as het
 
     α = 1 / 4
     sheath_model = het.WallSheath(BN, α)
-    Δr = het.geometry_SPT_100.outer_radius -
-         het.geometry_SPT_100.inner_radius
+    Δr = geom.outer_radius - geom.inner_radius
     Δz = grid.edges[2] - grid.edges[1]
     V_cell = A_ch * Δz
 
@@ -128,12 +127,12 @@ end
         ncharge = 2, transition_length = 0.0,)
     geom = het.SPT_100.geometry
     Δr = geom.outer_radius - geom.inner_radius
+    L_ch = geom.channel_length
+    A_ch = geom.channel_area
     h = het.edge_to_center_density_ratio()
 
     Tn = 300.0
     Tev = 3.0
-    L_ch = het.geometry_SPT_100.channel_length
-    A_ch = het.channel_area(het.SPT_100)
 
     α = 0.8
     mi = config.propellant.m
@@ -144,8 +143,7 @@ end
     νiw = α * sqrt(het.e * Tev / mi) / Δr * h
     νew = νiw * γ / (1 - γ)
 
-    grid = het.generate_grid(
-        het.geometry_SPT_100, (0, 2 * L_ch), EvenGrid(2),)
+    grid = het.generate_grid(geom, (0, 2 * L_ch), het.EvenGrid(2))
 
     fluids = [
         het.Fluid(Xenon(0); u = 300.0, T = Tn),

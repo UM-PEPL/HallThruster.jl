@@ -35,7 +35,7 @@ function config_from_json(json_content::JSON3.Object, dir = "")
 
     # Whether inbuilt divergence model is used to correct thrust
     apply_thrust_divergence_correction = get_key(json_content,
-        :apply_thrust_divergence_correction, true)
+        :apply_thrust_divergence_correction, true,)
 
     # Whether we solve a quasi-1D plume expansion
     solve_plume = get_key(json_content, :solve_plume, true)
@@ -45,7 +45,7 @@ function config_from_json(json_content::JSON3.Object, dir = "")
 
     # neutral ingestion multiplier
     neutral_ingestion_multiplier::Float64 = get_key(json_content,
-        :neutral_ingestion_multiplier, 1.0)
+        :neutral_ingestion_multiplier, 1.0,)
 
     # Optional parameters for pressure-dependent models
     if anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm" ||
@@ -66,13 +66,12 @@ function config_from_json(json_content::JSON3.Object, dir = "")
     end
 
     bfield_func = try
-        bfield_data = readdlm(magnetic_field_file, ',')
-        HallThruster.LinearInterpolation(bfield_data[:, 1], bfield_data[:, 2])
+        MagneticField(magnetic_field_file)
     catch e
         if thruster_name == "SPT-100"
             @warn "Could not find provided magnetic field file at path $(magnetic_field_file). \
                  Using default SPT-100 field."
-            z -> HallThruster.B_field_SPT_100(0.016, channel_length, z)
+            SPT_100.magnetic_field
         else
             error(e)
         end
@@ -82,7 +81,7 @@ function config_from_json(json_content::JSON3.Object, dir = "")
         name = thruster_name,
         geometry = geometry,
         magnetic_field = bfield_func,
-        shielded = magnetically_shielded)
+        shielded = magnetically_shielded,)
 
     # assign anomalous transport model
     anom_model = if anom_model == "NoAnom"
@@ -96,15 +95,15 @@ function config_from_json(json_content::JSON3.Object, dir = "")
     elseif anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
         coeff_tuple = (anom_model_coeffs[1], anom_model_coeffs[2])
         ShiftedTwoZoneBohm(coeff_tuple, pressure_z0, pressure_dz, pressure_pstar,
-            pressure_alpha)
+            pressure_alpha,)
     elseif anom_model == "ShiftedMultiBohm"
         N = length(anom_model_coeffs)
         ShiftedMultiBohm(anom_model_coeffs[1:(N ÷ 2)], anom_model_coeffs[N ÷ 2 + 1],
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
+            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha,)
     elseif anom_model == "ShiftedGaussianBohm"
         ShiftedGaussianBohm(anom_model_coeffs[1], anom_model_coeffs[2],
             anom_model_coeffs[3], anom_model_coeffs[4],
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha)
+            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha,)
     end
 
     config = HallThruster.Config(;
@@ -117,7 +116,7 @@ function config_from_json(json_content::JSON3.Object, dir = "")
         cathode_potential = cathode_potential,
         ncharge = max_charge,
         wall_loss_model = WallSheath(eval(Symbol(wall_material)),
-            Float64(sheath_loss_coefficient)),
+            Float64(sheath_loss_coefficient),),
         ion_wall_losses = ion_wall_losses,
         cathode_Te = cathode_electron_temp_eV,
         LANDMARK = false,
@@ -130,13 +129,13 @@ function config_from_json(json_content::JSON3.Object, dir = "")
         scheme = HyperbolicScheme(;
             flux_function = eval(Symbol(flux_function)),
             limiter = eval(Symbol(limiter)),
-            reconstruct),
+            reconstruct,),
         background_pressure = background_pressure_Torr,
         background_neutral_temperature = background_temperature_K,
         neutral_ingestion_multiplier,
         solve_plume,
         apply_thrust_divergence_correction,
-        electron_plume_loss_scale)
+        electron_plume_loss_scale,)
 
     return config
 end
@@ -155,7 +154,7 @@ function run_simulation(json_content::JSON3.Object, dir::String = ""; verbose = 
 
     solution = run_simulation(config; grid = EvenGrid(num_cells), nsave = num_save,
         duration = duration_s, dt = dt_s, verbose = verbose, adaptive,
-        dtmin, dtmax, max_small_steps)
+        dtmin, dtmax, max_small_steps,)
 
     return solution
 end

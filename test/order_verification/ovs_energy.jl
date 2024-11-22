@@ -2,9 +2,10 @@ module OVS_Energy
 
 include("ovs_funcs.jl")
 
-using Symbolics, HallThruster, LinearAlgebra
+using Symbolics, LinearAlgebra
+using HallThruster: HallThruster as het
 
-struct R <: HallThruster.Reaction end
+struct R <: het.Reaction end
 
 @variables x t
 
@@ -36,7 +37,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 nn_func = eval(build_function(nn, [x]))
 ϵ_func = eval(build_function(ϵ, [x]))
 
-k(ϵ) = 8.32 * HallThruster.rate_coeff(OVS_Excitation(), R(), ϵ)
+k(ϵ) = 8.32 * het.rate_coeff(OVS_Excitation(), R(), ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
             ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
@@ -49,7 +50,7 @@ function solve_energy!(params, max_steps, dt, rtol = sqrt(eps(Float64)))
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
-        HallThruster.update_electron_energy!(params, dt)
+        het.update_electron_energy!(params, dt)
         params.cache.νiz .= 0.0
         params.cache.νex .= 0.0
         params.cache.inelastic_losses .= 0.0
@@ -67,15 +68,14 @@ function solve_energy!(params, max_steps, dt, rtol = sqrt(eps(Float64)))
 end
 
 function verify_energy(ncells; niters = 20000)
-    grid = HallThruster.generate_grid(
-        HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells),)
+    grid = het.generate_grid(
+        het.SPT_100.geometry, (0.0, 0.05), het.UnevenGrid(ncells),)
     z_cell = grid.cell_centers
-    z_edge = grid.edges
     ncells = length(z_cell)
 
     # fill cache values
-    _, cache = HallThruster.allocate_arrays(
-        grid, (; ncharge = 1, anom_model = HallThruster.NoAnom()),)
+    _, cache = het.allocate_arrays(
+        grid, (; ncharge = 1, anom_model = het.NoAnom()),)
     @. cache.μ = μ_func(z_cell)
     @. cache.κ = κ_func(z_cell)
     @. cache.ne = ne_func(z_cell)
@@ -102,25 +102,25 @@ function verify_energy(ncells; niters = 20000)
         min_electron_temperature = 0.1 * min(Te_L, Te_R),
         transition_length = 0.0,
         LANDMARK = true,
-        propellant = Xenon,
+        propellant = het.Xenon,
         ionization_model = OVS_Ionization(), excitation_model = OVS_Excitation(),
-        wall_loss_model = HallThruster.ConstantSheathPotential(20.0, 1.0, 1.0),
+        wall_loss_model = het.ConstantSheathPotential(20.0, 1.0, 1.0),
         thruster = (; geometry = (; channel_length = 0.025)),
         anode_boundary_condition = :dirichlet,
-        conductivity_model = HallThruster.LANDMARK_conductivity(),
+        conductivity_model = het.LANDMARK_conductivity(),
     )
 
-    species = [HallThruster.Xenon(0), HallThruster.Xenon(1)]
+    species = [het.Xenon(0), het.Xenon(1)]
     species_range_dict = Dict([:Xe => 1, Symbol("Xe+") => 0])
 
-    ionization_reactions = HallThruster._load_reactions(config.ionization_model, species)
-    ionization_reactant_indices = HallThruster.reactant_indices(
+    ionization_reactions = het._load_reactions(config.ionization_model, species)
+    ionization_reactant_indices = het.reactant_indices(
         ionization_reactions, species_range_dict,)
-    ionization_product_indices = HallThruster.product_indices(
+    ionization_product_indices = het.product_indices(
         ionization_reactions, species_range_dict,)
 
-    excitation_reactions = HallThruster._load_reactions(config.excitation_model, species)
-    excitation_reactant_indices = HallThruster.reactant_indices(
+    excitation_reactions = het._load_reactions(config.excitation_model, species)
+    excitation_reactant_indices = het.reactant_indices(
         excitation_reactions, species_range_dict,)
 
     dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
