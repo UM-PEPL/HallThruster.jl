@@ -1,5 +1,27 @@
 using HallThruster: HallThruster as het
 
+include("serialization_test_utils.jl")
+
+function test_wall_loss_serialization()
+    @testset "Serialization" begin
+        @testset "NoWallLosses" begin
+            test_subtype(het.WallLossModel, het.NoWallLosses())
+        end
+
+        @testset "ConstantSheathPotential" begin
+            test_subtype(het.WallLossModel, het.ConstantSheathPotential(20.0, 0.1, 0.5))
+        end
+
+        @testset "WallSheath" begin
+            test_subtype(het.WallLossModel, het.WallSheath(het.BNSiO2, 1.0))
+        end
+
+        @testset "Wall materials" begin
+            test_instances(het.WallMaterial, het.wall_materials)
+        end
+    end
+end
+
 function test_electron_losses()
     @testset "Electron wall losses" begin
         no_losses = het.NoWallLosses()
@@ -304,6 +326,7 @@ function test_ion_losses()
 end
 
 function test_walls()
+    test_wall_loss_serialization()
     test_electron_losses()
     test_ion_losses()
 end

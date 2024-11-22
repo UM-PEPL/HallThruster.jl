@@ -5,9 +5,10 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 # Fields
 $(TYPEDFIELDS)
 """
-struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallLossModel, IZ<:IonizationModel,
-              EX<:ExcitationModel, EN<:ElectronNeutralModel, HET<:Thruster, S_N, S_IC, S_IM, S_ϕ, S_E,
-              IC<:InitialCondition, HS<:HyperbolicScheme}
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel,
+    W <: WallLossModel, IZ <: IonizationModel,
+    EX <: ExcitationModel, EN <: ElectronNeutralModel, S_N, S_IC, S_IM, S_ϕ, S_E,
+    IC <: InitialCondition, HS <: HyperbolicScheme,}
     discharge_voltage::Float64
     cathode_potential::Float64
     anode_Te::Float64
@@ -36,7 +37,7 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     source_potential::S_ϕ
     source_energy::S_E
     scheme::HS
-    thruster::HET
+    thruster::Thruster
     domain::Tuple{Float64, Float64}
     LANDMARK::Bool
     anode_mass_flow_rate::Float64
@@ -52,55 +53,65 @@ struct Config{A<:AnomalousTransportModel, TC<:ThermalConductivityModel, W<:WallL
     reaction_rate_directories::Vector{String}
 end
 
+#=============================================================================
+ Serialization of Config to JSON
+==============================================================================#
+
+# Don't write source terms to output or read them from input
+function Serialization.exclude(::Type{C}) where {C <: Config}
+    return (:source_neutrals, :source_ion_continuity,
+        :source_ion_momentum, :source_potential, :source_energy,)
+end
+
 function Config(;
         thruster::Thruster,                 # MANDATORY ARGUMENT
         domain,                             # MANDATORY ARGUMENT
         discharge_voltage,                  # MANDATORY ARGUMENT
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
-        cathode_potential                   = 0.0,
-        cathode_Te                          = 3.0,
-        anode_Te                            = cathode_Te,
-        wall_loss_model::WallLossModel      = WallSheath(BNSiO2, 1.0),
-        neutral_velocity                    = nothing,
-        neutral_temperature                 = nothing,
-        implicit_energy::Number             = 1.0,
-        propellant::Gas                     = Xenon,
-        ncharge::Int                        = 1,
-        ion_temperature                     = 1000.0u"K",
-        anom_model::AnomalousTransportModel = TwoZoneBohm(1/160, 1/16),
+        cathode_potential = 0.0,
+        cathode_Te = 3.0,
+        anode_Te = cathode_Te,
+        wall_loss_model::WallLossModel = WallSheath(BNSiO2, 1.0),
+        neutral_velocity = nothing,
+        neutral_temperature = nothing,
+        implicit_energy::Number = 1.0,
+        propellant::Gas = Xenon,
+        ncharge::Int = 1,
+        ion_temperature = 1000.0,
+        anom_model::AnomalousTransportModel = TwoZoneBohm(1 / 160, 1 / 16),
         conductivity_model::ThermalConductivityModel = Mitchner(),
-        ionization_model::IonizationModel   = IonizationLookup(),
-        excitation_model::ExcitationModel   = ExcitationLookup(),
+        ionization_model::IonizationModel = IonizationLookup(),
+        excitation_model::ExcitationModel = ExcitationLookup(),
         electron_neutral_model::ElectronNeutralModel = ElectronNeutralLookup(),
-        electron_ion_collisions::Bool       = true,
-        min_number_density                  = 1e6u"m^-3",
-        min_electron_temperature            = min(anode_Te, cathode_Te),
-        transition_length                   = 0.1 * thruster.geometry.channel_length * u"m",
-        initial_condition::IC               = DefaultInitialization(),
-        magnetic_field_scale::Float64       = 1.0,
-        source_neutrals::S_N                = nothing,
-        source_ion_continuity::S_IC         = nothing,
-        source_ion_momentum::S_IM           = nothing,
-        source_potential::S_ϕ               = Returns(0.0),
-        source_energy::S_E                  = Returns(0.0),
-        scheme::HyperbolicScheme            = HyperbolicScheme(),
-        LANDMARK                            = false,
-        ion_wall_losses                     = false,
-        background_pressure                 = 0.0u"Torr",
-        background_neutral_temperature      = 100.0u"K",
+        electron_ion_collisions::Bool = true,
+        min_number_density = 1e6,
+        min_electron_temperature = min(anode_Te, cathode_Te),
+        transition_length = 1e-3,
+        initial_condition::IC = DefaultInitialization(),
+        magnetic_field_scale::Float64 = 1.0,
+        source_neutrals::S_N = nothing,
+        source_ion_continuity::S_IC = nothing,
+        source_ion_momentum::S_IM = nothing,
+        source_potential::S_ϕ = Returns(0.0),
+        source_energy::S_E = Returns(0.0),
+        scheme::HyperbolicScheme = HyperbolicScheme(),
+        LANDMARK = false,
+        ion_wall_losses = false,
+        background_pressure = 0.0,
+        background_neutral_temperature = 100.0u"K",
         neutral_ingestion_multiplier::Float64 = 1.0,
-        anode_boundary_condition            = :sheath,
-        anom_smoothing_iters                = 0,
-        solve_plume                         = false,
-        apply_thrust_divergence_correction  = false,
-        electron_plume_loss_scale           = 1.0,
-        reaction_rate_directories                  = String[],
-    ) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
+        anode_boundary_condition = :sheath,
+        anom_smoothing_iters = 0,
+        solve_plume = false,
+        apply_thrust_divergence_correction = false,
+        electron_plume_loss_scale = 1.0,
+        reaction_rate_directories = String[],
+) where {IC, S_N, S_IC, S_IM, S_ϕ, S_E}
 
     # check that number of ion source terms matches number of charges for both
     # continuity and momentum
     source_IC = ion_source_terms(ncharge, source_ion_continuity, "continuity")
-    source_IM = ion_source_terms(ncharge, source_ion_momentum,   "momentum")
+    source_IM = ion_source_terms(ncharge, source_ion_momentum, "momentum")
 
     # Neutral source terms
     if isnothing(source_neutrals)
@@ -134,13 +145,14 @@ function Config(;
     ion_temperature = convert_to_float64(ion_temperature, u"K")
     domain = (
         convert_to_float64(domain[1], u"m"),
-        convert_to_float64(domain[2], u"m")
+        convert_to_float64(domain[2], u"m"),
     )
     anode_mass_flow_rate = convert_to_float64(anode_mass_flow_rate, u"kg/s")
     min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
-    background_neutral_temperature = convert_to_float64(background_neutral_temperature, u"K")
+    background_neutral_temperature = convert_to_float64(
+        background_neutral_temperature, u"K",)
     background_pressure = convert_to_float64(background_pressure, u"Pa")
 
     transition_length = convert_to_float64(transition_length, u"m")
@@ -196,13 +208,13 @@ function make_keys(fluid_range, subscript)
     elseif len == 2
         return (
             Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)")
+            Symbol("ρ$(subscript)u$(subscript)"),
         )
     elseif len == 3
         return (
             Symbol("ρ$(subscript)"),
             Symbol("ρ$(subscript)u$(subscript)"),
-            Symbol("ρ$(subscript)E$(subscript)")
+            Symbol("ρ$(subscript)E$(subscript)"),
         )
     else
         throw(ArgumentError("Too many equations on fluid (this should be unreachable)"))
@@ -212,8 +224,10 @@ end
 function configure_fluids(config)
     propellant = config.propellant
 
-    neutral_fluid = ContinuityOnly(propellant(0); u = config.neutral_velocity, T = config.neutral_temperature)
-    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature) for Z in 1:config.ncharge]
+    neutral_fluid = ContinuityOnly(
+        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature,)
+    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature)
+                  for Z in 1:(config.ncharge)]
 
     fluids = [neutral_fluid; ion_fluids]
 
@@ -238,7 +252,7 @@ end
 function configure_index(fluids, fluid_ranges)
     first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
 
-    keys_neutrals = (:ρn, )
+    keys_neutrals = (:ρn,)
     values_neutrals = (1,)
 
     keys_ions = (:ρi, :ρiui)

@@ -23,12 +23,26 @@ If left unimplemented, it will default to computing the current assuming Ie,w = 
 """
 abstract type WallLossModel end
 
-function freq_electron_wall(model::WallLossModel, params, i)
-    error("freq_electron_wall not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
+#=============================================================================
+ Serialization
+==============================================================================#
+
+wall_loss_models() = (; NoWallLosses, ConstantSheathPotential, WallSheath)
+Serialization.SType(::Type{T}) where {T <: WallLossModel} = Serialization.TaggedUnion()
+Serialization.options(::Type{T}) where {T <: WallLossModel} = wall_loss_models()
+
+#=============================================================================
+ Placeholder definitions
+==============================================================================#
+
+function freq_electron_wall(model::WallLossModel, ::Any, ::Any)
+    error("freq_electron_wall not implemented for wall loss model of type $(typeof(model)). 
+          See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_power_loss(Q, model::WallLossModel, params)
-    error("wall_power_loss not implemented for wall loss model of type $(typeof(model)). See documentation for WallLossModel for a list of required methods")
+function wall_power_loss(::Any, model::WallLossModel, ::Any)
+    error("wall_power_loss not implemented for wall loss model of type $(typeof(model)). 
+          See documentation for WallLossModel for a list of required methods")
 end
 
 function wall_electron_current(::WallLossModel, params, i)

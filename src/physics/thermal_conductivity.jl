@@ -11,10 +11,26 @@ S. I. Braginskii, in Reviews of Plasma Physics (1965), Vol. 1, p. 205.
 """
 const LOOKUP_ZS = range(1, 5, length = 5)
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
-const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS)
+const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
+    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS,)
 
 #=============================================================================
- Begin definition of built-in models
+ Serialization
+==============================================================================#
+@inline function thermal_conductivity_models()
+    return (; Braginskii, Mitchner, LANDMARK_conductivity)
+end
+
+function Serialization.SType(::Type{T}) where {T <: ThermalConductivityModel}
+    Serialization.TaggedUnion()
+end
+
+function Serialization.options(::Type{T}) where {T <: ThermalConductivityModel}
+    thermal_conductivity_models()
+end
+
+#=============================================================================
+ Built-in model definition
 ==============================================================================#
 
 """
@@ -24,7 +40,7 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(LOOKUP_ZS, LOOKUP_CONDU
 struct Braginskii <: ThermalConductivityModel end
 
 function (model::Braginskii)(κ, params)
-    (;νc, νew_momentum, νan, B, ne, Tev, Z_eff) = params.cache
+    (; νc, νew_momentum, νan, B, ne, Tev, Z_eff) = params.cache
     @inbounds for i in eachindex(κ)
         #get coefficient from charge states
         κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(Z_eff[i])
@@ -45,7 +61,7 @@ end
 struct Mitchner <: ThermalConductivityModel end
 
 function (model::Mitchner)(κ, params)
-    (;νc, νew_momentum, νei, νan, B, ne, Tev) = params.cache
+    (; νc, νew_momentum, νei, νan, B, ne, Tev) = params.cache
     @inbounds for i in eachindex(κ)
         # use both classical and anomalous collision frequencies
         ν = νc[i] + νew_momentum[i] + νan[i]
@@ -63,9 +79,9 @@ end
 struct LANDMARK_conductivity <: ThermalConductivityModel end
 
 function (model::LANDMARK_conductivity)(κ, params)
-    (;μ, ne, Tev) = params.cache
+    (; μ, ne, Tev) = params.cache
     @inbounds for i in eachindex(κ)
-        κ[i] = (10/9) * μ[i] * (3/2) * ne[i] * Tev[i]
+        κ[i] = (10 / 9) * μ[i] * (3 / 2) * ne[i] * Tev[i]
     end
     return κ
 end

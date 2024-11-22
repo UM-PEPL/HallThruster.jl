@@ -17,6 +17,9 @@ test_thermodynamics()
 include("$(HallThruster.TEST_DIR)/unit_tests/fluxes.jl")
 test_fluxes()
 
+include("$(HallThruster.TEST_DIR)/unit_tests/schemes.jl")
+test_schemes()
+
 include("$(HallThruster.TEST_DIR)/unit_tests/limiters.jl")
 test_limiters()
 
@@ -43,6 +46,9 @@ test_density_calculations()
 
 include("$(HallThruster.TEST_DIR)/unit_tests/collisions.jl")
 test_collisions()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/thermal_conductivity.jl")
+test_thermal_conductivity()
 
 include("$(HallThruster.TEST_DIR)/unit_tests/restarts.jl")
 test_restarts()

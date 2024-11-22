@@ -104,34 +104,41 @@ const Air = Gas("Air", "Air"; γ = 1.4, M = 28.97)
     Argon::Gas
 Argon gas
 """
-const Argon = Gas("Argon", "Ar"; γ = 5/3, M = 39.948)
+const Argon = Gas("Argon", "Ar"; γ = 5 / 3, M = 39.948)
 
 """
     Krypton::Gas
 Krypton gas
 """
-const Krypton = Gas("Krypton", "Kr"; γ = 5/3, M = 83.798)
+const Krypton = Gas("Krypton", "Kr"; γ = 5 / 3, M = 83.798)
 
 """
     Xenon::Gas
 Xenon gas
 """
-const Xenon = Gas("Xenon", "Xe"; γ = 5/3, M = 131.293)
+const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
 
 """
     Bismuth::Gas
 Bismuth vapor
 """
-const Bismuth = Gas("Bismuth", "Bi"; γ = 5/3, M = 208.9804)
+const Bismuth = Gas("Bismuth", "Bi"; γ = 5 / 3, M = 208.9804)
 
 """
     Mercury::Gas
 Mercury vapor
 """
-const Mercury = Gas("Mercury", "Hg"; γ = 5/3, M = 200.59)
+const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
 
 """
     Electron::Species
 Electron
 """
-const Electron = Species(Gas("Electron", "e"; γ = 5/3, M = 1/1836.15267343), -1)
+const Electron = Species(Gas("Electron", "e"; γ = 5 / 3, M = 1 / 1836.15267343), -1)
+
+#=============================================================================
+ Serialization
+==============================================================================#
+const propellants = (; Xenon, Krypton, Argon, Air, Bismuth, Mercury)
+Serialization.SType(::Type{Gas}) = Serialization.Enum()
+Serialization.options(::Type{Gas}) = propellants
