@@ -24,6 +24,8 @@ const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 include("utilities/utility_functions.jl")
 include("utilities/serialization.jl")
 
+using .Serialization: serialize, deserialize, OrderedDict
+
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")

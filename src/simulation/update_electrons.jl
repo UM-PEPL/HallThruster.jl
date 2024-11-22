@@ -116,7 +116,7 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; config, cache, Δz_edge, ncells, iteration) = params
+    (; grid, config, cache, ncells, iteration) = params
     (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     V_L, V_R = config.discharge_voltage, config.cathode_potential
@@ -131,7 +131,7 @@ function integrate_discharge_current(params)
     end
 
     @inbounds for i in 1:(ncells - 1)
-        Δz = Δz_edge[i]
+        Δz = grid.dz_edge[i]
 
         int1_1 = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
         int1_2 = (ji[i + 1] / e / μ[i + 1] + ∇pe[i + 1]) / ne[i + 1]

@@ -157,7 +157,7 @@ function cut_solution(sol, tstampstart)
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
-    if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
+    if charge > sol.params.config.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
 

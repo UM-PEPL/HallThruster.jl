@@ -51,7 +51,7 @@ function load_restart(grid, config, sol::Solution)
     U[1, :] = itp.(grid.cell_centers)
 
     # Interpolate ions
-    for Z in 1:min(sol.params.ncharge, config.ncharge)
+    for Z in 1:min(sol.params.config.ncharge, config.ncharge)
         ind = 2 * Z
         itp_density = LinearInterpolation(z_cell, sol.u[end][ind, :])
         itp_flux = LinearInterpolation(z_cell, sol.u[end][ind + 1, :])
@@ -64,8 +64,8 @@ function load_restart(grid, config, sol::Solution)
     initial_density = config.min_number_density * config.propellant.m
     initial_velocity = 0.0
 
-    if config.ncharge > sol.params.ncharge
-        for Z in (sol.params.ncharge + 1):(config.ncharge)
+    if config.ncharge > sol.params.config.ncharge
+        for Z in (sol.params.onfig.ncharge + 1):(config.ncharge)
             ind = 2 * Z
             U[ind] .= initial_density
             U[ind + 1] .= initial_velocity

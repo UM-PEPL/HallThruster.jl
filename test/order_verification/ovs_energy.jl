@@ -71,8 +71,6 @@ function verify_energy(ncells; niters = 20000)
         HallThruster.SPT_100.geometry, (0.0, 0.05), UnevenGrid(ncells),)
     z_cell = grid.cell_centers
     z_edge = grid.edges
-    dz_cell = grid.dz_cell
-    dz_edge = grid.dz_edge
     ncells = length(z_cell)
 
     # fill cache values
@@ -128,6 +126,8 @@ function verify_energy(ncells; niters = 20000)
     dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
     params_base = (;
         dt,
+        grid,
+        ncells,
         z_cell, z_edge,
         min_Te = 0.1 * min(Te_L, Te_R),
         cache = deepcopy(cache),
@@ -137,9 +137,6 @@ function verify_energy(ncells; niters = 20000)
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
-        Δz_cell = dz_cell, Δz_edge = dz_edge,
-        ncells,
-        grid,
     )
 
     # Test backward euler implicit solve

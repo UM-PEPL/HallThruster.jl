@@ -48,59 +48,63 @@ function test_grid_invariants(grid, dom, spec)
 end
 
 function test_even_grid()
-    n = 151
-    spec = ht.EvenGrid(n)
-    geom = ht.SPT_100.geometry
-    dom = (0.0, 0.08)
+    @testset "EvenGrid" begin
+        n = 151
+        spec = ht.EvenGrid(n)
+        geom = ht.SPT_100.geometry
+        dom = (0.0, 0.08)
 
-    grid = ht.generate_grid(geom, dom, spec)
-    test_grid_invariants(grid, dom, spec)
+        grid = ht.generate_grid(geom, dom, spec)
+        test_grid_invariants(grid, dom, spec)
 
-    (; dz_cell, dz_edge) = grid
-    @testset "Spacing" begin
-        @test all(dz_cell .≈ dz_cell[1])
-        @test all(dz_edge[2:(end - 1)] .≈ dz_edge[2])
-        @test dz_edge[1] == 0.5 * dz_edge[2]
-        @test dz_edge[end] == 0.5 * dz_edge[end - 1]
+        (; dz_cell, dz_edge) = grid
+        @testset "Spacing" begin
+            @test all(dz_cell .≈ dz_cell[1])
+            @test all(dz_edge[2:(end - 1)] .≈ dz_edge[2])
+            @test dz_edge[1] == 0.5 * dz_edge[2]
+            @test dz_edge[end] == 0.5 * dz_edge[end - 1]
+        end
     end
 end
 
 function test_uneven_grid()
-    n = 25
-    spec = ht.UnevenGrid(n)
-    geom = ht.SPT_100.geometry
-    dom = (0.0, 0.08)
+    @testset "UnevenGrid" begin
+        n = 25
+        spec = ht.UnevenGrid(n)
+        geom = ht.SPT_100.geometry
+        dom = (0.0, 0.08)
 
-    grid = ht.generate_grid(geom, dom, spec)
-    test_grid_invariants(grid, dom, spec)
+        grid = ht.generate_grid(geom, dom, spec)
+        test_grid_invariants(grid, dom, spec)
 
-    (; edges, cell_centers, dz_cell, dz_edge) = grid
+        (; edges, cell_centers, dz_cell, dz_edge) = grid
 
-    @testset "Spacing" begin
-        # Grid spacing at right side of domain should be 2x spacing at left end
-        @test isapprox(dz_cell[end], 2 * dz_cell[1], rtol = 1e-3)
-        @test isapprox(dz_edge[end - 1], 2 * dz_edge[2], rtol = 1e-3)
+        @testset "Spacing" begin
+            # Grid spacing at right side of domain should be 2x spacing at left end
+            @test isapprox(dz_cell[end], 2 * dz_cell[1], rtol = 1e-3)
+            @test isapprox(dz_edge[end - 1], 2 * dz_edge[2], rtol = 1e-3)
 
-        # Cell widths (dz_cell) should be unifom until 1.5 * channel_length
-        for (i, z) in enumerate(edges)
-            if (i == 1)
-                continue
+            # Cell widths (dz_cell) should be unifom until 1.5 * channel_length
+            for (i, z) in enumerate(edges)
+                if (i == 1)
+                    continue
+                end
+                if (z >= 1.5 * geom.channel_length)
+                    break
+                end
+                @test dz_cell[i - 1] ≈ dz_cell[1]
             end
-            if (z >= 1.5 * geom.channel_length)
-                break
-            end
-            @test dz_cell[i - 1] ≈ dz_cell[1]
-        end
 
-        # Distance between cell centers (dz_edge) should be uniform until 1.5 * channel_length
-        for (i, z) in enumerate(cell_centers)
-            if (i == 1)
-                continue
+            # Distance between cell centers (dz_edge) should be uniform until 1.5 * channel_length
+            for (i, z) in enumerate(cell_centers)
+                if (i == 1)
+                    continue
+                end
+                if (z >= 1.5 * geom.channel_length - 2 * dz_cell[1])
+                    break
+                end
+                @test isapprox(dz_edge[i], dz_edge[2], rtol = 1e-3)
             end
-            if (z >= 1.5 * geom.channel_length - 2 * dz_cell[1])
-                break
-            end
-            @test isapprox(dz_edge[i], dz_edge[2], rtol = 1e-3)
         end
     end
 end

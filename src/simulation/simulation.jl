@@ -204,13 +204,10 @@ function setup_simulation(
     # Simulation parameters
     params = (;
         grid = grid1d,
+        config = config,
         z_cell = grid1d.cell_centers,
         z_edge = grid1d.edges,
-        Δz_cell = grid1d.dz_cell,
-        Δz_edge = grid1d.dz_edge,
         ncells = grid1d.num_cells,
-        ncharge = config.ncharge,
-        config = config,
         L_ch = config.thruster.geometry.channel_length,
         A_ch = config.thruster.geometry.channel_area,
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,

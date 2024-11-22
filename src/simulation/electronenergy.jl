@@ -1,5 +1,5 @@
 function update_electron_energy!(params, dt)
-    (; Δz_cell, Δz_edge, config, cache, min_Te, ncells) = params
+    (; grid, config, cache, min_Te, ncells) = params
     (; Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
 
     Te_L, Te_R = config.anode_Te, config.cathode_Te
@@ -47,9 +47,9 @@ function update_electron_energy!(params, dt)
         κ0 = κ[i]
         κR = κ[i + 1]
 
-        ΔzL = Δz_edge[left_edge(i)]
-        ΔzR = Δz_edge[right_edge(i)]
-        Δz = Δz_cell[i]
+        ΔzL = grid.dz_edge[left_edge(i)]
+        ΔzR = grid.dz_edge[right_edge(i)]
+        Δz = grid.dz_cell[i]
 
         # Weighted average of the electron velocities in the three stencil cells
         ue_avg = 0.25 * (ΔzL * (ueL + ue0) + ΔzR * (ue0 + ueR)) / Δz

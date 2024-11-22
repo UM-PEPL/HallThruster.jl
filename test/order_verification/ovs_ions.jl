@@ -87,8 +87,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         het.SPT_100.geometry, (0.0, 0.05), het.UnevenGrid(ncells),)
     z_edge = grid.edges
     z_cell = grid.cell_centers
-    dz_cell = grid.dz_cell
-    dz_edge = grid.dz_edge
 
     # Create fluids
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
@@ -115,20 +113,20 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     # Compute timestep
     amax = maximum(abs.(ui_exact) .+ sqrt.(2 / 3 * e * ϵ_func.(z_cell) / mi))
-    cache.dt[] = 0.1 * minimum(dz_cell) / amax
+    cache.dt[] = 0.1 * minimum(grid.dz_cell) / amax
 
     # Create params struct
     params = (;
+        grid,
         ncells = length(z_cell),
+        z_edge,
+        z_cell,
         index,
         config,
         cache,
         fluids,
         species_range_dict,
         is_velocity_index,
-        z_edge,
-        z_cell,
-        Δz_cell = dz_cell, Δz_edge = dz_edge,
         min_Te = 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end)),
         A_ch,
         ionization_reactions,

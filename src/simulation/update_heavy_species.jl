@@ -1,19 +1,17 @@
 function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
-    (;index, Δz_cell, config, cache, ncells, CFL) = params
-    (;
-        source_neutrals, source_ion_continuity, source_ion_momentum,
-        ncharge, ion_wall_losses
-    ) = config
+    (; index, grid, config, cache, ncells, CFL) = params
+    (; source_neutrals, source_ion_continuity, source_ion_momentum,
+    ncharge, ion_wall_losses) = config
 
-    (;F, UL, UR, channel_area, dA_dz) = cache
+    (; F, UL, UR, channel_area, dA_dz) = cache
 
     compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 
-    @inbounds for i in 2:ncells-1
+    @inbounds for i in 2:(ncells - 1)
         left = left_edge(i)
         right = right_edge(i)
 
-        Δz = Δz_cell[i]
+        Δz = grid.dz_cell[i]
 
         dlnA_dz = dA_dz[i] / channel_area[i]
 
@@ -27,14 +25,14 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
         for Z in 1:ncharge
             # Ion fluxes
             # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
-            ρi = U[index.ρi[Z], i]
-            ρiui = U[index.ρiui[Z], i]
-            dU[index.ρi[Z]  , i] = (F[index.ρi[Z],   left] - F[index.ρi[Z],   right]) / Δz - ρiui * dlnA_dz
+            ρi                   = U[index.ρi[Z], i]
+            ρiui                 = U[index.ρiui[Z], i]
+            dU[index.ρi[Z], i]   = (F[index.ρi[Z], left] - F[index.ρi[Z], right]) / Δz - ρiui * dlnA_dz
             dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz - ρiui^2 / ρi * dlnA_dz
 
             # User-provided ion source terms
-            dU[index.ρi[Z],   i] += source_ion_continuity[Z](U, params, i)
-            dU[index.ρiui[Z], i] += source_ion_momentum[Z  ](U, params, i)
+            dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
+            dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
         end
     end
 
@@ -50,7 +48,7 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
     params.cache.dt[] = min(
         CFL * cache.dt_iz[],                          # max ionization timestep
         sqrt(CFL) * cache.dt_E[],                     # max acceleration timestep
-        CFL * minimum(@views cache.dt_u[1:ncells-1]), # max fluid timestep
+        CFL * minimum(@views cache.dt_u[1:(ncells - 1)]), # max fluid timestep
     )
 
     @. @views dU[:, 1] = 0.0
@@ -61,7 +59,7 @@ end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm to the ion fluid
 function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = true)
-    (;k, u1) = params.cache
+    (; k, u1) = params.cache
 
     # First step of SSPRK22
     iterate_heavy_species!(k, U, params; apply_boundary_conditions)
@@ -77,8 +75,8 @@ function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = tru
 end
 
 function update_heavy_species!(U, params)
-    (;index, ncells, cache, config) = params
-    (;nn, ne, ni, ui, niui, Z_eff, ji, K, ϵ, nϵ) = cache
+    (; index, ncells, cache, config) = params
+    (; nn, ne, ni, ui, niui, Z_eff, ji, K, ϵ, nϵ) = cache
     mi = params.config.propellant.m
     inv_m = inv(mi)
 
@@ -95,7 +93,7 @@ function update_heavy_species!(U, params)
         ne[i] = 0.0
         Z_eff[i] = 0.0
         ji[i] = 0.0
-        @inbounds for Z in 1:params.config.ncharge
+        @inbounds for Z in 1:(params.config.ncharge)
             _ni = U[index.ρi[Z], i] * inv_m
             _niui = U[index.ρiui[Z], i] * inv_m
             ni[Z, i] = _ni
