@@ -30,7 +30,6 @@ struct Bohm <: AnomalousTransportModel
 end
 
 function (model::Bohm)(νan, params)
-
     for i in eachindex(νan)
         B = params.cache.B[i]
         ωce = e * B / me
@@ -52,13 +51,16 @@ struct TwoZoneBohm <: AnomalousTransportModel
 end
 
 function (model::TwoZoneBohm)(νan, params)
+    (; grid, config) = params
+    L_ch = config.thruster.geometry.channel_length
     c1, c2 = model.coeffs
 
     for i in eachindex(νan)
         B = params.cache.B[i]
         ωce = e * B / me
 
-        β = linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
+        β = linear_transition(
+            grid.cell_centers[i], L_ch, config.transition_length, c1, c2,)
         νan[i] = β * ωce
     end
 
@@ -91,17 +93,18 @@ end
 function MultiLogBohm(coeffs)
     N = length(coeffs) ÷ 2
     zs = coeffs[1:N]
-    cs = coeffs[N+1:end]
+    cs = coeffs[(N + 1):end]
     return MultiLogBohm(zs, cs)
 end
 
 function (model::MultiLogBohm)(νan, params)
-    (;z_cell) = params
-    (;B) = params.cache
+    (; grid) = params
+    (; B) = params.cache
 
     for i in eachindex(νan)
         ωce = e * B[i] / me
-        c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
+        c = HallThruster.interpolate(
+            grid.cell_centers[i], model.zs, model.cs, use_log = true,)
         νan[i] = c * ωce
     end
 
@@ -122,19 +125,20 @@ Base.@kwdef struct ShiftedMultiBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedMultiBohm)(νan, params)
-    (;zs, cs, z0, dz, alpha, pstar) = model
+    (; zs, cs, z0, dz, alpha, pstar) = model
+    (; config, grid) = params
 
-    pb = params.config.background_pressure
+    pb = config.background_pressure
 
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     for i in eachindex(νan)
         B = params.cache.B[i]
         ωce = e * B / me
-        c = HallThruster.interpolate(params.z_cell[i] - zstar, zs, cs, use_log = true)
+        c = HallThruster.interpolate(grid.cell_centers[i] - zstar, zs, cs, use_log = true)
         νan[i] = c * ωce
     end
 end
@@ -167,23 +171,24 @@ Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedGaussianBohm)(νan, params)
-    (;trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
+    (; grid) = params
+    (; trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
 
     # do not recompute after a certain point - profile is meant to be fixed in time
     if (params.iteration[] > 5)
-        return νan;
+        return νan
     end
 
     pb = params.config.background_pressure
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     B_interp = LinearInterpolation(params.z_cell, params.cache.B)
 
     for i in eachindex(νan)
-        z = params.z_cell[i] - zstar
+        z = grid.cell_centers[i] - zstar
         B = B_interp(z)
         ωce = e * B / me
         μ = trough_location
@@ -193,7 +198,6 @@ function (model::ShiftedGaussianBohm)(νan, params)
 
     return νan
 end
-
 
 """
     ShiftedTwoZoneBohm(coeffs, z0, dz, alpha, pstar) <: AnomalousTransportModel
@@ -210,14 +214,16 @@ Base.@kwdef struct ShiftedTwoZoneBohm <: HallThruster.AnomalousTransportModel
 end
 
 function (model::ShiftedTwoZoneBohm)(νan, params)
-    (;coeffs, z0, dz, alpha, pstar) = model
+    (; coeffs, z0, dz, alpha, pstar) = model
+    (; grid, config) = params
 
-    pb = params.config.background_pressure
+    L_ch = config.thruster.geometry.channel_length
+    pb = config.background_pressure
 
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
-    zstar = params.L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
+    zstar = L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
     c1, c2 = coeffs
 
@@ -225,7 +231,8 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         B = params.cache.B[i]
         ωce = HallThruster.e * B / HallThruster.me
 
-        β = linear_transition(params.z_cell[i], zstar, params.config.transition_length, c1, c2)
+        β = linear_transition(
+            grid.cell_centers, zstar, config.transition_length, c1, c2,)
         νan[i] = β * ωce
     end
 end
@@ -241,7 +248,7 @@ models. If not defined by the user, this defaults to zero.
 num_anom_variables(::AnomalousTransportModel)::Int = 0
 
 """
-    allocate_anom_variables(::AnomalousTransportModel, ncells)
+    allocate_anom_variables(::AnomalusTransportModel, ncells)
 Allocate arrays for anomalous transport state variables. `ncells` is the length
 of the arrays to be allocated. These anomalous transport variables are then stored
 in params.cache.anom_variables

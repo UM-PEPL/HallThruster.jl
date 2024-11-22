@@ -149,7 +149,7 @@ end
 
 function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = false)
     (nvars, ncells) = size(U)
-    (; config, index, is_velocity_index) = params
+    (; config, is_velocity_index) = params
     (; scheme) = config
 
     # compute left and right edge states
@@ -195,17 +195,15 @@ function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = fal
 end
 
 function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false)
-    (; config, index, fluids, grid, cache, ncells) = params
+    (; config, index, fluids, grid, cache) = params
     (; λ_global) = cache
     (; scheme, ncharge) = config
-
-    nedges = ncells - 1
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(UL, UR, U, params; apply_boundary_conditions)
 
     # Compute maximum wave speed in domain and use this to update the max allowable timestep, if using adaptive timestepping
-    @inbounds for i in 1:nedges
+    @inbounds for i in eachindex(grid.edges)
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
         neutral_fluid = fluids[1]
@@ -223,7 +221,6 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
 
             uL = velocity(UL_ions, fluid)
             uR = velocity(UR_ions, fluid)
-            TR = temperature(UR_ions, fluid)
             aL = sound_speed(UL_ions, fluid)
             aR = sound_speed(UL_ions, fluid)
 
@@ -239,7 +236,7 @@ function compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions = false
         end
     end
 
-    @inbounds for i in 1:nedges
+    @inbounds for i in 1eachindex(grid.edges)
         # Neutral fluxes at edge i
         left_state_n  = (UL[index.ρn, i],)
         right_state_n = (UR[index.ρn, i],)

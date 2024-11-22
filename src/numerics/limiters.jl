@@ -14,17 +14,17 @@ const van_leer = SlopeLimiter(r -> 4r / (r + 1)^2)
 const van_albada = SlopeLimiter(r -> 2r / (r^2 + 1))
 const no_limiter = SlopeLimiter(Returns(1.0))
 const minmod = SlopeLimiter(r -> min(2 / (1 + r), 2r / (1 + r)))
-const koren = SlopeLimiter(r -> max(0, min(2r, min((1 + 2r) / 3, 2))) * 2 / (r+1))
-const osher(β) = SlopeLimiter(r -> (max(0, min(r, β))) * 2 / (r+1))
+const koren = SlopeLimiter(r -> max(0, min(2r, min((1 + 2r) / 3, 2))) * 2 / (r + 1))
+const osher(β) = SlopeLimiter(r -> (max(0, min(r, β))) * 2 / (r + 1))
 
 function stage_limiter!(U, params)
-    (;ncells, cache, config, index) = params
-    (;nϵ) = cache
+    (; grid, cache, config, index) = params
+    (; nϵ) = cache
     min_density = config.min_number_density * config.propellant.m
-    @inbounds for i in 1:ncells
+    @inbounds for i in eachindex(grid.cell_centers)
         U[index.ρn, i] = max(U[index.ρn, i], min_density)
 
-        for Z in 1:config.ncharge
+        for Z in 1:(config.ncharge)
             density_floor = max(U[index.ρi[Z], i], min_density)
             velocity = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
             U[index.ρi[Z], i] = density_floor

@@ -1,9 +1,9 @@
 function update_electron_energy!(params, dt)
-    (; grid, config, cache, min_Te, ncells) = params
+    (; grid, config, cache, min_Te) = params
     (; Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
 
     Te_L, Te_R = config.anode_Te, config.cathode_Te
-    implicit = params.config.implicit_energy
+    implicit = config.implicit_energy
     explicit = 1 - implicit
 
     Aϵ.d[1] = 1.0
@@ -26,7 +26,7 @@ function update_electron_energy!(params, dt)
     Q = cache.cell_cache_1
     source_electron_energy!(Q, params)
 
-    @inbounds for i in 2:(ncells - 1)
+    @inbounds for i in 2:(grid.num_cells - 1)
         # User-provided source term
         Q[i] += config.source_energy(params, i)
 
@@ -69,17 +69,17 @@ function update_electron_energy!(params, dt)
                 Te0 = 2 / 3 * nϵ0 / ne0
 
                 # discharge current density
-                jd = params.cache.Id[] / channel_area[1]
+                jd = cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
-                ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:(params.config.ncharge))
+                ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:(config.ncharge))
                 je_sheath_edge = jd - ji_sheath_edge
 
-                ne_sheath_edge = sum(Z * ni[Z, 1] for Z in 1:(params.config.ncharge))
+                ne_sheath_edge = sum(Z * ni[Z, 1] for Z in 1:(config.ncharge))
                 ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
 
                 FL_factor_L = 0.0
-                FL_factor_C = 4 / 3 * ue_sheath_edge * (1 + params.cache.Vs[] / Te0)
+                FL_factor_C = 4 / 3 * ue_sheath_edge * (1 + cache.Vs[] / Te0)
                 FL_factor_R = 0.0
             elseif i == 2
                 # central differences at left boundary for compatibility with dirichlet BC
@@ -128,17 +128,17 @@ function update_electron_energy!(params, dt)
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
-    @inbounds for i in 1:ncells
+    @inbounds for i in eachindex(grid.cell_centers)
         if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < min_Te
             nϵ[i] = 3 / 2 * min_Te * ne[i]
         end
 
         # update Tev and pe
         Tev[i] = 2 / 3 * nϵ[i] / ne[i]
-        if params.config.LANDMARK
-            params.cache.pe[i] = nϵ[i]
+        if config.LANDMARK
+            cache.pe[i] = nϵ[i]
         else
-            params.cache.pe[i] = 2 / 3 * nϵ[i]
+            cache.pe[i] = 2 / 3 * nϵ[i]
         end
     end
 end
