@@ -27,6 +27,7 @@ include("utilities/smoothing.jl")
 include("utilities/statistics.jl")
 include("utilities/linearalgebra.jl")
 include("utilities/integration.jl")
+include("utilities/macros.jl")
 include("utilities/serialization.jl")
 
 using .Serialization: serialize, deserialize, OrderedDict
@@ -44,7 +45,9 @@ include("wall_loss_models/wall_sheath.jl")
 
 include("numerics/finite_differences.jl")
 include("numerics/limiters.jl")
-include("numerics/flux.jl")
+include("numerics/flux_functions.jl")
+include("numerics/schemes.jl")
+include("numerics/edge_fluxes.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")

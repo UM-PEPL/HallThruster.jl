@@ -14,10 +14,17 @@ HallThruster.example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave
 include("$(HallThruster.TEST_DIR)/unit_tests/thrusters.jl")
 test_thrusters()
 
+include("$(HallThruster.TEST_DIR)/unit_tests/thermodynamics.jl")
+test_thermodynamics()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/fluxes.jl")
+test_fluxes()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/limiters.jl")
+test_limiters()
+
 include("$(HallThruster.TEST_DIR)/unit_tests/restarts.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_gas.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_conservation_laws.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/limiters.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_reactions.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/density_calculations.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/allocation.jl")
