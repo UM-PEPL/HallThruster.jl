@@ -52,6 +52,7 @@ include("simulation/geometry.jl")
 include("grid/gridspec.jl")
 include("grid/grid.jl")
 
+include("simulation/current_control.jl")
 include("simulation/initialization.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")

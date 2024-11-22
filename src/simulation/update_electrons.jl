@@ -1,13 +1,10 @@
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (; control_current, target_current, Kp, Ti, config, grid) = params
-    (;
-    B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
+    (; config, grid, cache, simulation) = params
+    (; B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
     Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
-    Id_smoothed, smoothing_time_constant, anom_multiplier,
-    errors, channel_area
-) = params.cache
+    anom_multiplier, channel_area) = cache
 
     ncells = length(grid.cell_centers)
     L_ch = config.thruster.geometry.channel_length
@@ -16,7 +13,7 @@ function update_electrons!(params, t = 0)
     pe_factor = config.LANDMARK ? 1.5 : 1.0
     @inbounds for i in 1:ncells
         # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(config.min_electron_temperature, nϵ[i] / ne[i])
+        Tev[i] = 2 / 3 * max(params.min_Te, nϵ[i] / ne[i])
         # Compute electron pressure
         pe[i] = pe_factor * ne[i] * Tev[i]
     end
@@ -91,30 +88,10 @@ function update_electrons!(params, t = 0)
     # Update the electron temperature and pressure
     update_electron_energy!(params, params.dt[])
 
-    # Update the anomalous collision frequency multiplier to match target
-    # discharge current
-    if control_current && t > 0
-        Ki = Kp / Ti
-
-        A1 = Kp + Ki * params.dt[]
-        A2 = -Kp
-
-        α = 1 - exp(-params.dt[] / smoothing_time_constant[])
-        Id_smoothed[] = α * Id[] + (1 - α) * Id_smoothed[]
-
-        errors[3] = errors[2]
-        errors[2] = errors[1]
-        errors[1] = target_current - Id_smoothed[]
-
-        # PID controller
-        if t > Ti
-            new_anom_mult = log(anom_multiplier[]) + A1 * errors[1] + A2 * errors[2]
-            anom_multiplier[] = exp(new_anom_mult)
-        end
-    elseif t == 0
-        Id_smoothed[] = Id[]
-        anom_multiplier[] = 1.0
-    end
+    # Update the anomalous collision frequency multiplier to match target current
+    anom_multiplier[] = exp(apply_controller(
+        simulation.current_controller, Id[], log(anom_multiplier[]), params.dt[],
+    ))
 end
 
 # Compute the axially-constant discharge current using Ohm's law

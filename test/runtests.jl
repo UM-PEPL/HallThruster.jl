@@ -27,6 +27,9 @@ include("$(HallThruster.TEST_DIR)/unit_tests/test_json.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/grid.jl")
 test_grid()
 
+include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
+test_current_control()
+
 # Regression tests
 include("$(HallThruster.TEST_DIR)/test_regression.jl")
 test_regression()

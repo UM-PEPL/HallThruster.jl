@@ -77,13 +77,8 @@ function allocate_arrays(grid, config)
     nn = zeros(ncells)
     γ_SEE = zeros(ncells)
     Id = [0.0]
-    error_integral = [0.0]
-    Id_smoothed = [0.0]
     Vs = [0.0]
     anom_multiplier = [1.0]
-    smoothing_time_constant = [0.0]
-    errors = [0.0, 0.0, 0.0]
-    dcoeffs = [0.0, 0.0, 0.0, 0.0]
 
     # Edge state caches
     F = zeros(nvariables, nedges)
@@ -119,8 +114,7 @@ function allocate_arrays(grid, config)
         νen, νei, radial_loss_frequency, νew_momentum, νiw, νe,
         κ, F, UL, UR, Z_eff, λ_global, νiz, νex, K, Id, ji,
         ni, ui, Vs, niui, nn, k, u1, γ_SEE, cell_cache_1,
-        error_integral, Id_smoothed, anom_multiplier, smoothing_time_constant,
-        errors, dcoeffs,
+        anom_multiplier,
         ohmic_heating, wall_losses, inelastic_losses,
         channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
         anom_variables, dt_iz, dt_E, dt_u, dt,
@@ -198,30 +192,48 @@ function setup_simulation(
         end
     end
 
-    cache.smoothing_time_constant[] = time_constant
     cache.dt .= dt
+
+    # Set up PID controller, if requested
+    if control_current
+        current_controller = PIDController(
+            target_value = target_current,
+            proportional_constant = Kp,
+            integral_constant = Kp / Ti,
+            derivative_constant = Kp * Td,
+            smoothing_frequency = 1 / time_constant,
+        )
+    else
+        current_controller = NoController()
+    end
+
+    simulation = (; current_controller)
 
     # Simulation parameters
     params = (;
+        iteration = [-1],
         grid = grid1d,
         config = config,
+        # fluid bookkeeping
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
-        iteration = [-1],
+        # reactions
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
+        # Timestepping stuff
         dt = [dt],
         CFL,
         adaptive,
+        dtbase, dtmin, dtmax, max_small_steps,
+        simulation,
+        # Physics stuff
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         min_Te = min(config.anode_Te, config.cathode_Te),
-        control_current, target_current, Kp, Ti, Td,
-        dtbase, dtmin, dtmax, max_small_steps,
     )
 
     # Compute maximum allowed iterations
