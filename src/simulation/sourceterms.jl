@@ -83,13 +83,14 @@ function apply_ion_acceleration!(dU, U, params)
 end
 
 function apply_ion_wall_losses!(dU, U, params)
-    (; index, config, z_cell, L_ch, ncells, cache, ncells) = params
+    (; index, config, z_cell, cache, ncells) = params
     (; ncharge, propellant, wall_loss_model, thruster) = config
 
     if wall_loss_model isa NoWallLosses
         return
     end
 
+    L_ch = thruster.geometry.channel_length
     inv_Δr = inv(thruster.geometry.outer_radius - thruster.geometry.inner_radius)
     e_inv_m = e / propellant.m
 

@@ -1,23 +1,3 @@
-@kwdef struct SimParams{G <: GridSpec, C <: CurrentController}
-    # Grid setup
-    grid::G = EvenGrid(0)
-
-    # Timestep control
-    base_dt::Float64 = 1e-8
-    min_dt::Float64 = 1e-10
-    max_dt::Float64 = 1e-7
-    CFL::Float64 = 0.799
-    adaptive::Bool = false
-    max_small_steps::Int = 100
-
-    # PID control
-    current_control::C = NoController()
-
-    # Reporting
-    verbose::Bool = true
-    show_errors::Bool = true
-end
-
 function setup_simulation(
         config::Config;
         grid::GridSpec = EvenGrid(0),
@@ -84,7 +64,6 @@ function setup_simulation(
 
     z_cell = grid_1d.cell_centers
     z_edge = grid_1d.edges
-    (; dz_cell, dz_edge) = grid_1d
 
     # Fill up cell lengths and magnetic field vectors
     thruster = config.thruster
@@ -114,19 +93,12 @@ function setup_simulation(
 
     # Simulation parameters
     params = (;
-        ncells = grid_1d.num_cells + 2,
-        ncharge = config.ncharge,
-        mi,
         config = config,
-        V_L = config.discharge_voltage,
-        V_R = config.cathode_potential,
-        Te_L = config.anode_Tev,
-        Te_R = config.cathode_Tev,
-        Te_min = min(config.anode_Tev, config.cathode_Tev),
-        L_ch = thruster.geometry.channel_length,
-        A_ch = thruster.geometry.channel_area,
+        ncells = grid_1d.num_cells + 2,
         z_cell,
         z_edge,
+        Δz_cell = grid_1d.dz_cell,
+        Δz_edge = grid_1d.dz_edge,
         index,
         cache,
         fluids,
@@ -145,33 +117,25 @@ function setup_simulation(
         adaptive,
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
-        Bmax = maximum(cache.B),
         γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
-        Δz_cell = dz_cell,
-        Δz_edge = dz_edge,
+        Te_min = min(config.anode_Tev, config.cathode_Tev),
         control_current,
         target_current,
         Kp,
         Ti,
         Td,
-        exit_plane_index = findfirst(>=(thruster.geometry.channel_length), z_cell) - 1,
         dtbase,
         dtmin,
         dtmax,
         max_small_steps,
-        # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3 / 2 : 1.0,
     )
 
-    # Compute maximum allowed iterations
+    # Initialize plasma solution and plume geometry
     initialize!(U, params)
+    initialize_plume_geometry!(params)
 
     # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
     TwoZoneBohm(1 // 160, 1 // 16)(params.cache.nu_anom, params)
-
-    # Initialize plume
-    update_plume_geometry!(U, params; initialize = true)
-    #end
 
     # make values in params available for first timestep
     update_heavy_species!(U, params)

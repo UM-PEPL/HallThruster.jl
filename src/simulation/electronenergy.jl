@@ -1,8 +1,11 @@
-
 function update_electron_energy!(params, dt)
-    (; Δz_cell, Δz_edge, config, cache, Te_L, Te_R, ncells) = params
+    (; Δz_cell, Δz_edge, config, cache, ncells) = params
     (; A_energy, b_energy, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
+
     implicit = params.config.implicit_energy
+    Te_L = config.anode_Tev
+    Te_R = config.cathode_Tev
+
     explicit = 1 - implicit
 
     A_energy.d[1] = 1.0

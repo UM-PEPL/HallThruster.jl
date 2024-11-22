@@ -85,6 +85,9 @@ function (model::TwoZoneBohm)(νan, params)
     (; config, cache, z_cell) = params
     (; B) = cache
 
+    L_trans = config.transition_length
+    L_ch = config.thruster.geometry.channel_length
+
     # Profile is fixed in time, do not update after 5 iterations
     if (params.iteration[] > 5)
         return νan
@@ -97,7 +100,7 @@ function (model::TwoZoneBohm)(νan, params)
         z = zc - z_shift
         B = B_interp(z)
         ωce = e * B / me
-        c = linear_transition(z, params.L_ch, config.transition_length, c1, c2)
+        c = linear_transition(z, L_ch, L_trans, c1, c2)
         νan[i] = c * ωce
     end
 

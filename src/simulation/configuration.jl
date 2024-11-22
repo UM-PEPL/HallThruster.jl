@@ -83,6 +83,13 @@ function validate_config(config::Config)
         ))
     end
 
+    #check that Landmark uses the correct thermal conductivity
+    if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
+        throw(ArgumentError(
+            "LANDMARK configuration needs to use the LANDMARK thermal conductivity model."
+        ))
+    end
+
     # check that number of ion source terms matches number of charges for both
     # continuity and momentum
     @reset config.source_ion_continuity = check_ion_source_terms(

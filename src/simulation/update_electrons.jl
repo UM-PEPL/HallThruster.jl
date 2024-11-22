@@ -1,13 +1,16 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (; control_current, target_current, Kp, Ti, pe_factor, ncells, cache, config) = params
+    (; control_current, target_current, Kp, Ti, ncells, cache, config) = params
     (; B, ue, Tev, electric_field, potential, pe, ne, nϵ, grad_pe,
     mobility, nu_e, nu_anom, nu_en, nu_ei, nu_class, nu_wall, nu_iz, nu_ex,
     radial_loss_frequency, Z_eff, ji, Id, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
     errors, channel_area) = cache
 
+    L_ch = config.thruster.geometry.channel_length
+
     # Update plasma quantities based on new density
+    pe_factor = config.LANDMARK ? 1.5 : 1.0
     @inbounds for i in 1:ncells
         # Compute new electron temperature
         Tev[i] = 2 / 3 * max(params.Te_min, nϵ[i] / ne[i])
@@ -34,8 +37,9 @@ function update_electrons!(params, t = 0)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
             config.wall_loss_model, params, i,)
+
         nu_wall[i] = radial_loss_frequency[i] * linear_transition(
-            params.z_cell[i], params.L_ch, config.transition_length, 1.0, 0.0,)
+            params.z_cell[i], L_ch, config.transition_length, 1.0, 0.0,)
     end
 
     # Update anomalous transport
@@ -113,8 +117,11 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; cache, Δz_edge, V_L, V_R, ncells, iteration, config) = params
+    (; cache, Δz_edge, ncells, iteration, config) = params
     (; grad_pe, mobility, ne, ji, Vs, channel_area) = cache
+
+    V_L = config.discharge_voltage
+    V_R = config.cathode_potential
 
     int1 = 0.0
     int2 = 0.0

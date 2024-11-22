@@ -8,6 +8,8 @@ struct NoController <: CurrentController end
     integral_constant::Float64 = 0.0
     derivative_constant::Float64 = 0.0
     errors::NTuple{3, Float64} = (0.0, 0.0, 0.0)
+    smoothing_frequency::Float64 = 0.0
+    smoothed_value::Float64 = 0.0
 end
 
 #=============================================================================
@@ -59,6 +61,8 @@ function apply_controller(pid::PIDController, present_value, control_value, dt)
             K_i e(t) dt +
             K_d (e(t) - 2 e(t-dt) _ e(t-2dt))/dt.
     =#
+    K_smooth = exp(-dt * pid.smoothing_frequency)
+    pid.smoothed_value = K_smooth * present_value + (1 - K_smooth) * pid.smoothed_value
 
     pid.errors = (pid.target_value - present_value, pid.errors[1], pid.errors[2])
 

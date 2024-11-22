@@ -1,8 +1,8 @@
 function solve_potential!(ϕ, params)
-    (; z_cell, cache, V_L) = params
+    (; z_cell, cache, config) = params
     (; electric_field, Vs) = cache
 
-    cumtrapz!(ϕ, z_cell, electric_field, V_L + Vs[])
+    cumtrapz!(ϕ, z_cell, electric_field, config.discharge_voltage + Vs[])
 
     return ϕ
 end

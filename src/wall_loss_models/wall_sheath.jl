@@ -34,6 +34,7 @@ end
 # this is approximate, but deviations only become noticable when the knudsen number becomes small, which is not true in our case
 @inline edge_to_center_density_ratio() = 0.86 / sqrt(3);
 
+# TODO: make this operate on an array, then move computation of γ_SEE_max here
 function freq_electron_wall(model::WallSheath, params, i)
     (; config, cache) = params
     (; ncharge) = config
@@ -62,8 +63,9 @@ function freq_electron_wall(model::WallSheath, params, i)
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
-    (; config, cache, z_cell, L_ch, ncells) = params
+    (; config, cache, z_cell, ncells) = params
     mi = config.propellant.m
+    L_ch = config.thruster.geometry.channel_length
 
     @inbounds for i in 2:(ncells - 1)
         Tev = wall_electron_temperature(params, i)

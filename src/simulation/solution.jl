@@ -18,7 +18,7 @@ function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
-    if charge > sol.params.ncharge && field in [:ni, :ui, :niui]
+    if charge > sol.params.config.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
              Maximum charge state in provided solution is $(sol.params.config.ncharge).",
         ))
@@ -71,7 +71,7 @@ end
     :dA_dz,
     :tan_div_angle,
     :anom_variables,
-    :dt
+    :dt,
 )
 
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
@@ -150,7 +150,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
             update_electrons!(params, t)
 
             # Update plume geometry
-            update_plume_geometry!(U, params)
+            update_plume_geometry!(params)
 
             # Update the current iteration
             iteration[] += 1
@@ -199,6 +199,6 @@ function solve(U, params, tspan; saveat, show_errors = true)
     ind = min(save_ind, length(savevals) + 1) - 1
 
     return Solution(
-        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, retcode, errstring
+        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, retcode, errstring,
     )
 end
