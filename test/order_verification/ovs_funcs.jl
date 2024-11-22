@@ -57,20 +57,3 @@ function refines(num_refinements, initial, factor)
     return [round(Int, initial * factor^(p - 1))
             for p in 1:num_refinements]
 end
-
-import HallThruster: load_reactions, rate_coeff, IonizationModel, ExcitationModel,
-                     IonizationReaction, ExcitationReaction, Reaction
-
-struct OVS_Ionization <: IonizationModel end
-struct OVS_Excitation <: ExcitationModel end
-
-het.rate_coeff(::OVS_Ionization, ::Reaction, ϵ) = 1e-12 * exp(-12.12 / ϵ)
-het.rate_coeff(::OVS_Excitation, ::Reaction, ϵ) = 1e-12 * exp(-8.32 / ϵ)
-
-function het.load_reactions(::OVS_Ionization, species)
-    return [IonizationReaction(12.12, het.Xenon(0), het.Xenon(1), Float64[])]
-end
-
-function het.load_reactions(::OVS_Excitation, species)
-    return [ExcitationReaction(8.32, het.Xenon(0), Float64[])]
-end

@@ -37,7 +37,7 @@ ue_func = eval(build_function(expand_derivatives(ue), [x]))
 nn_func = eval(build_function(nn, [x]))
 ϵ_func = eval(build_function(ϵ, [x]))
 
-k(ϵ) = 8.32 * het.rate_coeff(OVS_Excitation(), R(), ϵ)
+k(ϵ) = 8.32 * het.ovs_rate_coeff_ex(ϵ)
 W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
             ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
@@ -103,7 +103,7 @@ function verify_energy(ncells; niters = 20000)
         transition_length = 0.0,
         LANDMARK = true,
         propellant = het.Xenon,
-        ionization_model = OVS_Ionization(), excitation_model = OVS_Excitation(),
+        ionization_model = :OVS, excitation_model = :OVS,
         wall_loss_model = het.ConstantSheathPotential(20.0, 1.0, 1.0),
         thruster = (; geometry = (; channel_length = 0.025)),
         anode_boundary_condition = :dirichlet,
@@ -113,13 +113,13 @@ function verify_energy(ncells; niters = 20000)
     species = [het.Xenon(0), het.Xenon(1)]
     species_range_dict = Dict([:Xe => 1, Symbol("Xe+") => 0])
 
-    ionization_reactions = het._load_reactions(config.ionization_model, species)
+    ionization_reactions = het.load_ionization_reactions(config.ionization_model, species)
     ionization_reactant_indices = het.reactant_indices(
         ionization_reactions, species_range_dict,)
     ionization_product_indices = het.product_indices(
         ionization_reactions, species_range_dict,)
 
-    excitation_reactions = het._load_reactions(config.excitation_model, species)
+    excitation_reactions = het.load_excitation_reactions(config.excitation_model, species)
     excitation_reactant_indices = het.reactant_indices(
         excitation_reactions, species_range_dict,)
 

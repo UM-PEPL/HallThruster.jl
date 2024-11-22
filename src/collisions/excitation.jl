@@ -17,6 +17,8 @@ function Base.show(io::IO, i::ExcitationReaction)
     return print(io, rxn_str)
 end
 
+ovs_rate_coeff_ex(ϵ) = 1e-12 * exp(-8.32 / ϵ)
+
 function load_excitation_reactions(
         model::Symbol, species; directories = String[], kwargs...,)
     if model == :None
@@ -54,6 +56,11 @@ function load_excitation_reactions(
                 end
             end
         end
+    elseif model == :OVS
+        # Rate coefficient for order verification studies
+        Es = 0:1.0:255
+        ks = ovs_rate_coeff_ex.(Es)
+        return [ExcitationReaction(8.32, Xenon(0), ks)]
     else
         throw(ArgumentError("Invalid excitation model $(model). Choose :None, :Landmark, or :Lookup."))
     end

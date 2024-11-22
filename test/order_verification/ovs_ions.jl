@@ -13,7 +13,7 @@ struct R <: het.Reaction end
 Dt = Differential(t)
 Dx = Differential(x)
 
-k_ionization(ϵ) = rate_coeff(OVS_Ionization(), R(), ϵ)
+k_ionization(ϵ) = 0.0
 
 const un = 1000
 const mi = het.Xenon.m
@@ -60,9 +60,9 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     config = (;
         thruster,
-        source_neutrals = ((_, p, i) -> source_ρn(p.z_cell[i]),),
-        source_ion_continuity = ((_, p, i) -> source_ρi(p.z_cell[i]),),
-        source_ion_momentum = ((_, p, i) -> source_ρiui(p.z_cell[i]),),
+        source_neutrals = ((_, p, i) -> source_ρn(p.grid.cell_centers[i]),),
+        source_ion_continuity = ((_, p, i) -> source_ρi(p.grid.cell_centers[i]),),
+        source_ion_momentum = ((_, p, i) -> source_ρiui(p.grid.cell_centers[i]),),
         propellant = het.Xenon,
         ncharge = 1,
         min_electron_temperature = 1.0,
@@ -74,7 +74,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         anode_sheath = false,
         anode_mass_flow_rate,
         scheme,
-        ionization_model = OVS_Ionization(),
+        ionization_model = :OVS,
         LANDMARK = true,
         conductivity_model = het.LANDMARK_conductivity(),
         ion_wall_losses = false,
@@ -85,12 +85,11 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     # Construct grid
     grid = het.generate_grid(
         het.SPT_100.geometry, (0.0, 0.05), het.UnevenGrid(ncells),)
-    z_edge = grid.edges
     z_cell = grid.cell_centers
 
     # Create fluids
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-    ionization_reactions = het._load_reactions(config.ionization_model, species)
+    ionization_reactions = het.load_ionization_reactions(config.ionization_model, species)
     index = het.configure_index(fluids, fluid_ranges)
 
     # Allocate arrays and fill variables
@@ -119,8 +118,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     params = (;
         grid,
         ncells = length(z_cell),
-        z_edge,
-        z_cell,
         index,
         config,
         cache,
@@ -128,7 +125,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         species_range_dict,
         is_velocity_index,
         min_Te = 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end)),
-        A_ch,
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],

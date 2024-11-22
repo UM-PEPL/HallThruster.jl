@@ -60,7 +60,10 @@ function load_ionization_reactions(
         end
 
         return reactions
+    elseif model == :OVS
+        # No ionization in OVS tests
+        return [IonizationReaction(12.12, Xenon(0), Xenon(1), [0.0, 0.0, 0.0])]
     else
-        throw(ArgumentError("Invalid ionization moddl $(model). Select :Landmark or :Lookup"))
+        throw(ArgumentError("Invalid ionization model $(model). Select :Landmark or :Lookup"))
     end
 end

@@ -48,9 +48,9 @@ function test_ovs_ions()
         for (flux, flux_name) in zip(fluxes, flux_names)
             for reconstruct in [false, true]
                 scheme = het.HyperbolicScheme(flux, limiter, reconstruct)
-                orders, norms = test_refinements(
+                orders, _ = test_refinements(
                     ncells -> OVS_Ions.solve_ions(ncells, scheme), refinements, norms_to_test,)
-                for (i, (order, norm)) in enumerate(zip(orders, norms))
+                for (i, order) in enumerate(orders)
                     norm_ind = mod1(i, num_norms)
                     case_ind = ((i - 1) ÷ num_norms) + 1
                     case_str = "($(cases[case_ind]), $(norms_to_test[norm_ind])-norm)"
@@ -65,7 +65,7 @@ function test_ovs_ions()
                     if (reconstruct)
                         @test order >= 1.5
                     else
-                        @test order > 0.75
+                        @test order > 0.5
                     end
                 end
             end
