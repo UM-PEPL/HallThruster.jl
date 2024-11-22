@@ -51,6 +51,7 @@ include("collisions/collision_frequencies.jl")
 include("simulation/geometry.jl")
 include("grid/gridspec.jl")
 include("grid/grid.jl")
+include("simulation/allocation.jl")
 
 include("simulation/current_control.jl")
 include("simulation/initialization.jl")
