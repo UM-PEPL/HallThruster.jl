@@ -5,8 +5,7 @@ using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm
 using Unitful: @u_str, uconvert, ustrip, Quantity
-
-import SnoopPrecompile
+using PrecompileTools: @compile_workload
 
 using JSON3
 using JLD2
@@ -113,7 +112,7 @@ function example_simulation(; ncells, duration, dt, nsave)
 end
 
 # Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
+@compile_workload begin
     example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
 end
 

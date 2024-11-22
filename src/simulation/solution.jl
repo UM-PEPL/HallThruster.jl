@@ -102,7 +102,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
             update_electrons!(params, t)
 
             # Update plume geometry
-            update_plume_geometry!(U, params)
+            update_plume_geometry!(params)
 
             # Update the current iteration
             iteration[] += 1

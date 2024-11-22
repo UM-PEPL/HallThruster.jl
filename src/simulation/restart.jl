@@ -6,13 +6,14 @@ Write a JLD2 restart file to `path``.
 This can be reloaded to resume a simulation.
 """
 function write_restart(path::AbstractString, sol)
-    JLD2.save(path, Dict(
-        "t" => sol.t,
-        "u" =>  sol.u,
-        "savevals" => sol.savevals,
-        "params" => sol.params,
-        "retcode" => sol.retcode,
-    ))
+    JLD2.save(path,
+        Dict(
+            "t" => sol.t,
+            "u" => sol.u,
+            "savevals" => sol.savevals,
+            "params" => sol.params,
+            "retcode" => sol.retcode,
+        ),)
 end
 
 """
@@ -30,7 +31,7 @@ function read_restart(path::AbstractString)
     end
 
     return Solution(
-        dict["t"], dict["u"], dict["savevals"], retcode, dict["params"]
+        dict["t"], dict["u"], dict["savevals"], dict["params"], retcode, "",
     )
 end
 
@@ -53,10 +54,10 @@ function load_restart(grid, config, sol::Solution)
     for Z in 1:min(sol.params.ncharge, config.ncharge)
         ind = 2 * Z
         itp_density = LinearInterpolation(z_cell, sol.u[end][ind, :])
-        itp_flux = LinearInterpolation(z_cell, sol.u[end][ind+1, :])
+        itp_flux = LinearInterpolation(z_cell, sol.u[end][ind + 1, :])
 
         U[ind, :] .= itp_density.(grid.cell_centers)
-        U[ind+1, :] .= itp_flux.(grid.cell_centers)
+        U[ind + 1, :] .= itp_flux.(grid.cell_centers)
     end
 
     # If we have more charges in the new solution than in the restart, initialize the other charges to default values
@@ -64,10 +65,10 @@ function load_restart(grid, config, sol::Solution)
     initial_velocity = 0.0
 
     if config.ncharge > sol.params.ncharge
-        for Z in sol.params.ncharge+1:config.ncharge
-            ind = 2*Z
+        for Z in (sol.params.ncharge + 1):(config.ncharge)
+            ind = 2 * Z
             U[ind] .= initial_density
-            U[ind+1] .= initial_velocity
+            U[ind + 1] .= initial_velocity
         end
     end
 
@@ -78,18 +79,19 @@ function load_restart(grid, config, sol::Solution)
     sv = sol.savevals[end]
     # Interpolate cell-centered cache variables
     for field in fieldnames(typeof(sv))
-        if field == :Id || field == :Vs || field == :anom_multiplier || field == :anom_variables || field == :dt
+        if field == :Id || field == :Vs || field == :anom_multiplier ||
+           field == :anom_variables || field == :dt
             cache[field] .= sv[field]
         elseif field == :ni
-            for Z in 1:config.ncharge
+            for Z in 1:(config.ncharge)
                 @. @views cache[field][Z, :] = U[2 * Z, :] / config.propellant.m
             end
         elseif field == :ui
-            for Z in 1:config.ncharge
+            for Z in 1:(config.ncharge)
                 @. @views cache[field][Z, :] = U[2 * Z + 1, :] / U[2 * Z, :]
             end
         elseif field == :niui
-            for Z in 1:config.ncharge
+            for Z in 1:(config.ncharge)
                 @. @views cache[field][Z, :] = U[2 * Z + 1, :] / config.propellant.m
             end
         elseif field == :nn

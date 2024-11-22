@@ -152,7 +152,7 @@ end
 
 function cut_solution(sol, tstampstart)
     sol_cut = Solution(sol.t[tstampstart:end], sol.u[tstampstart:end],
-        sol.savevals[tstampstart:end], sol.retcode, sol.params,)
+        sol.savevals[tstampstart:end], sol.params, sol.retcode, "",)
     return sol_cut
 end
 
@@ -268,7 +268,7 @@ function load_landmark_data(case, suffix; ncells = 100)
     u[3, :] = ρiui
     u[4, :] = nϵ
 
-    return Solution([0.0], [u], [cache], retcode, params)
+    return Solution([0.0], [u], [cache], params, retcode, "")
 end
 
 function frame_dict(sol, frame)

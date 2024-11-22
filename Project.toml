@@ -11,8 +11,8 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Measures = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-SnoopPrecompile = "66db9d55-30c0-4569-8b51-7e840670fc0c"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
@@ -23,9 +23,9 @@ JLD2 = "0.4"
 JSON3 = "1"
 LinearAlgebra = "<0.0.1, 1"
 Measures = "0.3"
+PrecompileTools = "1.2.1"
 Printf = "<0.0.1, 1"
 RecipesBase = "1"
-SnoopPrecompile = "1"
 Statistics = "1.11.1"
 Unitful = "1"
 julia = "1.7"
@@ -33,9 +33,9 @@ julia = "1.7"
 [extras]
 CPUSummary = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [targets]
 test = ["Test", "Symbolics", "Printf", "Statistics"]

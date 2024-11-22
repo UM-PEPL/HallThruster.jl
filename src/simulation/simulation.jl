@@ -123,7 +123,7 @@ function allocate_arrays(grid, config)
         errors, dcoeffs,
         ohmic_heating, wall_losses, inelastic_losses,
         channel_area, dA_dz, channel_height, inner_radius, outer_radius, tanδ,
-        anom_variables, dt_iz, dt_E, dt_u, dt
+        anom_variables, dt_iz, dt_E, dt_u, dt,
     )
 
     return U, cache
@@ -137,7 +137,7 @@ function setup_simulation(
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100
+        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
 )
 
     #check that Landmark uses the correct thermal conductivity
@@ -160,7 +160,7 @@ function setup_simulation(
 
     # load collisions and reactions
     ionization_reactions = _load_reactions(config.ionization_model, unique(species);
-        directories = config.reaction_rate_directories)
+        directories = config.reaction_rate_directories,)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
@@ -168,7 +168,7 @@ function setup_simulation(
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
     electron_neutral_collisions = _load_reactions(
-        config.electron_neutral_model, unique(species))
+        config.electron_neutral_model, unique(species),)
 
     index = configure_index(fluids, fluid_ranges)
 
@@ -244,18 +244,16 @@ function setup_simulation(
                            1,
         dtbase, dtmin, dtmax, max_small_steps,
         # landmark benchmark uses pe = 3/2 ne Te, otherwise use pe = ne Te
-        pe_factor = config.LANDMARK ? 3 / 2 : 1.0
+        pe_factor = config.LANDMARK ? 3 / 2 : 1.0,
     )
 
     # Compute maximum allowed iterations
     if !use_restart
         initialize!(U, params)
+        initialize_plume_geometry(params)
 
         # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
         TwoZoneBohm(1 // 160, 1 // 16)(params.cache.νan, params)
-
-        # Initialize plume
-        update_plume_geometry!(U, params, initialize = true)
     end
 
     # make values in params available for first timestep
