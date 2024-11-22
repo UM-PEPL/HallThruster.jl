@@ -24,9 +24,12 @@ include("$(HallThruster.TEST_DIR)/unit_tests/test_walls.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_initialization.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_json.jl")
 
+include("$(HallThruster.TEST_DIR)/unit_tests/grid.jl")
+test_grid()
+
 # Regression tests
 include("$(HallThruster.TEST_DIR)/test_regression.jl")
 test_regression()
 
 # Order verification tests
-include("$(HallThruster.TEST_DIR)/unit_tests/test_ovs.jl")
+include("$(HallThruster.TEST_DIR)/order_verification/test_ovs.jl")

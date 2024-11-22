@@ -131,7 +131,7 @@ end
 
 function setup_simulation(
         config::Config;
-        grid::HallThrusterGrid = EvenGrid(0),
+        grid::GridSpec = EvenGrid(0),
         ncells = 0,
         dt, restart = nothing,
         CFL = 0.799, adaptive = false,
@@ -151,7 +151,7 @@ function setup_simulation(
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
 
-    if (grid.ncells == 0)
+    if (grid.num_cells == 0)
         # backwards compatability for unspecified grid type
         grid1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
     else

@@ -22,6 +22,7 @@ const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
 include("utilities/utility_functions.jl")
+include("utilities/serialization.jl")
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -46,8 +47,11 @@ include("collisions/elastic.jl")
 include("collisions/charge_exchange.jl")
 include("collisions/collision_frequencies.jl")
 
-include("simulation/initialization.jl")
 include("simulation/geometry.jl")
+include("grid/gridspec.jl")
+include("grid/grid.jl")
+
+include("simulation/initialization.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/update_heavy_species.jl")
