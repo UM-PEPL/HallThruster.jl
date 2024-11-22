@@ -185,7 +185,7 @@ function (model::ShiftedGaussianBohm)(νan, params)
     p_ratio = pb / (pstar * torr_to_pa)
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
 
-    B_interp = LinearInterpolation(params.z_cell, params.cache.B)
+    B_interp = LinearInterpolation(grid.cell_centers, params.cache.B)
 
     for i in eachindex(νan)
         z = grid.cell_centers[i] - zstar
@@ -232,7 +232,7 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
         ωce = HallThruster.e * B / HallThruster.me
 
         β = linear_transition(
-            grid.cell_centers, zstar, config.transition_length, c1, c2,)
+            grid.cell_centers[i], zstar, config.transition_length, c1, c2,)
         νan[i] = β * ωce
     end
 end

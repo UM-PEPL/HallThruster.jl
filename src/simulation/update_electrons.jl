@@ -1,13 +1,16 @@
 
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
-    (; control_current, target_current, Kp, Ti, ncells, config) = params
+    (; control_current, target_current, Kp, Ti, config, grid) = params
     (;
     B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
     Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
     Id_smoothed, smoothing_time_constant, anom_multiplier,
     errors, channel_area
 ) = params.cache
+
+    ncells = length(grid.cell_centers)
+    L_ch = config.thruster.geometry.channel_length
 
     # Update plasma quantities based on new density
     pe_factor = config.LANDMARK ? 1.5 : 1.0
@@ -38,7 +41,7 @@ function update_electrons!(params, t = 0)
         radial_loss_frequency[i] = freq_electron_wall(
             params.config.wall_loss_model, params, i,)
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            params.z_cell[i], params.L_ch, params.config.transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, params.config.transition_length, 1.0, 0.0,)
     end
 
     # Update anomalous transport
@@ -116,10 +119,11 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(params)
-    (; grid, config, cache, ncells, iteration) = params
+    (; grid, config, cache, iteration) = params
     (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
 
     V_L, V_R = config.discharge_voltage, config.cathode_potential
+    ncells = length(grid.cell_centers)
 
     int1 = 0.0
     int2 = 0.0
@@ -197,7 +201,9 @@ end
 
 function compute_pressure_gradient!(∇pe, params)
     (; pe) = params.cache
-    (; z_cell, ncells) = params
+    (; grid) = params
+    z_cell = grid.cell_centers
+    ncells = length(z_cell)
 
     # Pressure gradient (forward)
     ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])

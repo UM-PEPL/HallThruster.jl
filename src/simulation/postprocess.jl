@@ -272,7 +272,8 @@ function load_landmark_data(case, suffix; ncells = 100)
 end
 
 function frame_dict(sol, frame)
-    filler = zeros(length(sol.params.z_cell))
+    (; grid) = sol.params.grid
+    filler = length(grid.cell_centers)
     ncharge = sol.params.config.ncharge
     Dict(
         "thrust" => thrust(sol, frame),
@@ -281,7 +282,7 @@ function frame_dict(sol, frame)
         "voltage_eff" => voltage_eff(sol, frame),
         "current_eff" => current_eff(sol, frame),
         "t" => sol.t[frame],
-        "z" => sol.params.z_cell,
+        "z" => grid.cell_centers,
         "nn" => sol[:nn, 1][frame],
         "ni_1" => sol[:ni, 1][frame],
         "ni_2" => (ncharge > 1 ? sol[:ni, 2][frame] : filler),

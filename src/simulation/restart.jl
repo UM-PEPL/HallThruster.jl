@@ -43,8 +43,7 @@ end
 
 function load_restart(grid, config, sol::Solution)
     U, cache = HallThruster.allocate_arrays(grid, config)
-
-    z_cell = sol.params.z_cell
+    z_cell = sol.params.grid.cell_centers
 
     # Interpolate neutrals
     itp = LinearInterpolation(z_cell, sol.u[end][1, :])

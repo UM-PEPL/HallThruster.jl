@@ -4,24 +4,24 @@
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
         anode_mass_flow_rate = 5u"mg/s",
-        LANDMARK = true
+        LANDMARK = true,
     )
 
     @test_throws ErrorException HallThruster.run_simulation(
         Landmark_config; dt = 5e-9, duration = 4e-9,
-        grid = HallThruster.EvenGrid(2), nsave = 10)
+        grid = HallThruster.EvenGrid(2), nsave = 10,)
 
     config = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0u"cm", 8.0u"cm"),
         discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s"
+        anode_mass_flow_rate = 5u"mg/s",
     )
 
     @test_logs (:warn,
-        "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.") HallThruster.run_simulation(
+        "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.",) HallThruster.run_simulation(
         config; dt = 5e-9, duration = 0e-9, grid = HallThruster.EvenGrid(2),
-        nsave = 10, adaptive = true, CFL = 0.9)
+        nsave = 10, adaptive = true, CFL = 0.9,)
 end
 
 @testset "Linear algebra" begin
@@ -51,9 +51,9 @@ end
 @testset "Stage limiter" begin
     index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
     config = (ncharge = 1, min_number_density = 1e6,
-        min_electron_temperature = 1.0, propellant = HallThruster.Xenon)
+        min_electron_temperature = 1.0, propellant = HallThruster.Xenon,)
 
-    p = (; config, index, cache = (; nϵ = [-1.0]), ncells = 1)
+    p = (; config, index, cache = (; nϵ = [-1.0]), grid = (; cell_centers = [0.0]))
     U = [-1.0, -1.0, -1.0, -1.0]
     HallThruster.stage_limiter!(U, p)
 
@@ -72,8 +72,8 @@ end
         index = (; ρi = [1, 2, 3]),
         config = (;
             ncharge = 3, propellant = HallThruster.Xenon, neutral_velocity = 100,
-            thruster = HallThruster.SPT_100, anode_mass_flow_rate = 5e-6
-        )
+            thruster = HallThruster.SPT_100, anode_mass_flow_rate = 5e-6,
+        ),
     )
 
     U = mi * [1e16; 2e16; 3e16;;]
@@ -102,7 +102,7 @@ end
         Xe_0,
         Xe_I,
         Xe_II,
-        Xe_III
+        Xe_III,
     ]
 
     nvars = 1 + 2 + 2 + 2
@@ -119,7 +119,7 @@ end
     end
 
     for arr in (bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen,
-        νei, radial_loss_frequency, νew_momentum, ji, nn)
+        νei, radial_loss_frequency, νew_momentum, ji, nn,)
         @test size(arr) == (ncells + 2,)
     end
 

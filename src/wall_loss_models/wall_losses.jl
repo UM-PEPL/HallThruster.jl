@@ -32,14 +32,15 @@ function wall_power_loss(Q, model::WallLossModel, params)
 end
 
 function wall_electron_current(::WallLossModel, params, i)
-    (;Δz_cell, cache, A_ch) = params
-    (;ne, νew_momentum) = cache
-    V_cell = A_ch * Δz_cell[i]
+    (; grid, cache, grid, config) = params
+    (; ne, νew_momentum) = cache
+    A_ch = config.thruster.geometry.channel_area
+    V_cell = A_ch * grid.dz_cell[i]
     return e * νew_momentum[i] * V_cell * ne[i]
 end
 
 function wall_ion_current(model::WallLossModel, params, i, Z)
-    (;ne, ni) = params.cache
+    (; ne, ni) = params.cache
 
     Iew = wall_electron_current(model, params, i)
     return Z * ni[Z, i] / ne[i] * Iew * (1 - params.cache.γ_SEE[i])

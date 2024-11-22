@@ -1,5 +1,5 @@
 function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
-    (; index, grid, config, cache, ncells, CFL) = params
+    (; index, grid, config, cache, grid, CFL) = params
     (; source_neutrals, source_ion_continuity, source_ion_momentum,
     ncharge, ion_wall_losses) = config
 
@@ -7,6 +7,7 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
 
     compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
 
+    ncells = length(grid.cell_centers)
     @inbounds for i in 2:(ncells - 1)
         left = left_edge(i)
         right = right_edge(i)
@@ -75,7 +76,7 @@ function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = tru
 end
 
 function update_heavy_species!(U, params)
-    (; index, ncells, cache, config) = params
+    (; index, grid, cache, config) = params
     (; nn, ne, ni, ui, niui, Z_eff, ji, K, ϵ, nϵ) = cache
     mi = params.config.propellant.m
     inv_m = inv(mi)
@@ -88,7 +89,7 @@ function update_heavy_species!(U, params)
     @. @views nn = U[index.ρn, :] * inv_m
 
     # Update plasma quantities
-    @inbounds for i in 1:ncells
+    @inbounds for i in eachindex(grid.cell_centers)
         # Compute ion derived quantities
         ne[i] = 0.0
         Z_eff[i] = 0.0

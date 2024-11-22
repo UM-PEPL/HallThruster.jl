@@ -12,13 +12,14 @@
     )
 
     ncells = 50
-    grid = HallThruster.generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
+    grid = HallThruster.generate_grid(
+        config.thruster.geometry, config.domain, EvenGrid(ncells),)
     fluids, fluid_ranges, species, species_range_dict = HallThruster.configure_fluids(config)
 
     #make a new restart from the current configuration
-    duration=1e-7
-    dt=1e-8
-    nsave=2
+    duration = 1e-7
+    dt = 1e-8
+    nsave = 2
     sol = HallThruster.run_simulation(config; ncells, duration, dt, nsave, verbose = false)
     HallThruster.write_restart(restart_path, sol)
 
@@ -40,7 +41,7 @@
 
     # Check that the result is correct
     @test U ≈ sol.u[end]
-    @test grid.cell_centers ≈ sol.params.z_cell
+    @test grid.cell_centers ≈ sol.params.grid.cell_centers
     @test cache.νan ≈ sol[:νan][end]
     @test cache.ne ≈ sol[:ne][end]
     @test cache.ϕ ≈ sol[:ϕ][end]
@@ -48,7 +49,9 @@
     @test cache.νc ≈ sol[:νc][end]
 
     #test that a simulation can be run from the restart
-    restart_sol = HallThruster.run_simulation(config; dt = 5e-9, duration=4e-9, grid = HallThruster.EvenGrid(ncells), nsave = 10, restart = restart_path)
+    restart_sol = HallThruster.run_simulation(
+        config; dt = 5e-9, duration = 4e-9, grid = HallThruster.EvenGrid(ncells),
+        nsave = 10, restart = restart_path,)
     @test restart_sol.retcode == :success
 
     # Clean up restart

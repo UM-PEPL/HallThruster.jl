@@ -18,9 +18,9 @@ include("$(HallThruster.TEST_DIR)/unit_tests/test_limiters.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_reactions.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_misc.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_geometry.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_electrons.jl")
+include("$(HallThruster.TEST_DIR)/unit_tests/collisions.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_boundary_conditions.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_walls.jl")
+include("$(HallThruster.TEST_DIR)/unit_tests/walls.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_initialization.jl")
 include("$(HallThruster.TEST_DIR)/unit_tests/test_json.jl")
 
@@ -33,3 +33,4 @@ test_regression()
 
 # Order verification tests
 include("$(HallThruster.TEST_DIR)/order_verification/test_ovs.jl")
+test_ovs()

@@ -205,11 +205,6 @@ function setup_simulation(
     params = (;
         grid = grid1d,
         config = config,
-        z_cell = grid1d.cell_centers,
-        z_edge = grid1d.edges,
-        ncells = grid1d.num_cells,
-        L_ch = config.thruster.geometry.channel_length,
-        A_ch = config.thruster.geometry.channel_area,
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
         iteration = [-1],
         ionization_reactions,
