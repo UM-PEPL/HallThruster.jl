@@ -89,6 +89,7 @@ function setup_simulation(
     # Simulation parameters
     params = (;
         config = config,
+        grid = grid_1d,
         ncells = grid_1d.num_cells,
         z_cell = grid_1d.cell_centers,
         z_edge = grid_1d.edges,

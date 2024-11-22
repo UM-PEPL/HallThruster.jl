@@ -44,9 +44,10 @@ function wall_power_loss(::Any, model::WallLossModel, ::Any)
 end
 
 function wall_electron_current(::WallLossModel, params, i)
-    (; Δz_cell, cache, A_ch) = params
+    (; grid, config, cache) = params
     (; ne, nu_wall) = cache
-    V_cell = A_ch * Δz_cell[i]
+    A_ch = config.thruster.geometry.channel_area
+    V_cell = A_ch * grid.dz_cell[i]
     return e * nu_wall[i] * V_cell * ne[i]
 end
 

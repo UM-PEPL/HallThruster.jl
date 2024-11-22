@@ -1,5 +1,5 @@
 function wall_electron_temperature(params, i)
-    (; cache, config, z_cell) = params
+    (; cache, config, grid) = params
 
     shielded = config.thruster.shielded
 
@@ -11,7 +11,7 @@ function wall_electron_temperature(params, i)
     L_ch = config.thruster.geometry.channel_length
 
     Tev = linear_transition(
-        z_cell[i], L_ch, config.transition_length, Tev_channel, Tev_plume,)
+        grid.cell_centers[i], L_ch, config.transition_length, Tev_channel, Tev_plume,)
 
     return Tev
 end
@@ -63,11 +63,11 @@ function freq_electron_wall(model::WallSheath, params, i)
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
-    (; config, cache, z_cell, ncells) = params
+    (; config, cache, grid) = params
     mi = config.propellant.m
     L_ch = config.thruster.geometry.channel_length
 
-    @inbounds for i in 2:(ncells - 1)
+    @inbounds for i in 2:(grid.num_cells - 1)
         Tev = wall_electron_temperature(params, i)
 
         # space charge limited SEE coefficient
@@ -78,7 +78,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
         νew = cache.radial_loss_frequency[i] * linear_transition(
-            z_cell[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale,
+            grid.cell_centers[i], L_ch, config.transition_length, 1.0, config.electron_plume_loss_scale,
         )
 
         # Compute wall power loss rate

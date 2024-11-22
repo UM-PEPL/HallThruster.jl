@@ -101,6 +101,8 @@ function example_simulation(; ncells, duration, dt, nsave)
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
         neutral_temperature_K = 500.0,
+        ion_wall_losses = true,
+        solve_plume = true,
     )
 
     sol_2 = run_simulation(
