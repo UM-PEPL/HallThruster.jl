@@ -1,198 +1,106 @@
 using HallThruster: HallThruster as het
 
-@testset "Initialization" begin
-    struct TestAnomModel <: het.AnomalousTransportModel end
+struct TestAnomModel <: het.AnomalousTransportModel end
 
-    het.num_anom_variables(::TestAnomModel) = 3
+het.num_anom_variables(::TestAnomModel) = 3
 
-    domain = (0.0, 0.08)
-    thruster = het.SPT_100
-    config = het.Config(;
-        anom_model = TestAnomModel(),
-        ncharge = 3,
-        propellant = het.Xenon,
-        thruster,
-        domain,
-        cathode_Te = 5.0,
-        anode_Te = 3.0,
-        neutral_velocity = 300.0,
-        neutral_temperature = 100.0,
-        ion_temperature = 300.0,
-        initial_condition = het.DefaultInitialization(;
-            max_electron_temperature = 10.0),
-        anode_mass_flow_rate = 3e-6,
-        discharge_voltage = 500.0,
-    )
+struct NewInitialization <: het.InitialCondition end
 
-    mi = config.propellant.m
+function test_sim_initialization()
+    @testset "Sim initialization" begin
+        domain = (0.0, 0.08)
+        thruster = het.SPT_100
+        config = het.Config(;
+            anom_model = TestAnomModel(),
+            ncharge = 3,
+            propellant = het.Xenon,
+            thruster,
+            domain,
+            cathode_Te = 5.0,
+            anode_Te = 3.0,
+            neutral_velocity = 300.0,
+            neutral_temperature = 100.0,
+            ion_temperature = 300.0,
+            initial_condition = het.DefaultInitialization(;
+                max_electron_temperature = 10.0),
+            anode_mass_flow_rate = 3e-6,
+            discharge_voltage = 500.0,
+        )
 
-    ncells = 100
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-    grid = het.generate_grid(config.thruster.geometry, domain, het.EvenGrid(ncells))
-    U, cache = het.allocate_arrays(grid, config)
-    index = het.configure_index(fluids, fluid_ranges)
+        mi = config.propellant.m
 
-    params = (;
-        index,
-        cache,
-        grid,
-        config,
-    )
+        ncells = 100
+        fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
+        grid = het.generate_grid(config.thruster.geometry, domain, het.EvenGrid(ncells))
+        U, cache = het.allocate_arrays(grid, config)
+        index = het.configure_index(fluids, fluid_ranges)
 
-    het.initialize!(U, params)
+        params = (;
+            index,
+            cache,
+            grid,
+            config,
+        )
 
-    @test abs((U[index.ρn, 1] / U[index.ρn, end]) - 100) < 1
+        het.initialize!(U, params)
 
-    ne = [het.electron_density(U, params, i) for i in 1:(ncells + 2)]
-    ϵ = params.cache.nϵ ./ ne
+        @test abs((U[index.ρn, 1] / U[index.ρn, end]) - 100) < 1
 
-    max_Te = 2 / 3 * maximum(ϵ)
-    @test 9 <= max_Te <= 11
+        ne = [het.electron_density(U, params, i) for i in 1:(ncells + 2)]
+        ϵ = params.cache.nϵ ./ ne
 
-    ui = [U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:(config.ncharge)]
+        max_Te = 2 / 3 * maximum(ϵ)
+        @test 9 <= max_Te <= 11
 
-    @test ui[1][1] ≈ -sqrt(het.e * config.anode_Te / mi)
-    @test ui[2][1] ≈ -sqrt(2 * het.e * config.anode_Te / mi)
-    @test ui[3][1] ≈ -sqrt(3 * het.e * config.anode_Te / mi)
+        ui = [U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:(config.ncharge)]
 
-    @test abs(2 / 3 * ϵ[1] - config.anode_Te) < 0.1
-    @test abs(2 / 3 * ϵ[end] - config.cathode_Te) < 0.1
+        @test ui[1][1] ≈ -sqrt(het.e * config.anode_Te / mi)
+        @test ui[2][1] ≈ -sqrt(2 * het.e * config.anode_Te / mi)
+        @test ui[3][1] ≈ -sqrt(3 * het.e * config.anode_Te / mi)
 
-    @test cache.anom_variables == [zeros(102) for _ in 1:3]
+        @test abs(2 / 3 * ϵ[1] - config.anode_Te) < 0.1
+        @test abs(2 / 3 * ϵ[end] - config.cathode_Te) < 0.1
 
-    struct NewInitialization <: het.InitialCondition end
-    @test_throws ArgumentError het.initialize!(U, params, NewInitialization())
+        @test cache.anom_variables == [zeros(102) for _ in 1:3]
+
+        @test_throws ArgumentError het.initialize!(U, params, NewInitialization())
+    end
 end
 
-@testset "Anom initialization" begin
-    anom_model = het.NoAnom()
+function test_anom_initialization()
+    @testset "Anom initialization" begin
+        anom_model = het.NoAnom()
 
-    config = het.Config(;
-        thruster = het.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
-        wall_loss_model = het.WallSheath(het.BoronNitride, 0.15),
-        anom_model,
-    )
+        config = het.Config(;
+            thruster = het.SPT_100,
+            domain = (0.0u"cm", 8.0u"cm"),
+            discharge_voltage = 300.0u"V",
+            anode_mass_flow_rate = 5u"mg/s",
+            wall_loss_model = het.WallSheath(het.BoronNitride, 0.15),
+            anom_model,
+        )
 
-    ncells = 10
-    sim_options = (; ncells, nsave = 2, verbose = false)
-    initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
+        ncells = 10
+        sim_options = (; ncells, nsave = 2, verbose = false)
+        initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
 
-    # Check that anomalous transport is initialized to a two-zone Bohm approximation instead of the prescribed NoAnom.
-    sol = het.run_simulation(
-        config; ncells, dt = 0.0, duration = 0.0, sim_options...,)
-    @test initial_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
-    @test anom_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
+        # Check that anomalous transport is initialized to a two-zone Bohm approximation instead of the prescribed NoAnom.
+        sol = het.run_simulation(
+            config; ncells, dt = 0.0, duration = 0.0, sim_options...,)
+        @test initial_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
+        @test anom_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
 
-    # Check that after one iteration, the anomalous transport is the correct value
-    dt = 1e-8
-    sol = het.run_simulation(config; ncells, dt, duration = dt, sim_options...)
-    @test initial_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
-    @test anom_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
+        # Check that after one iteration, the anomalous transport is the correct value
+        dt = 1e-8
+        sol = het.run_simulation(config; ncells, dt, duration = dt, sim_options...)
+        @test initial_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
+        @test anom_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
+    end
 end
 
-@testset "Configuration" begin
-    common_opts = (;
-        ncharge = 3,
-        discharge_voltage = 300u"V",
-        anode_mass_flow_rate = 5u"mg/s",
-        thruster = het.SPT_100,
-        domain = (0.0u"cm", 5.0u"cm"),
-    )
-
-    config = het.Config(;
-        background_pressure = 0.0u"Torr",
-        background_neutral_temperature = 0.0u"K",
-        common_opts...,
-    )
-
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-
-    @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-    @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
-    @test species_range_dict == Dict(
-        Symbol("Xe") => 1:1,
-        Symbol("Xe+") => 2:3,
-        Symbol("Xe2+") => 4:5,
-        Symbol("Xe3+") => 6:7,
-    )
-
-    @test fluids[1] == het.ContinuityOnly(
-        species[1], config.neutral_velocity, config.neutral_temperature,)
-    @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature)
-    @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature)
-    @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature)
-    @test is_velocity_index == [false, false, true, false, true, false, true]
-
-    index = het.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui)
-    @test values(index) == (1, [2, 4, 6], [3, 5, 7])
-
-    # load collisions and reactions
-    ionization_reactions = het._load_reactions(
-        config.ionization_model, unique(species),)
-    ionization_reactant_indices = het.reactant_indices(
-        ionization_reactions, species_range_dict,)
-    @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
-
-    ionization_product_indices = het.product_indices(
-        ionization_reactions, species_range_dict,)
-    @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
-
-    excitation_reactions = het._load_reactions(
-        config.excitation_model, unique(species),)
-    excitation_reactant_indices = het.reactant_indices(
-        excitation_reactions, species_range_dict,)
-    @test excitation_reactant_indices == [1]
-
-    # Test that initialization and configuration works properly when background neutrals are included
-
-    pB = 5e-6u"Torr"
-    TB = 120u"K"
-
-    config_bg = het.Config(;
-        background_pressure = pB,
-        background_neutral_temperature = TB,
-        common_opts...,
-    )
-
-    fluids, fluid_ranges, species, species_range_dict = het.configure_fluids(config_bg)
-    @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-    @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
-    @test species_range_dict == Dict(
-        Symbol("Xe") => 1:1,
-        Symbol("Xe+") => 2:3,
-        Symbol("Xe2+") => 4:5,
-        Symbol("Xe3+") => 6:7,
-    )
-
-    @test fluids[1] == het.ContinuityOnly(
-        species[1], config.neutral_velocity, config.neutral_temperature,)
-    @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature)
-    @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature)
-    @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature)
-    @test is_velocity_index == [false, false, true, false, true, false, true]
-
-    index = het.configure_index(fluids, fluid_ranges)
-    @test keys(index) == (:ρn, :ρi, :ρiui)
-    @test values(index) == (1, [2, 4, 6], [3, 5, 7])
-
-    # load collisions and reactions
-    ionization_reactions = het._load_reactions(
-        config.ionization_model, unique(species),)
-    ionization_reactant_indices = het.reactant_indices(
-        ionization_reactions, species_range_dict,)
-    @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
-
-    ionization_product_indices = het.product_indices(
-        ionization_reactions, species_range_dict,)
-    @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
-
-    excitation_reactions = het._load_reactions(
-        config.excitation_model, unique(species),)
-    excitation_reactant_indices = het.reactant_indices(
-        excitation_reactions, species_range_dict,)
-    @test excitation_reactant_indices == [1]
+function test_initialization()
+    @testset "Initialization" begin
+        test_sim_initialization()
+        test_anom_initialization()
+    end
 end
