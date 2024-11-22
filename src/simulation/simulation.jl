@@ -29,15 +29,17 @@ function setup_simulation(
     end
 
     # load collisions and reactions
-    ionization_reactions = _load_reactions(config.ionization_model, unique(species);
+    ionization_reactions = load_ionization_reactions(
+        config.ionization_model, unique(species);
         directories = config.reaction_rate_directories,)
     ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
     ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
 
-    excitation_reactions = _load_reactions(config.excitation_model, unique(species))
+    excitation_reactions = load_excitation_reactions(
+        config.excitation_model, unique(species),)
     excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
 
-    electron_neutral_collisions = _load_reactions(
+    electron_neutral_collisions = load_elastic_collisions(
         config.electron_neutral_model, unique(species),)
 
     index = configure_index(fluids, fluid_ranges)

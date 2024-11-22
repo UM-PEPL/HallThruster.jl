@@ -229,8 +229,9 @@ function load_landmark_data(case, suffix; ncells = 100)
         nn = nns,
     )
 
-    ionization_reactions = HallThruster.load_reactions(
-        LandmarkIonizationLookup(), [Xenon(0), Xenon(1)],)
+    ionization_reactions = HallThruster.load_ionization_reactions(
+        :Landmark, [Xenon(0), Xenon(1)],
+    )
 
     mi = Xenon.m
 
@@ -250,7 +251,7 @@ function load_landmark_data(case, suffix; ncells = 100)
         ionization_reactions,
         config = (;
             propellant = Xenon,
-            ionization_model = LandmarkIonizationLookup(),
+            ionization_model = :Landmark,
         ),
     )
 

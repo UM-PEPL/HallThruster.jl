@@ -14,7 +14,6 @@ function test_collisions()
         B = 1.0
         ν_an = 0.0
         σ_en = 6.6e-19 * ((Tev / 4 - 0.1) / (1 + (Tev / 4)^1.6)) #[m^2]
-        @test σ_en ≈ het.σ_en(Tev)
         ln_λ = 24 - 0.5 * log(1e-6 * ne / Tev^2)
         @test ln_λ ≈ het.coulomb_logarithm(ne, Tev)
         Tev = 9
@@ -25,10 +24,6 @@ function test_collisions()
         μ_e = het.e / (het.me * ν_c) /
               (1 + (het.e * B / (het.me * ν_c))^2)
         @test μ_e ≈ het.electron_mobility(ν_an + ν_c, B)
-
-        (; e, me) = HallThruster
-
-        mi = het.Xenon.m
 
         index = (ρn = [1], ρi = [2], nϵ = 3)
         cache = (;
@@ -43,50 +38,30 @@ function test_collisions()
 
         config_landmark = (;
             anom_model, propellant = het.Xenon,
-            electron_neutral_model = het.LandmarkElectronNeutral(),
+            electron_neutral_model = :Landmark,
             electron_ion_collisions = false, ncharge = 1, thruster, transition_length,
-        )
-        config_gk = (;
-            anom_model, propellant = het.Xenon,
-            electron_neutral_model = het.GKElectronNeutral(),
-            electron_ion_collisions = true, ncharge = 1, thruster, transition_length,
-        )
-        config_complex = (;
-            anom_model, propellant = het.Xenon,
-            electron_neutral_model = het.ElectronNeutralLookup(),
-            electron_ion_collisions = true, ncharge = 1, thruster, transition_length,
         )
         config_none = (;
             anom_model, propellant = het.Xenon,
-            electron_neutral_model = het.NoElectronNeutral(),
+            electron_neutral_model = :None,
             electron_ion_collisions = false, ncharge = 1, thruster, transition_length,
         )
 
         Xe_0 = het.Xenon(0)
 
-        en_landmark = het._load_reactions(
+        en_landmark = het.load_elastic_collisions(
             config_landmark.electron_neutral_model, [Xe_0],)
-        en_gk = het._load_reactions(config_gk.electron_neutral_model, [Xe_0])
-        en_complex = het._load_reactions(
-            config_complex.electron_neutral_model, [Xe_0],)
-        en_none = het._load_reactions(config_none.electron_neutral_model, [Xe_0])
+        en_none = het.load_elastic_collisions(config_none.electron_neutral_model, [Xe_0])
 
         grid1 = (; cell_centers = [0.02])
         grid2 = (; cell_centers = [0.03])
 
         params_landmark = (; cache, index, config = config_landmark, grid = grid1,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_landmark,)
-        params_gk = (; cache, index, config = config_gk, grid = grid1,
-            L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_gk,)
-        params_complex = (; cache, index, config = config_complex, grid = grid2,
-            L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_complex,)
         params_none = (; cache, index, config = config_none, grid = grid2,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none,)
 
-        U = [mi*nn; mi*ne; ne * 3 / 2*Tev;;]
-        @test het.freq_electron_neutral(params_landmark, 1) == 2.5e-13 * nn
-        @test isapprox(het.freq_electron_neutral(params_gk, 1),
-            het.σ_en(Tev) * nn * sqrt(8 * e * Tev / π / me), rtol = 0.01,)
+        @test het.freq_electron_neutral(params_landmark, 1) ≈ 2.5e-13 * nn
         @test het.freq_electron_neutral(params_none, 1) == 0.0
 
         Z = 1

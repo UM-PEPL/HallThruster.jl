@@ -2,10 +2,11 @@
     freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-@inline function freq_electron_neutral(model::ElectronNeutralModel, collisions::Vector{ElasticCollision}, nn::Number, Tev::Number)
+@inline function freq_electron_neutral(
+        collisions::Vector{ElasticCollision}, nn::Number, Tev::Number,)
     νen = 0.0
     @inbounds for c in collisions
-        νen += rate_coeff(model, c, 3/2 * Tev) * nn
+        νen += rate_coeff(c, 3 / 2 * Tev) * nn
     end
     return νen
 end
@@ -13,20 +14,25 @@ end
 function freq_electron_neutral(params, i)
     nn = params.cache.nn[i]
     Tev = params.cache.Tev[i]
-    return freq_electron_neutral(params.config.electron_neutral_model, params.electron_neutral_collisions, nn, Tev)
+    return freq_electron_neutral(params.electron_neutral_collisions, nn, Tev)
 end
 
 """
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
+@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne *
+                                                                coulomb_logarithm(
+                                                                    ne, Tev, Z,) /
+                                                                sqrt(Tev^3)
 
 """
     freq_electron_electron(ne, Tev)
 Effective frequency at which electrons are scattered due to collisions with other electrons
 """
-@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne * coulomb_logarithm(ne, Tev) / sqrt(Tev^3)
+@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne *
+                                                          coulomb_logarithm(ne, Tev) /
+                                                          sqrt(Tev^3)
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)

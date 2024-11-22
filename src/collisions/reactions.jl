@@ -32,65 +32,18 @@ function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FO
     return energy, rate_coeffs
 end
 
-abstract type ReactionModel end
+@inline lerp(a, b, t) = (1.0 - t) * a + t * b
 
 """
 By default, rate_coeff looks for a lookup table stored in the reaction struct
 """
-function rate_coeff(::ReactionModel, rxn::Reaction, energy)
-    ind = Base.trunc(Int64, energy)
+function rate_coeff(rxn::Reaction, energy)
+    ind = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind
     r1 = rxn.rate_coeffs[ind + 1]
     r2 = rxn.rate_coeffs[ind + 2]
-    t = energy - ind
-    return (1 - t) * r1 + t * r2
-end
-
-"""
-    load_reactions(model::ReactionModel, species)::Vector{IonizationReaction}
-Load ionization reactions for the provided species and ionization model
-"""
-@inline load_reactions(model::ReactionModel, species; kwargs...) = throw(ArgumentError("Function load_reactions($(typeof(model)), species) not implemented."))
-
-function check_species(model::ReactionModel, species)
-    supported = supported_gases(model)
-    if length(supported) > 0
-        for s in species
-            if s.element ∉ supported
-                throw(ArgumentError("$(s.element) is not supported by $(typeof(model)). The list of supported gases is $(supported)"))
-            end
-        end
-    end
-end
-
-"""
-    supported_gases(model::ReactionModel)::Vector{HallThruster.Gas}
-Check which gases are supported by a given reaction model. If an empty vector is provided, then there are no restrictions on what gases can be used.
-"""
-@inline supported_gases(::ReactionModel) = Gas[]
-
-"""
-    maximum_charge_state(model::ReactionModel)::Int
-Return the maximum supported charge state for a given reaction model. If 0 is returned, then no charge state restriction is applied.
-"""
-@inline maximum_charge_state(::ReactionModel) = 0
-
-function check_charge_states(model::ReactionModel, species)
-    max_charge = maximum_charge_state(model)
-    if max_charge > 0
-        for s in species
-            if s.Z > max_charge
-                throw(ArgumentError("The provided ionization model does not support ions with a charge state of $(s.Z). The maximum supported charge state is $(max_charge)."))
-            end
-        end
-    end
-end
-
-function _load_reactions(model::ReactionModel, species; kwargs...)
-    check_species(model, species)
-    check_charge_states(model, species)
-    load_reactions(model, species; kwargs...)
+    return lerp(r1, r2, energy - ind)
 end
 
 function _indices(symbol, reactions, species_range_dict)

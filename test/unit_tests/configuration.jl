@@ -37,7 +37,7 @@ function test_configuration()
         @test values(index) == (1, [2, 4, 6], [3, 5, 7])
 
         # load collisions and reactions
-        ionization_reactions = het._load_reactions(
+        ionization_reactions = het.load_ionization_reactions(
             config.ionization_model, unique(species),)
         ionization_reactant_indices = het.reactant_indices(
             ionization_reactions, species_range_dict,)
@@ -47,7 +47,7 @@ function test_configuration()
             ionization_reactions, species_range_dict,)
         @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
-        excitation_reactions = het._load_reactions(
+        excitation_reactions = het.load_excitation_reactions(
             config.excitation_model, unique(species),)
         excitation_reactant_indices = het.reactant_indices(
             excitation_reactions, species_range_dict,)
@@ -86,7 +86,7 @@ function test_configuration()
         @test values(index) == (1, [2, 4, 6], [3, 5, 7])
 
         # load collisions and reactions
-        ionization_reactions = het._load_reactions(
+        ionization_reactions = het.load_ionization_reactions(
             config.ionization_model, unique(species),)
         ionization_reactant_indices = het.reactant_indices(
             ionization_reactions, species_range_dict,)
@@ -96,7 +96,7 @@ function test_configuration()
             ionization_reactions, species_range_dict,)
         @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
-        excitation_reactions = het._load_reactions(
+        excitation_reactions = het.load_excitation_reactions(
             config.excitation_model, unique(species),)
         excitation_reactant_indices = het.reactant_indices(
             excitation_reactions, species_range_dict,)
