@@ -9,11 +9,11 @@ for Z in 1:(p.config.ncharge)) / p.config.propellant.m
                                         config.thruster.geometry.channel_area
 
 @inline background_neutral_density(config) = config.propellant.m *
-                                             config.background_pressure / kB /
-                                             config.background_neutral_temperature
+                                             config.background_pressure_Torr / kB /
+                                             config.background_temperature_K
 
 @inline background_neutral_velocity(config) = 0.25 * sqrt(8 * kB *
-                                                   config.background_neutral_temperature /
+                                                   config.background_temperature_K /
                                                    π / config.propellant.m)
 
 @inline ion_current_density(U, p, i) = sum(Z * e * U[p.index.ρiui[Z], i]

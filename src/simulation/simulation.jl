@@ -111,7 +111,7 @@ function setup_simulation(
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
-        min_Te = min(config.anode_Te, config.cathode_Te),
+        min_Te = min(config.anode_Tev, config.cathode_Tev),
     )
 
     # Compute maximum allowed iterations

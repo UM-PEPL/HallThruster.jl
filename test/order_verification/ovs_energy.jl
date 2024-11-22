@@ -95,8 +95,8 @@ function verify_energy(ncells; niters = 20000)
     @. cache.nϵ = Te_L * cache.ne
 
     config = (;
-        anode_Te = 2 / 3 * Te_L,
-        cathode_Te = 2 / 3 * Te_R,
+        anode_Tev = 2 / 3 * Te_L,
+        cathode_Tev = 2 / 3 * Te_R,
         ncharge = 1,
         source_energy = (params, i) -> source_energy(params.grid.cell_centers[i]),
         min_electron_temperature = 0.1 * min(Te_L, Te_R),

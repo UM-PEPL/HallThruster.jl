@@ -2,7 +2,7 @@ function update_electron_energy!(params, dt)
     (; grid, config, cache, min_Te) = params
     (; Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
 
-    Te_L, Te_R = config.anode_Te, config.cathode_Te
+    Te_L, Te_R = config.anode_Tev, config.cathode_Tev
     implicit = config.implicit_energy
     explicit = 1 - implicit
 

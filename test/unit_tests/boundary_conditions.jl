@@ -15,10 +15,10 @@ function test_boundaries()
             LANDMARK = true,
             conductivity_model = het.LANDMARK_conductivity(),
             anode_boundary_condition = :dirichlet,
-            neutral_temperature = 300.0,
-            ion_temperature = 300.0,
-            background_pressure = 6e-4,
-            background_neutral_temperature = 150.0,
+            neutral_temperature_K = 300.0,
+            ion_temperature_K = 300.0,
+            background_pressure_Torr = 6e-4,
+            background_temperature_K = 150.0,
             neutral_ingestion_multiplier = 1.5,
         )
 
@@ -28,9 +28,9 @@ function test_boundaries()
         mi = config.propellant.m
 
         background_neutral_velocity = 0.25 * sqrt(8 * het.kB *
-                                           config.background_neutral_temperature / π / mi)
-        background_neutral_density = mi * config.background_pressure / het.kB /
-                                     config.background_neutral_temperature
+                                           config.background_temperature_K / π / mi)
+        background_neutral_density = mi * config.background_pressure_Torr / het.kB /
+                                     config.background_temperature_K
         background_neutral_flux = background_neutral_density * background_neutral_velocity
 
         params = (;
@@ -55,8 +55,8 @@ function test_boundaries()
             background_neutral_flux,
         )
 
-        u_bohm_1 = sqrt((het.kB * config.ion_temperature + e * params.Te_L) / mi)
-        u_bohm_2 = sqrt((het.kB * config.ion_temperature + 2 * e * params.Te_L) /
+        u_bohm_1 = sqrt((het.kB * config.ion_temperature_K + e * params.Te_L) / mi)
+        u_bohm_2 = sqrt((het.kB * config.ion_temperature_K + 2 * e * params.Te_L) /
                         mi)
 
         ni_1 = 1e17

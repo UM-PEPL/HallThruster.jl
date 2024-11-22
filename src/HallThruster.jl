@@ -91,11 +91,11 @@ export time_average, Xenon, Krypton
 function example_simulation(; ncells, duration, dt, nsave)
     config_1 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        domain = (0.0, 8.0),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
         wall_loss_model = WallSheath(BoronNitride),
-        neutral_temperature = 500,
+        neutral_temperature_K = 500,
     )
     sol_1 = HallThruster.run_simulation(
         config_1; ncells, duration, dt, nsave, verbose = false,)
@@ -106,13 +106,13 @@ function example_simulation(; ncells, duration, dt, nsave)
 
     config_2 = HallThruster.Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
-        neutral_temperature = 500u"K",
+        neutral_temperature_K = 500,
         ion_wall_losses = true,
         solve_plume = true,
     )

@@ -16,11 +16,11 @@ function test_sim_initialization()
             propellant = het.Xenon,
             thruster,
             domain,
-            cathode_Te = 5.0,
-            anode_Te = 3.0,
+            cathode_Tev = 5.0,
+            anode_Tev = 3.0,
             neutral_velocity = 300.0,
-            neutral_temperature = 100.0,
-            ion_temperature = 300.0,
+            neutral_temperature_K = 100.0,
+            ion_temperature_K = 300.0,
             initial_condition = het.DefaultInitialization(;
                 max_electron_temperature = 10.0),
             anode_mass_flow_rate = 3e-6,
@@ -40,6 +40,7 @@ function test_sim_initialization()
             cache,
             grid,
             config,
+            min_Te = min(config.anode_Tev, config.cathode_Tev),
         )
 
         het.initialize!(U, params)
@@ -54,12 +55,12 @@ function test_sim_initialization()
 
         ui = [U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:(config.ncharge)]
 
-        @test ui[1][1] ≈ -sqrt(het.e * config.anode_Te / mi)
-        @test ui[2][1] ≈ -sqrt(2 * het.e * config.anode_Te / mi)
-        @test ui[3][1] ≈ -sqrt(3 * het.e * config.anode_Te / mi)
+        @test ui[1][1] ≈ -sqrt(het.e * config.anode_Tev / mi)
+        @test ui[2][1] ≈ -sqrt(2 * het.e * config.anode_Tev / mi)
+        @test ui[3][1] ≈ -sqrt(3 * het.e * config.anode_Tev / mi)
 
-        @test abs(2 / 3 * ϵ[1] - config.anode_Te) < 0.1
-        @test abs(2 / 3 * ϵ[end] - config.cathode_Te) < 0.1
+        @test abs(2 / 3 * ϵ[1] - config.anode_Tev) < 0.1
+        @test abs(2 / 3 * ϵ[end] - config.cathode_Tev) < 0.1
 
         @test cache.anom_variables == [zeros(102) for _ in 1:3]
 

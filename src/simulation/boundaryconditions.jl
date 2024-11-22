@@ -1,8 +1,8 @@
 function left_boundary_state!(bc_state, U, params)
-    (;index, config,) = params
-    (;Tev, channel_area) = params.cache
+    (; index, config) = params
+    (; Tev, channel_area) = params.cache
     mi = config.propellant.m
-    Ti = config.ion_temperature
+    Ti = config.ion_temperature_K
 
     un = config.neutral_velocity
     mdot_a = config.anode_mass_flow_rate
@@ -29,11 +29,13 @@ function left_boundary_state!(bc_state, U, params)
     bc_state[index.ρn] = mdot_a / channel_area[1] / un
 
     # Add ingested mass flow rate at anode
-    bc_state[index.ρn] += params.background_neutral_density * params.background_neutral_velocity / un  * config.neutral_ingestion_multiplier
+    bc_state[index.ρn] += params.background_neutral_density *
+                          params.background_neutral_velocity / un *
+                          config.neutral_ingestion_multiplier
 
-    @inbounds for Z in 1:params.config.ncharge
-        interior_density = U[index.ρi[Z],   begin+1]
-        interior_flux    = U[index.ρiui[Z], begin+1]
+    @inbounds for Z in 1:(params.config.ncharge)
+        interior_density = U[index.ρi[Z], begin + 1]
+        interior_flux = U[index.ρiui[Z], begin + 1]
         interior_velocity = interior_flux / interior_density
 
         sound_speed = sqrt((kB * Ti + Z * e * Tev[1]) / mi)  # Ion acoustic speed
@@ -70,14 +72,14 @@ function left_boundary_state!(bc_state, U, params)
 end
 
 function right_boundary_state!(bc_state, U, params)
-    (;index, fluids) = params
+    (; index, fluids) = params
 
     # Use Neumann boundary conditions for all neutral fluids
-    bc_state[index.ρn] = U[index.ρn, end-1]
+    bc_state[index.ρn] = U[index.ρn, end - 1]
 
-    @inbounds for Z in 1:params.config.ncharge
-        boundary_density = U[index.ρi[Z], end-1]
+    @inbounds for Z in 1:(params.config.ncharge)
+        boundary_density        = U[index.ρi[Z], end - 1]
         bc_state[index.ρi[Z]]   = boundary_density        # Neumann BC for ion density at right boundary
-        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end-1] # Neumann BC for ion flux at right boundary
+        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
     end
 end

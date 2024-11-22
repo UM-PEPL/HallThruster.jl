@@ -9,17 +9,20 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel,
     W <: WallLossModel,
     S_N, S_IC, S_IM, S_ϕ, S_E,
     IC <: InitialCondition, HS <: HyperbolicScheme,}
+    thruster::Thruster
+    domain::Tuple{Float64, Float64}
     discharge_voltage::Float64
+    anode_mass_flow_rate::Float64
     cathode_potential::Float64
-    anode_Te::Float64
-    cathode_Te::Float64
+    anode_Tev::Float64
+    cathode_Tev::Float64
     wall_loss_model::W
     neutral_velocity::Float64
-    neutral_temperature::Float64
+    neutral_temperature_K::Float64
     implicit_energy::Float64
     propellant::Gas
     ncharge::Int
-    ion_temperature::Float64
+    ion_temperature_K::Float64
     anom_model::A
     conductivity_model::TC
     ionization_model::Symbol
@@ -27,7 +30,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel,
     electron_neutral_model::Symbol
     electron_ion_collisions::Bool
     min_number_density::Float64
-    min_electron_temperature::Float64
     transition_length::Float64
     initial_condition::IC
     magnetic_field_scale::Float64
@@ -37,13 +39,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel,
     source_potential::S_ϕ
     source_energy::S_E
     scheme::HS
-    thruster::Thruster
-    domain::Tuple{Float64, Float64}
     LANDMARK::Bool
-    anode_mass_flow_rate::Float64
     ion_wall_losses::Bool
-    background_pressure::Float64
-    background_neutral_temperature::Float64
+    background_pressure_Torr::Float64
+    background_temperature_K::Float64
     neutral_ingestion_multiplier::Float64
     anode_boundary_condition::Symbol
     anom_smoothing_iters::Int
@@ -69,15 +68,15 @@ function Config(;
         discharge_voltage,                  # MANDATORY ARGUMENT
         anode_mass_flow_rate,               # MANDATORY ARGUMENT
         cathode_potential = 0.0,
-        cathode_Te = 3.0,
-        anode_Te = cathode_Te,
+        cathode_Tev = 3.0,
+        anode_Tev = cathode_Tev,
         wall_loss_model::WallLossModel = WallSheath(BNSiO2, 1.0),
         neutral_velocity = nothing,
-        neutral_temperature = nothing,
+        neutral_temperature_K = nothing,
         implicit_energy::Number = 1.0,
         propellant::Gas = Xenon,
         ncharge::Int = 1,
-        ion_temperature = 1000.0,
+        ion_temperature_K = 1000.0,
         anom_model::AnomalousTransportModel = TwoZoneBohm(1 / 160, 1 / 16),
         conductivity_model::ThermalConductivityModel = Mitchner(),
         ionization_model::Symbol = :Lookup,
@@ -85,7 +84,6 @@ function Config(;
         electron_neutral_model::Symbol = :Lookup,
         electron_ion_collisions::Bool = true,
         min_number_density = 1e6,
-        min_electron_temperature = min(anode_Te, cathode_Te),
         transition_length = 1e-3,
         initial_condition::IC = DefaultInitialization(),
         magnetic_field_scale::Float64 = 1.0,
@@ -97,8 +95,8 @@ function Config(;
         scheme::HyperbolicScheme = HyperbolicScheme(),
         LANDMARK = false,
         ion_wall_losses = false,
-        background_pressure = 0.0,
-        background_neutral_temperature = 100.0u"K",
+        background_pressure_Torr = 0.0,
+        background_temperature_K = 100.0,
         neutral_ingestion_multiplier::Float64 = 1.0,
         anode_boundary_condition = :sheath,
         anom_smoothing_iters = 0,
@@ -122,38 +120,38 @@ function Config(;
     discharge_voltage = convert_to_float64(discharge_voltage, u"V")
     cathode_potential = convert_to_float64(cathode_potential, u"V")
 
-    anode_Te = convert_to_float64(anode_Te, u"eV")
-    cathode_Te = convert_to_float64(cathode_Te, u"eV")
+    anode_Tev = convert_to_float64(anode_Tev, u"eV")
+    cathode_Tev = convert_to_float64(cathode_Tev, u"eV")
 
     default_neutral_velocity = 150.0 # m/s
     default_neutral_temp = 500.0 # K
-    if isnothing(neutral_velocity) && isnothing(neutral_temperature)
+    if isnothing(neutral_velocity) && isnothing(neutral_temperature_K)
         neutral_velocity = default_neutral_velocity
-        neutral_temperature = default_neutral_temp
-    elseif isnothing(neutral_temperature)
-        neutral_temperature = default_neutral_temp
+        neutral_temperature_K = default_neutral_temp
+    elseif isnothing(neutral_temperature_K)
+        neutral_temperature_K = default_neutral_temp
         neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
     elseif isnothing(neutral_velocity)
         # compute neutral velocity from thermal speed
-        neutral_temperature = convert_to_float64(neutral_temperature, u"K")
-        neutral_velocity = 0.25 * sqrt(8 * kB * neutral_temperature / π / propellant.m)
+        neutral_temperature_K = convert_to_float64(neutral_temperature_K, u"K")
+        neutral_velocity = 0.25 * sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
     else
         neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
-        neutral_temperature = convert_to_float64(neutral_temperature, u"K")
+        neutral_temperature_K = convert_to_float64(neutral_temperature_K, u"K")
     end
 
-    ion_temperature = convert_to_float64(ion_temperature, u"K")
+    ion_temperature_K = convert_to_float64(ion_temperature_K, u"K")
     domain = (
         convert_to_float64(domain[1], u"m"),
         convert_to_float64(domain[2], u"m"),
     )
+
     anode_mass_flow_rate = convert_to_float64(anode_mass_flow_rate, u"kg/s")
-    min_electron_temperature = convert_to_float64(min_electron_temperature, u"eV")
     min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
-    background_neutral_temperature = convert_to_float64(
-        background_neutral_temperature, u"K",)
-    background_pressure = convert_to_float64(background_pressure, u"Pa")
+    background_temperature_K = convert_to_float64(
+        background_temperature_K, u"K",)
+    background_pressure_Torr = convert_to_float64(background_pressure_Torr, u"Pa")
 
     transition_length = convert_to_float64(transition_length, u"m")
 
@@ -162,24 +160,22 @@ function Config(;
     end
 
     return Config(
-        discharge_voltage, cathode_potential, anode_Te, cathode_Te, wall_loss_model,
-        neutral_velocity, neutral_temperature, implicit_energy, propellant, ncharge,
-        ion_temperature, anom_model, conductivity_model,
+        thruster, domain, discharge_voltage, anode_mass_flow_rate,
+        cathode_potential, anode_Tev, cathode_Tev, wall_loss_model,
+        neutral_velocity, neutral_temperature_K, implicit_energy, propellant, ncharge,
+        ion_temperature_K, anom_model, conductivity_model,
         ionization_model, excitation_model, electron_neutral_model, electron_ion_collisions,
-        min_number_density, min_electron_temperature, transition_length,
+        min_number_density, transition_length,
         initial_condition, magnetic_field_scale, source_neutrals,
         source_IC,
         source_IM,
         source_potential,
         source_energy,
         scheme,
-        thruster,
-        domain,
         LANDMARK,
-        anode_mass_flow_rate,
         ion_wall_losses,
-        background_pressure,
-        background_neutral_temperature,
+        background_pressure_Torr,
+        background_temperature_K,
         neutral_ingestion_multiplier,
         anode_boundary_condition,
         anom_smoothing_iters,
@@ -225,8 +221,8 @@ function configure_fluids(config)
     propellant = config.propellant
 
     neutral_fluid = ContinuityOnly(
-        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature,)
-    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature)
+        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,)
+    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
                   for Z in 1:(config.ncharge)]
 
     fluids = [neutral_fluid; ion_fluids]

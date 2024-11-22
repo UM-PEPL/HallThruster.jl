@@ -128,7 +128,7 @@ function (model::ShiftedMultiBohm)(νan, params)
     (; zs, cs, z0, dz, alpha, pstar) = model
     (; config, grid) = params
 
-    pb = config.background_pressure
+    pb = config.background_pressure_Torr
 
     torr_to_pa = 133.322
 
@@ -179,7 +179,7 @@ function (model::ShiftedGaussianBohm)(νan, params)
         return νan
     end
 
-    pb = params.config.background_pressure
+    pb = params.config.background_pressure_Torr
     torr_to_pa = 133.322
 
     p_ratio = pb / (pstar * torr_to_pa)
@@ -218,7 +218,7 @@ function (model::ShiftedTwoZoneBohm)(νan, params)
     (; grid, config) = params
 
     L_ch = config.thruster.geometry.channel_length
-    pb = config.background_pressure
+    pb = config.background_pressure_Torr
 
     torr_to_pa = 133.322
 

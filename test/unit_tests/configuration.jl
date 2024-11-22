@@ -9,8 +9,8 @@ function test_configuration()
         )
 
         config = het.Config(;
-            background_pressure = 0.0u"Torr",
-            background_neutral_temperature = 0.0u"K",
+            background_pressure_Torr = 0.0,
+            background_temperature_K = 0.0,
             common_opts...,
         )
 
@@ -26,10 +26,10 @@ function test_configuration()
         )
 
         @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature,)
-        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature)
-        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature)
-        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature)
+            species[1], config.neutral_velocity, config.neutral_temperature_K,)
+        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
+        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
+        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
         @test is_velocity_index == [false, false, true, false, true, false, true]
 
         index = het.configure_index(fluids, fluid_ranges)
@@ -54,13 +54,12 @@ function test_configuration()
         @test excitation_reactant_indices == [1]
 
         # Test that initialization and configuration works properly when background neutrals are included
-
-        pB = 5e-6u"Torr"
-        TB = 120u"K"
+        pB_Torr = 5e-6
+        TB_K = 120.0
 
         config_bg = het.Config(;
-            background_pressure = pB,
-            background_neutral_temperature = TB,
+            background_pressure_Torr = pB_Torr,
+            background_temperature_K = TB_K,
             common_opts...,
         )
 
@@ -75,10 +74,10 @@ function test_configuration()
         )
 
         @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature,)
-        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature)
-        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature)
-        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature)
+            species[1], config.neutral_velocity, config.neutral_temperature_K,)
+        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
+        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
+        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
         @test is_velocity_index == [false, false, true, false, true, false, true]
 
         index = het.configure_index(fluids, fluid_ranges)
