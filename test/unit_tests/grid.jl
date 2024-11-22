@@ -32,7 +32,7 @@ end
 function test_grid_invariants(grid, dom, spec)
     @testset "Grid invariants" begin
         n = spec.num_cells
-        @test grid.num_cells == n
+        @test grid.num_cells == n + 2
         @test length(grid.edges) == n + 1
         @test length(grid.cell_centers) == n + 2
         @test grid.edges[1] == dom[1]

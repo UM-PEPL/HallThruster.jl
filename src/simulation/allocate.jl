@@ -2,8 +2,8 @@ function allocate_arrays(grid, config)
     (; ncharge, anom_model) = config
 
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
-    ncells = grid.num_cells + 2
-    nedges = grid.num_cells + 1
+    ncells = length(grid.cell_centers)
+    nedges = length(grid.edges)
 
     # Heavy species state vector
     U = zeros(nvariables, ncells)

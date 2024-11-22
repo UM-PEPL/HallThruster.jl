@@ -25,5 +25,6 @@ function Grid1D(z_edge)
     dz_cell = @. @views z_edge[2:end] - z_edge[1:(end - 1)]
     dz_cell = [dz_cell[1]; dz_cell; dz_cell[end]]
 
-    return Grid1D(ncells, z_edge, z_cell, dz_edge, dz_cell)
+    # Add 2 to cell count to account for ghost cells
+    return Grid1D(ncells + 2, z_edge, z_cell, dz_edge, dz_cell)
 end

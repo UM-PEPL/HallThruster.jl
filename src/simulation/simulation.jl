@@ -62,9 +62,6 @@ function setup_simulation(
 
     U, cache = allocate_arrays(grid_1d, config)
 
-    z_cell = grid_1d.cell_centers
-    z_edge = grid_1d.edges
-
     # Fill up cell lengths and magnetic field vectors
     thruster = config.thruster
     bfield = thruster.magnetic_field
@@ -72,8 +69,6 @@ function setup_simulation(
     for (i, z) in enumerate(grid_1d.cell_centers)
         cache.B[i] = bfield_func(z)
     end
-
-    mi = config.propellant.m
 
     # make the adaptive timestep independent of input condition
     if adaptive
@@ -94,9 +89,9 @@ function setup_simulation(
     # Simulation parameters
     params = (;
         config = config,
-        ncells = grid_1d.num_cells + 2,
-        z_cell,
-        z_edge,
+        ncells = grid_1d.num_cells,
+        z_cell = grid_1d.cell_centers,
+        z_edge = grid_1d.edges,
         Δz_cell = grid_1d.dz_cell,
         Δz_edge = grid_1d.dz_edge,
         index,
@@ -117,7 +112,7 @@ function setup_simulation(
         adaptive,
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
-        γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
+        γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         Te_min = min(config.anode_Tev, config.cathode_Tev),
         control_current,
         target_current,
