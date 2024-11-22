@@ -63,7 +63,7 @@ Compute the perimeteter of the thruster channel, equal to the sum of the inner a
 """
 @inline channel_perimeter(outer_radius, inner_radius) = 2π * (outer_radius + inner_radius)
 @inline channel_perimeter(geometry::Geometry1D) = channel_perimeter(
-    geometry.outer_radius, geometry.inner_radius)
+    geometry.outer_radius, geometry.inner_radius,)
 @inline channel_perimeter(thruster::Thruster) = channel_perimeter(thruster.geometry)
 
 """
@@ -72,14 +72,15 @@ Compute the thruster channel width
 """
 @inline channel_width(outer_radius, inner_radius) = outer_radius - inner_radius
 @inline channel_width(geometry::Geometry1D) = channel_width(
-    geometry.outer_radius, geometry.inner_radius)
+    geometry.outer_radius, geometry.inner_radius,)
 @inline channel_width(thruster::Thruster) = channel_width(thruster.geometry)
 
 struct Grid1D
-    ncells::Int64
+    num_cells::Int64
     edges::Vector{Float64}
     cell_centers::Vector{Float64}
-    cell_volume::Float64
+    dz_edge::Vector{Float64}
+    dz_cell::Vector{Float64}
 end
 
 struct HallThrusterGrid{F}
@@ -111,10 +112,7 @@ function default_density(z, z0, z1, Lch)
     end
 end
 
-function grid_spacing(grid)
-    z_cell = grid.cell_centers
-    z_edge = grid.edges
-
+function grid_spacing(z_cell, z_edge)
     # Fill up cell lengths and magnetic field vectors
     Δz_cell = zeros(length(z_cell))
     for i in eachindex(z_cell)
@@ -136,9 +134,8 @@ end
     Grid1D(geometry, z_edge)
 Given 1-D edge coordinates and thruster geometry, compute cell centers and cell volumes for grid
 """
-function Grid1D(geometry, z_edge)
+function Grid1D(z_edge)
     # Compute domain
-    domain = (z_edge[1], z_edge[end])
     ncells = length(z_edge) - 1
 
     # generate cell center coordinates
@@ -147,11 +144,9 @@ function Grid1D(geometry, z_edge)
     # add ghost cells on left and right boundaries
     z_cell = [z_edge[1]; z_cell; z_edge[end]]
 
-    # get cell area
-    cell_volume = channel_area(geometry.outer_radius, geometry.inner_radius) *
-                  abs(domain[2] - domain[1]) / ncells
+    dz_cell, dz_edge = grid_spacing(z_cell, z_edge)
 
-    return Grid1D(ncells, z_edge, z_cell, cell_volume)
+    return Grid1D(ncells + 2, z_edge, z_cell, dz_edge, dz_cell)
 end
 
 """
@@ -160,15 +155,12 @@ Generate a one-dimensional uniform grid on the domain specified in the geomety. 
 of cell centers (plus ghost cells face coordinates), interface/edges and volume of a cell for number density calculations.
 """
 function generate_grid(geometry, domain, grid::HallThrusterGrid{F}) where {F}
-    # get domain
-    domain = domain === nothing ? geometry.domain : domain
-
     # generate edge coordinates
     z_edge = nodes_from_density(
-        grid.density, domain[1], domain[2], geometry.channel_length, grid.ncells + 1)
+        grid.density, domain[1], domain[2], geometry.channel_length, grid.ncells + 1,)
 
     # compute centers and volumes and return
-    return Grid1D(geometry, z_edge)
+    return Grid1D(z_edge)
 end
 
 """
@@ -189,7 +181,7 @@ end
 const geometry_SPT_100 = Geometry1D(
     inner_radius = 0.0345,
     outer_radius = 0.05,
-    channel_length = 0.025
+    channel_length = 0.025,
 )
 
 function B_field_SPT_100(B_max, L_ch, z) #same in Landmark and in FFM model Hara
@@ -205,5 +197,5 @@ const SPT_100 = Thruster(
     name = "SPT-100",
     geometry = geometry_SPT_100,
     magnetic_field = z -> B_field_SPT_100(0.015, geometry_SPT_100.channel_length, z),
-    shielded = false
+    shielded = false,
 )

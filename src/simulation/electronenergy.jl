@@ -1,6 +1,8 @@
 function update_electron_energy!(params, dt)
-    (; Δz_cell, Δz_edge, config, cache, Te_L, Te_R, ncells) = params
+    (; Δz_cell, Δz_edge, config, cache, min_Te, ncells) = params
     (; Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
+
+    Te_L, Te_R = config.anode_Te, config.cathode_Te
     implicit = params.config.implicit_energy
     explicit = 1 - implicit
 
@@ -127,9 +129,8 @@ function update_electron_energy!(params, dt)
 
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     @inbounds for i in 1:ncells
-        if isnan(nϵ[i]) || isinf(nϵ[i]) ||
-           nϵ[i] / ne[i] < params.config.min_electron_temperature
-            nϵ[i] = 3 / 2 * params.config.min_electron_temperature * ne[i]
+        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < min_Te
+            nϵ[i] = 3 / 2 * min_Te * ne[i]
         end
 
         # update Tev and pe

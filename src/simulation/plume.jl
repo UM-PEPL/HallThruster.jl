@@ -15,13 +15,14 @@ function initialize_plume_geometry(params)
 end
 
 function update_plume_geometry!(params)
-    (; mi, z_cell, config, cache, ncells) = params
+    (; z_cell, config, cache, ncells) = params
     (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni) = cache
 
     if !config.solve_plume
         return
     end
 
+    mi = config.propellant.m
     L_ch = config.thruster.geometry.channel_length
     exit_plane_index = max(findfirst(>=(L_ch), z_cell), 1)
     Tev_exit = Tev[exit_plane_index]

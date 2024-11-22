@@ -4,8 +4,8 @@ function allocate_arrays(grid, config)
     # made less general to handle common use cases as part of fluid refactor
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
 
-    ncells = grid.ncells + 2
-    nedges = grid.ncells + 1
+    ncells = grid.num_cells
+    nedges = grid.num_cells - 1
 
     # Main state vector
     U = zeros(nvariables, ncells)
@@ -180,18 +180,10 @@ function setup_simulation(
         U, cache = allocate_arrays(grid1d, config)
     end
 
-    z_cell = grid1d.cell_centers
-    z_edge = grid1d.edges
-
     # Fill up cell lengths and magnetic field vectors
-
     for (i, z) in enumerate(grid1d.cell_centers)
         cache.B[i] = config.thruster.magnetic_field(z)
     end
-
-    Δz_cell, Δz_edge = grid_spacing(grid1d)
-
-    mi = config.propellant.m
 
     # make the adaptive timestep independent of input condition
     if adaptive
@@ -212,17 +204,13 @@ function setup_simulation(
     # Simulation parameters
     params = (;
         grid = grid1d,
-        z_cell,
-        z_edge,
-        Δz_cell, Δz_edge,
-        ncells = grid1d.ncells + 2,
+        z_cell = grid1d.cell_centers,
+        z_edge = grid1d.edges,
+        Δz_cell = grid1d.dz_cell,
+        Δz_edge = grid1d.dz_edge,
+        ncells = grid1d.num_cells,
         ncharge = config.ncharge,
-        mi,
         config = config,
-        ϕ_L = config.discharge_voltage,
-        ϕ_R = config.cathode_potential,
-        Te_L = config.anode_Te,
-        Te_R = config.cathode_Te,
         L_ch = config.thruster.geometry.channel_length,
         A_ch = config.thruster.geometry.channel_area,
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
@@ -238,10 +226,9 @@ function setup_simulation(
         adaptive,
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
-        γ_SEE_max = 1 - 8.3 * sqrt(me / mi),
+        γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
+        min_Te = min(config.anode_Te, config.cathode_Te),
         control_current, target_current, Kp, Ti, Td,
-        exit_plane_index = findfirst(>=(config.thruster.geometry.channel_length), z_cell) -
-                           1,
         dtbase, dtmin, dtmax, max_small_steps,
     )
 
