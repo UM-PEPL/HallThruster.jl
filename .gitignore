@@ -16,3 +16,4 @@ run
 !test/unit_tests/bfield_spt100.csv
 !test/regression/*.json
 !test/unit_tests/*.json
+!test/*/*.json

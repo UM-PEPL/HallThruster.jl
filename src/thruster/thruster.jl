@@ -10,7 +10,7 @@ $(TYPEDFIELDS)
     name::String = "noname"
     geometry::Geometry1D   # A Geometry1D object containing geometric information about the thruster
     magnetic_field::MagneticField      # A function which takes z in meters and outputs B in Tesla
-    shielded::Bool         # Whether the thruster is magnetically-shielded
+    shielded::Bool = false         # Whether the thruster is magnetically-shielded
 end
 
 @inline channel_area(thruster::Thruster) = thruster.geometry.channel_area
