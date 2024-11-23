@@ -1,4 +1,4 @@
-module OVS_Ions
+Tmodule OVS_Ions
 
 include("ovs_funcs.jl")
 
@@ -70,7 +70,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         neutral_temperature_K = 300.0,
         ion_temperature_K = Ti,
         solve_ion_energy = false,
-        min_number_density = 1e6,
         anode_sheath = false,
         anode_mass_flow_rate,
         scheme,

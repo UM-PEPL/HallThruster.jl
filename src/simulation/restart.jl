@@ -60,7 +60,7 @@ function load_restart(grid, config, sol::Solution)
     end
 
     # If we have more charges in the new solution than in the restart, initialize the other charges to default values
-    initial_density = config.min_number_density * config.propellant.m
+    initial_density = MIN_NUMBER_DENSITY * config.propellant.m
     initial_velocity = 0.0
 
     if config.ncharge > sol.params.config.ncharge

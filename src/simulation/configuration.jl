@@ -34,7 +34,6 @@ struct Config{A <: AnomalousTransportModel,
     excitation_model::Symbol
     electron_neutral_model::Symbol
     electron_ion_collisions::Bool
-    min_number_density::Float64
     transition_length::Float64
     magnetic_field_scale::Float64
     source_neutrals::S_N
@@ -76,8 +75,7 @@ struct Config{A <: AnomalousTransportModel,
             excitation_model = :Lookup,
             electron_neutral_model = :Lookup,
             electron_ion_collisions = true,
-            min_number_density = 1e6,
-            transition_length = 1e-3,
+            transition_length = 0.1 * thruster.geometry.channel_length,
             magnetic_field_scale::Float64 = 1.0,
             source_neutrals = nothing,
             source_ion_continuity = nothing,
@@ -142,7 +140,6 @@ struct Config{A <: AnomalousTransportModel,
         )
 
         anode_mass_flow_rate = convert_to_float64(anode_mass_flow_rate, u"kg/s")
-        min_number_density = convert_to_float64(min_number_density, u"m^-3")
 
         background_temperature_K = convert_to_float64(
             background_temperature_K, u"K",)
@@ -182,7 +179,6 @@ struct Config{A <: AnomalousTransportModel,
             excitation_model,
             electron_neutral_model,
             electron_ion_collisions,
-            min_number_density,
             transition_length,
             magnetic_field_scale,
             source_neutrals,

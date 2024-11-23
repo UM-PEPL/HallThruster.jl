@@ -105,9 +105,6 @@ function update_heavy_species!(U, params)
             ji[i] += Z * e * _niui
         end
 
-        # Compute electron number density, making sure it is above floor
-        ne[i] = max(params.config.min_number_density, ne[i])
-
         # Effective ion charge state (density-weighted average charge state)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end

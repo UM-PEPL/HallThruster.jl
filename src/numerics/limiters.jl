@@ -27,10 +27,12 @@ const van_albada = SlopeLimiter(__van_albada)
 const minmod = SlopeLimiter(__minmod)
 const koren = SlopeLimiter(__koren)
 
+const MIN_NUMBER_DENSITY = 1e6
+
 function stage_limiter!(U, params)
     (; grid, cache, config, index, min_Te) = params
     (; nϵ) = cache
-    min_density = config.min_number_density * config.propellant.m
+    min_density = MIN_NUMBER_DENSITY * config.propellant.m
     @inbounds for i in eachindex(grid.cell_centers)
         U[index.ρn, i] = max(U[index.ρn, i], min_density)
 
@@ -40,7 +42,7 @@ function stage_limiter!(U, params)
             U[index.ρi[Z], i] = density_floor
             U[index.ρiui[Z], i] = density_floor * velocity
         end
-        nϵ[i] = max(nϵ[i], config.min_number_density * min_Te)
+        nϵ[i] = max(nϵ[i], MIN_NUMBER_DENSITY * min_Te)
     end
 end
 
