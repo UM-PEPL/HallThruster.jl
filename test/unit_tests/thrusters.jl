@@ -8,13 +8,11 @@ function test_thruster_serialization()
         @testset "Magnetic field" begin
             test_roundtrip(het.MagneticField, thruster.magnetic_field)
 
-            bfield = het.MagneticField(; file = "test.csv", z = [], B = [])
+            bfield = het.MagneticField(; file = "test.csv", z = Float64[1.0], B = [1.0])
             test_roundtrip(het.MagneticField, bfield)
 
-            dict_fileonly = Dict(:file => "bfield_spt100.csv")
+            dict_fileonly = Dict(:file => "$(het.TEST_DIR)/unit_tests/bfield_spt100.csv")
             b_fileonly = het.deserialize(het.MagneticField, dict_fileonly)
-            @test isempty(b_fileonly.z)
-            @test isempty(b_fileonly.B)
             test_roundtrip(het.MagneticField, b_fileonly)
         end
 

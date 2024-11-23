@@ -69,7 +69,7 @@ function config_from_json(json_content::JSON3.Object, dir = "")
         MagneticField(magnetic_field_file)
     catch e
         if thruster_name == "SPT-100"
-            @warn "Could not find provided magnetic field file at path $(magnetic_field_file). \
+            @warn "Could not find magnetic field file at path $(magnetic_field_file). \
                  Using default SPT-100 field."
             SPT_100.magnetic_field
         else

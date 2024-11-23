@@ -1,4 +1,4 @@
-Tmodule OVS_Ions
+module OVS_Ions
 
 include("ovs_funcs.jl")
 
