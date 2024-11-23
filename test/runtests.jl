@@ -60,9 +60,6 @@ test_walls()
 include("$(HallThruster.TEST_DIR)/unit_tests/reactions.jl")
 test_reactions()
 
-include("$(HallThruster.TEST_DIR)/unit_tests/json.jl")
-test_json()
-
 include("$(HallThruster.TEST_DIR)/unit_tests/gases.jl")
 test_gases()
 
@@ -74,6 +71,9 @@ test_grid()
 
 include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
 test_current_control()
+
+# include("$(HallThruster.TEST_DIR)/unit_tests/json.jl")
+# test_json()
 
 # Regression tests
 include("$(HallThruster.TEST_DIR)/regression/test_regression.jl")

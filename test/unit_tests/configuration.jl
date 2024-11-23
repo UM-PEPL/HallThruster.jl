@@ -1,11 +1,47 @@
+using HallThruster: HallThruster as het
+
+include("serialization_test_utils.jl")
+
+function test_config_serialization()
+    @testset "Serialization" begin
+        cfg = het.Config(;
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.8),
+            anode_mass_flow_rate = 5e-6,
+        )
+
+        d = het.serialize(cfg)
+        for k in het.Serialization.exclude(het.Config)
+            @test !haskey(d, string(k))
+        end
+
+        test_roundtrip(het.Config, cfg)
+
+        OD = het.Serialization.OrderedDict
+        d = OD(
+            :thruster => het.serialize(het.SPT_100),
+            :discharge_voltage => 800.0,
+            :domain => (0.0, 0.4),
+            :anode_mass_flow_rate => 9e-6,
+            :wall_loss_model => OD(
+                :type => "NoWallLosses"
+            ),
+        )
+        test_roundtrip(het.Config, d)
+    end
+end
+
 function test_configuration()
+    test_config_serialization()
+
     @testset "Configuration" begin
         common_opts = (;
             ncharge = 3,
-            discharge_voltage = 300u"V",
-            anode_mass_flow_rate = 5u"mg/s",
+            discharge_voltage = 300,
+            anode_mass_flow_rate = 5e-6,
             thruster = het.SPT_100,
-            domain = (0.0u"cm", 5.0u"cm"),
+            domain = (0.0, 5.0e-2),
         )
 
         config = het.Config(;
@@ -17,7 +53,7 @@ function test_configuration()
         fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
 
         @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-        @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
+        @test species == [het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)]
         @test species_range_dict == Dict(
             Symbol("Xe") => 1:1,
             Symbol("Xe+") => 2:3,
@@ -65,7 +101,7 @@ function test_configuration()
 
         fluids, fluid_ranges, species, species_range_dict = het.configure_fluids(config_bg)
         @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-        @test species == [Xenon(0), Xenon(1), Xenon(2), Xenon(3)]
+        @test species == [het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)]
         @test species_range_dict == Dict(
             Symbol("Xe") => 1:1,
             Symbol("Xe+") => 2:3,

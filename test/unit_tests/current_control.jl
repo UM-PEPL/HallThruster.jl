@@ -6,10 +6,10 @@ include("serialization_test_utils.jl")
 function test_controller_serialization()
     @testset "Serialization" begin
         none = ht.NoController()
-        test_roundtrip(none)
+        test_roundtrip(het.CurrentController, none)
 
         pid = ht.PIDController(target_value = 15.0)
-        test_roundtrip(pid)
+        test_roundtrip(het.CurrentController, pid)
 
         pid_dict = ht.Serialization.OrderedDict(
             :type => "PIDController",

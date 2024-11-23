@@ -14,7 +14,7 @@ function struct_eq(x::T, y::T) where {T}
     return true
 end
 
-function test_roundtrip(x::T) where {T}
+function test_roundtrip(::Type{T}, x::X) where {T, X <: T}
     dict = ht.serialize(x)
     json = js.write(dict)
     dict2 = js.read(json)
@@ -24,12 +24,12 @@ end
 
 function test_roundtrip(::Type{T}, x::AbstractDict) where {T}
     obj1 = ht.deserialize(T, x)
-    test_roundtrip(obj1)
+    test_roundtrip(T, obj1)
 end
 
 function test_instances(::Type{T}, instances::NamedTuple) where {T}
-    for instance::T in instances
-        test_roundtrip(instance)
+    for instance in instances
+        test_roundtrip(T, instance)
     end
 end
 
@@ -43,5 +43,5 @@ function test_subtype(::Type{T}, subtype::S; show_js = false) where {T, S <: T}
         println()
     end
 
-    test_roundtrip(subtype)
+    test_roundtrip(T, subtype)
 end

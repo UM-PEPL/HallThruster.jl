@@ -5,8 +5,8 @@ include("serialization_test_utils.jl")
 
 function test_grid_serialization()
     @testset "Serialization" begin
-        test_roundtrip(ht.EvenGrid(0))
-        test_roundtrip(ht.UnevenGrid(100))
+        test_roundtrip(ht.GridSpec, ht.EvenGrid(0))
+        test_roundtrip(ht.GridSpec, ht.UnevenGrid(100))
 
         dict1 = ht.OrderedDict(
             :type => "EvenGrid",
@@ -110,7 +110,9 @@ function test_uneven_grid()
 end
 
 function test_grid()
-    test_grid_serialization()
-    test_even_grid()
-    test_uneven_grid()
+    @testset "Grid" begin
+        test_grid_serialization()
+        test_even_grid()
+        test_uneven_grid()
+    end
 end

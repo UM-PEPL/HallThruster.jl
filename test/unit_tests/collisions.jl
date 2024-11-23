@@ -56,9 +56,11 @@ function test_collisions()
         grid1 = (; cell_centers = [0.02])
         grid2 = (; cell_centers = [0.03])
 
-        params_landmark = (; cache, index, config = config_landmark, grid = grid1,
+        params_landmark = (;
+            iteration = [0], cache, index, config = config_landmark, grid = grid1,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_landmark,)
-        params_none = (; cache, index, config = config_none, grid = grid2,
+        params_none = (;
+            iteration = [0], cache, index, config = config_none, grid = grid2,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none,)
 
         @test het.freq_electron_neutral(params_landmark, 1) ≈ 2.5e-13 * nn

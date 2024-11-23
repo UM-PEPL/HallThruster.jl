@@ -30,8 +30,8 @@ end
 #=============================================================================
  Serialization
 ==============================================================================#
-Serialization.SType(::Type{GridSpec}) = Serialization.TaggedUnion()
-Serialization.options(::Type{GridSpec}) = (; UnevenGrid, EvenGrid)
+Serialization.SType(::Type{T}) where {T <: GridSpec} = Serialization.TaggedUnion()
+Serialization.options(::Type{T}) where {T <: GridSpec} = (; UnevenGrid, EvenGrid)
 
 #=============================================================================
  Implementation
