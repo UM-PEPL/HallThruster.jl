@@ -29,7 +29,7 @@ end
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
-function solve(U, params, tspan; saveat, show_errors = true)
+function solve(U, params, tspan; saveat)
     # Initialie starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -53,15 +53,17 @@ function solve(U, params, tspan; saveat, show_errors = true)
     small_step_count = 0
     uniform_steps = false
 
+    sim = params.simulation
+
     try
         while t < tspan[2]
             # compute new timestep 
-            if params.adaptive
+            if sim.adaptive
                 if uniform_steps
-                    params.dt[] = params.dtbase
+                    params.dt[] = sim.dt
                     small_step_count -= 1
                 else
-                    params.dt[] = clamp(params.cache.dt[], params.dtmin, params.dtmax)
+                    params.dt[] = clamp(params.cache.dt[], sim.min_dt, sim.max_dt)
                 end
             end
 
@@ -73,13 +75,13 @@ function solve(U, params, tspan; saveat, show_errors = true)
             This helps break out of cases where adaptive timestepping gets stuck ---
             either by resolving the situation or by causing the simulation to fail fast
             ====#
-            if params.dt[] == params.dtmin
+            if params.dt[] == sim.min_dt
                 small_step_count += 1
             elseif !uniform_steps
                 small_step_count = 0
             end
 
-            if small_step_count >= params.max_small_steps
+            if small_step_count >= sim.max_small_steps
                 uniform_steps = true
             elseif small_step_count == 0
                 uniform_steps = false
@@ -91,7 +93,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)
-                if show_errors
+                if sim.show_errors
                     @warn("NaN or Inf detected in heavy species solver at time $(t)")
                 end
                 retcode = :failure
@@ -143,7 +145,7 @@ function solve(U, params, tspan; saveat, show_errors = true)
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
         retcode = :error
-        if show_errors
+        if sim.show_errors
             @warn "Error detected in solution: $(errstring)"
         end
     end

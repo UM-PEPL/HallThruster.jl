@@ -130,7 +130,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         background_neutral_density = 0.0,
         background_neutral_velocity = 1.0,
         adaptive = false,
-        CFL = 0.9,
+        simulation = (; CFL = 0.9),
     )
 
     t = 0.0

@@ -90,7 +90,7 @@ function update_electrons!(params, t = 0)
 
     # Update the anomalous collision frequency multiplier to match target current
     anom_multiplier[] = exp(apply_controller(
-        simulation.current_controller, Id[], log(anom_multiplier[]), params.dt[],
+        simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
     ))
 end
 

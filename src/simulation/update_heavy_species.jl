@@ -1,5 +1,5 @@
 function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
-    (; index, grid, config, cache, grid, CFL) = params
+    (; index, grid, config, cache, grid, simulation) = params
     (; source_neutrals, source_ion_continuity, source_ion_momentum,
     ncharge, ion_wall_losses) = config
 
@@ -46,6 +46,7 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
     end
 
     # Compute maximum allowable timestep
+    CFL = simulation.CFL
     params.cache.dt[] = min(
         CFL * cache.dt_iz[],                          # max ionization timestep
         sqrt(CFL) * cache.dt_E[],                     # max acceleration timestep
