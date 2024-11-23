@@ -131,7 +131,7 @@ The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2]
 end
 
 function (model::MultiLogBohm)(νan, params)
-    (; z_cell, config) = params
+    (; grid, config) = params
     (; B) = params.cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -140,9 +140,9 @@ function (model::MultiLogBohm)(νan, params)
     end
 
     z_shift = pressure_shift(config.anom_model, params)
-    B_interp = LinearInterpolation(z_cell, B)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
 
-    for (i, zc) in enumerate(z_cell)
+    for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
         B = B_interp(z)
         ωce = e * B / me
@@ -174,7 +174,7 @@ end
 
 function (model::GaussianBohm)(νan, params)
     (; hall_min, hall_max, center, width) = model
-    (; config, cache, z_cell) = params
+    (; config, cache, grid) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -183,9 +183,9 @@ function (model::GaussianBohm)(νan, params)
     end
 
     z_shift = pressure_shift(config.anom_model, params)
-    B_interp = LinearInterpolation(z_cell, B)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
 
-    for (i, zc) in enumerate(z_cell)
+    for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
         B = B_interp(z)
         ωce = e * B / me
@@ -217,6 +217,10 @@ follows a logistic curve.
     dz::Float64
     pstar::Float64
     alpha::Float64
+end
+
+function (model::LogisticPressureShift)(args...; kwargs...)
+    return model.model(args...; kwargs...)
 end
 
 pressure_shift(model::AnomalousTransportModel, ::Any) = 0.0

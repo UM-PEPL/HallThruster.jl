@@ -93,17 +93,19 @@ function config_from_json(json_content::JSON3.Object, dir = "")
     elseif anom_model == "MultiLogBohm"
         MultiLogBohm(anom_model_coeffs)
     elseif anom_model == "ShiftedTwoZone" || anom_model == "ShiftedTwoZoneBohm"
-        coeff_tuple = (anom_model_coeffs[1], anom_model_coeffs[2])
-        ShiftedTwoZoneBohm(coeff_tuple, pressure_z0, pressure_dz, pressure_pstar,
-            pressure_alpha,)
+        c1, c2 = anom_model_coeffs[1], anom_model_coeffs[2]
+        LogisticPressureShift(
+            TwoZoneBohm(c1, c2), pressure_z0, pressure_dz, pressure_pstar, float(pressure_alpha),)
     elseif anom_model == "ShiftedMultiBohm"
         N = length(anom_model_coeffs)
-        ShiftedMultiBohm(anom_model_coeffs[1:(N ÷ 2)], anom_model_coeffs[N ÷ 2 + 1],
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha,)
+        LogisticPressureShift(
+            MultiLogBohm(anom_model_coeffs[1:(N ÷ 2)], anom_model_coeffs[N ÷ 2 + 1]),
+            pressure_z0, pressure_dz, pressure_pstar, float(pressure_alpha),)
     elseif anom_model == "ShiftedGaussianBohm"
-        ShiftedGaussianBohm(anom_model_coeffs[1], anom_model_coeffs[2],
-            anom_model_coeffs[3], anom_model_coeffs[4],
-            pressure_z0, pressure_dz, pressure_pstar, pressure_alpha,)
+        LogisticPressureShift(
+            GaussianBohm(anom_model_coeffs[1], anom_model_coeffs[2],
+                anom_model_coeffs[3], anom_model_coeffs[4],),
+            pressure_z0, pressure_dz, pressure_pstar, float(pressure_alpha),)
     end
 
     config = HallThruster.Config(;

@@ -6,27 +6,27 @@ function test_thruster_serialization()
     @testset "Serialization" begin
         thruster = het.SPT_100
         @testset "Magnetic field" begin
-            test_roundtrip(thruster.magnetic_field)
+            test_roundtrip(het.MagneticField, thruster.magnetic_field)
 
             bfield = het.MagneticField(; file = "test.csv", z = [], B = [])
-            test_roundtrip(bfield)
+            test_roundtrip(het.MagneticField, bfield)
 
             dict_fileonly = Dict(:file => "bfield_spt100.csv")
             b_fileonly = het.deserialize(het.MagneticField, dict_fileonly)
             @test isempty(b_fileonly.z)
             @test isempty(b_fileonly.B)
-            test_roundtrip(b_fileonly)
+            test_roundtrip(het.MagneticField, b_fileonly)
         end
 
         @testset "Geometry1D" begin
             geom = thruster.geometry
-            test_roundtrip(geom)
+            test_roundtrip(het.Geometry1D, geom)
             d = het.serialize(geom)
             @test !haskey(d, :channel_area)
         end
 
         @testset "Thruster" begin
-            test_roundtrip(thruster)
+            test_roundtrip(het.Thruster, thruster)
         end
     end
 end

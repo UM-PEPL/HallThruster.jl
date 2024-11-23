@@ -5,7 +5,7 @@ include("serialization_test_utils.jl")
 function test_scheme_serialization()
     @testset "Serialization" begin
         scheme1 = het.HyperbolicScheme()
-        test_roundtrip(scheme1)
+        test_roundtrip(het.HyperbolicScheme, scheme1)
 
         dict1 = het.Serialization.OrderedDict(
             :flux_function => "rusanov"
