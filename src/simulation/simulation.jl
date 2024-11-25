@@ -15,7 +15,8 @@
     current_control::C   = NoController()
 end
 
-function setup_simulation(config::Config, sim::SimParams; restart = "")
+function setup_simulation(config::Config, sim::SimParams;
+        postprocess::Postprocess = Postprocess(), restart = "",)
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
@@ -77,6 +78,7 @@ function setup_simulation(config::Config, sim::SimParams; restart = "")
         grid,
         config = config,
         simulation = sim,
+        postprocess,
         # fluid bookkeeping
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
         # reactions

@@ -174,33 +174,35 @@ end
 function frame_dict(sol, frame)
     (; grid) = sol.params
     ncharge = sol.params.config.ncharge
-    OrderedDict{String, Any}(
-        "thrust" => thrust(sol, frame),
-        "discharge_current" => discharge_current(sol, frame),
-        "ion_current" => ion_current(sol, frame),
-        "mass_eff" => mass_eff(sol, frame),
-        "voltage_eff" => voltage_eff(sol, frame),
-        "current_eff" => current_eff(sol, frame),
-        "divergence_eff" => divergence_eff(sol, frame),
-        "t" => sol.t[frame],
-        "z" => grid.cell_centers,
-        "nn" => sol[:nn, 1][frame],
-        "ni" => [sol[:ni, Z][frame] for Z in 1:ncharge],
-        "ui" => [sol[:ui, Z][frame] for Z in 1:ncharge],
-        "niui" => [sol[:niui, Z][frame] for Z in 1:ncharge],
-        "B" => sol[:B][frame],
-        "ne" => sol[:ne][frame],
-        "ue" => sol[:ue][frame],
-        "V" => sol[:ϕ][frame],
-        "E" => sol[:E][frame],
-        "Tev" => sol[:Tev][frame],
-        "pe" => sol[:pe][frame],
-        "nu_en" => sol[:νen][frame],
-        "nu_ei" => sol[:νei][frame],
-        "nu_anom" => sol[:νan][frame],
-        "nu_class" => sol[:νc][frame],
-        "mobility" => sol[:μ][frame],
-    )
+    sv = sol.savevals[frame]
+    d = OrderedDict{String, Any}()
+    d["thrust"] = thrust(sol, frame)
+    d["discharge_current"] = discharge_current(sol, frame)
+    d["ion_current"] = ion_current(sol, frame)
+    d["mass_eff"] = mass_eff(sol, frame)
+    d["voltage_eff"] = voltage_eff(sol, frame)
+    d["current_eff"] = current_eff(sol, frame)
+    d["divergence_eff"] = divergence_eff(sol, frame)
+    d["t"] = sol.t[frame]
+    d["z"] = grid.cell_centers
+    d["nn"] = sv.nn
+    d["ni"] = [sv.ni[Z, :] for Z in 1:ncharge]
+    d["ui"] = [sv.ui[Z, :] for Z in 1:ncharge]
+    d["niui"] = [sv.niui[Z, :] for Z in 1:ncharge]
+    d["B"] = sol.params.cache.B
+    d["ne"] = sv.ni
+    d["ue"] = sv.ue
+    d["V"] = sv.ϕ
+    d["E"] = -sv.∇ϕ
+    d["Tev"] = sv.Tev
+    d["pe"] = sv.pe
+    d["nu_en"] = sv.νen
+    d["nu_ei"] = sv.νei
+    d["nu_anom"] = sv.νan
+    d["nu_class"] = sv.νc
+    d["mobility"] = sv.μ
+    d["channel_area"] = sv.channel_area
+    return d
 end
 
 function write_to_json(filename, sol)

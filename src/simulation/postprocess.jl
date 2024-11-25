@@ -249,7 +249,18 @@ Compute the mass utilization efficiency at each frame of a `Solution`.
 """
 mass_eff(sol::Solution) = [mass_eff(sol, frame) for frame in eachindex(sol.savevals)]
 
-function Base.getindex(sol::Solution, field::Symbol, charge::Int = 1)
+function Base.getindex(sol::Solution, frame::Integer)
+    return Solution(
+        [sol.t[frame]],
+        [sol.u[frame]],
+        [sol.savevals[frame]],
+        sol.params,
+        sol.retcode,
+        sol.error,
+    )
+end
+
+function Base.getindex(sol::Solution, field::Symbol, charge::Integer = 1)
     if charge > sol.params.config.ncharge && field in [:ni, :ui, :niui]
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
     end
