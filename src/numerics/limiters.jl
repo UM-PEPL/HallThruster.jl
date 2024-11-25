@@ -27,8 +27,6 @@ const van_albada = SlopeLimiter(__van_albada)
 const minmod = SlopeLimiter(__minmod)
 const koren = SlopeLimiter(__koren)
 
-const MIN_NUMBER_DENSITY = 1e6
-
 function stage_limiter!(U, params)
     (; grid, cache, config, index, min_Te) = params
     (; nϵ) = cache

@@ -15,7 +15,8 @@ struct MagneticField
         end
         return new(file, z, B)
     end
-    function MagneticField(; file = "", z = Float64[], B = Float64[])
-        return new(file, z, B)
-    end
+end
+
+function MagneticField(; file = "", z = Float64[], B = Float64[])
+    return MagneticField(file, z, B)
 end

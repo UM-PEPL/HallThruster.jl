@@ -170,3 +170,41 @@ function run_simulation(json_path::String; is_path = true, kwargs...)
 
     return run_simulation(json_content, dirname(abspath(json_path)); kwargs...)
 end
+
+function frame_dict(sol, frame)
+    (; grid) = sol.params
+    ncharge = sol.params.config.ncharge
+    OrderedDict{String, Any}(
+        "thrust" => thrust(sol, frame),
+        "discharge_current" => discharge_current(sol, frame),
+        "ion_current" => ion_current(sol, frame),
+        "mass_eff" => mass_eff(sol, frame),
+        "voltage_eff" => voltage_eff(sol, frame),
+        "current_eff" => current_eff(sol, frame),
+        "divergence_eff" => divergence_eff(sol, frame),
+        "t" => sol.t[frame],
+        "z" => grid.cell_centers,
+        "nn" => sol[:nn, 1][frame],
+        "ni" => [sol[:ni, Z][frame] for Z in 1:ncharge],
+        "ui" => [sol[:ui, Z][frame] for Z in 1:ncharge],
+        "niui" => [sol[:niui, Z][frame] for Z in 1:ncharge],
+        "B" => sol[:B][frame],
+        "ne" => sol[:ne][frame],
+        "ue" => sol[:ue][frame],
+        "V" => sol[:ϕ][frame],
+        "E" => sol[:E][frame],
+        "Tev" => sol[:Tev][frame],
+        "pe" => sol[:pe][frame],
+        "nu_en" => sol[:νen][frame],
+        "nu_ei" => sol[:νei][frame],
+        "nu_anom" => sol[:νan][frame],
+        "nu_class" => sol[:νc][frame],
+        "mobility" => sol[:μ][frame],
+    )
+end
+
+function write_to_json(filename, sol)
+    num_frames = length(sol.t)
+    frames = map(frame -> frame_dict(sol, frame), 1:num_frames)
+    JSON3.write(filename, frames)
+end

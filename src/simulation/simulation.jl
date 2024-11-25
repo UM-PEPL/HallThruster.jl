@@ -1,4 +1,4 @@
-@kwdef struct SimParams{G <: GridSpec, C <: CurrentController}
+@kwdef mutable struct SimParams{G <: GridSpec, C <: CurrentController}
     grid::G
     dt::Float64
     duration::Float64
@@ -15,36 +15,14 @@
     current_control::C   = NoController()
 end
 
-function setup_simulation(
-        config::Config;
-        duration, nsave,
-        grid::GridSpec = EvenGrid(0),
-        ncells = 0,
-        dt, restart = nothing,
-        CFL = 0.799, adaptive = false,
-        control_current = false, target_current = 0.0,
-        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
-        verbose = true, print_errors = true,
-)
-
+function setup_simulation(config::Config, sim::SimParams; restart = "")
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    # If dt is provided with units, convert to seconds and then strip units
-    dt = convert_to_float64(dt, u"s")
-    dtbase = dt
-
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
-
-    if (grid.num_cells == 0)
-        # backwards compatability for unspecified grid type
-        grid1d = generate_grid(config.thruster.geometry, config.domain, EvenGrid(ncells))
-    else
-        grid1d = generate_grid(config.thruster.geometry, config.domain, grid)
-    end
+    index = configure_index(fluids, fluid_ranges)
 
     # load collisions and reactions
     ionization_reactions = load_ionization_reactions(
@@ -60,72 +38,45 @@ function setup_simulation(
     electron_neutral_collisions = load_elastic_collisions(
         config.electron_neutral_model, unique(species),)
 
-    index = configure_index(fluids, fluid_ranges)
+    # Generate grid and allocate state
+    grid = generate_grid(config.thruster.geometry, config.domain, sim.grid)
 
-    use_restart = restart !== nothing
-
-    if use_restart
-        U, cache = load_restart(grid1d, config, restart)
+    if sim.restart
+        U, cache = load_restart(grid, config, restart)
     else
-        U, cache = allocate_arrays(grid1d, config)
+        U, cache = allocate_arrays(grid, config)
     end
 
     # Fill up cell lengths and magnetic field vectors
     thruster = config.thruster
     itp = LinearInterpolation(thruster.magnetic_field.z, thruster.magnetic_field.B)
-    @. cache.B = itp(grid1d.cell_centers)
+    @. cache.B = itp(grid.cell_centers)
 
     # make the adaptive timestep independent of input condition
-    if adaptive
+    dt = sim.dt
+    if sim.adaptive
         dt = 100 * eps() # small initial timestep to initialize everything
 
         # force the CFL to be no higher than 0.799 for adaptive timestepping
         # this limit is mainly due to empirical testing, but there
         # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
-        if CFL >= 0.8
-            @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
-            CFL = 0.799
+        if sim.CFL >= 0.8
+            if sim.print_errors
+                @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
+            end
+            sim.CFL = 0.799
         end
     end
 
     cache.dt .= dt
 
-    # Set up PID controller, if requested
-    if control_current
-        current_control = PIDController(
-            target_value = target_current,
-            proportional_constant = Kp,
-            integral_constant = Kp / Ti,
-            derivative_constant = Kp * Td,
-            smoothing_frequency = 1 / time_constant,
-        )
-    else
-        current_control = NoController()
-    end
-
-    simulation = SimParams(;
-        duration,
-        grid,
-        dt,
-        num_save = nsave,
-        CFL,
-        restart = false,
-        adaptive,
-        min_dt = dtmin,
-        max_dt = dtmax,
-        max_small_steps,
-        current_control,
-        verbose,
-        print_errors,
-    )
-
     # Simulation parameters
     params = (;
         iteration = [-1],
         dt = [dt],
-        grid = grid1d,
+        grid,
         config = config,
-        simulation,
+        simulation = sim,
         # fluid bookkeeping
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
         # reactions
@@ -143,7 +94,7 @@ function setup_simulation(
     )
 
     # Compute maximum allowed iterations
-    if !use_restart
+    if !sim.restart
         initialize!(U, params)
         initialize_plume_geometry(params)
 
@@ -156,6 +107,55 @@ function setup_simulation(
     update_electrons!(params)
 
     return U, params
+end
+
+function setup_simulation(
+        config::Config;
+        duration, nsave,
+        grid::GridSpec = EvenGrid(0),
+        ncells = 0,
+        dt, restart = nothing,
+        CFL = 0.799, adaptive = false,
+        control_current = false, target_current = 0.0,
+        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
+        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
+        verbose = true, print_errors = true,
+)
+    # Set up PID controller, if requested
+    if control_current
+        current_control = PIDController(
+            target_value = target_current,
+            proportional_constant = Kp,
+            integral_constant = Kp / Ti,
+            derivative_constant = Kp * Td,
+            smoothing_frequency = 1 / time_constant,
+        )
+    else
+        current_control = NoController()
+    end
+
+    if (grid.num_cells == 0)
+        # backwards compatability for unspecified grid type
+        grid = EvenGrid(ncells)
+    end
+
+    simulation = SimParams(;
+        duration,
+        grid,
+        dt,
+        num_save = nsave,
+        CFL,
+        restart = restart !== nothing,
+        adaptive,
+        min_dt = dtmin,
+        max_dt = dtmax,
+        max_small_steps,
+        current_control,
+        verbose,
+        print_errors,
+    )
+
+    return setup_simulation(config, simulation; restart)
 end
 
 """
@@ -190,5 +190,10 @@ Run a Hall thruster simulation using the provided Config object.
 """
 function run_simulation(config::Config; kwargs...)
     U, params = setup_simulation(config; kwargs...)
+    return run_from_setup(U, params)
+end
+
+function run_simulation(config::Config, sim::SimParams; kwargs...)
+    U, params = setup_simulation(config, sim; kwargs...)
     return run_from_setup(U, params)
 end

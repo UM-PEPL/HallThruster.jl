@@ -9,6 +9,7 @@ using PrecompileTools: @compile_workload
 
 using JSON3
 using JLD2
+using OrderedCollections
 
 # Packages used for making plots
 using Measures: mm
@@ -33,7 +34,7 @@ include("utilities/macros.jl")
 include("utilities/serialization.jl")
 include("utilities/keywords.jl")
 
-using .Serialization: serialize, deserialize, OrderedDict
+using .Serialization: serialize, deserialize
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
