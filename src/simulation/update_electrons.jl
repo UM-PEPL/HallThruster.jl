@@ -2,38 +2,25 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
     (; config, grid, cache, simulation) = params
-    (; B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
+    (; nn, B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
     Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
     anom_multiplier, channel_area) = cache
 
-    ncells = length(grid.cell_centers)
     L_ch = config.thruster.geometry.channel_length
 
-    # Update plasma quantities based on new density
-    pe_factor = config.LANDMARK ? 1.5 : 1.0
-    @inbounds for i in 1:ncells
-        # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(params.min_Te, nϵ[i] / ne[i])
-        # Compute electron pressure
-        pe[i] = pe_factor * ne[i] * Tev[i]
-    end
+    # Update electron temperature and pressure given new density
+    update_temp_and_pressure!(Tev, pe, nϵ, ne, params.min_Te, config.LANDMARK)
 
-    # Update electron-ion collisions
+    # Update electron-ion, electron-neutral, and total classical collisions
     if (params.config.electron_ion_collisions)
-        @inbounds for i in 1:ncells
-            νei[i] = freq_electron_ion(ne[i], Tev[i], Z_eff[i])
-        end
+        freq_electron_ion!(νei, ne, Tev, Z_eff)
     end
 
-    # Update other collisions
-    @inbounds for i in 1:ncells
-        # Compute electron-neutral and electron-ion collision frequencies
-        νen[i] = freq_electron_neutral(params, i)
+    freq_electron_neutral!(νen, params.electron_neutral_collisions, nn, Tev)
+    freq_electron_classical!(νc, νen, νei, νiz, νex, config.LANDMARK)
 
-        # Compute total classical collision frequency
-        # If we're not running the LANDMARK benchmark, include momentum transfer due to inelastic collisions
-        νc[i] = νen[i] + νei[i] + !config.LANDMARK * (νiz[i] + νex[i])
-
+    # Update wall collisions
+    @inbounds for i in eachindex(radial_loss_frequency)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
             params.config.wall_loss_model, params, i,)
@@ -49,7 +36,7 @@ function update_electrons!(params, t = 0)
         smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
     end
 
-    @inbounds for i in 1:ncells
+    @inbounds for i in eachindex(νan)
         # Multiply by anom anom multiplier for PID control
         νan[i] *= anom_multiplier[]
 
@@ -65,22 +52,22 @@ function update_electrons!(params, t = 0)
     Id[] = integrate_discharge_current(params)
 
     # Compute the electron velocity and electron kinetic energy
-    @inbounds for i in 1:ncells
+    @inbounds for i in eachindex(ue)
         # je + ji = Id / A
         ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
     end
 
     # Kinetic energy in both axial and azimuthal directions is accounted for
-    electron_kinetic_energy!(K, params)
+    electron_kinetic_energy!(K, νe, B, ue)
 
     # Compute potential gradient and pressure gradient
-    compute_pressure_gradient!(∇pe, params)
+    compute_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     # Compute electric field
     compute_electric_field!(∇ϕ, params)
 
     # update electrostatic potential and potential gradient on edges
-    solve_potential!(ϕ, params)
+    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, config.discharge_voltage + Vs[])
 
     #update thermal conductivity
     params.config.conductivity_model(κ, params)
@@ -92,6 +79,17 @@ function update_electrons!(params, t = 0)
     anom_multiplier[] = exp(apply_controller(
         simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
     ))
+end
+
+function update_temp_and_pressure!(Tev, pe, nϵ, ne, min_Te, landmark)
+    # Update plasma quantities based on new density
+    pe_factor = landmark ? 1.5 : 1.0
+    @inbounds for i in eachindex(Tev)
+        # Compute new electron temperature
+        Tev[i] = 2 / 3 * max(min_Te, nϵ[i] / ne[i])
+        # Compute electron pressure
+        pe[i] = pe_factor * ne[i] * Tev[i]
+    end
 end
 
 # Compute the axially-constant discharge current using Ohm's law
@@ -141,33 +139,7 @@ function integrate_discharge_current(params)
     return I
 end
 
-function compute_electric_field!(∇ϕ, params)
-    (; config, cache, iteration) = params
-    (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
-
-    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
-
-    if (apply_drag)
-        (; νei, νen, νan, ui) = cache
-    end
-
-    for i in eachindex(∇ϕ)
-        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
-
-        if (apply_drag)
-            ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = config.neutral_velocity * (νen[i]) * me / e
-            E += ion_drag + neutral_drag
-        end
-
-        ∇ϕ[i] = -E
-    end
-
-    return ∇ϕ
-end
-
-function electron_kinetic_energy!(K, params)
-    (; νe, B, ue) = params.cache
+function electron_kinetic_energy!(K, νe, B, ue)
     # K = 1/2 me ue^2
     #   = 1/2 me (ue^2 + ue_θ^2)
     #   = 1/2 me (ue^2 + Ωe^2 ue^2)
@@ -176,10 +148,7 @@ function electron_kinetic_energy!(K, params)
     @. K = 0.5 * me * (1 + (e * B / me / νe)^2) * ue^2 / e
 end
 
-function compute_pressure_gradient!(∇pe, params)
-    (; pe) = params.cache
-    (; grid) = params
-    z_cell = grid.cell_centers
+function compute_pressure_gradient!(∇pe, pe, z_cell)
     ncells = length(z_cell)
 
     # Pressure gradient (forward)

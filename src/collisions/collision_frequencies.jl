@@ -11,28 +11,48 @@ Effective frequency of electron scattering caused by collisions with neutrals
     return νen
 end
 
-function freq_electron_neutral(params, i)
-    nn = params.cache.nn[i]
-    Tev = params.cache.Tev[i]
-    return freq_electron_neutral(params.electron_neutral_collisions, nn, Tev)
+function freq_electron_neutral!(
+        νen::Vector{T}, collisions::Vector{ElasticCollision},
+        nn::Vector{T}, Tev::Vector{T},) where {T <: Number}
+    @inbounds for i in eachindex(νen)
+        νen[i] = freq_electron_neutral(collisions, nn[i], Tev[i])
+    end
 end
 
 """
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline freq_electron_ion(ne::Number, Tev::Number, Z::Number) = 2.9e-12 * Z^2 * ne *
-                                                                coulomb_logarithm(
-                                                                    ne, Tev, Z,) /
-                                                                sqrt(Tev^3)
+@inline function freq_electron_ion(ne::T, Tev::T, Z::T) where {T <: Number}
+    return 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
+end
+
+function freq_electron_ion!(
+        νei::Vector{T}, ne::Vector{T}, Tev::Vector{T}, Z::Vector{T},) where {T <: Number}
+    @inbounds for i in eachindex(νei)
+        νei[i] = freq_electron_ion(ne[i], Tev[i], Z[i])
+    end
+end
 
 """
-    freq_electron_electron(ne, Tev)
-Effective frequency at which electrons are scattered due to collisions with other electrons
+    $(TYPEDSIGNATURES)
+Update the classical collision frequency.
 """
-@inline freq_electron_electron(ne::Number, Tev::Number) = 5e-12 * ne *
-                                                          coulomb_logarithm(ne, Tev) /
-                                                          sqrt(Tev^3)
+function freq_electron_classical!(
+        νc::Vector{T}, νen::Vector{T}, νei::Vector{T},
+        νiz::Vector{T}, νex::Vector{T}, landmark::Bool,) where {T}
+    @inbounds for i in eachindex(νc)
+        νc[i] = νen[i] + νei[i]
+    end
+
+    if landmark
+        return
+    end
+
+    @inbounds for i in eachindex(νc)
+        νc[i] += νiz[i] + νex[i]
+    end
+end
 
 """
     coulomb_logarithm(ne, Tev, Z = 1)

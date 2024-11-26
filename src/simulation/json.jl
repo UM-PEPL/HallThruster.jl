@@ -1,3 +1,5 @@
+@public write_to_json, run_simulation
+
 """
     $(TYPEDSIGNATURES)
 Run a simulation from a JSON input file.
@@ -11,6 +13,11 @@ function run_simulation(json_file::String; restart::String = "")
     else
         json_file
     end
+
+    if (splitext(json_file)[2] != ".json")
+        throw(ArgumentError("$json_file is not a valid JSON file"))
+    end
+
     obj = JSON3.read(read(json_file))
 
     # Read config and sim params from file

@@ -244,13 +244,3 @@ collision frequency, and are useful for defining more complex anomalous transpor
 models. If not defined by the user, this defaults to zero.
 """
 num_anom_variables(::AnomalousTransportModel)::Int = 0
-
-"""
-    allocate_anom_variables(::AnomalousTransportModel, ncells)
-Allocate arrays for anomalous transport state variables. `ncells` is the length
-of the arrays to be allocated. These anomalous transport variables are then stored
-in params.cache.anom_variables
-"""
-function allocate_anom_variables(model::AnomalousTransportModel, ncells)
-    [zeros(ncells) for _ in 1:num_anom_variables(model)]
-end

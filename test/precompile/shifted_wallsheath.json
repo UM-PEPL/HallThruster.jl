@@ -1,0 +1,71 @@
+{
+  "config": {
+    "ncharge": 3,
+    "thruster": {
+      "name": "SPT-100",
+      "geometry": {
+        "inner_radius": 0.035,
+        "outer_radius": 0.05,
+        "channel_length": 0.025
+      },
+      "magnetic_field": {
+        "file": "bfield_spt100.csv"
+      }
+    },
+    "domain": [
+      0.0,
+      0.08
+    ],
+    "anode_mass_flow_rate": 0.000003,
+    "discharge_voltage": 300,
+    "cathode_potential": 30,
+    "anom_model": {
+      "type": "LogisticPressureShift",
+      "model": {
+        "type": "GaussianBohm",
+        "hall_min": 0.00625,
+        "hall_max": 0.0625,
+        "center": 0.025,
+        "width": 0.0025
+      },
+      "dz": 0.005,
+      "z0": -0.003,
+      "pstar": 3e-5,
+      "alpha": 43.0 
+    },
+    "wall_loss_model": {
+      "type": "WallSheath",
+      "material": "BNSiO2",
+      "loss_scale": 0.5 
+    },
+    "neutral_velocity": 278.031,
+    "neutral_temperature_K": 300.0,
+    "ion_temperature_K": 1000.0,
+    "transition_length": 0.004174,
+    "cathode_Tev": 3.26173,
+    "anode_Tev": 3.26173,
+    "background_pressure_Torr": 0.00001,
+    "background_temperature_K": 300.0,
+    "solve_plume": true,
+    "apply_thrust_divergence_correction": false,
+    "ion_wall_losses": true,
+    "electron_ion_collisions": true,
+    "neutral_ingestion_multiplier": 6.0 
+  },
+  "simulation": {
+    "dt": 5E-9,
+    "adaptive": true,
+    "duration": 1e-5,
+    "num_save": 1000,
+    "grid": {
+      "type": "EvenGrid",
+      "num_cells": 200
+    },
+    "verbose": false
+  },
+  "postprocess": {
+    "output_file": "__output.json",
+    "average_start_time": 0.0005,
+    "save_time_resolved": true
+  }
+}

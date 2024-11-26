@@ -1,13 +1,17 @@
-function allocate_arrays(grid, config)
-    (; ncharge, anom_model) = config
+# Split into helper method and main method to hopefully
+# reduce precompilation/recompilation time
+function allocate_arrays(grid::Grid1D, config::Config)
+    ncells = length(grid.cell_centers)
+    nedges = length(grid.edges)
+    ncharge = config.ncharge
+    n_anom_vars = num_anom_variables(config.anom_model)
+    return allocate_arrays(ncells, nedges, ncharge, n_anom_vars)
+end
 
+function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::Int)
     # made less general to handle common use cases as part of fluid refactor
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
 
-    ncells = grid.num_cells
-    nedges = grid.num_cells - 1
-
-    # Main state vector
     U = zeros(nvariables, ncells)
 
     cache = (;
@@ -98,7 +102,7 @@ function allocate_arrays(grid, config)
         tanδ = zeros(ncells),            # Tangent of divergence half-angle
 
         # Anomalous transport variables
-        anom_variables = allocate_anom_variables(anom_model, size(U, 2)),
+        anom_variables = [zeros(ncells) for _ in 1:n_anom_vars],
 
         # Timesteps
         dt_iz = zeros(1),

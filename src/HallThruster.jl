@@ -67,17 +67,17 @@ include("thruster/spt100.jl")
 
 include("grid/gridspec.jl")
 include("grid/grid.jl")
-include("simulation/allocation.jl")
 
 include("simulation/current_control.jl")
 include("simulation/initialization.jl")
+include("simulation/configuration.jl")
+include("simulation/allocation.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/update_heavy_species.jl")
 include("simulation/electronenergy.jl")
 include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
-include("simulation/configuration.jl")
 include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
 include("simulation/postprocess.jl")
@@ -138,6 +138,14 @@ end
 # Precompile statements to improve load time
 @compile_workload begin
     example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
+
+    for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
+        if splitext(file)[2] != ".json"
+            continue
+        end
+        sol = HallThruster.run_simulation(file)
+    end
+    rm(joinpath(PACKAGE_ROOT, "__output.json"), force = true)
 end
 
 end # module

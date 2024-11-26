@@ -1,10 +1,26 @@
-function solve_potential!(ϕ, params)
-    (; grid, cache, config) = params
-    (; ∇ϕ, Vs) = cache
+function compute_electric_field!(∇ϕ, params)
+    (; config, cache, iteration) = params
+    (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
 
-    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, config.discharge_voltage + Vs[])
+    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
-    return ϕ
+    if (apply_drag)
+        (; νei, νen, νan, ui) = cache
+    end
+
+    for i in eachindex(∇ϕ)
+        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+
+        if (apply_drag)
+            ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
+            neutral_drag = config.neutral_velocity * (νen[i]) * me / e
+            E += ion_drag + neutral_drag
+        end
+
+        ∇ϕ[i] = -E
+    end
+
+    return ∇ϕ
 end
 
 function anode_sheath_potential(params)
