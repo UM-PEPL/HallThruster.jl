@@ -295,6 +295,15 @@ function params_from_config(config)
         anode_bc = config.anode_boundary_condition,
         landmark = config.LANDMARK,
         transition_length = config.transition_length,
+        Te_L = config.anode_Tev,
+        Te_R = config.cathode_Tev,
+        implicit_energy = config.implicit_energy,
+        ion_temperature_K = config.ion_temperature_K,
+        neutral_velocity = config.neutral_velocity,
+        anode_mass_flow_rate = config.anode_mass_flow_rate,
+        neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
+        ion_wall_losses = config.ion_wall_losses,
+        wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
     )
 end

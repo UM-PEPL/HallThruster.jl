@@ -4,28 +4,14 @@
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states!(UL, UR, U, params, config; apply_boundary_conditions = false)
-    (; is_velocity_index, index, ncharge) = params
-    (; scheme) = config
-
-    compute_edge_states!(UL, UR, U, scheme.limiter, is_velocity_index, scheme.reconstruct)
-
-    if apply_boundary_conditions
-        @views left_boundary_state!(UL[:, 1], U, params, config)
-        @views right_boundary_state!(UR[:, end], U, index, ncharge)
-    else
-        @. @views UL[:, 1] = U[:, 1]
-        @. @views UR[:, end] = U[:, end]
-    end
-end
-
-function compute_edge_states!(UL, UR, U, limiter, is_velocity_index, do_reconstruct)
+function compute_edge_states!(
+        UL, UR, U, params, limiter, do_reconstruct; apply_boundary_conditions = false,)
     (nvars, ncells) = size(U)
 
     # compute left and right edge states
     if do_reconstruct
         @inbounds for j in 1:nvars
-            if is_velocity_index[j] # reconstruct velocity as primitive variable instead of momentum density
+            if params.is_velocity_index[j] # reconstruct velocity as primitive variable instead of momentum density
                 for i in 2:(ncells - 1)
                     u₋ = U[j, i - 1] / U[j - 1, i - 1]
                     uᵢ = U[j, i] / U[j - 1, i]
@@ -53,6 +39,14 @@ function compute_edge_states!(UL, UR, U, limiter, is_velocity_index, do_reconstr
             UL[j, right_edge(i)] = U[j, i]
             UR[j, left_edge(i)]  = U[j, i]
         end
+    end
+
+    if apply_boundary_conditions
+        @views left_boundary_state!(UL[:, 1], U, params)
+        @views right_boundary_state!(UR[:, end], U, params)
+    else
+        @. @views UL[:, 1] = U[:, 1]
+        @. @views UR[:, end] = U[:, end]
     end
 end
 
@@ -113,13 +107,13 @@ function compute_fluxes!(F, UL, UR, flux_function, λ_global, grid, fluids, inde
     end
 end
 
-function compute_fluxes!(F, UL, UR, U, params, config; apply_boundary_conditions = false)
-    (; index, fluids, grid, cache) = params
+function compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions = false)
+    (; index, fluids, grid, cache, ncharge) = params
     (; λ_global, dt_u) = cache
-    (; scheme, ncharge) = config
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
-    compute_edge_states!(UL, UR, U, params, config; apply_boundary_conditions)
+    compute_edge_states!(
+        UL, UR, U, params, scheme.limiter, scheme.reconstruct; apply_boundary_conditions,)
     compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
     compute_fluxes!(F, UL, UR, scheme.flux_function, λ_global, grid, fluids, index, ncharge)
 

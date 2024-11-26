@@ -1,35 +1,24 @@
-function iterate_heavy_species!(dU, U, params, config; apply_boundary_conditions = true)
-    (; index, grid, cache, grid, simulation) = params
-    (; source_neutrals, source_ion_continuity, source_ion_momentum,
-    ncharge, ion_wall_losses) = config
-
+function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_conditions)
+    (; index, cache, grid, simulation, ncharge, ion_wall_losses) = params
+    (; source_neutrals, source_ion_continuity, source_ion_momentum) = sources
     (; F, UL, UR) = cache
 
     # Compute edges and apply convective update
-    compute_fluxes!(F, UL, UR, U, params, config; apply_boundary_conditions)
+    compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions)
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
-    # Apply user-provided source terms
-    ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
-        # User-provided neutral source term
-        dU[index.ρn, i] += source_neutrals(U, params, i)
-        for Z in 1:ncharge
-            # User-provided ion source terms
-            dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
-            dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
-        end
-    end
+    apply_user_ion_source_terms!(
+        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
 
-    apply_reactions!(dU, U, params, config)
+    apply_reactions!(dU, U, params)
 
     apply_ion_acceleration!(dU, U, params)
 
     if ion_wall_losses
-        apply_ion_wall_losses!(dU, U, params, config.wall_loss_model)
+        apply_ion_wall_losses!(dU, U, params)
     end
 
-    update_timestep!(cache, dU, simulation.CFL, ncells)
+    update_timestep!(cache, dU, simulation.CFL, length(grid.cell_centers))
 
     return nothing
 end
@@ -72,21 +61,27 @@ function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
     end
 end
 
-# Perform one step of the Strong-stability-preserving RK22 algorithm to the ion fluid
-function integrate_heavy_species!(U, params, config, dt, apply_boundary_conditions = true)
-    (; k, u1) = params.cache
+# Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
+function integrate_heavy_species!(
+        U, params, config::Config, dt, apply_boundary_conditions = true,)
+    (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
+    sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
 
+    integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
+end
+
+function integrate_heavy_species!(
+        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,)
+    (; k, u1) = params.cache
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, config; apply_boundary_conditions)
+    iterate_heavy_species!(k, U, params, scheme, sources; apply_boundary_conditions)
     @. u1 = U + dt * k
-    stage_limiter!(u1, params, config)
+    stage_limiter!(u1, params)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params, config; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, scheme, sources; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params, config)
-
-    return nothing
+    stage_limiter!(U, params)
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
@@ -119,13 +114,12 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
     @. ϵ = nϵ / ne + landmark * K
 end
 
-function update_heavy_species!(U, params, config)
-    @nospecialize(config)
+function update_heavy_species!(U, params)
     (; index, grid, cache, mi, ncharge, landmark) = params
 
     # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U, params, config)
-    @views right_boundary_state!(U[:, end], U, index, ncharge)
+    @views left_boundary_state!(U[:, 1], U, params)
+    @views right_boundary_state!(U[:, end], U, params)
 
     update_heavy_species!(
         U, cache, index, grid.cell_centers, ncharge, mi, landmark,)

@@ -54,7 +54,7 @@ function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
         params.cache.νiz .= 0.0
         params.cache.νex .= 0.0
         params.cache.inelastic_losses .= 0.0
-        params.config.conductivity_model(params.cache.κ, params) # update thermal conductivity
+        config.conductivity_model(params.cache.κ, params) # update thermal conductivity
         residual = Lp_norm(params.cache.nϵ .- nϵ_old, 2)
         if iter == 1
             res0 = residual
@@ -111,7 +111,11 @@ function verify_energy(ncells; niters = 20000)
         anode_boundary_condition = :dirichlet,
         conductivity_model = het.LANDMARK_conductivity(),
         electron_plume_loss_scale = 1.0,
+        implicit_energy = 1.0,
     )
+
+    cfg_implicit = het.Config(; config..., implicit_energy = 1.0)
+    cfg_cn = het.Config(; config..., implicit_energy = 1.0)
 
     species = [het.Xenon(0), het.Xenon(1)]
     species_range_dict = Dict([:Xe => 1, Symbol("Xe+") => 0])
@@ -128,7 +132,6 @@ function verify_energy(ncells; niters = 20000)
 
     dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
     params_base = (;
-        het.params_from_config(config)...,
         dt,
         grid,
         min_Te = 0.01 * min(Te_L, Te_R),
@@ -140,15 +143,14 @@ function verify_energy(ncells; niters = 20000)
         excitation_reactant_indices,
     )
 
+    params_implicit = (; params_base..., het.params_from_config(cfg_implicit)...)
+    params_cn = (; params_base..., het.params_from_config(cfg_cn)...)
+
     # Test backward euler implicit solve
-    cfg_implicit = het.Config(; config..., implicit_energy = 1.0)
-    params_implicit = (; params_base..., config = cfg_implicit)
     solve_energy!(params_implicit, cfg_implicit, niters, dt)
     results_implicit = (; z = z_cell, exact = nϵ_exact, sim = params_implicit.cache.nϵ[:])
 
     # Test crank-nicholson implicit solve
-    cfg_cn = het.Config(; config..., implicit_energy = 1.0)
-    params_cn = (; params_base..., config = cfg_cn)
     solve_energy!(params_cn, cfg_cn, niters, dt)
     results_cn = (; z = z_cell, exact = nϵ_exact, sim = params_cn.cache.nϵ[:])
 

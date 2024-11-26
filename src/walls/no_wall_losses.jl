@@ -14,3 +14,5 @@ function wall_power_loss!(Q, ::NoWallLosses, _params)
     @nospecialize _params
     Q .= 0.0
 end
+
+wall_loss_scale(::NoWallLosses) = 0.0

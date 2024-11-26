@@ -1,14 +1,12 @@
-function apply_reactions!(dU, U, params, config)
+function apply_reactions!(dU, U, params)
     (; index, ionization_reactions, index,
-    ionization_reactant_indices, ionization_product_indices, cache) = params
-
-    (; propellant, ncharge, LANDMARK, neutral_velocity) = config
+    ionization_reactant_indices, ionization_product_indices,
+    cache, mi, landmark, ncharge, neutral_velocity) = params
 
     rxns = zip(
         ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
 
-    apply_reactions!(
-        dU, U, cache, index, ncharge, propellant.m, LANDMARK, neutral_velocity, rxns,)
+    apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
 end
 
 function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
@@ -94,25 +92,14 @@ function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
     cache.dt_E[] = dt_max
 end
 
-function apply_ion_wall_losses!(dU, U, params, wall_loss_model)
-    (; index, ncharge, mi, thruster, cache, grid, transition_length) = params
-
-    if wall_loss_model isa NoWallLosses
-        return
-    end
-    loss_scale = wall_loss_model isa WallSheath ? wall_loss_model.loss_scale : 1.0
-
-    apply_ion_wall_losses!(dU, U, loss_scale, grid, cache, index, thruster.geometry,
-        ncharge, mi, transition_length,)
-end
-
-function apply_ion_wall_losses!(
-        dU, U, loss_scale, grid, cache, index, geometry, ncharge, mi, transition_length,)
+function apply_ion_wall_losses!(dU, U, params)
+    (; index, ncharge, mi, thruster, cache, grid, transition_length, wall_loss_scale) = params
+    geometry = thruster.geometry
     L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     e_inv_m = e / mi
 
-    h = loss_scale * edge_to_center_density_ratio()
+    h = wall_loss_scale * edge_to_center_density_ratio()
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
         u_bohm = sqrt(e_inv_m * cache.Tev[i])
@@ -129,6 +116,22 @@ function apply_ion_wall_losses!(
             dU[index.ρi[Z], i] -= density_loss
             dU[index.ρn, i] += density_loss
             dU[index.ρiui[Z], i] -= momentum_loss
+        end
+    end
+end
+
+function apply_user_ion_source_terms!(
+        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
+    (; index, grid, ncharge) = params
+    # Apply user-provided source terms
+    ncells = length(grid.cell_centers)
+    @inbounds for i in 2:(ncells - 1)
+        # User-provided neutral source term
+        dU[index.ρn, i] += source_neutrals(U, params, i)
+        for Z in 1:ncharge
+            # User-provided ion source terms
+            dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
+            dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
         end
     end
 end
@@ -166,19 +169,19 @@ function ohmic_heating!(Q, cache, landmark)
     return nothing
 end
 
-function source_electron_energy!(Q, params, config)
-    (; cache) = params
+function source_electron_energy!(Q, params, wall_loss_model)
+    (; cache, landmark, grid, excitation_reactions) = params
     (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
 
     # compute ohmic heating
-    ohmic_heating!(ohmic_heating, cache, config.LANDMARK)
+    ohmic_heating!(ohmic_heating, cache, landmark)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, config.LANDMARK, params.grid, params.excitation_reactions,)
+        inelastic_losses, cache, landmark, grid, excitation_reactions,)
 
     # compute wall losses
-    wall_power_loss!(wall_losses, config.wall_loss_model, params)
+    wall_power_loss!(wall_losses, wall_loss_model, params)
 
     # Compute net energy source, i.e heating minus losses
     @. Q = ohmic_heating - ne * wall_losses - inelastic_losses

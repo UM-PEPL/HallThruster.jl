@@ -223,8 +223,7 @@ function test_ion_losses()
         end
 
         # Test 1: no wall losses
-        het.apply_ion_wall_losses!(
-            dU, U, params_no_losses, config_no_losses.wall_loss_model,)
+        het.apply_ion_wall_losses!(dU, U, params_no_losses)
 
         @test all(dU .≈ 0.0)
 
@@ -245,8 +244,7 @@ function test_ion_losses()
 
         dU .= 0.0
         # Check that wall losses work correctly
-        het.apply_ion_wall_losses!(
-            dU, U, params_constant_sheath, config_constant_sheath.wall_loss_model,)
+        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
 
         # Neutrals should recombine at walls
         @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
@@ -272,8 +270,8 @@ function test_ion_losses()
         @test het.wall_electron_current(constant_sheath, params_constant_sheath, i) ==
               0.0
 
-        het.apply_ion_wall_losses!(
-            dU, U, params_constant_sheath, config_constant_sheath.wall_loss_model,)
+        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
+
         @test all(dU[:, 3] .≈ 0.0)
 
         # Test 3: Self-consistent wall sheath
@@ -299,8 +297,7 @@ function test_ion_losses()
         @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
         @test Iew ≈ inv(1 - γ) * (Iiw_1 + Iiw_2)
 
-        het.apply_ion_wall_losses!(
-            dU, U, params_wall_sheath, config_wall_sheath.wall_loss_model,)
+        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
 
         # Neutrals should recombine at walls
         @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
@@ -319,8 +316,8 @@ function test_ion_losses()
         @test het.wall_ion_current(wall_sheath, params_wall_sheath, i, 2) == 0.0
         @test het.wall_electron_current(wall_sheath, params_wall_sheath, i) == 0.0
 
-        het.apply_ion_wall_losses!(
-            dU, U, params_wall_sheath, config_wall_sheath.wall_loss_model,)
+        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
+
         @test all(dU[:, 3] .≈ 0.0)
     end
 end

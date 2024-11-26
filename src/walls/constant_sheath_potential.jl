@@ -23,3 +23,7 @@ function wall_power_loss!(Q, model::ConstantSheathPotential, params)
 
     return nothing
 end
+
+function wall_loss_scale(::ConstantSheathPotential)
+    return 1.0
+end

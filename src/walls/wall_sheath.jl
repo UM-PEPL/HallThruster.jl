@@ -87,3 +87,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
 
     return nothing
 end
+
+function wall_loss_scale(m::WallSheath)
+    return m.loss_scale
+end

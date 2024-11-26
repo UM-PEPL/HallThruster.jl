@@ -1,32 +1,27 @@
 function update_electron_energy!(params, config, dt)
-    (; grid, cache, min_Te, landmark) = params
+    (; wall_loss_model, source_energy) = config
+    # Remainder of energy equation
+    update_electron_energy!(params, wall_loss_model, source_energy, dt)
+end
+
+function update_electron_energy!(params, wall_loss_model, source_energy, dt)
+    (; Te_L, Te_R, grid, cache, min_Te, implicit_energy, anode_bc, landmark) = params
+    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache
 
     Q = cache.cell_cache_1
 
     # Compute energy source terms
-    source_electron_energy!(Q, params, config)
+    source_electron_energy!(Q, params, wall_loss_model)
 
     # User-provided source term
     @inbounds for i in 2:(grid.num_cells - 1)
-        Q[i] += config.source_energy(params, i)
+        Q[i] += source_energy(params, i)
     end
-
-    # Remainder of energy equation
-    Te_L, Te_R = config.anode_Tev, config.cathode_Tev
-    implicit = config.implicit_energy
-    anode_bc = config.anode_boundary_condition
-    update_electron_energy!(
-        grid, cache, Te_L, Te_R, min_Te, implicit, anode_bc, landmark, dt,)
-end
-
-function update_electron_energy!(
-        grid, cache, Te_L, Te_R, min_Te, implicit, anode_bc, landmark, dt,)
-    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache
 
     energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
 
     # Fill matrix and RHS
-    setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
+    setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit_energy, dt)
 
     # Solve equation system using the Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)

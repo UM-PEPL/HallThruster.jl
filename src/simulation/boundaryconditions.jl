@@ -1,16 +1,16 @@
-function left_boundary_state!(bc_state, U, params, config)
-    ncharge = config.ncharge
+function left_boundary_state!(bc_state, U, params)
     index = params.index
-    mi = config.propellant.m
-    Ti = config.ion_temperature_K
-    un = config.neutral_velocity
-    mdot_a = config.anode_mass_flow_rate
+    ncharge = params.ncharge
+    mi = params.mi
+    Ti = params.ion_temperature_K
+    un = params.neutral_velocity
+    mdot_a = params.anode_mass_flow_rate
     nn_B = params.background_neutral_density
     un_B = params.background_neutral_velocity
-    neutral_multiplier = config.neutral_ingestion_multiplier
-    anode_bc = config.anode_boundary_condition
+    neutral_ingestion_multiplier = params.neutral_ingestion_multiplier
+    anode_bc = params.anode_bc
 
-    ingestion_density = nn_B * un_B / un * neutral_multiplier
+    ingestion_density = nn_B * un_B / un * neutral_ingestion_multiplier
 
     left_boundary_state!(bc_state, U, index, ncharge, params.cache, mi,
         Ti, un, ingestion_density, mdot_a, anode_bc,)
@@ -81,7 +81,8 @@ function left_boundary_state!(
     end
 end
 
-function right_boundary_state!(bc_state, U, index, ncharge)
+function right_boundary_state!(bc_state, U, params)
+    (; index, ncharge) = params
     # Use Neumann boundary conditions for all neutral fluids
     bc_state[index.ρn] = U[index.ρn, end - 1]
 
