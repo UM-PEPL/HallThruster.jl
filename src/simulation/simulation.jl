@@ -16,7 +16,7 @@
 end
 
 function setup_simulation(config::Config, sim::SimParams;
-        postprocess::Postprocess = Postprocess(), restart = "",)
+        postprocess::Union{Postprocess, Nothing} = nothing, restart = "", include_dirs = String[],)
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
@@ -48,8 +48,11 @@ function setup_simulation(config::Config, sim::SimParams;
         U, cache = allocate_arrays(grid, config)
     end
 
-    # Fill up cell lengths and magnetic field vectors
+    # Load magnetic field
     thruster = config.thruster
+    load_magnetic_field!(thruster.magnetic_field; include_dirs)
+
+    # Fill up cell lengths and magnetic field vectors
     itp = LinearInterpolation(thruster.magnetic_field.z, thruster.magnetic_field.B)
     @. cache.B = itp(grid.cell_centers)
 

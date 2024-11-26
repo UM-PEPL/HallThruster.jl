@@ -1,46 +1,65 @@
 {
-    "neutral_temp_K": 300,
-    "neutral_velocity_m_s": 278.01331,
-    "ion_temp_K": 1000,
-    "cathode_electron_temp_eV": 3.26173,
-    "sheath_loss_coefficient": 0.86904,
-    "inner_outer_transition_length_m": 0.0041474,
-    "anom_model_coeffs": [
-        0.007015845231627282,
-        0.0702476237091668,
-        0.02506,
-        0.0065
+  "config": {
+    "ncharge": 3,
+    "thruster": {
+      "name": "SPT-100",
+      "geometry": {
+        "inner_radius": 0.035,
+        "outer_radius": 0.05,
+        "channel_length": 0.025
+      },
+      "magnetic_field": {
+        "file": "bfield_spt100.csv"
+      }
+    },
+    "domain": [
+      0.0,
+      0.08
     ],
-    "background_pressure_Torr": 1e-05,
-    "background_temperature_K": 300,
-    "neutral_ingestion_multiplier": 6.23341,
-    "apply_thrust_divergence_correction": true,
-    "solve_plume": true,
-    "thruster_name": "SPT-100",
-    "inner_radius": 0.035,
-    "outer_radius": 0.05,
-    "channel_length": 0.025,
-    "magnetic_field_file": "bfield_spt100.csv",
-    "wall_material": "BNSiO2",
-    "magnetically_shielded": false,
-    "anode_potential": 400,
+    "anode_mass_flow_rate": 5e-6,
+    "discharge_voltage": 400,
     "cathode_potential": 30,
-    "anode_mass_flow_rate": 4.9999999999999996e-06,
-    "propellant": "Xenon",
-    "num_cells": 200,
-    "dt_s": 5e-09,
-    "duration_s": 0.001,
-    "num_save": 1000,
-    "cathode_location_m": 0.08,
-    "max_charge": 3,
-    "flux_function": "rusanov",
-    "limiter": "van_leer",
-    "reconstruct": true,
+    "anom_model": {
+      "type": "LogisticPressureShift",
+      "model": {
+        "type": "GaussianBohm",
+        "hall_min": 0.007015845231627282,
+        "hall_max": 0.0702476237091668,
+        "center": 0.02506,
+        "width": 0.0065
+      },
+      "dz": 0.008985,
+      "z0": -0.0044205,
+      "pstar": 0.00004735361,
+      "alpha": 15.0
+    },
+    "wall_loss_model": {
+      "type": "WallSheath",
+      "material": "BNSiO2",
+      "loss_scale": 0.86904
+    },
+    "neutral_velocity": 278.031,
+    "neutral_temperature_K": 300.0,
+    "ion_temperature_K": 1000.0,
+    "transition_length": 0.004174,
+    "cathode_Tev": 3.26173,
+    "anode_Tev": 3.26173,
+    "background_pressure_Torr": 0.00001,
+    "background_temperature_K": 300.0,
+    "solve_plume": true,
+    "apply_thrust_divergence_correction": true,
     "ion_wall_losses": true,
     "electron_ion_collisions": true,
-    "anom_model": "ShiftedGaussianBohm",
-    "pressure_dz": 0.008985,
-    "pressure_z0": -0.0044205,
-    "pressure_pstar": 4.735361e-05,
-    "pressure_alpha": 15
+    "neutral_ingestion_multiplier": 6.23341
+  },
+  "simulation": {
+      "dt": 5e-9,
+      "adaptive": true,
+      "duration": 1e-3,
+      "num_save": 1000,
+      "grid": {
+          "type": "EvenGrid",
+          "num_cells": 200
+      }
+  }
 }
