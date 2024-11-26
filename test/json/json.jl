@@ -8,7 +8,7 @@ function test_json()
         test_path = joinpath(het.PACKAGE_ROOT, "test", "json")
         json_path = joinpath(test_path, "input_shifted.json")
         sol = het.run_simulation(json_path)
-        config = sol.params.config
+        config = sol.config
 
         @test config.anom_model isa het.LogisticPressureShift
         @test config.anom_model.model.width ≈ 0.0025
@@ -30,7 +30,7 @@ function test_json()
 
         json_path = joinpath(test_path, "input_twozone.json")
         sol = het.run_simulation(json_path)
-        config = sol.params.config
+        config = sol.config
         @test config.anom_model isa het.TwoZoneBohm
         @test config.anom_model.c1 ≈ 1 / 160
         @test config.anom_model.c2 ≈ 1 / 16
@@ -51,7 +51,7 @@ function test_json()
 
         # Test that reading the output file produces the same inputs we originally ran the simulation with
         new_sol = het.run_simulation(outfile)
-        @test struct_eq(new_sol.params.config, sol.params.config)
+        @test struct_eq(new_sol.config, sol.config)
         @test struct_eq(new_sol.params.simulation, sol.params.simulation)
         @test struct_eq(new_sol.params.postprocess, sol.params.postprocess)
 

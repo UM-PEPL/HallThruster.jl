@@ -73,7 +73,6 @@ function setup_simulation(config::Config, sim::SimParams;
     # Simulation parameters
     params = (;
         # non-concretely-typed, changes based on run, requires recompilation
-        config = config,
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
         simulation = sim,

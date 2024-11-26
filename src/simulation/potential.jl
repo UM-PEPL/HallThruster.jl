@@ -21,15 +21,10 @@ function compute_electric_field!(∇ϕ, cache, un, apply_drag)
 end
 
 function anode_sheath_potential(params)
-    (; LANDMARK, anode_boundary_condition) = params.config
-    if LANDMARK
+    if params.landmark
         return 0.0
     end
-
-    return anode_sheath_potential(params.cache, anode_boundary_condition)
-end
-
-function anode_sheath_potential(cache, anode_bc)
+    (; anode_bc, cache) = params
     (; ne, ji, channel_area, Tev, Id) = cache
 
     # Compute anode sheath potential

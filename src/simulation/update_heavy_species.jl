@@ -120,13 +120,13 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
 end
 
 function update_heavy_species!(U, params, config)
-    (; index, grid, cache) = params
-    mi = params.config.propellant.m
+    @nospecialize(config)
+    (; index, grid, cache, mi, ncharge, landmark) = params
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params, config)
-    @views right_boundary_state!(U[:, end], U, index, config.ncharge)
+    @views right_boundary_state!(U[:, end], U, index, ncharge)
 
     update_heavy_species!(
-        U, cache, index, grid.cell_centers, config.ncharge, mi, config.LANDMARK,)
+        U, cache, index, grid.cell_centers, ncharge, mi, landmark,)
 end

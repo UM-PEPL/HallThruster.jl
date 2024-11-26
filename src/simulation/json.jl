@@ -52,7 +52,7 @@ Convert one frame of a `Solution` to an `OrderedDict`
 """
 function frame_dict(sol::Solution, frame::Integer)
     (; grid) = sol.params
-    ncharge = sol.params.config.ncharge
+    ncharge = sol.config.ncharge
     sv = sol.savevals[frame]
     d = OrderedDict{String, Any}()
     d["thrust"] = thrust(sol, frame)
@@ -111,7 +111,7 @@ function serialize_sol(
 
     return OrderedDict(
         "input" => OrderedDict(
-            "config" => serialize(sol.params.config),
+            "config" => serialize(sol.config),
             "simulation" => serialize(sol.params.simulation),
             "postprocess" => serialize(sol.params.postprocess),
         ),

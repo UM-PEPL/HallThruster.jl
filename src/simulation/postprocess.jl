@@ -48,7 +48,7 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     # Initialize avg to zero
     for f in fields
         if f == :anom_variables
-            for j in 1:num_anom_variables(sol.params.config.anom_model)
+            for j in 1:num_anom_variables(sol.config.anom_model)
                 avg_savevals[f][j] .= 0.0
             end
         else
@@ -63,7 +63,7 @@ function time_average(sol::Solution, start_frame::Integer = 1)
         avg .+= sol.u[i] / Δt
         for f in fields
             if f == :anom_variables
-                for j in 1:num_anom_variables(sol.params.config.anom_model)
+                for j in 1:num_anom_variables(sol.config.anom_model)
                     avg_savevals[f][j] .+= sol.savevals[i][f][j] / Δt
                 end
             else
@@ -92,7 +92,7 @@ function thrust(sol::Solution, frame::Integer)
     left_area = sol.savevals[frame].channel_area[1]
     right_area = sol.savevals[frame].channel_area[end]
     thrust = 0.0
-    for Z in 1:(sol.params.config.ncharge)
+    for Z in 1:(sol.config.ncharge)
         thrust += right_area * sol.u[frame][index.ρiui[Z], end]^2 /
                   sol.u[frame][index.ρi[Z], end]
         thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 /
@@ -100,7 +100,7 @@ function thrust(sol::Solution, frame::Integer)
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
-    if (sol.params.config.apply_thrust_divergence_correction)
+    if (sol.config.apply_thrust_divergence_correction)
         return thrust * sqrt(divergence_eff(sol, frame))
     else
         return thrust
@@ -132,8 +132,8 @@ Compute the anode efficiency at a specific frame of a `Solution`.
 function anode_eff(sol::Solution, frame::Integer)
     T = thrust(sol, frame)
     current = discharge_current(sol, frame)
-    Vd = sol.params.config.discharge_voltage
-    mdot_a = sol.params.config.anode_mass_flow_rate
+    Vd = sol.config.discharge_voltage
+    mdot_a = sol.config.anode_mass_flow_rate
     anode_eff = 0.5 * T^2 / current / Vd / mdot_a
     return anode_eff
 end
@@ -149,8 +149,8 @@ anode_eff(sol::Solution) = [anode_eff(sol, frame) for frame in eachindex(sol.sav
 Compute the voltage/acceleration efficiency at a specific frame of a `Solution`.
 """
 function voltage_eff(sol::Solution, frame::Integer)
-    Vd = sol.params.config.discharge_voltage
-    mi = sol.params.config.propellant.m
+    Vd = sol.config.discharge_voltage
+    mi = sol.config.propellant.m
 
     ui = sol.u[frame][sol.params.index.ρiui[1], end] /
          sol.u[frame][sol.params.index.ρi[1], end]
@@ -188,8 +188,8 @@ Compute the ion current at a specific frame of a `Solution`.
 function ion_current(sol::Solution, frame)
     Ii = 0.0
     right_area = sol.savevals[frame].channel_area[end]
-    mi = sol.params.config.propellant.m
-    for Z in 1:(sol.params.config.ncharge)
+    mi = sol.config.propellant.m
+    for Z in 1:(sol.config.ncharge)
         Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
     end
 
@@ -235,9 +235,9 @@ Compute the mass utilization efficiency at a specific frame of a `Solution`.
 function mass_eff(sol::Solution, frame)
     mass_eff = 0.0
     right_area = sol.savevals[frame].channel_area[end]
-    mdot = sol.params.config.anode_mass_flow_rate
+    mdot = sol.config.anode_mass_flow_rate
 
-    for Z in 1:(sol.params.config.ncharge)
+    for Z in 1:(sol.config.ncharge)
         mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mdot
     end
 
@@ -256,14 +256,15 @@ function Base.getindex(sol::Solution, frame::Integer)
         [sol.u[frame]],
         [sol.savevals[frame]],
         sol.params,
+        sol.config,
         sol.retcode,
         sol.error,
     )
 end
 
 function Base.getindex(sol::Solution, field::Symbol, charge::Integer = 1)
-    if charge > sol.params.config.ncharge && field in [:ni, :ui, :niui]
-        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.params.config.ncharge)."))
+    if charge > sol.config.ncharge && field in [:ni, :ui, :niui]
+        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.config.ncharge)."))
     end
 
     if field == :ni
