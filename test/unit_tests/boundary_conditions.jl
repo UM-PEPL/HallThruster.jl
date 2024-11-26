@@ -116,14 +116,14 @@ function test_boundaries()
         @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -2 * u_bohm_2
 
         # Right boundary condition should be Neumann for all species
-        het.right_boundary_state!(U_b, U1, params)
+        het.right_boundary_state!(U_b, U1, index, config.ncharge)
         @test U_b[index.ρn] ≈ U_1[index.ρn]
         @test U_b[index.ρi[1]] ≈ U_1[index.ρi[1]]
         @test U_b[index.ρiui[1]] ≈ U_1[index.ρiui[1]]
         @test U_b[index.ρi[2]] ≈ U_1[index.ρi[2]]
         @test U_b[index.ρiui[2]] ≈ U_1[index.ρiui[2]]
 
-        het.right_boundary_state!(U_b, U2, params)
+        het.right_boundary_state!(U_b, U2, index, config.ncharge)
         @test U_b[index.ρn] ≈ U_2[index.ρn]
         @test U_b[index.ρi[1]] ≈ U_2[index.ρi[1]]
         @test U_b[index.ρiui[1]] ≈ U_2[index.ρiui[1]]

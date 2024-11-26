@@ -4,7 +4,7 @@
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions)
+function compute_edge_states!(UL, UR, U, params; apply_boundary_conditions = false)
     (; is_velocity_index, index, config) = params
     (; scheme, ncharge) = config
 

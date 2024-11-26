@@ -52,8 +52,8 @@ end
 function test_stage_limiter()
     @testset "Stage limiter" begin
         index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
-        config = (ncharge = 1, min_number_density = 1e6,
-            propellant = het.Xenon,)
+        config = (ncharge = 1, propellant = het.Xenon)
+        min_ne = het.MIN_NUMBER_DENSITY
 
         p = (; config, index, cache = (; nϵ = [-1.0]),
             grid = (; cell_centers = [0.0]), min_Te = 1.0,)
@@ -62,10 +62,10 @@ function test_stage_limiter()
 
         mi = config.propellant.m
 
-        @test U[index.ρn] == config.min_number_density * mi
-        @test U[index.ρi[1]] == config.min_number_density * mi
-        @test U[index.ρiui[1]] == 1.0 * config.min_number_density * mi
-        @test p.cache.nϵ[1] == config.min_number_density * p.min_Te
+        @test U[index.ρn] == min_ne * mi
+        @test U[index.ρi[1]] == min_ne * mi
+        @test U[index.ρiui[1]] == 1.0 * min_ne * mi
+        @test p.cache.nϵ[1] == 1.5 * min_ne * p.min_Te
     end
 end
 
