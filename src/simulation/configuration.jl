@@ -105,7 +105,7 @@ struct Config{A <: AnomalousTransportModel,
 
         # Neutral source terms
         if isnothing(source_neutrals)
-            source_neutrals = fill(Returns(0.0), 1)
+            source_neutrals = Returns(0.0)
         end
 
         # Convert to Float64 if using Unitful
@@ -216,6 +216,7 @@ function ion_source_terms(ncharge, source, type)
     if ncharge != length(source)
         throw(ArgumentError("Number of ion $type source terms must match number of charges"))
     end
+    return source
 end
 
 ion_source_terms(ncharge, ::Nothing, args...) = fill(Returns(0.0), ncharge)
@@ -293,5 +294,7 @@ function params_from_config(config)
         mi = config.propellant.m,
         anode_bc = config.anode_boundary_condition,
         landmark = config.LANDMARK,
+        transition_length = config.transition_length,
+        plume_loss_scale = config.electron_plume_loss_scale,
     )
 end

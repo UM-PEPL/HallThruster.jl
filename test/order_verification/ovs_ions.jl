@@ -57,20 +57,20 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     thruster = het.SPT_100
     A_ch = het.channel_area(thruster)
     anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un * ρi_func(0.0)) * A_ch
+    domain = (0.0, 0.05)
 
-    config = (;
+    config = het.Config(;
+        domain,
+        discharge_voltage = 0.0,
         thruster,
-        source_neutrals = ((_, p, i) -> source_ρn(p.grid.cell_centers[i]),),
+        source_neutrals = (_, p, i) -> source_ρn(p.grid.cell_centers[i]),
         source_ion_continuity = ((_, p, i) -> source_ρi(p.grid.cell_centers[i]),),
         source_ion_momentum = ((_, p, i) -> source_ρiui(p.grid.cell_centers[i]),),
         propellant = het.Xenon,
         ncharge = 1,
-        min_electron_temperature = 1.0,
         neutral_velocity = un,
         neutral_temperature_K = 300.0,
         ion_temperature_K = Ti,
-        solve_ion_energy = false,
-        anode_sheath = false,
         anode_mass_flow_rate,
         scheme,
         ionization_model = :OVS,
@@ -83,7 +83,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     # Construct grid
     grid = het.generate_grid(
-        het.SPT_100.geometry, (0.0, 0.05), het.UnevenGrid(ncells),)
+        het.SPT_100.geometry, domain, het.UnevenGrid(ncells),)
     z_cell = grid.cell_centers
 
     # Create fluids
@@ -115,7 +115,6 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     # Create params struct
     params = (;
-        config,
         het.params_from_config(config)...,
         grid,
         ncells = length(z_cell),

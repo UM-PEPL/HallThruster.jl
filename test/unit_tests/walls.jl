@@ -53,8 +53,11 @@ function test_electron_losses()
             νew_momentum = [0.0, 0.0, 0.0, 0.0],
         )
         transition_length = 0.2 * L_ch
-        config = (;
+        config = het.Config(;
             thruster = het.SPT_100,
+            anode_mass_flow_rate = 5e-6,
+            domain = (0.0, 1.0),
+            discharge_voltage = 300.0,
             transition_length,
             propellant = het.Xenon, ncharge = 1,
             electron_plume_loss_scale = 0.0,
@@ -69,7 +72,8 @@ function test_electron_losses()
         γmax_kr = 1 - 8.3 * sqrt(me / mi_kr)
 
         params = (;
-            cache, config, index, grid,
+            het.params_from_config(config)...,
+            cache, index, grid,
             γ_SEE_max = γmax,
         )
 
@@ -83,12 +87,10 @@ function test_electron_losses()
 
         γ1 = 0.5
         γ2 = 1.0
-        γsat = 100.0
         @test het.sheath_potential(Tev, γ1, mi) ==
               Tev * log(0.5 * (1 - γ1) * sqrt(2 * mi / π / me))
         @test het.sheath_potential(Tev, γ2, mi) ==
               Tev * log(0.5 * (1 - γ2) * sqrt(2 * mi / π / me))
-        #-1.02 * Tev
 
         BN = het.BoronNitride
         @test het.SEE_yield(BN, 10.0, γmax) ≈
@@ -114,7 +116,7 @@ function test_electron_losses()
         @test het.freq_electron_wall(landmark_losses, params, 2) == 1e7
         @test het.freq_electron_wall(landmark_losses, params, 3) *
               het.linear_transition(
-            grid.cell_centers[3], L_ch, params.config.transition_length, 1.0, 0.0,) == 0.0e7
+            grid.cell_centers[3], L_ch, config.transition_length, 1.0, 0.0,) == 0.0e7
 
         γ = het.SEE_yield(BN, Tev, γmax)
         νiw = α * sqrt(het.e * Tev / mi) / Δr * h
@@ -135,10 +137,10 @@ function test_electron_losses()
 
         @test het.freq_electron_wall(sheath_model, params, 2) *
               het.linear_transition(
-            grid.cell_centers[2], L_ch, params.config.transition_length, 1.0, 0.0,) ≈ νew
+            grid.cell_centers[2], L_ch, config.transition_length, 1.0, 0.0,) ≈ νew
         @test het.freq_electron_wall(sheath_model, params, 3) *
               het.linear_transition(
-            grid.cell_centers[3], L_ch, params.config.transition_length, 1.0, 0.0,) ≈ 0.0
+            grid.cell_centers[3], L_ch, config.transition_length, 1.0, 0.0,) ≈ 0.0
 
         het.wall_power_loss!(arr, sheath_model, params)
         @test arr[2] ≈ νew * (2 * Tev + (1 - γ) * Vs)
@@ -149,11 +151,11 @@ end
 function test_ion_losses()
     @testset "Ion wall losses" begin
         config = (; thruster = het.SPT_100, propellant = het.Krypton,
-            ncharge = 2, transition_length = 0.0,)
+            ncharge = 2, transition_length = 0.0, anode_mass_flow_rate = 5e-6,
+            discharge_voltage = 300.0, domain = (0.0, 1.0),)
         geom = het.SPT_100.geometry
         Δr = geom.outer_radius - geom.inner_radius
         L_ch = geom.channel_length
-        A_ch = geom.channel_area
         h = het.edge_to_center_density_ratio()
 
         Tn = 300.0
@@ -191,7 +193,6 @@ function test_ion_losses()
         index = (ρn = 1, ρi = [2, 4], ρiui = [3, 5], nϵ = 6)
 
         u_bohm = sqrt(het.e * Tev / mi)
-        u_thermal_n = sqrt(het.kB * Tn / 2 / π / mi)
 
         ρn = 10 * ne * mi
 
@@ -211,32 +212,28 @@ function test_ion_losses()
 
         dU = zeros(size(U))
 
-        z_edge = grid.edges
-        z_cell = grid.cell_centers
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
         base_params = (; cache, fluids, grid, index, γ_SEE_max)
 
-        config_no_losses = (; config..., wall_loss_model = het.NoWallLosses())
-        params_no_losses = (; base_params..., config = config_no_losses)
+        config_no_losses = het.Config(; config..., wall_loss_model = het.NoWallLosses())
+        params_no_losses = (; base_params..., het.params_from_config(config_no_losses)...)
 
         for i in 1:4
             cache.Z_eff[i] = (ni_1 + 2 * ni_2) / (ni_1 + ni_2)
         end
 
-        u_bohm_1 = u_bohm
-        u_bohm_2 = sqrt(2) * u_bohm
-
         # Test 1: no wall losses
-        het.apply_ion_wall_losses!(dU, U, params_no_losses)
+        het.apply_ion_wall_losses!(
+            dU, U, params_no_losses, config_no_losses.wall_loss_model,)
 
         @test all(dU .≈ 0.0)
 
         # Test 2: LANDMARK wall losses
-
         αin, αout = 1.0, 1.0
         constant_sheath = het.ConstantSheathPotential(-20, αin, αout)
-        config_constant_sheath = (; config..., wall_loss_model = constant_sheath)
-        params_constant_sheath = (; base_params..., config = config_constant_sheath)
+        config_constant_sheath = het.Config(; config..., wall_loss_model = constant_sheath)
+        params_constant_sheath = (;
+            base_params..., het.params_from_config(config_constant_sheath)...,)
 
         i = 2
         Iiw_1 = het.wall_ion_current(constant_sheath, params_constant_sheath, i, 1)
@@ -248,14 +245,13 @@ function test_ion_losses()
 
         dU .= 0.0
         # Check that wall losses work correctly
-        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
+        het.apply_ion_wall_losses!(
+            dU, U, params_constant_sheath, config_constant_sheath.wall_loss_model,)
 
         # Neutrals should recombine at walls
         @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
 
         # Rate of ion loss is equal to ni νiw
-        Δz = z_edge[2] - z_edge[1]
-        V_cell = A_ch * Δz
         u_bohm = sqrt(het.e * Tev / mi)
         νiw = u_bohm / Δr * h
 
@@ -276,15 +272,17 @@ function test_ion_losses()
         @test het.wall_electron_current(constant_sheath, params_constant_sheath, i) ==
               0.0
 
-        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
+        het.apply_ion_wall_losses!(
+            dU, U, params_constant_sheath, config_constant_sheath.wall_loss_model,)
         @test all(dU[:, 3] .≈ 0.0)
 
         # Test 3: Self-consistent wall sheath
         dU .= 0.0
         material = het.BNSiO2
         wall_sheath = het.WallSheath(material, α)
-        config_wall_sheath = (; config..., wall_loss_model = wall_sheath)
-        params_wall_sheath = (; base_params..., config = config_wall_sheath)
+        config_wall_sheath = het.Config(; config..., wall_loss_model = wall_sheath)
+        params_wall_sheath = (;
+            base_params..., het.params_from_config(config_wall_sheath)...,)
 
         γ = het.SEE_yield(material, Tev, γ_SEE_max)
         νiw = α * sqrt(het.e * Tev / mi) / Δr * h
@@ -301,7 +299,8 @@ function test_ion_losses()
         @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
         @test Iew ≈ inv(1 - γ) * (Iiw_1 + Iiw_2)
 
-        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
+        het.apply_ion_wall_losses!(
+            dU, U, params_wall_sheath, config_wall_sheath.wall_loss_model,)
 
         # Neutrals should recombine at walls
         @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
@@ -320,7 +319,8 @@ function test_ion_losses()
         @test het.wall_ion_current(wall_sheath, params_wall_sheath, i, 2) == 0.0
         @test het.wall_electron_current(wall_sheath, params_wall_sheath, i) == 0.0
 
-        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
+        het.apply_ion_wall_losses!(
+            dU, U, params_wall_sheath, config_wall_sheath.wall_loss_model,)
         @test all(dU[:, 3] .≈ 0.0)
     end
 end

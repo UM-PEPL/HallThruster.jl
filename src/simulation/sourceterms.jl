@@ -70,9 +70,7 @@ end
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
 function apply_ion_acceleration!(dU, U, params)
-    (; config, index, grid, cache) = params
-    mi = config.propellant.m
-    ncharge = config.ncharge
+    (; index, grid, cache, mi, ncharge) = params
     apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
 end
 
@@ -96,9 +94,8 @@ function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
     cache.dt_E[] = dt_max
 end
 
-function apply_ion_wall_losses!(dU, U, params)
-    (; index, config, cache, grid) = params
-    (; ncharge, propellant, wall_loss_model, thruster, transition_length) = config
+function apply_ion_wall_losses!(dU, U, params, wall_loss_model)
+    (; index, ncharge, mi, thruster, cache, grid, transition_length) = params
 
     if wall_loss_model isa NoWallLosses
         return
@@ -106,7 +103,7 @@ function apply_ion_wall_losses!(dU, U, params)
     loss_scale = wall_loss_model isa WallSheath ? wall_loss_model.loss_scale : 1.0
 
     apply_ion_wall_losses!(dU, U, loss_scale, grid, cache, index, thruster.geometry,
-        ncharge, propellant.m, transition_length,)
+        ncharge, mi, transition_length,)
 end
 
 function apply_ion_wall_losses!(

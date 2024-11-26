@@ -13,9 +13,8 @@ function iterate_heavy_species!(dU, U, params, config; apply_boundary_conditions
     ncells = length(grid.cell_centers)
     @inbounds for i in 2:(ncells - 1)
         # User-provided neutral source term
-        dU[index.ρn, i] += source_neutrals[1](U, params, i)
+        dU[index.ρn, i] += source_neutrals(U, params, i)
         for Z in 1:ncharge
-
             # User-provided ion source terms
             dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
@@ -27,7 +26,7 @@ function iterate_heavy_species!(dU, U, params, config; apply_boundary_conditions
     apply_ion_acceleration!(dU, U, params)
 
     if ion_wall_losses
-        apply_ion_wall_losses!(dU, U, params)
+        apply_ion_wall_losses!(dU, U, params, config.wall_loss_model)
     end
 
     update_timestep!(cache, dU, simulation.CFL, ncells)

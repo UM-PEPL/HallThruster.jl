@@ -1,7 +1,16 @@
 struct NoWallLosses <: WallLossModel end
 
-freq_electron_wall(model::NoWallLosses, params, i) = 0.0
-wall_electron_current(model::NoWallLosses, params, i) = 0.0
-function wall_power_loss!(Q, ::NoWallLosses, _)
-  Q .= 0.0
+function freq_electron_wall(::NoWallLosses, _params, _i)
+    @nospecialize _params, _i
+    return 0.0
+end
+
+function wall_electron_current(::NoWallLosses, _params, _i)
+    @nospecialize _params, _i
+    return 0.0
+end
+
+function wall_power_loss!(Q, ::NoWallLosses, _params)
+    @nospecialize _params
+    Q .= 0.0
 end

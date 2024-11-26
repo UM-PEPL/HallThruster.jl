@@ -95,19 +95,22 @@ function verify_energy(ncells; niters = 20000)
     @. cache.nϵ = Te_L * cache.ne
 
     config = (;
+        domain = (0.0, 1.0),
+        discharge_voltage = 0.0,
+        anode_mass_flow_rate = 0.0,
         anode_Tev = 2 / 3 * Te_L,
         cathode_Tev = 2 / 3 * Te_R,
         ncharge = 1,
         source_energy = (params, i) -> source_energy(params.grid.cell_centers[i]),
-        min_electron_temperature = 0.1 * min(Te_L, Te_R),
         transition_length = 0.0,
         LANDMARK = true,
         propellant = het.Xenon,
         ionization_model = :OVS, excitation_model = :OVS,
         wall_loss_model = het.ConstantSheathPotential(20.0, 1.0, 1.0),
-        thruster = (; geometry = (; channel_length = 0.025)),
+        thruster = het.SPT_100,
         anode_boundary_condition = :dirichlet,
         conductivity_model = het.LANDMARK_conductivity(),
+        electron_plume_loss_scale = 1.0,
     )
 
     species = [het.Xenon(0), het.Xenon(1)]
@@ -138,13 +141,13 @@ function verify_energy(ncells; niters = 20000)
     )
 
     # Test backward euler implicit solve
-    cfg_implicit = (; config..., implicit_energy = 1.0)
+    cfg_implicit = het.Config(; config..., implicit_energy = 1.0)
     params_implicit = (; params_base..., config = cfg_implicit)
     solve_energy!(params_implicit, cfg_implicit, niters, dt)
     results_implicit = (; z = z_cell, exact = nϵ_exact, sim = params_implicit.cache.nϵ[:])
 
     # Test crank-nicholson implicit solve
-    cfg_cn = (; config..., implicit_energy = 1.0)
+    cfg_cn = het.Config(; config..., implicit_energy = 1.0)
     params_cn = (; params_base..., config = cfg_cn)
     solve_energy!(params_cn, cfg_cn, niters, dt)
     results_cn = (; z = z_cell, exact = nϵ_exact, sim = params_cn.cache.nϵ[:])
