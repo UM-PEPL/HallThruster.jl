@@ -4,7 +4,6 @@
     duration::Float64
     # Optional parameters
     num_save::Int        = 1000
-    restart::Bool        = false
     CFL::Float64         = 0.799
     adaptive::Bool       = false
     min_dt::Float64      = 1e-10
@@ -16,7 +15,9 @@
 end
 
 function setup_simulation(config::Config, sim::SimParams;
-        postprocess::Union{Postprocess, Nothing} = nothing, restart = "", include_dirs = String[],)
+        postprocess::Union{Postprocess, Nothing} = nothing, include_dirs = String[],
+        restart::AbstractString = "",)
+
     #check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
@@ -41,12 +42,7 @@ function setup_simulation(config::Config, sim::SimParams;
 
     # Generate grid and allocate state
     grid = generate_grid(config.thruster.geometry, config.domain, sim.grid)
-
-    if sim.restart
-        U, cache = load_restart(grid, config, restart)
-    else
-        U, cache = allocate_arrays(grid, config)
-    end
+    U, cache = allocate_arrays(grid, config)
 
     # Load magnetic field
     thruster = config.thruster
@@ -98,16 +94,20 @@ function setup_simulation(config::Config, sim::SimParams;
         min_Te = min(config.anode_Tev, config.cathode_Tev),
     )
 
-    # Compute maximum allowed iterations
-    if !sim.restart
-        initialize!(U, params)
-        initialize_plume_geometry(params)
+    # Initialize ion and electron variables
+    initialize!(U, params)
 
-        # Initialize the anomalous collision frequency using a two-zone Bohm approximation for the first iteration
-        TwoZoneBohm(1 // 160, 1 // 16)(params.cache.νan, params)
+    # Initialize the anomalous collision frequency using a 
+    # two-zone Bohm approximation for the first iteration
+    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params)
+
+    if !isempty(restart)
+        # Initialize the solution from a restart JSON file
+        initialize_from_restart!(U, params, restart)
     end
 
     # make values in params available for first timestep
+    initialize_plume_geometry(params)
     update_heavy_species!(U, params)
     update_electrons!(params)
 
@@ -119,7 +119,7 @@ function setup_simulation(
         duration, nsave,
         grid::GridSpec = EvenGrid(0),
         ncells = 0,
-        dt, restart = nothing,
+        dt, restart::AbstractString = "",
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
@@ -150,7 +150,6 @@ function setup_simulation(
         dt,
         num_save = nsave,
         CFL,
-        restart = restart !== nothing,
         adaptive,
         min_dt = dtmin,
         max_dt = dtmax,

@@ -20,23 +20,14 @@
     "discharge_voltage": 300,
     "cathode_potential": 30,
     "anom_model": {
-      "type": "LogisticPressureShift",
-      "model": {
-        "type": "GaussianBohm",
-        "hall_min": 0.00625,
-        "hall_max": 0.0625,
-        "center": 0.025,
-        "width": 0.0025
-      },
-      "dz": 0.005,
-      "z0": -0.003,
-      "pstar": 3e-5,
-      "alpha": 43.0 
+      "type": "TwoZoneBohm",
+      "c1": 0.00625,
+      "c2": 0.0625
     },
     "wall_loss_model": {
       "type": "WallSheath",
       "material": "BNSiO2",
-      "loss_scale": 0.5 
+      "loss_scale": 0.86904
     },
     "neutral_velocity": 278.031,
     "neutral_temperature_K": 300.0,
@@ -50,16 +41,21 @@
     "apply_thrust_divergence_correction": false,
     "ion_wall_losses": true,
     "electron_ion_collisions": true,
-    "neutral_ingestion_multiplier": 6.0 
+    "neutral_ingestion_multiplier": 6.23341
   },
   "simulation": {
     "dt": 5E-9,
     "adaptive": true,
-    "duration": 1E-8,
+    "duration": 1E-5,
     "num_save": 1000,
     "grid": {
       "type": "EvenGrid",
       "num_cells": 200
     }
+  },
+  "postprocess": {
+    "output_file": "output.json",
+    "average_start_time": 0.0005,
+    "save_time_resolved": true
   }
 }

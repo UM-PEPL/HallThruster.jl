@@ -99,6 +99,7 @@ function initialize_electrons_default!(params; max_electron_temperature = -1.0)
 
     for (i, z) in enumerate(grid.cell_centers)
         cache.nϵ[i] = cache.ne[i] * energy_function(z)
+        cache.Tev[i] = energy_function(z) / 1.5
     end
 
     return nothing
@@ -108,4 +109,53 @@ function initialize!(U, params, init::DefaultInitialization)
     (; max_electron_temperature, min_ion_density, max_ion_density) = init
     initialize_heavy_species_default!(U, params; min_ion_density, max_ion_density)
     initialize_electrons_default!(params; max_electron_temperature)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+Initialize `U` and `cache` from a simulation output
+"""
+function initialize_from_restart!(U, params, restart_file)
+    restart = JSON3.read(read(restart_file))
+
+    if haskey(restart, "output")
+        restart = restart.output
+    end
+
+    if haskey(restart, "frames")
+        frame = restart.frames[end]
+    elseif haskey(restart, "average")
+        frame = restart.average
+    else
+        throw(ArgumentError("Restart file $(restart_file) has no key `frames` or `average`."))
+    end
+
+    (; config, cache, grid) = params
+    ncharge = config.ncharge
+    ncharge_restart = length(frame.ni)
+    mi = config.propellant.m
+
+    # load ion properties, interpolated from restart grid to grid in params
+    z = grid.cell_centers
+
+    U[1, :] .= LinearInterpolation(frame.z, frame.nn .* mi).(z)
+
+    for Z in 1:min(ncharge, ncharge_restart)
+        U[Z + 1, :] .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
+        U[Z + 2, :] .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
+    end
+
+    cache.ne .= LinearInterpolation(frame.z, frame.ne).(z)
+
+    # load electron properties
+    Te = LinearInterpolation(frame.z, frame.Tev).(z)
+    phi = LinearInterpolation(frame.z, frame.V).(z)
+    E = LinearInterpolation(frame.z, frame.E).(z)
+
+    @. cache.nϵ = 1.5 * cache.ne * Te
+    @. cache.Tev = Te
+    @. cache.∇ϕ = -E
+    @. cache.ϕ = phi
+
+    return nothing
 end

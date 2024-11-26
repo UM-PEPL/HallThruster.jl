@@ -50,10 +50,6 @@ test_collisions()
 include("$(HallThruster.TEST_DIR)/unit_tests/thermal_conductivity.jl")
 test_thermal_conductivity()
 
-include("$(HallThruster.TEST_DIR)/unit_tests/restarts.jl")
-test_restarts()
-test_landmark_loading()
-
 include("$(HallThruster.TEST_DIR)/unit_tests/walls.jl")
 test_walls()
 
@@ -72,8 +68,9 @@ test_grid()
 include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
 test_current_control()
 
-# include("$(HallThruster.TEST_DIR)/unit_tests/json.jl")
-# test_json()
+# JSON serialization tests
+include("$(HallThruster.TEST_DIR)/json/json.jl")
+test_json()
 
 # Regression tests
 include("$(HallThruster.TEST_DIR)/regression/test_regression.jl")

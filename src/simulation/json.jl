@@ -5,24 +5,31 @@ If `postprocess` is set and `postprocess.output_file` is non-empty, output will 
 to `postprocess.output_file`.
 Returns a `Solution` object.
 """
-function run_simulation(json_file::String)
-    obj = JSON3.read(joinpath(@__DIR__, json_file))
+function run_simulation(json_file::String; restart::String = "")
+    json_file = if !ispath(json_file)
+        joinpath(@__DIR__, json_file)
+    else
+        json_file
+    end
+    obj = JSON3.read(read(json_file))
 
     # Read config and sim params from file
     if haskey(obj, "input")
-        obj = obj.input
+        input = obj.input
+    else
+        input = obj
     end
 
-    cfg = deserialize(Config, obj.config)
-    sim = deserialize(SimParams, obj.simulation)
+    cfg = deserialize(Config, input.config)
+    sim = deserialize(SimParams, input.simulation)
 
     postprocess::Union{Postprocess, Nothing} = nothing
-    if haskey(obj, "postprocess") && haskey(obj.postprocess, "output_file") &&
-       !isempty(obj.postprocess.output_file)
-        postprocess = deserialize(Postprocess, obj.postprocess)
+    if haskey(input, "postprocess") && haskey(input.postprocess, "output_file") &&
+       !isempty(input.postprocess.output_file)
+        postprocess = deserialize(Postprocess, input.postprocess)
     end
 
-    sol = run_simulation(cfg, sim; postprocess, include_dirs = dirname(json_file))
+    sol = run_simulation(cfg, sim; postprocess, include_dirs = dirname(json_file), restart)
 
     if postprocess !== nothing
         (; average_start_time, save_time_resolved) = postprocess
@@ -55,7 +62,7 @@ function frame_dict(sol::Solution, frame::Integer)
     d["ui"] = [sv.ui[Z, :] for Z in 1:ncharge]
     d["niui"] = [sv.niui[Z, :] for Z in 1:ncharge]
     d["B"] = sol.params.cache.B
-    d["ne"] = sv.ni
+    d["ne"] = sv.ne
     d["ue"] = sv.ue
     d["V"] = sv.ϕ
     d["E"] = -sv.∇ϕ
@@ -72,19 +79,21 @@ end
 
 """
     $(TYPEDSIGNATURES)
-
 Convert `sol` to an `OrderedDict`, containing both the inputs used to run the simulation 
 and any requested outputs. 
 This function is used to convert a `Solution` to a format suitable for writing to an output file.
 """
 function serialize_sol(
-        sol::Solution; average_start_time::Integer = -1, save_time_resolved::Bool = true,)
+        sol::Solution; average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,)
     output = OrderedDict{String, Any}()
     output["retcode"] = string(sol.retcode)
     output["error"] = sol.error
 
     if average_start_time >= 0
         first_frame = findfirst(>=(average_start_time), sol.t)
+        if first_frame === nothing
+            first_frame = 1
+        end
         avg = time_average(sol, first_frame)
         output["average"] = frame_dict(avg, 1)
     end
@@ -105,7 +114,6 @@ end
 
 """
     $(TYPEDSIGNATURES)
-
 Write `sol` to `file`, if `file` is a JSON file.
 
 ## Mandatory arguments
@@ -118,9 +126,9 @@ Write `sol` to `file`, if `file` is a JSON file.
 """
 function write_to_json(
         file::String, sol::Solution;
-        average_start_time::Integer = -1, save_time_resolved::Bool = true,)
+        average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,)
     ext = splitext(file)[2]
-    if lowercase(ext) != "json"
+    if lowercase(ext) != ".json"
         throw(ArgumentError("$(file) is not a JSON file."))
     end
 

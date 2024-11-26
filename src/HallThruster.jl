@@ -8,7 +8,6 @@ using Unitful: @u_str, uconvert, ustrip, Quantity
 using PrecompileTools: @compile_workload
 
 using JSON3
-using JLD2
 using OrderedCollections
 
 # Packages used for making plots
@@ -84,7 +83,6 @@ include("simulation/solution.jl")
 include("simulation/postprocess.jl")
 include("simulation/simulation.jl")
 include("simulation/json.jl")
-include("simulation/restart.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
