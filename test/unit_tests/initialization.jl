@@ -36,14 +36,14 @@ function test_sim_initialization()
         index = het.configure_index(fluids, fluid_ranges)
 
         params = (;
+            het.params_from_config(config)...,
             index,
             cache,
             grid,
-            config,
             min_Te = min(config.anode_Tev, config.cathode_Tev),
         )
 
-        het.initialize!(U, params)
+        het.initialize!(U, params, config)
 
         @test abs((U[index.ρn, 1] / U[index.ρn, end]) - 100) < 1
 
@@ -64,7 +64,7 @@ function test_sim_initialization()
 
         @test cache.anom_variables == [zeros(102) for _ in 1:3]
 
-        @test_throws ArgumentError het.initialize!(U, params, NewInitialization())
+        @test_throws ArgumentError het.initialize!(U, params, config, NewInitialization())
     end
 end
 
@@ -88,14 +88,14 @@ function test_anom_initialization()
         # Check that anomalous transport is initialized to a two-zone Bohm approximation instead of the prescribed NoAnom.
         sol = het.run_simulation(
             config; ncells, dt = 0.0, duration = 0.0, sim_options...,)
-        @test initial_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
-        @test anom_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
+        @test initial_model(zeros(ncells + 2), sol.params, config) == sol.params.cache.νan
+        @test anom_model(zeros(ncells + 2), sol.params, config) != sol.params.cache.νan
 
         # Check that after one iteration, the anomalous transport is the correct value
         dt = 1e-8
         sol = het.run_simulation(config; ncells, dt, duration = dt, sim_options...)
-        @test initial_model(zeros(ncells + 2), sol.params) != sol.params.cache.νan
-        @test anom_model(zeros(ncells + 2), sol.params) == sol.params.cache.νan
+        @test initial_model(zeros(ncells + 2), sol.params, config) != sol.params.cache.νan
+        @test anom_model(zeros(ncells + 2), sol.params, config) == sol.params.cache.νan
     end
 end
 

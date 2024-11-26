@@ -4,14 +4,14 @@ function test_boundaries()
     @testset "Boundary conditions" begin
         e = het.e
 
-        config = (
+        config = het.Config(
             ncharge = 2,
+            domain = (0, 1),
+            discharge_voltage = 300.0,
             propellant = het.Xenon,
             anode_mass_flow_rate = 5e-4,
             neutral_velocity = 100,
             thruster = het.SPT_100,
-            min_number_density = 1e6,
-            min_electron_temperature = 1.0,
             LANDMARK = true,
             conductivity_model = het.LANDMARK_conductivity(),
             anode_boundary_condition = :dirichlet,
@@ -34,10 +34,10 @@ function test_boundaries()
         background_neutral_flux = background_neutral_density * background_neutral_velocity
 
         params = (;
+            het.params_from_config(config)...,
             Te_L = 3.0,
             Te_R = 3.0,
             A_ch = config.thruster.geometry.channel_area,
-            config,
             index,
             z_cell = [0.0, 1.0, 2.0],
             cache = (
@@ -94,7 +94,7 @@ function test_boundaries()
 
         # when ion velocity at left boundary is less than bohm speed, it should be accelerated
         # to reach bohm speed
-        het.left_boundary_state!(U_b, U1, params)
+        het.left_boundary_state!(U_b, U1, params, config)
         @test U_b[index.ρn] ≈
               het.inlet_neutral_density(config) -
               (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +
@@ -104,7 +104,7 @@ function test_boundaries()
         @test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -u_bohm_2
 
         # when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
-        het.left_boundary_state!(U_b, U2, params)
+        het.left_boundary_state!(U_b, U2, params, config)
         @test U_b[index.ρn] ≈
               het.inlet_neutral_density(config) -
               (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +

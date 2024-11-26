@@ -65,17 +65,20 @@ function test_flux_computation()
 
         index = (ρi = [1], ρiui = [2])
         scheme = het.HyperbolicScheme(het.FluxFunction(identity), het.no_limiter, false)
-        config = (; scheme, ncharge = 1)
-        params = (; index, config, is_velocity_index = [false, true, false])
+        config = het.Config(; discharge_voltage = 300.0, thruster = het.SPT_100,
+            anode_mass_flow_rate = 1.0e-6,
+            domain = (0, 1), scheme, ncharge = 1,)
+        params = (; index, het.params_from_config(config)...,
+            is_velocity_index = [false, true, false],)
 
-        het.compute_edge_states!(edge_L, edge_R, U_euler, params)
+        het.compute_edge_states!(edge_L, edge_R, U_euler, params, config)
         @test edge_L[:, 1] == euler_state_L
         @test edge_R[:, end] == euler_state_R
         @test edge_L[:, 2] == euler_state_0
         @test edge_R[:, 1] == euler_state_0
 
         scheme = het.HyperbolicScheme(het.FluxFunction(identity), het.no_limiter, true)
-        het.compute_edge_states!(edge_L, edge_R, U_euler, params)
+        het.compute_edge_states!(edge_L, edge_R, U_euler, params, config)
         @test edge_L[:, 1] == euler_state_L
         @test edge_R[:, end] == euler_state_R
 
@@ -85,7 +88,7 @@ function test_flux_computation()
 
         for limiter in het.slope_limiters
             scheme = het.HyperbolicScheme(het.FluxFunction(identity), limiter, true)
-            het.compute_edge_states!(edge_L, edge_R, U_euler_2, params)
+            het.compute_edge_states!(edge_L, edge_R, U_euler_2, params, config)
             @test edge_L[:, 1] == euler_state_L2
             @test edge_R[:, end] == euler_state_R
             @test edge_L[:, 2] == euler_state_0

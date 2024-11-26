@@ -1,7 +1,7 @@
 function initialize_plume_geometry(params)
-    (; config, cache) = params
+    (; cache, thruster) = params
     (; channel_area, inner_radius, outer_radius, channel_height) = cache
-    geometry = config.thruster.geometry
+    geometry = thruster.geometry
     r_in = geometry.inner_radius
     r_out = geometry.outer_radius
     A_ch = geometry.channel_area
@@ -15,21 +15,16 @@ function initialize_plume_geometry(params)
 end
 
 function update_plume_geometry!(params)
-    (; config, cache, grid) = params
+    (; cache, grid, mi, thruster, ncharge) = params
     (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni) = cache
 
-    if !config.solve_plume
-        return
-    end
-
-    mi = config.propellant.m
-    L_ch = config.thruster.geometry.channel_length
+    L_ch = thruster.geometry.channel_length
     exit_plane_index = max(findfirst(>=(L_ch), grid.cell_centers), 1)
     Tev_exit = Tev[exit_plane_index]
 
     for i in (exit_plane_index + 1):(grid.num_cells)
-        ui = sum(niui[Z, i] for Z in 1:(config.ncharge)) /
-             sum(ni[Z, i] for Z in 1:(config.ncharge))
+        ui = sum(niui[Z, i] for Z in 1:ncharge) /
+             sum(ni[Z, i] for Z in 1:ncharge)
         tanδ_i = sqrt(5 * e * Tev_exit / 3 / mi) / ui
 
         tanδ[i] = max(0.0, tanδ_i)

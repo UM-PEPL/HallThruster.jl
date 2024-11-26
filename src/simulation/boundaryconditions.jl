@@ -1,5 +1,4 @@
-function left_boundary_state!(bc_state, U, params)
-    (; config) = params
+function left_boundary_state!(bc_state, U, params, config)
     ncharge = config.ncharge
     index = params.index
     mi = config.propellant.m

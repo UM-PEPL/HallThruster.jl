@@ -99,11 +99,11 @@ function setup_simulation(config::Config, sim::SimParams;
     )
 
     # Initialize ion and electron variables
-    initialize!(U, params)
+    initialize!(U, params, config)
 
     # Initialize the anomalous collision frequency using a 
     # two-zone Bohm approximation for the first iteration
-    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params)
+    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params, config)
 
     if !isempty(restart)
         # Initialize the solution from a restart JSON file

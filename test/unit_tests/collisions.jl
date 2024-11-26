@@ -36,15 +36,20 @@ function test_collisions()
         thruster = het.SPT_100
         transition_length = 0.0
 
-        config_landmark = (;
-            anom_model, propellant = het.Xenon,
-            electron_neutral_model = :Landmark,
-            electron_ion_collisions = false, ncharge = 1, thruster, transition_length,
+        common_opts = (;
+            electron_ion_collisions = false, propellant = het.Xenon, anode_mass_flow_rate = 5e-6,
+            discharge_voltage = 300.0, ncharge = 1, domain = (0.0, 1.0), thruster, transition_length,
         )
-        config_none = (;
-            anom_model, propellant = het.Xenon,
+
+        config_landmark = het.Config(;
+            anom_model,
+            electron_neutral_model = :Landmark,
+            common_opts...,
+        )
+        config_none = het.Config(;
+            anom_model,
             electron_neutral_model = :None,
-            electron_ion_collisions = false, ncharge = 1, thruster, transition_length,
+            common_opts...,
         )
 
         Xe_0 = het.Xenon(0)
@@ -56,11 +61,11 @@ function test_collisions()
         grid1 = (; cell_centers = [0.02])
         grid2 = (; cell_centers = [0.03])
 
-        params_landmark = (;
-            iteration = [0], cache, index, config = config_landmark, grid = grid1,
+        params_landmark = (; het.params_from_config(config_landmark)...,
+            iteration = [0], cache, index, grid = grid1,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_landmark,)
-        params_none = (;
-            iteration = [0], cache, index, config = config_none, grid = grid2,
+        params_none = (; het.params_from_config(config_landmark)...,
+            iteration = [0], cache, index, grid = grid2,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none,)
 
         @test het.freq_electron_neutral(
@@ -72,12 +77,13 @@ function test_collisions()
         @test het.freq_electron_ion(ne, Tev, Z) ==
               2.9e-12 * Z^2 * ne * het.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
-        params_landmark.config.anom_model(params_landmark.cache.νan, params_landmark)
-        params_none.config.anom_model(params_none.cache.νan, params_none)
+        config_landmark.anom_model(
+            params_landmark.cache.νan, params_landmark, config_landmark,)
+        config_none.anom_model(params_none.cache.νan, params_none, config_none)
 
         model = het.NoAnom()
 
-        model(params_landmark.cache.νan, params_landmark)
+        model(params_landmark.cache.νan, params_landmark, config_landmark)
 
         @test params_landmark.cache.νan[1] == 0.0
 

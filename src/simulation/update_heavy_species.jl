@@ -5,8 +5,8 @@ function iterate_heavy_species!(dU, U, params, config; apply_boundary_conditions
 
     (; F, UL, UR) = cache
 
-    compute_fluxes!(F, UL, UR, U, params; apply_boundary_conditions)
-
+    # Compute edges and apply convective update
+    compute_fluxes!(F, UL, UR, U, params, config; apply_boundary_conditions)
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
     # Apply user-provided source terms
@@ -125,7 +125,7 @@ function update_heavy_species!(U, params, config)
     mi = params.config.propellant.m
 
     # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U, params)
+    @views left_boundary_state!(U[:, 1], U, params, config)
     @views right_boundary_state!(U[:, end], U, index, config.ncharge)
 
     update_heavy_species!(

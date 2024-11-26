@@ -13,17 +13,29 @@ end
 Serialization.SType(::Type{T}) where {T <: InitialCondition} = Serialization.TaggedUnion()
 Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultInitialization,)
 
-initialize!(U, params) = initialize!(U, params, params.config.initial_condition)
+#=============================================================================
+Definitions
+==============================================================================#
+initialize!(U, params, config) = initialize!(U, params, config, config.initial_condition)
 
-function initialize!(_, _, model::InitialCondition)
+function initialize!(_, _, _, model::InitialCondition)
     throw(ArgumentError("Function HallThruster.initialize!(U, params, model::$(typeof(model)) not yet implemented. For InitialCondition types other than DefaultInitialization(), this must be defined by the user!"))
 end
 
+function initialize_heavy_species_default!(U, params, config; kwargs...)
+    (; anode_Tev, domain, discharge_voltage, anode_mass_flow_rate) = config
+
+    ρn = inlet_neutral_density(config)
+    un = config.neutral_velocity
+    initialize_heavy_species_default!(
+        U, params, anode_Tev, domain, discharge_voltage,
+        anode_mass_flow_rate, ρn, un; kwargs...,)
+end
+
 function initialize_heavy_species_default!(
-        U, params; min_ion_density = 2e17, max_ion_density = 1e18,)
-    (; grid, config, index, cache) = params
-    (; ncharge, anode_Tev, domain, thruster, propellant, discharge_voltage, anode_mass_flow_rate) = config
-    mi = propellant.m
+        U, params, anode_Tev, domain, discharge_voltage, anode_mass_flow_rate, ρn_0, un;
+        min_ion_density = 2e17, max_ion_density = 1e18,)
+    (; grid, index, cache, ncharge, thruster, mi) = params
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
 
@@ -52,11 +64,9 @@ function initialize_heavy_species_default!(
         ion_velocity_f2(z, Z)
     end
 
-    ρn_0 = inlet_neutral_density(config)
     # add recombined neutrals
-    for Z in 1:(config.ncharge)
-        ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) /
-                config.neutral_velocity
+    for Z in 1:(ncharge)
+        ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / un
     end
 
     # Beam neutral density at outlet
@@ -71,7 +81,7 @@ function initialize_heavy_species_default!(
     for (i, z) in enumerate(grid.cell_centers)
         U[index.ρn, i] = neutral_function(z)
 
-        for Z in 1:(params.config.ncharge)
+        for Z in 1:(ncharge)
             U[index.ρi[Z], i] = ion_density_function(z, Z)
             U[index.ρiui[Z], i] = ion_density_function(z, Z) * ion_velocity_function(z, Z)
         end
@@ -82,15 +92,15 @@ function initialize_heavy_species_default!(
     return nothing
 end
 
-function initialize_electrons_default!(params; max_electron_temperature = -1.0)
-    (; grid, config, cache, min_Te) = params
-    (; anode_Tev, cathode_Tev, domain, thruster) = config
+function initialize_electrons_default!(params, anode_Tev, cathode_Tev, domain,
+        discharge_voltage; max_electron_temperature = -1.0,)
+    (; grid, cache, min_Te, thruster) = params
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
     # Electron temperature
     Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Tev, cathode_Tev)
     Te_max = max_electron_temperature > 0.0 ? max_electron_temperature :
-             config.discharge_voltage / 10
+             discharge_voltage / 10
     Te_width = L_ch / 3
 
     # Gaussian Te profile
@@ -105,17 +115,23 @@ function initialize_electrons_default!(params; max_electron_temperature = -1.0)
     return nothing
 end
 
-function initialize!(U, params, init::DefaultInitialization)
+function initialize!(U, params, config, init::DefaultInitialization)
     (; max_electron_temperature, min_ion_density, max_ion_density) = init
-    initialize_heavy_species_default!(U, params; min_ion_density, max_ion_density)
-    initialize_electrons_default!(params; max_electron_temperature)
+    (; anode_Tev, cathode_Tev, domain, discharge_voltage, anode_mass_flow_rate) = config
+    ρn = inlet_neutral_density(config)
+    un = config.neutral_velocity
+    initialize_heavy_species_default!(
+        U, params, anode_Tev, domain, discharge_voltage,
+        anode_mass_flow_rate, ρn, un; max_ion_density, min_ion_density,)
+    initialize_electrons_default!(
+        params, anode_Tev, cathode_Tev, domain, discharge_voltage; max_electron_temperature,)
 end
 
 """
     $(TYPEDSIGNATURES)
 Initialize `U` and `cache` from a simulation output
 """
-function initialize_from_restart!(U, params, restart_file)
+function initialize_from_restart!(U, params, restart_file::String)
     restart = JSON3.read(read(restart_file))
 
     if haskey(restart, "output")
@@ -130,10 +146,12 @@ function initialize_from_restart!(U, params, restart_file)
         throw(ArgumentError("Restart file $(restart_file) has no key `frames` or `average`."))
     end
 
-    (; config, cache, grid) = params
-    ncharge = config.ncharge
+    return initialize_from_restart!(U, params, frame)
+end
+
+function initialize_from_restart!(U, params, frame)
+    (; cache, grid, ncharge, mi) = params
     ncharge_restart = length(frame.ni)
-    mi = config.propellant.m
 
     # load ion properties, interpolated from restart grid to grid in params
     z = grid.cell_centers

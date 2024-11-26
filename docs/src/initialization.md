@@ -82,7 +82,7 @@ We would then add a method to the `initialize!(U, params, model)` function as fo
 ```jldoctest initialization; output=false
 import HallThruster.initialize!
 
-function HallThruster.initialize!(U, params, model::MyInitialCondition)
+function HallThruster.initialize!(U, params, config, model::MyInitialCondition)
 	(;z_cell) = params # Pull cell centers locations out of params
     nvars = size(U, 1)
     for (i, z) in enumerate(z_cell)
@@ -106,11 +106,11 @@ nvars = 4
 config = (;initial_condition = MyInitialCondition())
 z_cell = range(0, 0.05, length = ncells)
 U = zeros(nvars, ncells)
-params = (;config, z_cell)
+params = (; z_cell)
 
 # Method of initialize! which dispatches to initialize!(U, params, config.initial_condition)
 # This is what HallThruster.jl calls when initializing a simulation
-HallThruster.initialize!(U, params)
+HallThruster.initialize!(U, params, config)
 
 U[1, :] == U[2, :] == U[3, :] == U[4, :] == collect(z_cell)
 

@@ -33,7 +33,7 @@ No anomalous collision frequency included in simulation
 """
 struct NoAnom <: AnomalousTransportModel end
 
-function (::NoAnom)(νan, ::Any)
+function (::NoAnom)(νan, @nospecialize(_x1), @nospecialize(_x2))
     for i in eachindex(νan)
         νan[i] = 0.0
     end
@@ -48,8 +48,8 @@ Model where the anomalous collision frequency scales with the electron cyclotron
     c::Float64
 end
 
-function (model::Bohm)(νan, params)
-    (; config, cache, grid) = params
+function (model::Bohm)(νan, params, config)
+    (; cache, grid) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -57,7 +57,7 @@ function (model::Bohm)(νan, params)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, params)
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (_, zc) in enumerate(grid.cell_centers)
@@ -80,9 +80,9 @@ Takes two arguments: c1 and c2. The transition between these values can be smoot
     c2::Float64
 end
 
-function (model::TwoZoneBohm)(νan, params)
+function (model::TwoZoneBohm)(νan, params, config)
     (; c1, c2) = model
-    (; config, cache, grid) = params
+    (; cache, grid) = params
     (; B) = cache
 
     L_trans = config.transition_length
@@ -93,7 +93,7 @@ function (model::TwoZoneBohm)(νan, params)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, params)
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -130,8 +130,8 @@ The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2]
     end
 end
 
-function (model::MultiLogBohm)(νan, params)
-    (; grid, config) = params
+function (model::MultiLogBohm)(νan, params, config)
+    (; grid) = params
     (; B) = params.cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -139,7 +139,7 @@ function (model::MultiLogBohm)(νan, params)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, params)
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -172,9 +172,9 @@ where the collision frequency is lower.
     width::Float64
 end
 
-function (model::GaussianBohm)(νan, params)
+function (model::GaussianBohm)(νan, params, config)
     (; hall_min, hall_max, center, width) = model
-    (; config, cache, grid) = params
+    (; cache, grid) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -182,7 +182,7 @@ function (model::GaussianBohm)(νan, params)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, params)
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -225,12 +225,11 @@ end
 
 pressure_shift(model::AnomalousTransportModel, ::Any) = 0.0
 
-function pressure_shift(model::LogisticPressureShift, params)
+function pressure_shift(model::LogisticPressureShift, pB::Float64)
     (; z0, dz, alpha, pstar) = model
-    pb = params.config.background_pressure_Torr
 
     torr_to_pa = 133.322
-    p_ratio = pb / (pstar * torr_to_pa)
+    p_ratio = pB / (pstar * torr_to_pa)
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
     return zstar
 end
