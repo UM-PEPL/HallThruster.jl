@@ -23,7 +23,7 @@ end
     freq_electron_ion(ne, Tev, Z)
 Effective frequency at which electrons are scattered due to collisions with ions
 """
-@inline function freq_electron_ion(ne::T, Tev::T, Z::T) where {T <: Number}
+@inline function freq_electron_ion(ne::Number, Tev::Number, Z::Number)
     return 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
 end
 

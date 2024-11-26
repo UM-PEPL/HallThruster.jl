@@ -123,7 +123,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
         fluids,
         species_range_dict,
         is_velocity_index,
-        min_Te = 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end)),
+        min_Te = 0.01 * 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end)),
         ionization_reactions,
         ionization_reactant_indices = [index.ρn],
         ionization_product_indices = [index.ρi[1]],

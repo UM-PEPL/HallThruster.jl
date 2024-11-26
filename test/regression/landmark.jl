@@ -6,13 +6,13 @@ function test_landmark_regression()
         file = "LANDMARK case 1",
         CFL = 0.25,
         landmark_case = 1,
-        thrust = 89.876,
-        current = 7.682,
-        ion_current = 3.692,
-        max_Te = 22.363,
-        max_E = 32248.5,
-        max_nn = 3.80456e19,
-        max_ni = 1.0378e18,
+        thrust = 92.408,
+        current = 7.676,
+        ion_current = 3.865,
+        max_Te = 22.321,
+        max_E = 3.219e4,
+        max_nn = 3.805e19,
+        max_ni = 1.033e18,
     )
 
     case2 = (;

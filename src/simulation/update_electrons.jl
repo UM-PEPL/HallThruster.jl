@@ -1,4 +1,3 @@
-
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, t = 0)
     (; config, grid, cache, simulation) = params
@@ -9,7 +8,8 @@ function update_electrons!(params, t = 0)
     L_ch = config.thruster.geometry.channel_length
 
     # Update electron temperature and pressure given new density
-    update_temp_and_pressure!(Tev, pe, nϵ, ne, params.min_Te, config.LANDMARK)
+    update_temperature!(Tev, nϵ, ne, params.min_Te)
+    update_pressure!(pe, nϵ, params.config.LANDMARK)
 
     # Update electron-ion, electron-neutral, and total classical collisions
     if (params.config.electron_ion_collisions)
@@ -49,7 +49,11 @@ function update_electrons!(params, t = 0)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    Id[] = integrate_discharge_current(params)
+    V_L = config.discharge_voltage + Vs[]
+    V_R = config.cathode_potential
+    un = config.neutral_velocity
+    apply_drag = !config.LANDMARK && params.iteration[] > 5
+    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in eachindex(ue)
@@ -64,7 +68,7 @@ function update_electrons!(params, t = 0)
     compute_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     # Compute electric field
-    compute_electric_field!(∇ϕ, params)
+    compute_electric_field!(∇ϕ, cache, un, apply_drag)
 
     # update electrostatic potential and potential gradient on edges
     cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, config.discharge_voltage + Vs[])
@@ -81,29 +85,14 @@ function update_electrons!(params, t = 0)
     ))
 end
 
-function update_temp_and_pressure!(Tev, pe, nϵ, ne, min_Te, landmark)
-    # Update plasma quantities based on new density
-    pe_factor = landmark ? 1.5 : 1.0
-    @inbounds for i in eachindex(Tev)
-        # Compute new electron temperature
-        Tev[i] = 2 / 3 * max(min_Te, nϵ[i] / ne[i])
-        # Compute electron pressure
-        pe[i] = pe_factor * ne[i] * Tev[i]
-    end
-end
-
 # Compute the axially-constant discharge current using Ohm's law
-function integrate_discharge_current(params)
-    (; grid, config, cache, iteration) = params
-    (; ∇pe, μ, ne, ji, Vs, channel_area) = cache
+function integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
+    (; ∇pe, μ, ne, ji, channel_area) = cache
 
-    V_L, V_R = config.discharge_voltage, config.cathode_potential
     ncells = length(grid.cell_centers)
 
     int1 = 0.0
     int2 = 0.0
-
-    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
@@ -118,8 +107,8 @@ function integrate_discharge_current(params)
         if (apply_drag)
             ion_drag_1 = ui[1, i] * (νei[i] + νan[i]) * me / e
             ion_drag_2 = ui[1, i + 1] * (νei[i + 1] + νan[i + 1]) * me / e
-            neutral_drag_1 = params.config.neutral_velocity * νen[i] * me / e
-            neutral_drag_2 = params.config.neutral_velocity * νen[i + 1] * me / e
+            neutral_drag_1 = un * νen[i] * me / e
+            neutral_drag_2 = un * νen[i + 1] * me / e
             int1_1 -= ion_drag_1 + neutral_drag_1
             int1_2 -= ion_drag_2 + neutral_drag_2
         end
@@ -132,7 +121,7 @@ function integrate_discharge_current(params)
         int2 += 0.5 * Δz * (int2_1 + int2_2)
     end
 
-    ΔV = V_L - V_R + Vs[]
+    ΔV = V_L - V_R
 
     I = (ΔV + int1) / int2
 

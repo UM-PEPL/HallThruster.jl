@@ -1,8 +1,5 @@
-function compute_electric_field!(∇ϕ, params)
-    (; config, cache, iteration) = params
+function compute_electric_field!(∇ϕ, cache, un, apply_drag)
     (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
-
-    apply_drag = false & !config.LANDMARK & (iteration[] > 5)
 
     if (apply_drag)
         (; νei, νen, νan, ui) = cache
@@ -13,7 +10,7 @@ function compute_electric_field!(∇ϕ, params)
 
         if (apply_drag)
             ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = config.neutral_velocity * (νen[i]) * me / e
+            neutral_drag = un * νen[i] * me / e
             E += ion_drag + neutral_drag
         end
 

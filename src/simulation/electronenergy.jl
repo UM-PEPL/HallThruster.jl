@@ -1,35 +1,48 @@
 function update_electron_energy!(params, dt)
-    (; grid, config, cache, min_Te) = params
-    (; Aϵ, bϵ, nϵ, ue, ne, Tev, channel_area, dA_dz, κ, ni, niui) = cache
+    (; grid, cache, config, min_Te) = params
+
+    Q = cache.cell_cache_1
+
+    # Compute energy source terms
+    source_electron_energy!(Q, params)
+
+    # User-provided source term
+    @inbounds for i in 2:(grid.num_cells - 1)
+        Q[i] += config.source_energy(params, i)
+    end
+
+    # Remainder of energy equation
+    update_electron_energy!(grid, config, cache, min_Te, config.LANDMARK, dt)
+end
+
+function update_electron_energy!(grid, config, cache, min_Te, landmark, dt)
+    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache
 
     Te_L, Te_R = config.anode_Tev, config.cathode_Tev
     implicit = config.implicit_energy
-    explicit = 1 - implicit
+    anode_bc = config.anode_boundary_condition
 
-    Aϵ.d[1] = 1.0
-    Aϵ.du[1] = 0.0
-    Aϵ.d[end] = 1.0
-    Aϵ.dl[end] = 0.0
+    energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
 
-    if config.anode_boundary_condition == :dirichlet || ue[1] > 0
-        bϵ[1] = 1.5 * Te_L * ne[1]
-    else
-        # Neumann BC for electron temperature
-        bϵ[1] = 0
-        Aϵ.d[1] = 1.0 / ne[1]
-        Aϵ.du[1] = -1.0 / ne[2]
-    end
+    # Fill matrix and RHS
+    setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
 
-    bϵ[end] = 1.5 * Te_R * ne[end]
+    # Solve equation system using the Thomas algorithm
+    tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    # Compute energy source terms
+    # Make sure Tev is positive, limit if below user-configured minumum electron temperature
+    limit_energy!(nϵ, ne, min_Te)
+    update_temperature!(Tev, nϵ, ne, min_Te)
+    update_pressure!(pe, nϵ, landmark)
+end
+
+function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
+    (; ne, ue, κ, ji, channel_area, dA_dz, nϵ) = cache
+
+    explicit = 1.0 - implicit
     Q = cache.cell_cache_1
-    source_electron_energy!(Q, params)
 
     @inbounds for i in 2:(grid.num_cells - 1)
-        # User-provided source term
-        Q[i] += config.source_energy(params, i)
-
         neL = ne[i - 1]
         ne0 = ne[i]
         neR = ne[i + 1]
@@ -64,7 +77,7 @@ function update_electron_energy!(params, dt)
             FL_factor_C = -κL / ΔzL / ne0
             FL_factor_R = 0.0
         else
-            if i == 2 && config.anode_boundary_condition == :sheath
+            if i == 2 && anode_bc == :sheath
                 # left flux is sheath heat flux
                 Te0 = 2 / 3 * nϵ0 / ne0
 
@@ -72,10 +85,10 @@ function update_electron_energy!(params, dt)
                 jd = cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
-                ji_sheath_edge = e * sum(Z * niui[Z, 1] for Z in 1:(config.ncharge))
+                ji_sheath_edge = ji[1]
                 je_sheath_edge = jd - ji_sheath_edge
 
-                ne_sheath_edge = sum(Z * ni[Z, 1] for Z in 1:(config.ncharge))
+                ne_sheath_edge = ne[1]
                 ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
 
                 FL_factor_L = 0.0
@@ -123,22 +136,49 @@ function update_electron_energy!(params, dt)
         bϵ[i] = nϵ[i] + dt * (Q[i] - explicit * F_explicit)
         bϵ[i] -= dt * flux * dlnA_dz
     end
+end
 
-    # Solve equation system using Thomas algorithm
-    tridiagonal_solve!(nϵ, Aϵ, bϵ)
+function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
+    Aϵ.d[1] = 1.0
+    Aϵ.du[1] = 0.0
+    Aϵ.d[end] = 1.0
+    Aϵ.dl[end] = 0.0
 
-    # Make sure Tev is positive, limit if below user-configured minumum electron temperature
-    @inbounds for i in eachindex(grid.cell_centers)
-        if isnan(nϵ[i]) || isinf(nϵ[i]) || nϵ[i] / ne[i] < min_Te
-            nϵ[i] = 3 / 2 * min_Te * ne[i]
+    if anode_bc == :dirichlet || ue[1] > 0
+        bϵ[1] = 1.5 * Te_L * ne[1]
+    else
+        # Neumann BC for electron temperature
+        bϵ[1] = 0
+        Aϵ.d[1] = 1.0 / ne[1]
+        Aϵ.du[1] = -1.0 / ne[2]
+    end
+
+    bϵ[end] = 1.5 * Te_R * ne[end]
+end
+
+function limit_energy!(nϵ, ne, min_Te)
+    @inbounds for i in eachindex(nϵ)
+        if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
+            nϵ[i] = 1.5 * min_Te * ne[i]
         end
+    end
+end
 
-        # update Tev and pe
-        Tev[i] = 2 / 3 * nϵ[i] / ne[i]
-        if config.LANDMARK
-            cache.pe[i] = nϵ[i]
-        else
-            cache.pe[i] = 2 / 3 * nϵ[i]
-        end
+function update_temperature!(Tev, nϵ, ne, min_Te)
+    # Update plasma quantities based on new density
+    @inbounds for i in eachindex(Tev)
+        # Compute new electron temperature
+        Tev[i] = 2.0 / 3.0 * max(min_Te, nϵ[i] / ne[i])
+    end
+end
+
+function update_pressure!(pe, nϵ, landmark)
+    if landmark
+        pe_factor = 1.0
+    else
+        pe_factor = 2.0 / 3.0
+    end
+    @inbounds for i in eachindex(pe)
+        pe[i] = pe_factor * nϵ[i]
     end
 end

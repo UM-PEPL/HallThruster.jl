@@ -1,6 +1,6 @@
 # Split into helper method and main method to hopefully
 # reduce precompilation/recompilation time
-function allocate_arrays(grid::Grid1D, config::Config)
+function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
     nedges = length(grid.edges)
     ncharge = config.ncharge

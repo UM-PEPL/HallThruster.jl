@@ -127,7 +127,7 @@ function verify_energy(ncells; niters = 20000)
     params_base = (;
         dt,
         grid,
-        min_Te = 0.1 * min(Te_L, Te_R),
+        min_Te = 0.01 * min(Te_L, Te_R),
         cache = deepcopy(cache),
         ionization_reactions,
         ionization_reactant_indices,

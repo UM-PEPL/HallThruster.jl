@@ -63,14 +63,14 @@ function test_collisions()
             iteration = [0], cache, index, config = config_none, grid = grid2,
             L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none,)
 
-        @test het.freq_electron_neutral(params_landmark, 1) ≈ 2.5e-13 * nn
-        @test het.freq_electron_neutral(params_none, 1) == 0.0
+        @test het.freq_electron_neutral(
+            params_landmark.electron_neutral_collisions, nn, Tev,) ≈ 2.5e-13 * nn
+        @test het.freq_electron_neutral(params_none.electron_neutral_collisions, nn, Tev) ==
+              0.0
 
         Z = 1
         @test het.freq_electron_ion(ne, Tev, Z) ==
               2.9e-12 * Z^2 * ne * het.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
-        @test het.freq_electron_electron(ne, Tev) ==
-              5e-12 * ne * het.coulomb_logarithm(ne, Tev) / Tev^1.5
 
         params_landmark.config.anom_model(params_landmark.cache.νan, params_landmark)
         params_none.config.anom_model(params_none.cache.νan, params_none)
@@ -89,17 +89,8 @@ function test_collisions()
         @test params_landmark.cache.κ[1] ≈ 5 / 3 * μ_e * ne * Tev
 
         @test het.num_anom_variables(model) == 0
-        @test het.allocate_anom_variables(model, 2) == Vector{Float64}[]
 
         model2 = Model2()
-
         @test het.num_anom_variables(model2) == 2
-        @test het.allocate_anom_variables(model2, 2) == [
-            [0.0, 0.0], [0.0, 0.0],
-        ]
-
-        @test het.allocate_anom_variables(model2, 0) == [
-            Float64[], Float64[],
-        ]
     end
 end
