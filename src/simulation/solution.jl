@@ -1,14 +1,16 @@
-struct Solution{T, U, P, S}
+struct Solution{T, U, P, C, S}
     t::T
     u::U
     savevals::S
     params::P
+    config::C
     retcode::Symbol
     error::String
 end
 
-function Solution(sol::S, params::P, savevals::SV, error::String = "") where {S, P, SV}
-    return Solution(sol.t, sol.u, savevals, params, sol.retcode, error)
+function Solution(
+        sol::S, params::P, config::C, savevals::SV, error::String = "",) where {S, P, C, SV}
+    return Solution(sol.t, sol.u, savevals, params, config, sol.retcode, error)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
@@ -29,7 +31,7 @@ end
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 @inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
 
-function solve(U, params, tspan; saveat)
+function solve(U, params, config, tspan; saveat)
     # Initialie starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -88,8 +90,8 @@ function solve(U, params, tspan; saveat)
             end
 
             # update heavy species quantities
-            integrate_heavy_species!(U, params, params.dt[])
-            update_heavy_species!(U, params)
+            integrate_heavy_species!(U, params, config, params.dt[])
+            update_heavy_species!(U, params, config)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)
@@ -101,7 +103,7 @@ function solve(U, params, tspan; saveat)
             end
 
             # Update electron quantities
-            update_electrons!(params, t)
+            update_electrons!(params, config, t)
 
             # Update plume geometry
             update_plume_geometry!(params)
@@ -122,7 +124,7 @@ function solve(U, params, tspan; saveat)
                 # save vector fields
                 for field in _saved_fields_vector()
                     if field == :anom_variables
-                        for i in 1:num_anom_variables(params.config.anom_model)
+                        for i in 1:num_anom_variables(config.anom_model)
                             savevals[save_ind][field][i] .= params.cache[field][i]
                         end
                     else
@@ -153,6 +155,6 @@ function solve(U, params, tspan; saveat)
     ind = min(save_ind, length(savevals) + 1) - 1
 
     return Solution(
-        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, retcode, errstring,
+        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, config, retcode, errstring,
     )
 end

@@ -1,5 +1,5 @@
-function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
-    (; index, grid, config, cache, grid, simulation) = params
+function iterate_heavy_species!(dU, U, params, config; apply_boundary_conditions = true)
+    (; index, grid, cache, grid, simulation) = params
     (; source_neutrals, source_ion_continuity, source_ion_momentum,
     ncharge, ion_wall_losses) = config
 
@@ -22,7 +22,7 @@ function iterate_heavy_species!(dU, U, params; apply_boundary_conditions = true)
         end
     end
 
-    apply_reactions!(dU, U, params)
+    apply_reactions!(dU, U, params, config)
 
     apply_ion_acceleration!(dU, U, params)
 
@@ -74,18 +74,18 @@ function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm to the ion fluid
-function integrate_heavy_species!(U, params, dt, apply_boundary_conditions = true)
+function integrate_heavy_species!(U, params, config, dt, apply_boundary_conditions = true)
     (; k, u1) = params.cache
 
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params; apply_boundary_conditions)
+    iterate_heavy_species!(k, U, params, config; apply_boundary_conditions)
     @. u1 = U + dt * k
-    stage_limiter!(u1, params)
+    stage_limiter!(u1, params, config)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, config; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params)
+    stage_limiter!(U, params, config)
 
     return nothing
 end
@@ -120,8 +120,8 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
     @. ϵ = nϵ / ne + landmark * K
 end
 
-function update_heavy_species!(U, params)
-    (; index, grid, cache, config) = params
+function update_heavy_species!(U, params, config)
+    (; index, grid, cache) = params
     mi = params.config.propellant.m
 
     # Apply fluid boundary conditions

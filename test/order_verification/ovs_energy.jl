@@ -43,14 +43,14 @@ energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
             ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
 
-function solve_energy!(params, max_steps, dt, rtol = sqrt(eps(Float64)))
+function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
     t = 0.0
     nϵ_old = copy(params.cache.nϵ)
     residual = Inf
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
-        het.update_electron_energy!(params, dt)
+        het.update_electron_energy!(params, config, dt)
         params.cache.νiz .= 0.0
         params.cache.νex .= 0.0
         params.cache.inelastic_losses .= 0.0
@@ -125,6 +125,7 @@ function verify_energy(ncells; niters = 20000)
 
     dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
     params_base = (;
+        het.params_from_config(config)...,
         dt,
         grid,
         min_Te = 0.01 * min(Te_L, Te_R),
@@ -137,13 +138,15 @@ function verify_energy(ncells; niters = 20000)
     )
 
     # Test backward euler implicit solve
-    params_implicit = (; params_base..., config = (; config..., implicit_energy = 1.0))
-    solve_energy!(params_implicit, niters, dt)
+    cfg_implicit = (; config..., implicit_energy = 1.0)
+    params_implicit = (; params_base..., config = cfg_implicit)
+    solve_energy!(params_implicit, cfg_implicit, niters, dt)
     results_implicit = (; z = z_cell, exact = nϵ_exact, sim = params_implicit.cache.nϵ[:])
 
     # Test crank-nicholson implicit solve
-    params_cn = (; params_base..., config = (; config..., implicit_energy = 0.5))
-    solve_energy!(params_cn, niters, dt)
+    cfg_cn = (; config..., implicit_energy = 1.0)
+    params_cn = (; params_base..., config = cfg_cn)
+    solve_energy!(params_cn, cfg_cn, niters, dt)
     results_cn = (; z = z_cell, exact = nϵ_exact, sim = params_cn.cache.nϵ[:])
 
     return (results_implicit, results_cn)

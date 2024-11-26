@@ -77,6 +77,7 @@ function time_average(sol::Solution, start_frame::Integer = 1)
         [avg],
         [avg_savevals],
         sol.params,
+        sol.config,
         sol.retcode,
         sol.error,
     )

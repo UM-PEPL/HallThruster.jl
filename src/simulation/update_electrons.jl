@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
-function update_electrons!(params, t = 0)
-    (; config, grid, cache, simulation) = params
+function update_electrons!(params, config, t = 0)
+    (; grid, cache, simulation) = params
     (; nn, B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
     Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
     anom_multiplier, channel_area) = cache
@@ -9,10 +9,10 @@ function update_electrons!(params, t = 0)
 
     # Update electron temperature and pressure given new density
     update_temperature!(Tev, nϵ, ne, params.min_Te)
-    update_pressure!(pe, nϵ, params.config.LANDMARK)
+    update_pressure!(pe, nϵ, config.LANDMARK)
 
     # Update electron-ion, electron-neutral, and total classical collisions
-    if (params.config.electron_ion_collisions)
+    if (config.electron_ion_collisions)
         freq_electron_ion!(νei, ne, Tev, Z_eff)
     end
 
@@ -23,17 +23,17 @@ function update_electrons!(params, t = 0)
     @inbounds for i in eachindex(radial_loss_frequency)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            params.config.wall_loss_model, params, i,)
+            config.wall_loss_model, params, i,)
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, params.config.transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, config.transition_length, 1.0, 0.0,)
     end
 
     # Update anomalous transport
-    t > 0 && params.config.anom_model(νan, params)
+    t > 0 && config.anom_model(νan, params)
 
     # Smooth anomalous transport model
-    if params.config.anom_smoothing_iters > 0
-        smooth!(νan, params.cache.cell_cache_1, iters = params.config.anom_smoothing_iters)
+    if config.anom_smoothing_iters > 0
+        smooth!(νan, params.cache.cell_cache_1, iters = config.anom_smoothing_iters)
     end
 
     @inbounds for i in eachindex(νan)
@@ -74,10 +74,10 @@ function update_electrons!(params, t = 0)
     cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, config.discharge_voltage + Vs[])
 
     #update thermal conductivity
-    params.config.conductivity_model(κ, params)
+    config.conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
-    update_electron_energy!(params, params.dt[])
+    update_electron_energy!(params, config, params.dt[])
 
     # Update the anomalous collision frequency multiplier to match target current
     anom_multiplier[] = exp(apply_controller(

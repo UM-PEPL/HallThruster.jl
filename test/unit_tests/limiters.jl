@@ -55,10 +55,10 @@ function test_stage_limiter()
         config = (ncharge = 1, propellant = het.Xenon)
         min_ne = het.MIN_NUMBER_DENSITY
 
-        p = (; config, index, cache = (; nϵ = [-1.0]),
+        p = (; index, cache = (; nϵ = [-1.0]),
             grid = (; cell_centers = [0.0]), min_Te = 1.0,)
         U = [-1.0, -1.0, -1.0, -1.0]
-        het.stage_limiter!(U, p)
+        het.stage_limiter!(U, p, config)
 
         mi = config.propellant.m
 

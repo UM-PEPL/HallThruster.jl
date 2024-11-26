@@ -1,5 +1,5 @@
-function apply_reactions!(dU, U, params)
-    (; config, index, ionization_reactions, index,
+function apply_reactions!(dU, U, params, config)
+    (; index, ionization_reactions, index,
     ionization_reactant_indices, ionization_product_indices, cache) = params
 
     (; propellant, ncharge, LANDMARK, neutral_velocity) = config
@@ -169,8 +169,8 @@ function ohmic_heating!(Q, cache, landmark)
     return nothing
 end
 
-function source_electron_energy!(Q, params)
-    (; cache, config) = params
+function source_electron_energy!(Q, params, config)
+    (; cache) = params
     (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
 
     # compute ohmic heating

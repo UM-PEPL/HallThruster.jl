@@ -27,8 +27,8 @@ const van_albada = SlopeLimiter(__van_albada)
 const minmod = SlopeLimiter(__minmod)
 const koren = SlopeLimiter(__koren)
 
-function stage_limiter!(U, params)
-    (; grid, index, min_Te, config, cache) = params
+function stage_limiter!(U, params, config)
+    (; grid, index, min_Te, cache) = params
     (; ncharge, propellant) = config
     stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, propellant.m)
 end

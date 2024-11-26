@@ -285,3 +285,13 @@ function configure_index(fluids, fluid_ranges)
     index = NamedTuple{keys_fluids}(values_fluids)
     return index
 end
+
+function params_from_config(config)
+    return (;
+        thruster = config.thruster,
+        ncharge = config.ncharge,
+        mi = config.propellant.m,
+        anode_bc = config.anode_boundary_condition,
+        landmark = config.LANDMARK,
+    )
+end

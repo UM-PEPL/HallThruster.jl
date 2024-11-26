@@ -115,10 +115,11 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
 
     # Create params struct
     params = (;
+        config,
+        het.params_from_config(config)...,
         grid,
         ncells = length(z_cell),
         index,
-        config,
         cache,
         fluids,
         species_range_dict,
@@ -136,7 +137,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end - 1]
-        het.integrate_heavy_species!(U, params, cache.dt[], false)
+        het.integrate_heavy_species!(U, params, config, cache.dt[], false)
         t += cache.dt[]
     end
 

@@ -1,10 +1,10 @@
-function update_electron_energy!(params, dt)
-    (; grid, cache, config, min_Te) = params
+function update_electron_energy!(params, config, dt)
+    (; grid, cache, min_Te, landmark) = params
 
     Q = cache.cell_cache_1
 
     # Compute energy source terms
-    source_electron_energy!(Q, params)
+    source_electron_energy!(Q, params, config)
 
     # User-provided source term
     @inbounds for i in 2:(grid.num_cells - 1)
@@ -12,15 +12,16 @@ function update_electron_energy!(params, dt)
     end
 
     # Remainder of energy equation
-    update_electron_energy!(grid, config, cache, min_Te, config.LANDMARK, dt)
-end
-
-function update_electron_energy!(grid, config, cache, min_Te, landmark, dt)
-    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache
-
     Te_L, Te_R = config.anode_Tev, config.cathode_Tev
     implicit = config.implicit_energy
     anode_bc = config.anode_boundary_condition
+    update_electron_energy!(
+        grid, cache, Te_L, Te_R, min_Te, implicit, anode_bc, landmark, dt,)
+end
+
+function update_electron_energy!(
+        grid, cache, Te_L, Te_R, min_Te, implicit, anode_bc, landmark, dt,)
+    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache
 
     energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
 
