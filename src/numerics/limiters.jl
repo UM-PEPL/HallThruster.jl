@@ -28,19 +28,23 @@ const minmod = SlopeLimiter(__minmod)
 const koren = SlopeLimiter(__koren)
 
 function stage_limiter!(U, params)
-    (; grid, cache, config, index, min_Te) = params
-    (; nϵ) = cache
-    min_density = MIN_NUMBER_DENSITY * config.propellant.m
-    @inbounds for i in eachindex(grid.cell_centers)
+    (; grid, index, min_Te, config, cache) = params
+    (; ncharge, propellant) = config
+    stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, propellant.m)
+end
+
+function stage_limiter!(U, z_cell, nϵ, index, min_Te, ncharge, mi)
+    min_density = MIN_NUMBER_DENSITY * mi
+    @inbounds for i in eachindex(z_cell)
         U[index.ρn, i] = max(U[index.ρn, i], min_density)
 
-        for Z in 1:(config.ncharge)
+        for Z in 1:ncharge
             density_floor = max(U[index.ρi[Z], i], min_density)
             velocity = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
             U[index.ρi[Z], i] = density_floor
             U[index.ρiui[Z], i] = density_floor * velocity
         end
-        nϵ[i] = max(nϵ[i], MIN_NUMBER_DENSITY * min_Te)
+        nϵ[i] = max(nϵ[i], 1.5 * MIN_NUMBER_DENSITY * min_Te)
     end
 end
 
