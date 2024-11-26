@@ -145,7 +145,7 @@ function solve(U, params, tspan; saveat)
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
         retcode = :error
-        if sim.show_errors
+        if sim.print_errors
             @warn "Error detected in solution: $(errstring)"
         end
     end

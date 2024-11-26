@@ -1,15 +1,27 @@
 function apply_reactions!(dU, U, params)
     (; config, index, ionization_reactions, index,
-    ionization_reactant_indices, ionization_product_indices, cache, grid) = params
+    ionization_reactant_indices, ionization_product_indices, cache) = params
+
+    (; propellant, ncharge, LANDMARK, neutral_velocity) = config
+
+    rxns = zip(
+        ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
+
+    apply_reactions!(
+        dU, U, cache, index, ncharge, propellant.m, LANDMARK, neutral_velocity, rxns,)
+end
+
+function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
-    inv_m = inv(config.propellant.m)
+    inv_m = inv(mi)
+    ncells = length(ne)
 
     νiz .= 0.0
     inelastic_losses .= 0.0
-    @inbounds for i in eachindex(grid.cell_centers)
+    @inbounds for i in eachindex(ne)
         ne[i] = 0.0
-        for Z in 1:(config.ncharge)
+        for Z in 1:ncharge
             ne[i] += Z * U[index.ρi[Z], i]
         end
         ne[i] *= inv_m
@@ -17,15 +29,14 @@ function apply_reactions!(dU, U, params)
     inv_ne = cache.cell_cache_1
     @. inv_ne = inv(cache.ne)
     @. ϵ = cache.nϵ * inv_ne
-    if !config.LANDMARK
+    if !landmark
         @. ϵ += K
     end
 
     dt_max = Inf
 
-    @inbounds for (rxn, reactant_index, product_index) in zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
-        for i in 2:(length(grid.cell_centers) - 1)
+    @inbounds for (rxn, reactant_index, product_index) in rxns
+        for i in 2:(ncells - 1)
             r = rate_coeff(rxn, ϵ[i])
             ρ_reactant = U[reactant_index, i]
             ρdot = reaction_rate(r, ne[i], ρ_reactant)
@@ -39,10 +50,10 @@ function apply_reactions!(dU, U, params)
             dU[reactant_index, i] -= ρdot
             dU[product_index, i]  += ρdot
 
-            if !params.config.LANDMARK
+            if !landmark
                 # Momentum transfer due to ionization
                 if reactant_index == index.ρn
-                    reactant_velocity = params.config.neutral_velocity
+                    reactant_velocity = un
                 else
                     reactant_velocity = U[reactant_index + 1, i] / ρ_reactant
                     dU[reactant_index + 1, i] -= ρdot * reactant_velocity
@@ -59,9 +70,13 @@ end
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
 function apply_ion_acceleration!(dU, U, params)
-    (; cache, config, index, grid) = params
+    (; config, index, grid, cache) = params
+    mi = config.propellant.m
+    ncharge = config.ncharge
+    apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
+end
 
-    mi = params.config.propellant.m
+function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
     inv_m = inv(mi)
     inv_e = inv(e)
     dt_max = Inf
@@ -71,40 +86,41 @@ function apply_ion_acceleration!(dU, U, params)
         Δz = grid.dz_cell[i]
         inv_E = inv(abs(E))
 
-        @inbounds for Z in 1:(config.ncharge)
+        @inbounds for Z in 1:(ncharge)
             Q_accel = Z * e * U[index.ρi[Z], i] * inv_m * E
             dt_max = min(dt_max, sqrt(mi * Δz * inv_e * inv_E / Z))
             dU[index.ρiui[Z], i] += Q_accel
         end
     end
 
-    params.cache.dt_E[] = dt_max
+    cache.dt_E[] = dt_max
 end
 
 function apply_ion_wall_losses!(dU, U, params)
     (; index, config, cache, grid) = params
-    (; ncharge, propellant, wall_loss_model, thruster) = config
+    (; ncharge, propellant, wall_loss_model, thruster, transition_length) = config
 
     if wall_loss_model isa NoWallLosses
         return
     end
+    loss_scale = wall_loss_model isa WallSheath ? wall_loss_model.loss_scale : 1.0
 
-    L_ch = thruster.geometry.channel_length
-    inv_Δr = inv(thruster.geometry.outer_radius - thruster.geometry.inner_radius)
-    e_inv_m = e / propellant.m
+    apply_ion_wall_losses!(dU, U, loss_scale, grid, cache, index, thruster.geometry,
+        ncharge, propellant.m, transition_length,)
+end
 
-    if wall_loss_model isa WallSheath
-        α = wall_loss_model.loss_scale
-    else
-        α = 1.0
-    end
+function apply_ion_wall_losses!(
+        dU, U, loss_scale, grid, cache, index, geometry, ncharge, mi, transition_length,)
+    L_ch = geometry.channel_length
+    inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
+    e_inv_m = e / mi
 
-    h = α * edge_to_center_density_ratio()
+    h = loss_scale * edge_to_center_density_ratio()
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
         u_bohm = sqrt(e_inv_m * cache.Tev[i])
         in_channel = linear_transition(
-            grid.cell_centers[i], L_ch, params.config.transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
         νiw_base = in_channel * u_bohm * inv_Δr * h
 
         for Z in 1:ncharge
@@ -120,8 +136,7 @@ function apply_ion_wall_losses!(dU, U, params)
     end
 end
 
-function excitation_losses!(Q, params)
-    (; excitation_reactions, cache, grid, config) = params
+function excitation_losses!(Q, cache, landmark, grid, excitation_reactions)
     (; νex, ϵ, nn, ne, K) = cache
     ncells = length(grid.cell_centers)
 
@@ -131,19 +146,18 @@ function excitation_losses!(Q, params)
             r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], nn[i])
             νex[i] += ndot / ne[i]
-            Q[i] += ndot * (rxn.energy - !config.LANDMARK * K[i])
+            Q[i] += ndot * (rxn.energy - !landmark * K[i])
         end
     end
 
     return nothing
 end
 
-function ohmic_heating!(Q, params)
-    (; cache, config) = params
+function ohmic_heating!(Q, cache, landmark)
     (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
-    if (config.LANDMARK)
+    if (landmark)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
         @. Q = ne * ue * ∇ϕ
@@ -160,10 +174,11 @@ function source_electron_energy!(Q, params)
     (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
 
     # compute ohmic heating
-    ohmic_heating!(ohmic_heating, params)
+    ohmic_heating!(ohmic_heating, cache, config.LANDMARK)
 
     # add excitation losses to total inelastic losses
-    excitation_losses!(inelastic_losses, params)
+    excitation_losses!(
+        inelastic_losses, cache, config.LANDMARK, params.grid, params.excitation_reactions,)
 
     # compute wall losses
     wall_power_loss!(wall_losses, config.wall_loss_model, params)

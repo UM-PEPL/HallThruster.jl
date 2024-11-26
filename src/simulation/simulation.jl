@@ -72,22 +72,25 @@ function setup_simulation(config::Config, sim::SimParams;
 
     # Simulation parameters
     params = (;
+        # non-concretely-typed, changes based on run, requires recompilation
+        config = config,
+        # concretely-typed except for PID controller, not too bad
+        simulation = sim,
+        # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
         grid,
-        config = config,
-        simulation = sim,
         postprocess,
-        # fluid bookkeeping
+        # fluid bookkeeping - concretely-typed
         index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
-        # reactions
+        # reactions - concretely-typed
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        # Physics stuff
+        # Physics stuff - concretely-typed
         background_neutral_velocity = background_neutral_velocity(config),
         background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
