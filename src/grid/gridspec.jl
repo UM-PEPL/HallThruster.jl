@@ -17,14 +17,14 @@ function generate_grid end
     EvenGrid(n)
 Specifies an evenly-spaced grid with n cells.
 """
-EvenGrid(n::Int) = GridSpec(:Even, n)
+EvenGrid(n::Int) = GridSpec(:EvenGrid, n)
 
 """
     UnevenGrid(n)
 Specifies an unevenly-spaced grid, with grid density twice as high in the channel as outside,
 with a smooth transition region of 0.5 channel-lengths long between the two regions.
 """
-UnevenGrid(n::Int) = GridSpec(:Uneven, n)
+UnevenGrid(n::Int) = GridSpec(:UnevenGrid, n)
 
 function generate_grid(grid::GridSpec, geom::Geometry1D, domain)
     if grid.type == :EvenGrid
