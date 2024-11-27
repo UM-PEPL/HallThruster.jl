@@ -26,22 +26,13 @@ with a smooth transition region of 0.5 channel-lengths long between the two regi
 """
 UnevenGrid(n::Int) = GridSpec(:Uneven, n)
 
-#=============================================================================
- Serialization
-==============================================================================#
-
-# Serialization.SType(::Type{T}) where {T <: GridSpec} = Serialization.TaggedUnion()
-# Serialization.options(::Type{T}) where {T <: GridSpec} = (; UnevenGrid, EvenGrid)
-
-#=============================================================================
- Implementation
-==============================================================================#
-
 function generate_grid(grid::GridSpec, geom::Geometry1D, domain)
-    if grid.type == :Even || grid.type == :EvenGrid
+    if grid.type == :EvenGrid
         return generate_even_grid(geom, domain, grid.num_cells)
-    elseif grid.type == :Uneven || grid.type == :UnevenGrid
+    elseif grid.type == :UnevenGrid
         return generate_uneven_grid(geom, domain, grid.num_cells)
+    else
+        throw(ArgumentError("Invalid grid type $(grid). Select :EvenGrid or :UnevenGrid."))
     end
 end
 
