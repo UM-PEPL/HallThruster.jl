@@ -90,15 +90,19 @@ export time_average, Xenon, Krypton
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)
-    config_1 = HallThruster.Config(;
+    config_1 = Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0, 8.0),
+        domain = (0.0, 0.08),
         discharge_voltage = 300.0,
         anode_mass_flow_rate = 5e-6,
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
+        scheme = HyperbolicScheme(
+            flux_function = global_lax_friedrichs,
+            limiter = van_albada,
+        ),
     )
-    sol_1 = HallThruster.run_simulation(
+    sol_1 = run_simulation(
         config_1; ncells, duration, dt, nsave, verbose = false,)
 
     if sol_1.retcode != :success
@@ -106,31 +110,58 @@ function example_simulation(; ncells, duration, dt, nsave)
     end
 
     config_2 = HallThruster.Config(;
-        thruster = HallThruster.SPT_100,
+        thruster = SPT_100,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
         anode_mass_flow_rate = 5e-6,
+        anom_model = MultiLogBohm([0.02, 0.025, 0.03], [0.0625, 0.00625, 0.0625]),
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
         neutral_temperature_K = 500,
         ion_wall_losses = true,
         solve_plume = true,
+        scheme = HyperbolicScheme(
+            flux_function = HLLE,
+            limiter = minmod,
+        ),
     )
-    sol_2 = HallThruster.run_simulation(
+
+    sol_2 = run_simulation(
         config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
 
     if sol_2.retcode != :success
         error()
     end
 
-    HallThruster.time_average(sol_1)
-    HallThruster.discharge_current(sol_1)
-    HallThruster.thrust(sol_1)
-    HallThruster.mass_eff(sol_1)
-    HallThruster.current_eff(sol_1)
-    HallThruster.divergence_eff(sol_1)
-    HallThruster.voltage_eff(sol_1)
+    config_3 = HallThruster.Config(;
+        thruster = SPT_100,
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
+        anom_model = GaussianBohm(
+            hall_min = 0.00625, hall_max = 0.0625, center = 0.025, width = 0.002,),
+        wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
+        conductivity_model = Braginskii(),
+        neutral_temperature_K = 500,
+        ion_wall_losses = false,
+        solve_plume = false,
+    )
+
+    sol_3 = run_simulation(
+        config_3; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+
+    if sol_3.retcode != :success
+        error()
+    end
+
+    time_average(sol_1)
+    discharge_current(sol_1)
+    thrust(sol_1)
+    mass_eff(sol_1)
+    current_eff(sol_1)
+    divergence_eff(sol_1)
+    voltage_eff(sol_1)
     return sol_1
 end
 
@@ -142,7 +173,7 @@ end
         if splitext(file)[2] != ".json"
             continue
         end
-        sol = HallThruster.run_simulation(file)
+        sol = run_simulation(file)
     end
     rm(joinpath(PACKAGE_ROOT, "__output.json"), force = true)
 end

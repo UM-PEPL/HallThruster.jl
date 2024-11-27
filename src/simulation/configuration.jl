@@ -156,8 +156,6 @@ struct Config{A <: AnomalousTransportModel,
             throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
         end
 
-        typeof(source_ion_momentum), typeof(source_energy)
-
         return new{A, TC, W, HS, IC,
             typeof(source_neutrals), typeof(source_ion_continuity),
             typeof(source_ion_momentum), typeof(source_energy),}(
@@ -214,7 +212,7 @@ function Serialization.exclude(::Type{C}) where {C <: Config}
         :source_ion_momentum, :source_potential, :source_energy,)
 end
 
-convert_to_float64(number::Number, @nospecialize(unit)) = convert(Float64, number)
+convert_to_float64(number::Number, unit) = Float64(number)
 
 function ion_source_terms(ncharge, source, type)
     if ncharge != length(source)
