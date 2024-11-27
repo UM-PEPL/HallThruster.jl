@@ -65,7 +65,7 @@ function test_electron_losses()
         index = (; ρi = [1], nϵ = 2)
 
         ncells = 2
-        grid = het.generate_grid(geom, (0, 2 * L_ch), het.EvenGrid(2))
+        grid = het.generate_grid(het.EvenGrid(2), geom, (0, 2 * L_ch))
 
         mi_kr = het.Krypton.m
         γmax = 1 - 8.3 * sqrt(me / mi)
@@ -170,7 +170,7 @@ function test_ion_losses()
         νiw = α * sqrt(het.e * Tev / mi) / Δr * h
         νew = νiw * γ / (1 - γ)
 
-        grid = het.generate_grid(geom, (0, 2 * L_ch), het.EvenGrid(2))
+        grid = het.generate_grid(het.EvenGrid(2), geom, (0, 2 * L_ch))
 
         fluids = [
             het.Fluid(Xenon(0); u = 300.0, T = Tn),

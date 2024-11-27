@@ -1,4 +1,3 @@
-
 abstract type InitialCondition end
 
 Base.@kwdef struct DefaultInitialization <: InitialCondition

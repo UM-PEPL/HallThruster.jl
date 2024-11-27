@@ -30,8 +30,8 @@ function test_sim_initialization()
         mi = config.propellant.m
 
         ncells = 100
-        fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-        grid = het.generate_grid(config.thruster.geometry, domain, het.EvenGrid(ncells))
+        fluids, fluid_ranges, _, _, _ = het.configure_fluids(config)
+        grid = het.generate_grid(het.EvenGrid(ncells), config.thruster.geometry, domain)
         U, cache = het.allocate_arrays(grid, config)
         index = het.configure_index(fluids, fluid_ranges)
 

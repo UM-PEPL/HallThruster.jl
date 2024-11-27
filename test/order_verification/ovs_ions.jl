@@ -82,8 +82,7 @@ function solve_ions(ncells, scheme; t_end = 1e-4)
     )
 
     # Construct grid
-    grid = het.generate_grid(
-        het.SPT_100.geometry, domain, het.UnevenGrid(ncells),)
+    grid = het.generate_grid(het.UnevenGrid(ncells), het.SPT_100.geometry, domain)
     z_cell = grid.cell_centers
 
     # Create fluids

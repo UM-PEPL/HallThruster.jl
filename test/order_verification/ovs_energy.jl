@@ -69,8 +69,7 @@ function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
 end
 
 function verify_energy(ncells; niters = 20000)
-    grid = het.generate_grid(
-        het.SPT_100.geometry, (0.0, 0.05), het.UnevenGrid(ncells),)
+    grid = het.generate_grid(het.UnevenGrid(ncells), het.SPT_100.geometry, (0.0, 0.05))
     z_cell = grid.cell_centers
     ncells = length(z_cell)
 

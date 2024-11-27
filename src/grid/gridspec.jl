@@ -1,7 +1,10 @@
 """
     GridSpec
 """
-abstract type GridSpec end
+@kwdef struct GridSpec
+    type::Symbol = :Even
+    num_cells::Int
+end
 
 """
     generate_grid(geometry::Geometry1D, domain, spec::GridSpec)
@@ -14,32 +17,37 @@ function generate_grid end
     EvenGrid(n)
 Specifies an evenly-spaced grid with n cells.
 """
-@kwdef struct EvenGrid <: GridSpec
-    num_cells::Int
-end
+EvenGrid(n::Int) = GridSpec(:Even, n)
 
 """
     UnevenGrid(n)
 Specifies an unevenly-spaced grid, with grid density twice as high in the channel as outside,
 with a smooth transition region of 0.5 channel-lengths long between the two regions.
 """
-@kwdef struct UnevenGrid <: GridSpec
-    num_cells::Int
-end
+UnevenGrid(n::Int) = GridSpec(:Uneven, n)
 
 #=============================================================================
  Serialization
 ==============================================================================#
-Serialization.SType(::Type{T}) where {T <: GridSpec} = Serialization.TaggedUnion()
-Serialization.options(::Type{T}) where {T <: GridSpec} = (; UnevenGrid, EvenGrid)
+
+# Serialization.SType(::Type{T}) where {T <: GridSpec} = Serialization.TaggedUnion()
+# Serialization.options(::Type{T}) where {T <: GridSpec} = (; UnevenGrid, EvenGrid)
 
 #=============================================================================
  Implementation
 ==============================================================================#
 
-function generate_grid(::Geometry1D, domain, grid::EvenGrid)
+function generate_grid(grid::GridSpec, geom::Geometry1D, domain)
+    if grid.type == :Even || grid.type == :EvenGrid
+        return generate_even_grid(geom, domain, grid.num_cells)
+    elseif grid.type == :Uneven || grid.type == :UnevenGrid
+        return generate_uneven_grid(geom, domain, grid.num_cells)
+    end
+end
+
+function generate_even_grid(::Geometry1D, domain, num_cells::Int)
     # generate edge coordinates
-    num_edges = grid.num_cells + 1
+    num_edges = num_cells + 1
     edges = LinRange(domain[1], domain[2], num_edges)
     return Grid1D(edges)
 end
@@ -69,9 +77,9 @@ function points_from_density(density_fn, domain, N)
     return xs_density
 end
 
-function generate_grid(geometry::Geometry1D, domain, grid::UnevenGrid)
+function generate_uneven_grid(geometry::Geometry1D, domain, num_cells::Int)
     # generate edge coordinates from the density function
-    num_edges = grid.num_cells + 1
+    num_edges = num_cells + 1
     density_fn = Base.Fix2(uneven_grid_density, geometry.channel_length)
     edges = points_from_density(
         density_fn, domain, num_edges,

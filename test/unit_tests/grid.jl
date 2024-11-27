@@ -13,7 +13,7 @@ function test_grid_serialization()
             :num_cells => 100,
         )
         g = ht.deserialize(ht.GridSpec, dict1)
-        @test g isa ht.EvenGrid
+        @test g.type == :EvenGrid
         @test g.num_cells == 100
 
         dict2 = ht.OrderedDict(
@@ -21,7 +21,7 @@ function test_grid_serialization()
             :num_cells => 256,
         )
         g = ht.deserialize(ht.GridSpec, dict2)
-        @test g isa ht.UnevenGrid
+        @test g.type == :UnevenGrid
         @test g.num_cells == 256
 
         test_roundtrip(ht.GridSpec, dict1)
@@ -29,7 +29,7 @@ function test_grid_serialization()
     end
 end
 
-function test_grid_invariants(grid, dom, spec)
+function test_grid_invariants(spec, grid, dom)
     @testset "Grid invariants" begin
         n = spec.num_cells
         @test grid.num_cells == n + 2
@@ -54,8 +54,8 @@ function test_even_grid()
         geom = ht.SPT_100.geometry
         dom = (0.0, 0.08)
 
-        grid = ht.generate_grid(geom, dom, spec)
-        test_grid_invariants(grid, dom, spec)
+        grid = ht.generate_grid(spec, geom, dom)
+        test_grid_invariants(spec, grid, dom)
 
         (; dz_cell, dz_edge) = grid
         @testset "Spacing" begin
@@ -74,8 +74,8 @@ function test_uneven_grid()
         geom = ht.SPT_100.geometry
         dom = (0.0, 0.08)
 
-        grid = ht.generate_grid(geom, dom, spec)
-        test_grid_invariants(grid, dom, spec)
+        grid = ht.generate_grid(spec, geom, dom)
+        test_grid_invariants(spec, grid, dom)
 
         (; edges, cell_centers, dz_cell, dz_edge) = grid
 

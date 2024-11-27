@@ -1,5 +1,5 @@
-@kwdef mutable struct SimParams{G <: GridSpec, C <: CurrentController}
-    grid::G
+@kwdef mutable struct SimParams{C <: CurrentController}
+    grid::GridSpec
     dt::Float64
     duration::Float64
     # Optional parameters
@@ -41,7 +41,7 @@ function setup_simulation(config::Config, sim::SimParams;
         config.electron_neutral_model, unique(species),)
 
     # Generate grid and allocate state
-    grid = generate_grid(config.thruster.geometry, config.domain, sim.grid)
+    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
     U, cache = allocate_arrays(grid, config)
 
     # Load magnetic field
