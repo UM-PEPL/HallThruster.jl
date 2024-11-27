@@ -50,7 +50,8 @@ function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
     iter = 0
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
-        het.update_electron_energy!(params, config, dt)
+        het.update_electron_energy!(
+            params, config.wall_loss_model, config.source_energy, dt,)
         params.cache.νiz .= 0.0
         params.cache.νex .= 0.0
         params.cache.inelastic_losses .= 0.0

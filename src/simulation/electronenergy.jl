@@ -1,9 +1,3 @@
-function update_electron_energy!(params, config, dt)
-    (; wall_loss_model, source_energy) = config
-    # Remainder of energy equation
-    update_electron_energy!(params, wall_loss_model, source_energy, dt)
-end
-
 function update_electron_energy!(params, wall_loss_model, source_energy, dt)
     (; Te_L, Te_R, grid, cache, min_Te, implicit_energy, anode_bc, landmark) = params
     (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe) = cache

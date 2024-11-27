@@ -289,6 +289,7 @@ end
 
 function params_from_config(config)
     return (;
+        # Copied directly from config
         thruster = config.thruster,
         ncharge = config.ncharge,
         mi = config.propellant.m,
@@ -305,5 +306,9 @@ function params_from_config(config)
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
+        anom_smoothing_iters = config.anom_smoothing_iters,
+        discharge_voltage = config.discharge_voltage,
+        cathode_potential = config.cathode_potential,
+        electron_ion_collisions = config.electron_ion_collisions,
     )
 end

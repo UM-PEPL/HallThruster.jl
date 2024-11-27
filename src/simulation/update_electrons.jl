@@ -1,39 +1,55 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; grid, cache, simulation) = params
-    (; nn, B, ue, Tev, ∇ϕ, ϕ, pe, ne, nϵ, μ, ∇pe, νan, νc, νen, νei, radial_loss_frequency,
-    Z_eff, νiz, νex, νe, ji, Id, νew_momentum, κ, Vs, K,
-    anom_multiplier, channel_area) = cache
-
-    L_ch = config.thruster.geometry.channel_length
+    (; nn, Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency,
+    Z_eff, νiz, νex, νew_momentum, κ) = params.cache
+    (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature and pressure given new density
     update_temperature!(Tev, nϵ, ne, params.min_Te)
-    update_pressure!(pe, nϵ, config.LANDMARK)
+    update_pressure!(pe, nϵ, params.landmark)
 
-    # Update electron-ion, electron-neutral, and total classical collisions
-    if (config.electron_ion_collisions)
+    # Update collision frequencies
+    if (params.electron_ion_collisions)
         freq_electron_ion!(νei, ne, Tev, Z_eff)
     end
-
     freq_electron_neutral!(νen, params.electron_neutral_collisions, nn, Tev)
-    freq_electron_classical!(νc, νen, νei, νiz, νex, config.LANDMARK)
+    freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
+    freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
+    # Update anomalous transport
+    t > 0 && anom_model(νan, params, config)
+
+    # Update mobility, discharge current, potential, and more
+    update_electrical_vars!(params)
+
+    #update thermal conductivity
+    conductivity_model(κ, params)
+
+    # Update the electron temperature and pressure
+    update_electron_energy!(params, wall_loss_model, source_energy, params.dt[])
+end
+
+function freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
+    (; thruster, grid, transition_length) = params
+    L_ch = thruster.geometry.channel_length
     # Update wall collisions
     @inbounds for i in eachindex(radial_loss_frequency)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            config.wall_loss_model, params, i,)
+            wall_loss_model, params, i,)
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, config.transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
     end
+end
 
-    # Update anomalous transport
-    t > 0 && config.anom_model(νan, params, config)
+function update_electrical_vars!(params)
+    (; cache, anom_smoothing_iters, landmark, grid) = params
+    (; cell_cache_1, νan, νe, νc, μ, B, νew_momentum, anom_multiplier,
+    Vs, ue, ji, channel_area, ne, Id, K, pe, ∇pe, ϕ, ∇ϕ) = cache
 
     # Smooth anomalous transport model
-    if config.anom_smoothing_iters > 0
-        smooth!(νan, params.cache.cell_cache_1, iters = config.anom_smoothing_iters)
+    if anom_smoothing_iters > 0
+        smooth!(νan, cell_cache_1, iters = anom_smoothing_iters)
     end
 
     @inbounds for i in eachindex(νan)
@@ -49,11 +65,16 @@ function update_electrons!(params, config, t = 0)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    V_L = config.discharge_voltage + Vs[]
-    V_R = config.cathode_potential
-    un = config.neutral_velocity
-    apply_drag = !config.LANDMARK && params.iteration[] > 5
-    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
+    V_L = params.discharge_voltage + Vs[]
+    V_R = params.cathode_potential
+    apply_drag = !landmark && params.iteration[] > 5
+    Id[] = integrate_discharge_current(
+        grid, cache, V_L, V_R, params.neutral_velocity, apply_drag,)
+
+    # Update the anomalous collision frequency multiplier to match target current
+    anom_multiplier[] = exp(apply_controller(
+        params.simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
+    ))
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in eachindex(ue)
@@ -68,21 +89,10 @@ function update_electrons!(params, config, t = 0)
     compute_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     # Compute electric field
-    compute_electric_field!(∇ϕ, cache, un, apply_drag)
+    compute_electric_field!(∇ϕ, cache, params.neutral_velocity, apply_drag)
 
-    # update electrostatic potential and potential gradient on edges
-    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, config.discharge_voltage + Vs[])
-
-    #update thermal conductivity
-    config.conductivity_model(κ, params)
-
-    # Update the electron temperature and pressure
-    update_electron_energy!(params, config, params.dt[])
-
-    # Update the anomalous collision frequency multiplier to match target current
-    anom_multiplier[] = exp(apply_controller(
-        simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
-    ))
+    # Update electrostatic potential
+    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, params.discharge_voltage + Vs[])
 end
 
 # Compute the axially-constant discharge current using Ohm's law

@@ -71,7 +71,6 @@ function apply_ion_acceleration!(dU, U, params)
     (; index, grid, cache, mi, ncharge) = params
     apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
 end
-
 function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
     inv_m = inv(mi)
     inv_e = inv(e)

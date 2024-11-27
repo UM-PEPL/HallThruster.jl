@@ -71,6 +71,15 @@ function setup_simulation(config::Config, sim::SimParams;
     cache.dt .= dt
 
     # Simulation parameters
+    # IMPORTANT: for effective precompilation, we do not include any types
+    # in here that are non-concrete or likely to change between runs.
+    # For instance, any method that accepts a Config{...} will need to be recompiled for 
+    # all definitions of {...}, regardless of whether it actually needs to be
+    # Therefore, we do not include `config` in the `params` struct, instead
+    # passing it around sparingly to the methods that really need it.
+    # Except for `sim`, nothing in this struct should have type parameters.
+    # For convenience, the method `params_from_config` copies concretely-typed
+    # values from `config` and reinserts them into params.
     params = (;
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
