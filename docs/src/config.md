@@ -11,7 +11,7 @@ There are four absolutely mandatory arguments. These are:
 
 Aside from these arguments, all others have  default values provided. These are detailed below:
 
-- `initial_condition`: A function used for initializing the simulation. See the page about [Initialization](initialization.md) for more information.
+- `initial_condition`: A function used for initializing the simulation. See the page about [Initialization](@ref) for more information.
 - `ncharge`: Number of charge states to simulate. Defaults to `1`.
 - `propellant`: Propellant gas. Defaults to `Xenon`. Other options are described on the [Propellants](@ref) page.
 - `scheme`: Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. Defaults to `HyperbolicScheme(flux_function = rusanov, limiter = minmod, reconstruct = false)`. For more information, see [Fluxes](@ref).
@@ -33,11 +33,11 @@ Aside from these arguments, all others have  default values provided. These are 
 - `min_number_density`: Minimum allowable number density for any species. Defaults to `1e6`
 - `min_electron_temperature`: Minimum allowable electron temperature. Defaults to `1.0`.
 - `magnetic_field_scale`: Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. Defaults to `1.0`.
-- `source_neutrals`: Extra user-provided neutral source term. Can be an arbitrary function, but must take `(U, params, i)` as arguments. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
-- `source_ion_continuity`: Vector of extra source terms for ion continuity, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref) for more information.
-- `source_ion_momentum`: Vector of extra source terms for ion momentum, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref) for more information.
-- `source_potential`: Extra source term for potential equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
-- `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref) for more information.
+- `source_neutrals`: Extra user-provided neutral source term. Can be an arbitrary function, but must take `(U, params, i)` as arguments. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref source_terms_md) for more information.
+- `source_ion_continuity`: Vector of extra source terms for ion continuity, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref source_terms_md) for more information.
+- `source_ion_momentum`: Vector of extra source terms for ion momentum, one for each charge state. Defaults to `fill(Returns(0.0), ncharge)` . See [User-Provided Source Terms](@ref source_terms_md) for more information.
+- `source_potential`: Extra source term for potential equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref source_terms_md) for more information.
+- `source_electron_energy`: Extra source term for electron energy equation. Defaults to `Returns(0.0)`. See [User-Provided Source Terms](@ref source_terms_md) for more information.
 - `LANDMARK`: Whether we are using the LANDMARK physics model. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. Also affects whether we use an anode sheath model. Defaults to `false`.
 - `ion_wall_losses`: Whether we model ion losses to the walls. Defaults to `false`.
 - `background_pressure`: The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals.

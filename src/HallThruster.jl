@@ -175,7 +175,7 @@ end
         end
         sol = run_simulation(file)
     end
-    rm(joinpath(PACKAGE_ROOT, "__output.json"), force = true)
+    rm("__output.json", force = true)
 end
 
 end # module

@@ -40,3 +40,4 @@ end
 ## Custom thrusters
 
 You can add your own thruster models by defining the geometry, magnetic field profile and selecting shielded or not. Shielded thrusters are assumed to have lower electron energy losses to the walls, see [Wall Loss Models](@ref). Note that since HallThruster.jl is a 1D code, the `inner_radius` and `outer_radius` merely used for computing the inlet neutral density and thetotal thrust and discharge current computations (from the specific values). Aside from these, they do not majorly effect the simulation results. 
+

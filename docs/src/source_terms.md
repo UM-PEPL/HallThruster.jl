@@ -1,12 +1,14 @@
-# User-Provided Source Terms
+# [User-Provided Source Terms](@id source_terms_md)
+
+!!! warning "Advanced feature"
+    This is an advanced feature and should be used with caution.
 
 HallThruster allows users to provide additional source terms if they want. We make use of this function internally when we perform order verification studies (see [Verification](@ref), as well as our order verification tests in /tests/order_verification.jl). This may also be useful when implementing additional physics. Users may provide seperate source terms for each of the solved equations. The corresponding fields in the `Config` struct are
 
 - `source_neutrals`
-- `source_potential`
-- `source_electron_energy`
 - `source_ion_continuity`
 - `source_ion_momentum`
+- `source_electron_energy`
 
 The first three act similarly. HallThruster expects a function which takes `(U, params, i)` as an argument, where `U` is the state matrix, `params` is the NamedTuple of paramters, and `i` is the cell index. The source term should then return a scalar, which is added to the right-hand side of the corresponding equation.
 

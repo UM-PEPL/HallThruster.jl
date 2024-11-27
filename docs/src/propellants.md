@@ -3,7 +3,7 @@
 HallThruster implements several common Hall thruster propellants, and makes it easy to implement your own.
 
 !!! note
-    HallThruster only supports monatomic gases at this time. Support for diatomic propellants, such as iodine, may come in a future release.
+    HallThruster only supports monatomic gases at this time. Support for molecular propellants, such as iodine, may come in a future release.
 
 ## Provided propellants
 

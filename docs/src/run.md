@@ -1,4 +1,4 @@
-# Tutorial: running and analyzing a simulation
+# [Tutorial: running and analyzing a simulation](@id tutorial_md)
 
 This page will walk you through running a simulation and analyzing the output, in the process discussing many of the key features of `HallThruster.jl`. An interactive Jupyter notebook tutorial covering similar topics and convering the process of comparing the results of the code to an established benchmark is also available [here](https://nbviewer.org/github/UM-PEPL/HallThruster.jl/blob/main/HallThrusterTutorial.ipynb).
 
@@ -18,7 +18,7 @@ my_geometry = HallThruster.Geometry1D(
 )
 ```
 
-For clarity and ease of readability, you may also input dimensional numbers from the lovely `Unitful` package as shown below:
+For clarity and ease of readability, you may also input dimensional numbers from `Unitful` package as shown below:
 
 ```julia
 using HallThruster

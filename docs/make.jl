@@ -1,11 +1,12 @@
 using Documenter, HallThruster
 
-push!(LOAD_PATH,"../src/")
+push!(LOAD_PATH, "../src/")
 
 makedocs(
     sitename = "HallThruster.jl",
-    pages=[
+    pages = [
         "Home" => "index.md",
+        "Release notes" => "NEWS.md",
         "Tutorial" => "run.md",
         "Background" => "background.md",
         "Physics model" => "physics.md",
@@ -20,18 +21,18 @@ makedocs(
             "electron_thermal_conductivity.md",
             "wall_loss_models.md",
             "boundary_conditions.md",
-            "source_terms.md",
-        ],
+            "source_terms.md",],
+        "Postprocessing" => "postprocessing.md",
+        "JSON interface" => "json.md",
         "Grid generation" => "grid.md",
         "Numerics" => "numerics.md",
         "Verification" => "verification.md",
         "Internals" => "internals.md",
         "Contribution" => "contribution.md",
-        "Citation" => "citation.md"
+        "Citation" => "citation.md",
     ],
 )
 
 deploydocs(
     repo = "github.com/UM-PEPL/HallThruster.jl.git",
-    devbranch = "main"
 )

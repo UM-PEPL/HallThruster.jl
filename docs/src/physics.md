@@ -80,10 +80,6 @@ In addition, the electrons are assumed to be massless. This yields a generalized
 
 Here, ``\nu_e`` is the total electron momentum transfer collision frequency, ``\mathbf{j}_e = -e n_e \mathbf{u_e}`` is the electron current vector, ``p_e = n_e k_B T_e`` is the electron pressure, and ``B`` is the magnetic field. We want to model the electron velocity in both the axial (``\hat{z}``) and azimuthal (``\theta``) directions. Making the assumption that ``B`` is purely radial and that the plasma is axisymmetric, we arrive at the following two equations after some algebraic manipulations.
 
-```@docs
-axial current equation
-```
-
 ```math
     j_{ez} = \frac{e^2 n_e}{m_e \nu_e}\frac{1}{1 + \Omega_e^2}\left(E_z + \frac{1}{e n_e}\frac{\partial p_e}{\partial z}\right)\\
     j_{e\theta} = \Omega_e j_{ez}
@@ -150,10 +146,6 @@ HallThruster.jl, being a fluid globally quasineutral model, is not designed to r
 
 In the following, potential differences ``e\phi`` are assumed to be on the order of the electron temperature ``k T_e``. Furthermore, assume that cold ions fall through an arbitrary potential of ``\phi_0`` while they move towards the wall. Through conservation of energy, their arrival velocity at the sheath edge can be related to the potential difference. 
 
-```@docs
-energy conservation
-```
-
 ```math
     \frac{1}{2} m_i v_0^2 = e \phi_0
 ```
@@ -166,9 +158,6 @@ Additionally, the ion flux during acceleration toward the wall is conserved.
         
 The relation for ion velocity as a function of position in the sheath can be written as 
 
-```@docs
-above expression
-```
 
 ```math
     \frac{1}{2} m_i v^2 = \frac{1}{2} m_i v_0^2 - e\phi (x)
@@ -182,19 +171,12 @@ Rewriting both energy conservation and above expression for ``v_0`` and ``v``, a
 
 which by applying flux conservation results in 
 
-```@docs
-the density equation
-```
-
 ```math
     n_i = n_0 \sqrt{\frac{\phi_0}{\phi_0 - \phi}}
 ```
 
 Close to the sheath edge the density equation can be expanded as a Taylor series, as ``\phi`` is small compared to ``\phi_0``.
 
-```@docs
-expanded ion density
-```
 
 ```math
     n_i = n_0 \left(1 - \frac{1}{2}\frac{\phi}{\phi_0} + ...\right)
@@ -202,19 +184,12 @@ expanded ion density
 
 In one dimension, neglecting collisions with other species and assuming isentropic temperature and pressure terms, no convection and no electron inertia, the electrons can be described by the Boltzmann relation.
 
-```@docs
-Boltzmann relation
-```
 
 ```math
     n_e = n_0 exp\left(\frac{e \phi}{k T_e}\right)
 ```
 
 In this regime, the electron density is diffusion dominated and dictated by the electrostatic field. This assumption is generally valid along magnetic field lines and across weak magnetic fields with sufficient electron electron collisions. The Boltzmann relation can be expanded by assuming that the change in potential at the sheath edge is small compared to the electron temperature. 
-
-```@docs
-expanded Boltzmann relation
-```
 
 ```math
     n_e = n_0 \left(1 - \frac{e\phi}{k T_e} + ... \right)
@@ -239,10 +214,6 @@ As the sheath is assumed to be ion attracting, it can by definition not slow or 
 ```
 
 By substituting energy conservation equation, the ion Bohm speed can be recovered. This condition is applied to the anode boundary and will be discussed in the boundary conditions. 
-
-```@docs
-Bohm velocity
-```
 
 ```math
     v_0 > \sqrt{\frac{kT_e}{m_i}}
