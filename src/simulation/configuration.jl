@@ -1,4 +1,9 @@
 """
+Placeholder to allow unitful stuff
+"""
+units(::Any) = 1
+
+"""
 $(TYPEDEF)
 Hall thruster configuration struct. Only four mandatory fields: `discharge_voltage`, `thruster`, `anode_mass_flow_rate`, and `domain`.
 
@@ -109,11 +114,11 @@ struct Config{A <: AnomalousTransportModel,
         end
 
         # Convert to Float64 if using Unitful
-        discharge_voltage = convert_to_float64(discharge_voltage, u"V")
-        cathode_potential = convert_to_float64(cathode_potential, u"V")
+        discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
+        cathode_potential = convert_to_float64(cathode_potential, units(:V))
 
-        anode_Tev = convert_to_float64(anode_Tev, u"eV")
-        cathode_Tev = convert_to_float64(cathode_Tev, u"eV")
+        anode_Tev = convert_to_float64(anode_Tev, units(:eV))
+        cathode_Tev = convert_to_float64(cathode_Tev, units(:eV))
 
         default_neutral_velocity = 150.0 # m/s
         default_neutral_temp = 500.0 # K
@@ -122,30 +127,30 @@ struct Config{A <: AnomalousTransportModel,
             neutral_temperature_K = default_neutral_temp
         elseif isnothing(neutral_temperature_K)
             neutral_temperature_K = default_neutral_temp
-            neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
+            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
         elseif isnothing(neutral_velocity)
             # compute neutral velocity from thermal speed
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, u"K")
+            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
             neutral_velocity = 0.25 *
                                sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
         else
-            neutral_velocity = convert_to_float64(neutral_velocity, u"m/s")
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, u"K")
+            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
+            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
         end
 
-        ion_temperature_K = convert_to_float64(ion_temperature_K, u"K")
+        ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         domain = (
-            convert_to_float64(domain[1], u"m"),
-            convert_to_float64(domain[2], u"m"),
+            convert_to_float64(domain[1], units(:m)),
+            convert_to_float64(domain[2], units(:m)),
         )
 
-        anode_mass_flow_rate = convert_to_float64(anode_mass_flow_rate, u"kg/s")
+        anode_mass_flow_rate = convert_to_float64(
+            anode_mass_flow_rate, units(:kg) / units(:s),)
 
-        background_temperature_K = convert_to_float64(
-            background_temperature_K, u"K",)
-        background_pressure_Torr = convert_to_float64(background_pressure_Torr, u"Pa")
+        background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
+        background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Pa))
 
-        transition_length = convert_to_float64(transition_length, u"m")
+        transition_length = convert_to_float64(transition_length, units(:m))
 
         if anode_boundary_condition ∉ [:sheath, :dirichlet, :neumann]
             throw(ArgumentError("Anode boundary condition must be one of :sheath, :dirichlet, or :neumann. Got: $(anode_boundary_condition)"))
@@ -209,8 +214,7 @@ function Serialization.exclude(::Type{C}) where {C <: Config}
         :source_ion_momentum, :source_potential, :source_energy,)
 end
 
-convert_to_float64(number::Number, unit) = Float64(number)
-convert_to_float64(quantity::Quantity, unit) = uconvert(unit, quantity) |> ustrip |> Float64
+convert_to_float64(number::Number, @nospecialize(unit)) = convert(Float64, number)
 
 function ion_source_terms(ncharge, source, type)
     if ncharge != length(source)

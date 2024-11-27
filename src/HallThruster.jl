@@ -4,7 +4,6 @@ using LinearAlgebra: Tridiagonal
 using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm
-using Unitful: @u_str, uconvert, ustrip, Quantity
 using PrecompileTools: @compile_workload
 
 using JSON3
