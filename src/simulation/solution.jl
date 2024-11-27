@@ -99,7 +99,7 @@ function solve(U, params, config, tspan; saveat)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)
-                if sim.show_errors
+                if sim.print_errors
                     @warn("NaN or Inf detected in heavy species solver at time $(t)")
                 end
                 retcode = :failure

@@ -138,6 +138,11 @@ function setup_simulation(
         dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
         verbose = true, print_errors = true,
 )
+    dt = convert_to_float64(dt, units(:s))
+    duration = convert_to_float64(duration, units(:s))
+    dtmin = convert_to_float64(dtmin, units(:s))
+    dtmax = convert_to_float64(dtmax, units(:s))
+
     # Set up PID controller, if requested
     if control_current
         current_control = PIDController(
