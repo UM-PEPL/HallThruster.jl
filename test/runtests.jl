@@ -4,7 +4,6 @@ using Documenter
 using DelimitedFiles
 using LinearAlgebra
 using Printf
-using Unitful
 
 doctest(HallThruster)
 

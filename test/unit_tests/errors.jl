@@ -4,9 +4,9 @@ function test_errors()
     @testset "Errors and Warnings" begin
         Landmark_config = het.Config(;
             thruster = het.SPT_100,
-            domain = (0.0u"cm", 8.0u"cm"),
-            discharge_voltage = 300.0u"V",
-            anode_mass_flow_rate = 5u"mg/s",
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            anode_mass_flow_rate = 5e-6,
             LANDMARK = true,
         )
 
@@ -16,9 +16,9 @@ function test_errors()
 
         config = het.Config(;
             thruster = het.SPT_100,
-            domain = (0.0u"cm", 8.0u"cm"),
-            discharge_voltage = 300.0u"V",
-            anode_mass_flow_rate = 5u"mg/s",
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            anode_mass_flow_rate = 5e-6,
         )
 
         @test_logs (:warn,

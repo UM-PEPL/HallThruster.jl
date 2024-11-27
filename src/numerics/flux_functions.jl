@@ -59,18 +59,13 @@ for NUM_CONSERVATIVE in 1:3
                 fluid,
                 args...,
         ) where {T}
-            γ = fluid.species.element.γ
-            Z = fluid.species.Z
-
             uL = velocity(UL, fluid)
             uR = velocity(UR, fluid)
-            TL = temperature(UL, fluid)
-            TR = temperature(UR, fluid)
             aL = sound_speed(UL, fluid)
             aR = sound_speed(UL, fluid)
 
-            sL_max = max(abs(uL - aL), abs(uL + aL))
-            sR_max = max(abs(uR - aR), abs(uR + aR))
+            sL_max = max(abs(uL - aL), abs(uL + aL), abs(uL))
+            sR_max = max(abs(uR - aR), abs(uR + aR), abs(uR))
 
             smax = max(sL_max, sR_max)
 
@@ -88,13 +83,8 @@ for NUM_CONSERVATIVE in 1:3
                 fluid,
                 args...,
         ) where {T}
-            γ = fluid.species.element.γ
-            Z = fluid.species.Z
-
             uL = velocity(UL, fluid)
             uR = velocity(UR, fluid)
-            TL = temperature(UL, fluid)
-            TR = temperature(UR, fluid)
             aL = sound_speed(UL, fluid)
             aR = sound_speed(UL, fluid)
 
@@ -121,9 +111,6 @@ for NUM_CONSERVATIVE in 1:3
                 max_wave_speed = 0.0,
                 args...,
         ) where {T}
-            γ = fluid.species.element.γ
-            Z = fluid.species.Z
-
             uL = velocity(UL, fluid)
             uR = velocity(UR, fluid)
 
