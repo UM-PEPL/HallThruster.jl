@@ -3,13 +3,12 @@ using Documenter, HallThruster
 push!(LOAD_PATH, "../src/")
 
 makedocs(
-    sitename = "HallThruster.jl",
-    pages = [
+    sitename="HallThruster.jl",
+    pages=[
         "Home" => "index.md",
         "Release notes" => "NEWS.md",
         "Tutorial" => "run.md",
         "Background" => "background.md",
-        "Physics model" => "physics.md",
         "Configuration" => [
             "config.md",
             "propellants.md",
@@ -22,17 +21,16 @@ makedocs(
             "wall_loss_models.md",
             "boundary_conditions.md",
             "source_terms.md",],
+        "Grid generation" => "grid.md",
         "Postprocessing" => "postprocessing.md",
         "JSON interface" => "json.md",
-        "Grid generation" => "grid.md",
         "Numerics" => "numerics.md",
+        "Physics model" => "physics.md",
         "Verification" => "verification.md",
         "Internals" => "internals.md",
-        "Contribution" => "contribution.md",
-        "Citation" => "citation.md",
     ],
 )
 
 deploydocs(
-    repo = "github.com/UM-PEPL/HallThruster.jl.git",
+    repo="github.com/UM-PEPL/HallThruster.jl.git",
 )

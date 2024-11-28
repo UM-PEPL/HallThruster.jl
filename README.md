@@ -10,7 +10,7 @@ HallThruster.jl is an open-source, 1D fluid Hall thruster code written in Julia.
 
 ## Installation
 
-To install HallThruster.jl, you must first install Julia 1.7 or above from the [official Julia site](https://julialang.org/downloads/), or by using [juliaup](https://github.com/JuliaLang/juliaup). We recommend using the latest Julia release when possible. Once installed, launch Julia and type `]` to enter the Pkg REPL. To install HallThruster.jl type
+To install HallThruster.jl, you must first install Julia 1.10 or above from the [official Julia site](https://julialang.org/downloads/). We recommend using the latest Julia release when possible. Once installed, launch Julia and type `]` to enter the Pkg REPL. To install HallThruster.jl type
 
 ```julia
 (@v1.10) pkg> add https://github.com/UM-PEPL/HallThruster.jl

@@ -1,23 +1,24 @@
 # Release notes
 
-# HallThuster.jl v0.18.0
+## v0.18.0
 
 This is a breaking release, as part of our effort to move toward v1.0.0.
 Users may need to update their code to avoid errors. 
 Check out the list of changes and removals below to see how to migrate your code.
 
-## Major changes
+### Major changes
 
-### Precompilation and load time
+#### Precompilation and load time
 - We have significantly reduced our load times by removing dependencies. We have also added a significant amount of additional precompilation work to reduce the time-to-first-simulation for most users.
 - With these improvements, HallThruster.jl may be suitable for use in a scripting workflow, depending on the expected run-time of your simulations.
 - For many users and workflows, the total time-to-first-simulation should be just a few seconds.
 
-### Postprocessing changes
+#### Postprocessing changes
 - The `run_simulation` function now takes an optional `postprocess` keyword argument, which takes a `Postprocess` object.
 - The `Postprocess` struct allows the user to specify time-averaging, saving, and output info. Any requested postprocessing will be performed automatically after the simulation has finished and output the requested JSON file.
+- See [Postprocessing](@ref) for more information
 
-### JSON IO
+#### JSON IO
 JSON input and output has been significantly reworded and enhanced. 
 See the page on [Using JSON for input and output](@ref) for more information.
 Users of the JSON interface will need to update their input files to conform to the new format.
@@ -27,10 +28,10 @@ Some of the changes include:
 - JSON outputs can be used to restart simulations, replacing the restart capability previously provided by `JLD2`.
 - Users can provide postprocessing directives in the JSON input by providing a `"postprocessing"` key in their input, following the [`Postprocessing`](@ref) interface introduced in this update.
 
-## Interface changes
+### Interface changes
 
-### Configuration changes
-- The following keys have been renamed to better express the expected units. See [Configuration](@ref) for a full list of options and default values.
+#### Configuration changes
+- The following keys have been renamed to better express the expected units.
     - `anode_Te` -> `anode_Tev`
     - `cathode_Te` -> `cathode_Tev`
     - `ion_temperature` -> `ion_temperature_K`
@@ -44,14 +45,17 @@ Some of the changes include:
     - `ionization_model`: Formerly took a value of type `IonizationModel`, now takes a `Symbol` (one of `:Lookup` or `:Landmark`)
     - `excitation_model`: Formerly took a value of type `ExcitationModel`, now takes a `Symbol` (one of `:Lookup` or `:Landmark`)
     - `electron_neutral_model`: Formerly took a value of `ElectronNeutralModel`, now takes a `Symbol` (one of `None`, `:Lookup` or `:Landmark`)
+- See [Configuration](@ref) for a full list of options and default values.
 
-### Wall loss model changes
+#### Wall loss model changes
 - The parameter `α` of the `WallSheath` model has been renamed to `loss_scale` and has a default value of 1.0.
+- See [Wall Loss Models](@ref) for more information.
 
-### Grid generation changes
+#### Grid generation changes
 - `UnevenGrid` no longer takes a custom density function as an input.
+- See [Grid Generation](@ref) for more information.
 
-### Anomalous transport model changes
+#### Anomalous transport model changes
 - `ShiftedTwoZoneBohm`, `ShiftedGaussianBohm`, and `ShiftedMultiBohm` have been removed.
 - The model `LogisticPressureShift` has been added. This takes another anom model as a parameter and applies the same pressure-dependent shift as seen in these models.
 - To migrate to the new system, replace `ShiftedGaussianBohm` or similar with `LogisticPressureShift(GaussianBohm(...), ...)`.
@@ -63,12 +67,13 @@ Some of the changes include:
     - `center`: the center of the Gaussian subtraction
 - See [Anomalous Transport](@ref) for a full listing of anomalous transport options.
 
-### Thruster changes
+#### Thruster changes
 - `Thruster.magnetic_field` now takes a `MagneticField` object, which contains a filename, z-coordinates, and magnetic field values. Arbitrary functions are no longer supported. If only a filename is provided, the constructor will load the magnetic field from the provided file.
 - `B_field_SPT_100` has been renamed to `spt100_analytic_field`
 - `geometry_SPT_100` has been renamed to `spt100_geometry`
+- See [Thrusters](@ref) for more information.
 
-## Removals
+### Removals
 - The `IonizationModel`, `ExcitationModel`, and `ElectronNeutralModel` interfaces have been removed in favor of a simpler `Symbol`-based lookup system.
 - The `GKElectronNeutral` model has been removed entirely.
 - Serialization using JLD2 has been removed in favor of the JSON-based system described above.
