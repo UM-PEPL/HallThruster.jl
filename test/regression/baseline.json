@@ -18,7 +18,7 @@
     ],
     "anode_mass_flow_rate": 5e-6,
     "discharge_voltage": 300,
-    "cathode_potential": 30,
+    "cathode_coupling_voltage": 30,
     "anom_model": {
       "type": "LogisticPressureShift",
       "model": {

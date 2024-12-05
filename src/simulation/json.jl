@@ -62,6 +62,7 @@ function frame_dict(sol::Solution, frame::Integer)
     d["voltage_eff"] = voltage_eff(sol, frame)
     d["current_eff"] = current_eff(sol, frame)
     d["divergence_eff"] = divergence_eff(sol, frame)
+    d["anode_eff"] = anode_eff(sol, frame)
     d["t"] = sol.t[frame]
     d["z"] = grid.cell_centers
     d["nn"] = sv.nn

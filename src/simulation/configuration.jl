@@ -20,7 +20,7 @@ struct Config{A <: AnomalousTransportModel,
     domain::Tuple{Float64, Float64}
     discharge_voltage::Float64
     anode_mass_flow_rate::Float64
-    cathode_potential::Float64
+    cathode_coupling_voltage::Float64
     anode_Tev::Float64
     cathode_Tev::Float64
     anom_model::A
@@ -61,8 +61,8 @@ struct Config{A <: AnomalousTransportModel,
             domain,                             # MANDATORY ARGUMENT
             discharge_voltage,                  # MANDATORY ARGUMENT
             anode_mass_flow_rate,               # MANDATORY ARGUMENT
-            cathode_potential = 0.0,
-            cathode_Tev = 3.0,
+            cathode_coupling_voltage = 0.0,
+            cathode_Tev = 2.0,
             anode_Tev = cathode_Tev,
             anom_model::A = TwoZoneBohm(1 / 160, 1 / 16),
             conductivity_model::TC = Mitchner(),
@@ -115,7 +115,7 @@ struct Config{A <: AnomalousTransportModel,
 
         # Convert to Float64 if using Unitful
         discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
-        cathode_potential = convert_to_float64(cathode_potential, units(:V))
+        cathode_coupling_voltage = convert_to_float64(cathode_coupling_voltage, units(:V))
 
         anode_Tev = convert_to_float64(anode_Tev, units(:eV))
         cathode_Tev = convert_to_float64(cathode_Tev, units(:eV))
@@ -163,7 +163,7 @@ struct Config{A <: AnomalousTransportModel,
             domain,
             discharge_voltage,
             anode_mass_flow_rate,
-            cathode_potential,
+            cathode_coupling_voltage,
             anode_Tev,
             cathode_Tev,
             anom_model,
@@ -310,7 +310,7 @@ function params_from_config(config)
         plume_loss_scale = config.electron_plume_loss_scale,
         anom_smoothing_iters = config.anom_smoothing_iters,
         discharge_voltage = config.discharge_voltage,
-        cathode_potential = config.cathode_potential,
+        cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
     )
 end
