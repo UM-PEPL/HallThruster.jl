@@ -39,6 +39,7 @@ Some of the changes include:
     - `neutral_temperature` -> `neutral_temperature_K`
     - `background_neutral_temperature` -> `background_temperature_K`
     - `background_pressure` -> `background_pressure_Torr`
+    - `cathode_potential` -> `cathode_coupling_voltage`
 - The following keys have been removed.
     - `min_electron_temperature` (now set to the `min(anode_Tev, cathode_Tev)`)
     - `min_number_density` (now set to `1e6`)
@@ -60,6 +61,7 @@ Some of the changes include:
 - `ShiftedTwoZoneBohm`, `ShiftedGaussianBohm`, and `ShiftedMultiBohm` have been removed.
 - The model `LogisticPressureShift` has been added. This takes another anom model as a parameter and applies the same pressure-dependent shift as seen in these models.
 - To migrate to the new system, replace `ShiftedGaussianBohm` or similar with `LogisticPressureShift(GaussianBohm(...), ...)`.
+- The `dz` and `z0` parameters of `LogisticPressureShift` are now in terms of channel length rather than meters
 - Added the `GaussianBohm` model
 - Renamed the parameters of the `ShiftedGaussianBohm`/`GaussianBohm` model. The new parameters are:
     - `hall_min`: the minimum Hall parameter

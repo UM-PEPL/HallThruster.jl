@@ -49,7 +49,7 @@ Model where the anomalous collision frequency scales with the electron cyclotron
 end
 
 function (model::Bohm)(νan, params, config)
-    (; cache, grid) = params
+    (; cache, grid, thruster) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -57,7 +57,8 @@ function (model::Bohm)(νan, params, config)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (_, zc) in enumerate(grid.cell_centers)
@@ -82,7 +83,7 @@ end
 
 function (model::TwoZoneBohm)(νan, params, config)
     (; c1, c2) = model
-    (; cache, grid) = params
+    (; cache, grid, thruster) = params
     (; B) = cache
 
     L_trans = config.transition_length
@@ -93,7 +94,8 @@ function (model::TwoZoneBohm)(νan, params, config)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -131,7 +133,7 @@ The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2]
 end
 
 function (model::MultiLogBohm)(νan, params, config)
-    (; grid) = params
+    (; grid, thruster) = params
     (; B) = params.cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -139,7 +141,8 @@ function (model::MultiLogBohm)(νan, params, config)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -174,7 +177,7 @@ end
 
 function (model::GaussianBohm)(νan, params, config)
     (; hall_min, hall_max, center, width) = model
-    (; cache, grid) = params
+    (; cache, grid, thruster) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -182,7 +185,8 @@ function (model::GaussianBohm)(νan, params, config)
         return νan
     end
 
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr)
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -223,15 +227,15 @@ function (model::LogisticPressureShift)(args...; kwargs...)
     return model.model(args...; kwargs...)
 end
 
-pressure_shift(model::AnomalousTransportModel, ::Any) = 0.0
+pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
 
-function pressure_shift(model::LogisticPressureShift, pB::Float64)
+function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
     (; z0, dz, alpha, pstar) = model
 
     torr_to_pa = 133.322
     p_ratio = pB / (pstar * torr_to_pa)
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
-    return zstar
+    return channel_length * zstar
 end
 
 """

@@ -17,8 +17,8 @@ function test_json()
         @test config.anom_model.model.hall_max ≈ 1 / 16
         @test config.anom_model.alpha ≈ 43.0
         @test config.anom_model.pstar ≈ 3e-5
-        @test config.anom_model.z0 ≈ -0.003
-        @test config.anom_model.dz ≈ 0.005
+        @test config.anom_model.z0 ≈ -0.12
+        @test config.anom_model.dz ≈ 0.2
         @test config.discharge_voltage ≈ 300.0
         @test config.thruster.name == "SPT-100"
         @test config.propellant == het.Xenon
