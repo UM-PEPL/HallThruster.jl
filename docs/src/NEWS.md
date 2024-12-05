@@ -2,9 +2,10 @@
 
 ## v0.18.0
 
-This is a breaking release, as part of our effort to move toward v1.0.0.
-Users may need to update their code to avoid errors. 
-Check out the list of changes and removals below to see how to migrate your code.
+!!! warning "Breaking release"
+    v0.18.0 is is a breaking release, made as part of our effort to move toward v1.0.0 in the next few months.
+    Users may need to update their code to avoid errors. 
+    Check out the list of changes and removals below to see how to migrate your code.
 
 ### Major changes
 

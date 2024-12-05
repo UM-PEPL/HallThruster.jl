@@ -19,6 +19,15 @@ To install HallThruster.jl, you must first install Julia 1.10 or above from the 
 
 This will install HallThruster.jl using Julia's package manager.
 
+## Changes
+
+!!! warning "Breaking release"
+    v0.18.0 is is a breaking release, made as part of our effort to move toward v1.0.0 in the next few months.
+    Users may need to update their code to avoid errors. 
+    Check out the [list of changes and removals](NEWS.md) to see how to migrate your code.
+
+A log of changes to the code from v0.18.0 onward can be found [here](NEWS.md).
+
 ## Contribution
 
 Users are welcome to suggest and implement features for the code, as well as report bugs or numerical issues they encounter. Please feel free to [open an issue on this repository](https://github.com/UM-PEPL/HallThruster.jl/issues/new) describing your desired change/bug-fix. Pull requests are also welcome!

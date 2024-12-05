@@ -3,6 +3,8 @@
 .DS_Store
 docs/.DS_Store
 
+Manifest.toml
+
 docs/build
 .vscode
 landmark/webplotdigitizer
