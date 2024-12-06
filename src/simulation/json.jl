@@ -18,7 +18,7 @@ function run_simulation(json_file::String; restart::String = "")
         throw(ArgumentError("$json_file is not a valid JSON file"))
     end
 
-    obj = JSON3.read(read(json_file))
+    obj = JSON3.read(read(json_file), allow_inf=true)
 
     # Read config and sim params from file
     if haskey(obj, "input")
@@ -142,6 +142,6 @@ function write_to_json(
 
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
-    JSON3.write(file, output)
+    JSON3.write(file, output, allow_inf=true)
     return nothing
 end

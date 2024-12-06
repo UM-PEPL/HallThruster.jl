@@ -231,9 +231,7 @@ pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
 
 function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
     (; z0, dz, alpha, pstar) = model
-
-    torr_to_pa = 133.322
-    p_ratio = pB / (pstar * torr_to_pa)
+    p_ratio = pB / pstar 
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
     return channel_length * zstar
 end
