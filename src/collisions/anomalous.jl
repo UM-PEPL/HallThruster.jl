@@ -96,11 +96,11 @@ function (model::TwoZoneBohm)(νan, params, config)
 
     L_ch = thruster.geometry.channel_length
     z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
-    B_interp = LinearInterpolation(grid.cell_centers, B)
+    #B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        B = B_interp(z)
+        B = B[i] 
         ωce = e * B / me
         c = linear_transition(z, L_ch, L_trans, c1, c2)
         νan[i] = c * ωce
