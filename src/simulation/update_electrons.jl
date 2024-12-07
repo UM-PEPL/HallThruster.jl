@@ -67,7 +67,7 @@ function update_electrical_vars!(params)
     # Compute the discharge current by integrating the momentum equation over the whole domain
     V_L = params.discharge_voltage + Vs[]
     V_R = params.cathode_coupling_voltage
-    apply_drag = false # !landmark && params.iteration[] > 5
+    apply_drag = !landmark && params.iteration[] > 5
     Id[] = integrate_discharge_current(
         grid, cache, V_L, V_R, params.neutral_velocity, apply_drag,)
 
