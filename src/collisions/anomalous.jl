@@ -100,7 +100,8 @@ function (model::TwoZoneBohm)(νan, params, config)
 
     for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        ωce = e * B[i] / me
+        B = B[i] 
+        ωce = e * B / me
         c = linear_transition(z, L_ch, L_trans, c1, c2)
         νan[i] = c * ωce
     end
