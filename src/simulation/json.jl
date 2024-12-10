@@ -53,7 +53,7 @@ Convert one frame of a `Solution` to an `OrderedDict`
 function frame_dict(sol::Solution, frame::Integer)
     (; grid) = sol.params
     ncharge = sol.config.ncharge
-    sv = sol.savevals[frame]
+    f = sol.frames[frame]
     d = OrderedDict{String, Any}()
     d["thrust"] = thrust(sol, frame)
     d["discharge_current"] = discharge_current(sol, frame)
@@ -65,23 +65,23 @@ function frame_dict(sol::Solution, frame::Integer)
     d["anode_eff"] = anode_eff(sol, frame)
     d["t"] = sol.t[frame]
     d["z"] = grid.cell_centers
-    d["nn"] = sv.nn
-    d["ni"] = [sv.ni[Z, :] for Z in 1:ncharge]
-    d["ui"] = [sv.ui[Z, :] for Z in 1:ncharge]
-    d["niui"] = [sv.niui[Z, :] for Z in 1:ncharge]
+    d["nn"] = f.nn
+    d["ni"] = [f.ni[Z, :] for Z in 1:ncharge]
+    d["ui"] = [f.ui[Z, :] for Z in 1:ncharge]
+    d["niui"] = [f.niui[Z, :] for Z in 1:ncharge]
     d["B"] = sol.params.cache.B
-    d["ne"] = sv.ne
-    d["ue"] = sv.ue
-    d["V"] = sv.ϕ
-    d["E"] = -sv.∇ϕ
-    d["Tev"] = sv.Tev
-    d["pe"] = sv.pe
-    d["nu_en"] = sv.νen
-    d["nu_ei"] = sv.νei
-    d["nu_anom"] = sv.νan
-    d["nu_class"] = sv.νc
-    d["mobility"] = sv.μ
-    d["channel_area"] = sv.channel_area
+    d["ne"] = f.ne
+    d["ue"] = f.ue
+    d["V"] = f.ϕ
+    d["E"] = -f.∇ϕ
+    d["Tev"] = f.Tev
+    d["pe"] = f.pe
+    d["nu_en"] = f.νen
+    d["nu_ei"] = f.νei
+    d["nu_anom"] = f.νan
+    d["nu_class"] = f.νc
+    d["mobility"] = f.μ
+    d["channel_area"] = f.channel_area
     return d
 end
 
@@ -107,7 +107,7 @@ function serialize_sol(
     end
 
     if save_time_resolved
-        output["frames"] = [frame_dict(sol, i) for i in eachindex(sol.savevals)]
+        output["frames"] = [frame_dict(sol, i) for i in eachindex(sol.frames)]
     end
 
     return OrderedDict(

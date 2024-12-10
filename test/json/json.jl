@@ -1,4 +1,3 @@
-using HallThruster: HallThruster as het
 using JSON3: JSON3
 
 include(joinpath(het.TEST_DIR, "unit_tests", "serialization_test_utils.jl"))
@@ -59,7 +58,7 @@ function test_json()
         # restart should be a different solution than the original,
         # since it runs for an additional `duration`
         restart = het.run_simulation(outfile, restart = outfile)
-        @test !isapprox(new_sol.savevals[end].Id[], restart.savevals[end].Id[])
+        @test !isapprox(new_sol.frames[end].Id[], restart.frames[end].Id[])
 
         rm(outfile, force = true)
     end

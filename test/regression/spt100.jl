@@ -14,6 +14,13 @@ function test_spt100_regression()
             max_E = 6.531e4,
             max_nn = 2.092e19,
             max_ni = 8.933e17,
+			efficiencies = Dict(
+				"Mass" => 0.951,
+				"Current" => 0.883,
+				"Divergence" => 0.947,
+				"Voltage" => 0.654,
+				"Anode" => 0.623,
+			)
         )
         check_regression_case(baseline)
 
@@ -26,6 +33,13 @@ function test_spt100_regression()
             max_E = 9.464e4,
             max_nn = 2.096e19,
             max_ni = 1.056e18,
+			efficiencies = Dict(
+				"Mass" => 0.947,
+				"Current" => 0.827,
+				"Divergence" => 0.962,
+				"Voltage" => 0.700,
+				"Anode" => 0.552,
+			)
         )
         check_regression_case(with_plume)
     end

@@ -31,6 +31,7 @@ include("utilities/integration.jl")
 include("utilities/macros.jl")
 include("utilities/serialization.jl")
 include("utilities/keywords.jl")
+include("utilities/units.jl")
 
 using .Serialization: serialize, deserialize
 

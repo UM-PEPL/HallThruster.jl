@@ -1,18 +1,51 @@
-@kwdef mutable struct SimParams{C <: CurrentController}
+mutable struct SimParams{C <: CurrentController}
     grid::GridSpec
     dt::Float64
     duration::Float64
     # Optional parameters
-    num_save::Int        = 1000
-    CFL::Float64         = 0.799
-    adaptive::Bool       = false
-    min_dt::Float64      = 1e-10
-    max_dt::Float64      = 1e-7
-    max_small_steps::Int = 100
-    verbose::Bool        = true
-    print_errors::Bool   = true
-    current_control::C   = NoController()
+    num_save::Int
+    adaptive::Bool
+    CFL::Float64
+    min_dt::Float64
+    max_dt::Float64
+    max_small_steps::Int
+    verbose::Bool
+    print_errors::Bool
+    current_control::C 
+
+	function SimParams(;
+		grid::GridSpec,
+		dt,
+		duration,
+		# Optional parameters
+		num_save::Int = 100,
+		adaptive::Bool = true,
+		CFL::Float64 = 0.799,
+		min_dt = 1e-10,
+		max_dt = 1e-7,
+		max_small_steps::Int = 100,
+		verbose::Bool = true,
+		print_errors::Bool = true,
+		current_control::C = NoController(),
+	) where {C <: CurrentController}
+
+		return new{C}(
+			grid,
+			convert_to_float64(dt, units(:s)),
+			convert_to_float64(duration, units(:s)),
+			num_save,
+			adaptive,
+			CFL,
+			convert_to_float64(min_dt, units(:s)),
+			convert_to_float64(max_dt, units(:s)),
+			max_small_steps,
+			verbose,
+			print_errors,
+			current_control,
+		)
+	end
 end
+
 
 function setup_simulation(config::Config, sim::SimParams;
         postprocess::Union{Postprocess, Nothing} = nothing, include_dirs = String[],
@@ -192,7 +225,7 @@ function run_from_setup(U, params, config)
 
     # Print some diagnostic information
     if sol.retcode != :Success && params.simulation.verbose
-        println("Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sol_info.time) seconds.")
+        @info "Simulation exited at t = $(sol.t[end]) with retcode :$(sol.retcode) in $(sol_info.time) seconds."
     end
 
     return sol

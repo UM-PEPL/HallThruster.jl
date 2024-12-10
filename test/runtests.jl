@@ -67,6 +67,9 @@ test_grid()
 include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
 test_current_control()
 
+include("$(HallThruster.TEST_DIR)/unit_tests/setup.jl")
+test_setup()
+
 # JSON serialization tests
 include("$(HallThruster.TEST_DIR)/json/json.jl")
 test_json()

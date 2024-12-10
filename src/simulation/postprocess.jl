@@ -30,7 +30,8 @@ end
 Average a `Solution` over time, starting at time `start_time`.
 Return a `Solution` object with a single frame containing the averaged simulation properties
 """
-function time_average(sol::Solution, start_time::AbstractFloat)
+function time_average(sol::Solution, start_time)
+	start_time = convert_to_float64(start_time, units(:s))
     start_frame = findfirst(>=(start_time), sol.t)
     return time_average(sol, start_frame)
 end
@@ -41,18 +42,17 @@ Average a `Solution` over time, starting at frame `start_frame`.
 Return a `Solution` object with a single frame containing the averaged simulation properties
 """
 function time_average(sol::Solution, start_frame::Integer = 1)
-    avg = zeros(size(sol.u[1]))
-    avg_savevals = deepcopy(sol.savevals[end])
-    fields = fieldnames(typeof(avg_savevals))
+    avg_frames = deepcopy(sol.frames[end])
+    fields = fieldnames(typeof(avg_frames))
 
     # Initialize avg to zero
     for f in fields
         if f == :anom_variables
             for j in 1:num_anom_variables(sol.config.anom_model)
-                avg_savevals[f][j] .= 0.0
+                avg_frames[f][j] .= 0.0
             end
         else
-            avg_savevals[f] .= 0.0
+            avg_frames[f] .= 0.0
         end
     end
 
@@ -60,22 +60,20 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     tstamps = length(sol.t)
     Δt = (tstamps - start_frame + 1)
     for i in start_frame:length(sol.t)
-        avg .+= sol.u[i] / Δt
         for f in fields
             if f == :anom_variables
                 for j in 1:num_anom_variables(sol.config.anom_model)
-                    avg_savevals[f][j] .+= sol.savevals[i][f][j] / Δt
+                    avg_frames[f][j] .+= sol.frames[i][f][j] / Δt
                 end
             else
-                avg_savevals[f] .+= sol.savevals[i][f] / Δt
+                avg_frames[f] .+= sol.frames[i][f] / Δt
             end
         end
     end
 
     return Solution(
         sol.t[end:end],
-        [avg],
-        [avg_savevals],
+        [avg_frames],
         sol.params,
         sol.config,
         sol.retcode,
@@ -88,15 +86,14 @@ end
 Compute the thrust at a specific frame of a `Solution`.
 """
 function thrust(sol::Solution, frame::Integer)
-    index = sol.params.index
-    left_area = sol.savevals[frame].channel_area[1]
-    right_area = sol.savevals[frame].channel_area[end]
+	mi = sol.params.mi
+	f = sol.frames[frame]
+    left_area = f.channel_area[begin]
+    right_area = f.channel_area[end]
     thrust = 0.0
     for Z in 1:(sol.config.ncharge)
-        thrust += right_area * sol.u[frame][index.ρiui[Z], end]^2 /
-                  sol.u[frame][index.ρi[Z], end]
-        thrust -= left_area * sol.u[frame][index.ρiui[Z], 1]^2 /
-                  sol.u[frame][index.ρi[Z], 1]
+		thrust += right_area * mi * f.niui[Z, end]^2 / f.ni[Z, end]
+		thrust -= left_area * mi * f.niui[Z, begin]^2 / f.ni[Z, begin]
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
@@ -111,19 +108,19 @@ end
     $(TYPEDSIGNATURES)
 Compute the thrust at a each frame of a `Solution`.
 """
-thrust(sol::Solution) = [thrust(sol, frame) for frame in eachindex(sol.savevals)]
+thrust(sol::Solution) = [thrust(sol, frame) for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
 Compute the discharge current at a specific frame of a `Solution`.
 """
-discharge_current(sol::Solution, frame::Integer) = sol.savevals[frame].Id[]
+discharge_current(sol::Solution, frame::Integer) = sol.frames[frame].Id[]
 
 """
     $(TYPEDSIGNATURES)
 Compute the discharge current at a each frame of a `Solution`.
 """
-discharge_current(sol::Solution) = [s.Id[] for s in sol.savevals]
+discharge_current(sol::Solution) = [s.Id[] for s in sol.frames]
 
 """
     $(TYPEDSIGNATURES)
@@ -142,7 +139,7 @@ end
     $(TYPEDSIGNATURES)
 Compute the anode efficiency at each frame of a `Solution`.
 """
-anode_eff(sol::Solution) = [anode_eff(sol, frame) for frame in eachindex(sol.savevals)]
+anode_eff(sol::Solution) = [anode_eff(sol, frame) for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
@@ -151,9 +148,7 @@ Compute the voltage/acceleration efficiency at a specific frame of a `Solution`.
 function voltage_eff(sol::Solution, frame::Integer)
     Vd = sol.config.discharge_voltage
     mi = sol.config.propellant.m
-
-    ui = sol.u[frame][sol.params.index.ρiui[1], end] /
-         sol.u[frame][sol.params.index.ρi[1], end]
+	ui = sol.frames[frame].niui[1, end] / sol.frames[frame].ni[1, end]
     voltage_eff = 0.5 * mi * ui^2 / e / Vd
     return voltage_eff
 end
@@ -162,14 +157,14 @@ end
     $(TYPEDSIGNATURES)
 Compute the voltage/acceleration efficiency at each frame of a `Solution`.
 """
-voltage_eff(sol::Solution) = [voltage_eff(sol, frame) for frame in eachindex(sol.savevals)]
+voltage_eff(sol::Solution) = [voltage_eff(sol, frame) for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
 Compute the divergence efficiency at a specific frame of a `Solution`.
 """
 function divergence_eff(sol::Solution, frame::Integer)
-    tanδ = sol.savevals[frame].tanδ[end]
+    tanδ = sol.frames[frame].tanδ[end]
     δ = atan(tanδ)
     return cos(δ)^2
 end
@@ -179,7 +174,7 @@ end
 Compute the divergence efficiency at each frame of a `Solution`.
 """
 divergence_eff(sol::Solution) = [divergence_eff(sol, frame)
-                                 for frame in eachindex(sol.savevals)]
+                                 for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
@@ -187,10 +182,10 @@ Compute the ion current at a specific frame of a `Solution`.
 """
 function ion_current(sol::Solution, frame)
     Ii = 0.0
-    right_area = sol.savevals[frame].channel_area[end]
-    mi = sol.config.propellant.m
+	f = sol.frames[frame]
+    right_area = sol.frames[frame].channel_area[end]
     for Z in 1:(sol.config.ncharge)
-        Ii += Z * e * sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mi
+		Ii += Z * e * f.niui[Z,end] * f.channel_area[end]
     end
 
     return Ii
@@ -200,7 +195,7 @@ end
     $(TYPEDSIGNATURES)
 Compute the ion current at each frame of a `Solution`.
 """
-ion_current(sol::Solution) = [ion_current(sol, frame) for frame in eachindex(sol.savevals)]
+ion_current(sol::Solution) = [ion_current(sol, frame) for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
@@ -213,7 +208,7 @@ electron_current(sol::Solution, frame) = discharge_current(sol, frame) -
 Compute the electron current at each frame of a `Solution`.
 """
 function electron_current(sol::Solution)
-    [electron_current(sol, frame) for frame in eachindex(sol.savevals)]
+    [electron_current(sol, frame) for frame in eachindex(sol.frames)]
 end
 
 """
@@ -226,7 +221,7 @@ current_eff(sol::Solution, frame) = ion_current(sol, frame) / discharge_current(
     $(TYPEDSIGNATURES)
 Compute the current/beam utilization efficiency at each frame of a `Solution`.
 """
-current_eff(sol::Solution) = [current_eff(sol, frame) for frame in eachindex(sol.savevals)]
+current_eff(sol::Solution) = [current_eff(sol, frame) for frame in eachindex(sol.frames)]
 
 """
     $(TYPEDSIGNATURES)
@@ -234,11 +229,13 @@ Compute the mass utilization efficiency at a specific frame of a `Solution`.
 """
 function mass_eff(sol::Solution, frame)
     mass_eff = 0.0
-    right_area = sol.savevals[frame].channel_area[end]
+	f = sol.frames[frame]
+    right_area = f.channel_area[end]
+	mi = sol.params.mi
     mdot = sol.config.anode_mass_flow_rate
 
-    for Z in 1:(sol.config.ncharge)
-        mass_eff += sol.u[frame][sol.params.index.ρiui[Z], end] * right_area / mdot
+    for Z in 1:sol.config.ncharge
+		mass_eff += mi * f.niui[Z, end] * right_area / mdot
     end
 
     return mass_eff
@@ -248,50 +245,5 @@ end
     $(TYPEDSIGNATURES)
 Compute the mass utilization efficiency at each frame of a `Solution`.
 """
-mass_eff(sol::Solution) = [mass_eff(sol, frame) for frame in eachindex(sol.savevals)]
+mass_eff(sol::Solution) = [mass_eff(sol, frame) for frame in eachindex(sol.frames)]
 
-function Base.getindex(sol::Solution, frame::Integer)
-    return Solution(
-        [sol.t[frame]],
-        [sol.u[frame]],
-        [sol.savevals[frame]],
-        sol.params,
-        sol.config,
-        sol.retcode,
-        sol.error,
-    )
-end
-
-function Base.getindex(sol::Solution, field::Symbol, charge::Integer = 1)
-    if charge > sol.config.ncharge && field in [:ni, :ui, :niui]
-        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.config.ncharge)."))
-    end
-
-    if field == :ni
-        return [saved[:ni][charge, :] for saved in sol.savevals]
-    elseif field == :ui
-        return [saved[:ui][charge, :] for saved in sol.savevals]
-    elseif field == :niui
-        return [saved[:niui][charge, :] for saved in sol.savevals]
-    elseif field == :B
-        return [sol.params.cache.B]
-    elseif field == :ωce || field == :cyclotron_freq || field == :omega_ce
-        return [e * sol[:B, charge][1] / me]
-    elseif field == :E
-        return -sol[:∇ϕ]
-    elseif field == :V || field == :potential
-        return sol[:ϕ]
-    elseif field == :nu_an
-        return sol[:νan]
-    elseif field == :nu_ei
-        return sol[:νei]
-    elseif field == :nu_en
-        return sol[:νen]
-    elseif field == :mobility
-        return sol[:μ]
-    elseif field == :thermal_conductivity
-        return sol[:κ]
-    else
-        return [getproperty(saved, field) for saved in sol.savevals]
-    end
-end

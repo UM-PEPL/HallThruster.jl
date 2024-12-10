@@ -1,22 +1,72 @@
-struct Solution{T, U, P, C, S}
+struct Solution{T, P, C, S}
     t::T
-    u::U
-    savevals::S
+    frames::S
     params::P
     config::C
     retcode::Symbol
     error::String
 end
 
-function Solution(
-        sol::S, params::P, config::C, savevals::SV, error::String = "",) where {S, P, C, SV}
-    return Solution(sol.t, sol.u, savevals, params, config, sol.retcode, error)
+function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
+	return print(io, "Hall thruster solution with $(length(sol.frames)) saved frames (retcode: $(string(sol.retcode)), end time: $(sol.t[end]) seconds)")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
-    println(io, "Hall thruster solution with $(length(sol.u)) saved frames")
-    println(io, "Retcode: $(string(sol.retcode))")
-    return print(io, "End time: $(sol.t[end]) seconds")
+function Base.getindex(sol::Solution, frames::Integer)
+    return Solution(
+		[sol.t[frames]],
+		[sol.frames[frames]],
+        sol.params,
+        sol.config,
+        sol.retcode,
+        sol.error,
+    )
+end
+
+function Base.getindex(sol::Solution, frames::AbstractVector)
+    return Solution(
+		sol.t[frames],
+		sol.frames[frames],
+        sol.params,
+        sol.config,
+        sol.retcode,
+        sol.error,
+    )
+end
+
+function Base.getindex(sol::Solution, field::Symbol, charge::Integer = 1)
+    if charge > sol.config.ncharge && field in [:ni, :ui, :niui]
+        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. Maximum charge state in provided solution is $(sol.config.ncharge)."))
+    end
+
+    if field == :ni
+        return [saved[:ni][charge, :] for saved in sol.frames]
+    elseif field == :ui
+        return [saved[:ui][charge, :] for saved in sol.frames]
+    elseif field == :niui
+        return [saved[:niui][charge, :] for saved in sol.frames]
+    elseif field == :B
+        return sol.params.cache.B
+    elseif field == :ωce || field == :cyclotron_freq || field == :omega_ce
+        return e * sol[:B] / me
+    elseif field == :E
+        return -sol[:∇ϕ]
+    elseif field == :V || field == :potential
+        return sol[:ϕ]
+    elseif field == :nu_an
+        return sol[:νan]
+    elseif field == :nu_ei
+        return sol[:νei]
+    elseif field == :nu_en
+        return sol[:νen]
+    elseif field == :mobility
+        return sol[:μ]
+    elseif field == :thermal_conductivity
+        return sol[:κ]
+	elseif field == :z || field == :cell_centers
+		return sol.params.grid.cell_centers
+    else
+        return [getproperty(saved, field) for saved in sol.frames]
+    end
 end
 
 @inline _saved_fields_vector() = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
@@ -48,8 +98,7 @@ function solve(U, params, config, tspan; saveat)
     save_ind = 2
     fields_to_save = saved_fields()
     first_saveval = NamedTuple{fields_to_save}(params.cache)
-    u_save = [deepcopy(U) for _ in saveat]
-    savevals = [deepcopy(first_saveval) for _ in saveat]
+    frames = [deepcopy(first_saveval) for _ in saveat]
 
     # Parameters for adaptive timestep escape hatch
     small_step_count = 0
@@ -125,17 +174,15 @@ function solve(U, params, config, tspan; saveat)
             # Save values at designated intervals
             # TODO interpolate these to be exact and make a bit more elegant
             if t > saveat[save_ind]
-                u_save[save_ind] .= U
-
                 # save vector fields
                 for field in _saved_fields_vector()
                     if field == :anom_variables
                         for i in 1:num_anom_variables(config.anom_model)
-                            savevals[save_ind][field][i] .= params.cache[field][i]
+                            frames[save_ind][field][i] .= params.cache[field][i]
                         end
                     else
                         cached_field::Vector{Float64} = params.cache[field]
-                        sv::Vector{Float64} = savevals[save_ind][field]
+                        sv::Vector{Float64} = frames[save_ind][field]
                         sv .= cached_field
                     end
                 end
@@ -143,7 +190,7 @@ function solve(U, params, config, tspan; saveat)
                 # save matrix fields
                 for field in _saved_fields_matrix()
                     cached_field::Matrix{Float64} = params.cache[field]
-                    sv::Matrix{Float64} = savevals[save_ind][field]
+                    sv::Matrix{Float64} = frames[save_ind][field]
                     sv .= cached_field
                 end
 
@@ -158,9 +205,14 @@ function solve(U, params, config, tspan; saveat)
         end
     end
 
-    ind = min(save_ind, length(savevals) + 1) - 1
+    ind = min(save_ind, length(frames) + 1) - 1
 
     return Solution(
-        saveat[1:ind], u_save[1:ind], savevals[1:ind], params, config, retcode, errstring,
+        saveat[1:ind],
+		frames[1:ind],
+		params,
+		config,
+		retcode,
+		errstring,
     )
 end

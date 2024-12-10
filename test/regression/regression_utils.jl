@@ -78,7 +78,7 @@ function check_regression_case(case)
 
         sol = sol_info.value
 
-        nsave = length(sol.savevals)
+        nsave = length(sol.frames)
         avg_start = nsave ÷ 3
         n_avg = nsave - avg_start
         avg = het.time_average(sol, avg_start)
@@ -94,17 +94,43 @@ function check_regression_case(case)
         ji_mean = het.mean(ji)
         ji_err = het.std(ji) / sqrt(n_avg)
 
-        max_Te = maximum(avg[:Tev][])
-        max_E = maximum(avg[:E][])
-        max_nn = maximum(avg[:nn][])
-        max_ni = maximum(avg[:ni][])
-
+		println("Performance:")
         @printf("Thrust: %.3f ± %.3f mN (expected %.3f mN)\n",
             T_mean, T_err, thrust)
         @printf("Discharge current: %.3f ± %.3f A (expected %.3f A)\n",
             Id_mean, Id_err, current)
         @printf("Ion current: %.3f ± %.3f A (expected %.3f A)\n",
             ji_mean, ji_err, ion_current)
+        @test isapprox(thrust, T_mean, atol = T_err)
+        @test isapprox(current, Id_mean, atol = Id_err)
+        @test isapprox(ion_current, ji_mean, atol = ji_err)
+
+		efficiencies = Dict(
+			"Mass" => het.mass_eff,
+			"Current" => het.current_eff,
+			"Voltage" => het.voltage_eff,
+			"Divergence" => het.divergence_eff,
+			"Anode" => het.anode_eff,
+		)
+
+		println("\nEfficiencies:")
+
+		for (eff_name, eff_func) in efficiencies
+			eff = eff_func(sol)
+			eff_mean = het.mean(eff)
+			eff_err = het.std(eff) / sqrt(n_avg)
+			eff_expected = case.efficiencies[eff_name]
+			@printf("%s: %.1f ±  %.1f%% (expected %.1f%%)\n", 
+		   		eff_name, eff_mean * 100, eff_err * 100, eff_expected * 100)
+			@test isapprox(eff_mean, eff_expected, rtol = 1e-2)
+		end
+
+        max_Te = maximum(avg[:Tev][])
+        max_E = maximum(avg[:E][])
+        max_nn = maximum(avg[:nn][])
+        max_ni = maximum(avg[:ni][])
+
+		println("\nPlasma properties:")
         @printf("Peak electron temp: %.3f eV (expected %.3f eV)\n",
             max_Te, case.max_Te)
         @printf("Peak electric field: %.3e V/m (expected %.3e V/m)\n",
@@ -116,9 +142,6 @@ function check_regression_case(case)
         println()
         @test sol.retcode == :success
 
-        @test isapprox(thrust, T_mean, atol = T_err)
-        @test isapprox(current, Id_mean, atol = Id_err)
-        @test isapprox(ion_current, ji_mean, atol = ji_err)
         @test isapprox(max_Te, case.max_Te, rtol = 1e-2)
         @test isapprox(max_E, case.max_E, rtol = 1e-2)
         @test isapprox(max_nn, case.max_nn, rtol = 1e-2)

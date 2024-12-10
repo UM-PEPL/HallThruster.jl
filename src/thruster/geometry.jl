@@ -13,6 +13,9 @@ struct Geometry1D
     outer_radius::Float64
     channel_area::Float64
     function Geometry1D(; channel_length, inner_radius, outer_radius)
+		channel_length = convert_to_float64(channel_length, units(:m))
+		inner_radius = convert_to_float64(inner_radius, units(:m))
+		outer_radius = convert_to_float64(outer_radius, units(:m))
         A_ch = channel_area(outer_radius, inner_radius)
         return new(channel_length, inner_radius, outer_radius, A_ch)
     end

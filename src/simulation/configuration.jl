@@ -1,9 +1,4 @@
 """
-Placeholder to allow unitful stuff
-"""
-units(::Any) = 1
-
-"""
 $(TYPEDEF)
 Hall thruster configuration struct. Only four mandatory fields: `discharge_voltage`, `thruster`, `anode_mass_flow_rate`, and `domain`.
 
@@ -211,8 +206,6 @@ function Serialization.exclude(::Type{C}) where {C <: Config}
     return (:source_neutrals, :source_ion_continuity,
         :source_ion_momentum, :source_potential, :source_energy,)
 end
-
-convert_to_float64(number::Number, unit) = Float64(number)
 
 function ion_source_terms(ncharge, source, type)
     if ncharge != length(source)
