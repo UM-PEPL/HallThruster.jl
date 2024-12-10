@@ -146,7 +146,7 @@ end
 
 ```jldoctest; output=false
 using HallThruster: HallThruster as het
-using Unitful # or `using DynamicQuantities, if desired`
+using Unitful # or `using DynamicQuantities`, if desired
 
 geom = het.Geometry1D(
     channel_length = 2.5u"cm",
@@ -265,8 +265,8 @@ As always, units may be specified.
 ```jldoctest; output=false
 simparams = het.SimParams(
     grid = het.EvenGrid(100),   # an evenly-spaced grid with 100 cells
-    dt = 5u"ns",                  # a base timestep of 5 nanoseconds
-    duration = 1u"ms",            # run the simulation for one millisecond of simulated time
+    dt = 5u"ns",                # a base timestep of 5 nanoseconds
+    duration = 1u"ms",          # run the simulation for one millisecond of simulated time
     num_save = 1000,            # save 1000 frames of output
 )
 
@@ -289,8 +289,7 @@ Hall thruster solution with 1000 saved frames (retcode: success, end time: 0.001
 The first line is printed when a simulation is completed (unless `simparams.verbose = false`) and tells us the run-time of our simulation.
 The second line provides a summary of the Hall thruster solution in question, telling us that the simulation has 1000 saved frames, that its end time is 1 ms (0.001 seconds), and, most importantly, that it succeeded (the return code or `retcode` is `:success`).
 If something goes wrong, the simulation will terminate early and the return code will be either `failure` or `error`.
-A return code of `:failure` means the simulation became unstable and blew up or was otherwise unable to complete,
-while a return code of `:error` means some other error occurred.
+A return code of `:failure` means the simulation became unstable and blew up and a `NaN` or `Inf` was detected, while a return code of `:error` means some other error occurred.
 
 # Analyze
 
@@ -306,7 +305,7 @@ These are
 - `config`: the `Config` we ran the simulation with
 - `error`: A string containing any errors that occurred, along with traceback information. This is empty if `retcode` is not `:error`
 
-We can extract some useful global metrics from a solution, like thrust and discharge current.
+We can extract some useful global metrics from a solution, like thrust, discharge_current, and anode_efficiency.
 
 ```julia
 thrust = het.thruster(solution)
@@ -318,7 +317,7 @@ There are serveral other functions that act analogously, computing efficiencies 
 A full listing of these can be found on the [Postprocessing](../reference/postprocessing.md) page.
 
 Below, we use [Makie](https://docs.makie.org/stable/) to plot the discharge current over time for this specific simulation.
-We can see that the simulation begins with strong transient oscillations before settling down to a relatively stablle steady state.
+We can see that the simulation begins with strong transient oscillations before settling down to a relatively stable steady state.
 
 ```julia
 using CairoMakie: Makie as mk
@@ -340,7 +339,7 @@ f, ax, _ = mk.lines(
 ### Average
 
 If you want a time-averaged global metric, you could average one of these vectors yourself, or you could let `HallThruster` do it for you.
-We provide the `time_average` function, which averages an entire `Solution` object.
+For this purpose, `HallThruster` provides the `time_average` function, which averages an entire `Solution` object.
 
 ```julia
 avg = het.time_average(solution)
@@ -359,18 +358,19 @@ avg = het.time_average(solution, 5e-4)      # average starting at 5e-4 seconds
 avg = het.time_average(solution, 0.5u"ms")  # units are supported too, if Unitful or DynamicQuantities loaded
 ```
 
-You can also index a Solution to extract a specific frame or range of frames, e.g.
+You can also index a `Solution` with an integer or range to extract a specific frame or range of frames, e.g.
 
 ```julia
 tenth_frame = solution[10]      # extract frame number 10 as a new Solution object
 middle_800 = solution[101:900]  # extract frames 101:900
+avg_middle = het.time_average(solution[350:750])    # average frames 350 to 750
 ```
 
-Averaging and postprocessing functions work normally on the results of these as well.
+Postprocessing functions like `discharge_current` and `thrust` work normally on the results of these operations as well.
 
 ### Extract plasma properties
 
-Lastly, we can obtain plasma properties by indexing a `Solution` object.
+Lastly, we can obtain plasma properties by indexing a `Solution` object with a `:Symbol`.
 For instance, if we want to extract the time-averaged ion velocity of singly-charged ions, we could do
 
 ```julia
@@ -381,7 +381,7 @@ ui_1 = avg[:ui, 1][]
 
 Here, `:ui` is a symbol telling `HallThruster` what field quantitity we want and `1` indicates that we want singly-charged ions.
 
-We can plot these using a plotting package like [Makie](https://docs.makie.org/stable/).
+We can plot the extracted velocity using a plotting package like [Makie](https://docs.makie.org/stable/).
 
 ```julia
 using CairoMakie: Makie as mk
@@ -420,9 +420,9 @@ Many other parameters can be extracted this way, including
 Now you known how to run a basic simulation in `HallThruster`.
 You can specify a thruster and geometry, input operating conditions, select numerical properties, run the simulation, and extract useful data.
 In this tutorial, we left many of the options at their defaults, but `HallThruster` is highly configurable.
-You can change anomalous transport models, propellants, wall loss models, and more.
-If none of the built-ins are sufficient, you can even write your own models and create your own propellants.
-You can also run the code from python, or directly from a JSON input file.
+You can change [anomalous transport models](../reference/anomalous_transport.md), [propellants](../reference/propellants.md), [wall loss models](../reference/wall_loss_models.md), and more.
+If none of the built-ins are sufficient, you can even [write your own models](../howto/new_anom_model.md) and [create your own propellants](../howto/new_propellant.md).
+You can also [run the code from python](../howto/python.md), or [directly from a JSON input file](../howto/json.md).
 The rest of the documentation contains details about all of this and more.
 
 If you encounter an issue running the code, please file a [GitHub issue](https://github.com/UM-PEPL/HallThruster.jl/issues). `HallThruster` is an evolving code, and new features are implemented on a regular basis.
