@@ -27,7 +27,8 @@ The user has the option to supply a fixed timestep, or a CFL number. In the form
     \sigma = \frac{u_i \Delta t}{\Delta x} < 1
 ```
 
-Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cells, results in ``\Delta t \leq 1.2 \times 10^{-8}`` s. In practice, it needs to be a bit lower in order to handle transients as the solution oscillates. This restriction is valid for the continuity and isothermal euler equations. Information on setting `dt` and selecting the integration scheme can be found in the [Tutorial](@ref tutorial_md).
+Using a maximum ion velocity of 22000 m/s, a domain length of 0.05m and 200 cells, results in ``\Delta t \leq 1.2 \times 10^{-8}`` s.
+In practice, it needs to be a bit lower in order to handle transients as the solution oscillates. This restriction is valid for the continuity and isothermal euler equations.
 
 In most cases, it is better to let HallThruster.jl handle timestepping automatically using its adaptive timestepping option. If adaptive timestepping is enabled, the user-defined timestep is ignored in favor of a timestep based on the minimum of three conditions and a user-supplied CFL number. Mathematically the timstep is choosen as:
 

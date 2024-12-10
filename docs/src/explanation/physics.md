@@ -1,6 +1,13 @@
 # Physics model
 
-HallThruster.jl solves the quasineutral plasma equations of motion for a Hall Thruster along the thruster's channel centerline (the z-axis). We solve seperate models for neutral particles, ions, and electrons. Neutrals are assumed to have constant velocity and temperature and are tracked by a single continuity equation. Ions are assumed isothermal and unmagnetized. Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation. We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law. Charge conservation is then used to solve for the electrostatic potential. The electron temperature is determined by solving an equation for the conservation of electron internal energy. The model is based upon the work presented in [K. Hara, *Non-oscillatory quasineutral fluid model of cross-field discharge plasmas*, Physics of Plasmas 25, 123508, 2018](https://aip.scitation.org/doi/pdf/10.1063/1.5055750). See [Configuration](@ref) for supported gases. Xenon is the standard, Krypton is fully supported and in theory any monoatomic gas can be used as propellant in the simulation.
+HallThruster.jl solves the 1-D quasineutral plasma equations of motion for a Hall thruster in the axial ($z$) direction, averaged across the thruster's discharge channel.
+We solve seperate models for neutral particles, ions, and electrons.
+Neutrals are assumed to have constant velocity and temperature and are tracked by a single continuity equation.
+Ions are assumed isothermal and unmagnetized.
+Multiple ion species with different charge states are supported, and each is tracked by a continuity equation and a momentum equation.
+We employ the drift-diffusion approximation for electrons, which reduces the electron momentum equation to a generalized Ohm's law.
+This, in combination with charge conservation, allows us to solve for the electrostatic potential and discharge current.
+Finally, we determine the electron temperature solving an equation for the conservation of electron internal energy.
 
 ## Neutrals
 
@@ -95,7 +102,8 @@ In Hall thrusters, the observed axial/cross-field electron current is significan
 
 ## Discharge current and electric field
 
- To determine the electric field and dischrage current we generally follow the method from [V. Giannetti, et. al *Numerical and experimental investigation of longitudinal oscillations in Hall thrusters*, Aerospace 8, 148, 2021](https://www.mdpi.com/2226-4310/8/6/148). We outline the main steps here. By writing the discharge current as ``\frac{I_d}{A_{ch}} = j_e + j_i`` where ``A_{ch}`` is the channel area, plugging in Ohm's law for the electron current density, and integrating over the domain, we can write the discharge current as
+ To determine the electric field and discharge current we generally follow the method from [V. Giannetti, et. al *Numerical and experimental investigation of longitudinal oscillations in Hall thrusters*, Aerospace 8, 148, 2021](https://www.mdpi.com/2226-4310/8/6/148).
+ By writing the discharge current as ``\frac{I_d}{A_{ch}} = j_e + j_i`` where ``A_{ch}`` is the channel area, plugging in Ohm's law for the electron current density, and integrating over the domain, we can write the discharge current as
 
 ```math
     I_d = \frac{\Delta V + \int_{z_c}^{z_a} \frac{1}{en_e}\frac{\partial p_e}{\partial z} + \frac{j_{iz}}{en_e\mu_{\perp}} dz}{\int_{z_c}^{z_a} en_e \mu_{\perp} A dz}

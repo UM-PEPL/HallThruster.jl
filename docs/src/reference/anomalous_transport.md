@@ -90,7 +90,7 @@ function (model::BohmDiffusion)(νan, params)
 end
 ```
 
-We can now set `anom_model = BohmDiffusion` in our config struct (see [Configuration](@ref)) and the simulation will correctly compute the anomalous transport according to our model.
+We can now set `anom_model = BohmDiffusion` in our config struct (see [Configuration](../reference/config.md)) and the simulation will correctly compute the anomalous transport according to our model.
 
 ## More complex anomalous transport models
 

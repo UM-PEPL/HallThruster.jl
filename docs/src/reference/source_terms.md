@@ -3,7 +3,7 @@
 !!! warning "Advanced feature"
     This is an advanced feature and should be used with caution.
 
-HallThruster allows users to provide additional source terms if they want. We make use of this function internally when we perform order verification studies (see [Verification](@ref), as well as our order verification tests in /tests/order_verification.jl). This may also be useful when implementing additional physics. Users may provide seperate source terms for each of the solved equations. The corresponding fields in the `Config` struct are
+HallThruster allows users to provide additional source terms if they want. We make use of this function internally when we perform order verification studies (see [Verification](../explanation/verification.md), as well as our order verification tests in /tests/order_verification.jl). This may also be useful when implementing additional physics. Users may provide seperate source terms for each of the solved equations. The corresponding fields in the `Config` struct are
 
 - `source_neutrals`
 - `source_ion_continuity`
