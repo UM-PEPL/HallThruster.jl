@@ -1,4 +1,4 @@
-# Simulation parameters
+# Simulations
 
 ```@meta
 CurrentModule = HallThruster
@@ -15,9 +15,12 @@ SimParams{C <: CurrentController}
 ```
 
 Using a `SimParams` in combination with a suitable [`Config`](../reference/config.md), we can use `run_simulation` to run a simulation.
+We can also run a simulation from an appropriately-formatted JSON file.
+See [Use JSON for input and output](@ref) for more information.
 
 # Functions
 
 ```@docs
-run_simulation(config::Config, sim::SimParams; kwargs...)
+run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
+run_simulation(json_file::String; restart::String = "")
 ```

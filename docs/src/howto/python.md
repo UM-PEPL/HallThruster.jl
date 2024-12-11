@@ -28,7 +28,7 @@ With `HallThruster` imported, you can create the inputs to your simulation.
 These are exactly identical to those used for the [JSON interface](../howto/json.md), so we will not belabor them here.
 You can either use a dictionary or a path to a JSON file.
 
-As in the Julia version, we first create a [`config`](../reference/config.md) dict to hold geometric and plasma properties.
+As in the Julia version, we first create a [`config`](../reference/config.md#Config) dict to hold geometric and plasma properties.
 
 ```python
 config = {
@@ -55,7 +55,7 @@ config = {
 }
 ```
 
-Next, we create a [`simulation`](../reference/simparams.md) dict to hold timestepping properties.
+Next, we create a [`simulation`](../reference/simparams.md#SimParams) dict to hold timestepping properties.
 
 ```python
 simulation = {
@@ -70,7 +70,7 @@ simulation = {
 }
 ```
 
-Lastly, we create a [`postprocess`](../reference/postprocessing.md) dict to hold the output file and desired output format.
+Lastly, we create a [`postprocess`](../reference/postprocessing.md#Postprocess) dict to hold the output file and desired output format.
 
 ```python
 postprocess = {
@@ -88,7 +88,6 @@ input = {"config": config, "simulation": simulation, "postprocess": postprocess}
 
 solution = het.run_simulation(input, jl_environment = ".")
 ```
-
 Here, we have provided the keyword argument `jl_environment` to tell Python where it should look for `HallThruster`.
 This should be the directory in which you have a `Project.toml` specifying `HallThruster` as a dependency.
 If left blank, the script will assume that you want to use the global environment.
@@ -138,8 +137,8 @@ f, axes = plt.subplots(1, 2, figsize = (10,5))
 xlabel = 'Axial position [cm]'
 axes[0].set_xlabel(xlabel)
 axes[1].set_xlabel(xlabel)
-axes[0].set_ylabel('$u_i$ [km/s]')
-axes[1].set_ylabel('$T_e$ [eV]')
+axes[0].set_ylabel('\$u_i\$ [km/s]')
+axes[1].set_ylabel('\$T_e\$ [eV]')
 axes[0].set_title('Ion velocity')
 axes[1].set_title('Electron temperature')
 

@@ -1,4 +1,8 @@
-# Using JSON for input and output
+# Use JSON for input and output
+
+```@meta
+CurrentModule = HallThruster
+```
 
 ## Running simulations from JSON input.
 
@@ -6,7 +10,7 @@ In addition to the usual way of running simulations using a `Config` and `SimPar
 This can be achieved by calling `run_simulation("input.json")`, where `"input.json"` could be any json file.
 The contents of this file should be laid out in one of two ways.
 The first way has up to three keys -- two mandatory (`"config"` and `"simulation"`) and one optional (`"postprocess"`).
-These exactly mirror the [`Config`](../reference/config.md), [`SimParams`](../reference/simparams.md), and [`Postprocess`](../reference/postprocessing.md) structs that are normally passed to `run_simulation` and should be relatively self-explanatory.
+These exactly mirror the [`Config`](@ref), [`SimParams`](@ref), and [`Postprocess`](@ref) structs that are normally passed to `run_simulation` and should be relatively self-explanatory.
 
 Below, we show an example of this type of JSON input.
 
@@ -84,11 +88,13 @@ The `output` field has at most four fields: `retcode`, `error`, `fields`, and `a
 }
 ```
 
-The `output_field` somewhat mirrors the [Solution](@ref) object.
+The `output_field` somewhat mirrors the [`Solution`](@ref) object.
 The `retcode` gives the simulation status (one of `"success"`, `"error"`, or `"failure"`).
 If `retcode` is `error`, the `error` will contain a string with the error that occurred.
 If `postprocess.average_start_time` is greater than or equal to zero, the `average` field contains the output of `HallThruster.time_average(sol, average_start_time)`.
 Finally, if `postprocess.save_time_resolved` is `true`, then `output.frames` contains `simulation.num_save` frames.
+
+You can also manually write a `Solution` to a JSON file using the [`write_to_json`](@ref) function.
 
 ### Frame format
 

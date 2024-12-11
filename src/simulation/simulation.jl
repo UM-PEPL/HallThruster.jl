@@ -279,18 +279,13 @@ Run a Hall thruster simulation using the provided `Config` and `SimParams` objec
 Returns a `Solution` object.
 
 ## Arguments
-- `config::Config`
-
-    contains geometry, plasma properties, and numerical information about the simulation. See [Configuration](@ref) for more information.
-- `sim::SimParams`:
-
-    contains grid generation and timestepping information. See [Simulation parameters](@ref) for more information.
-- `sim::Union{Postprocess, Nothing}`:
-
-    contains file to which output is to be written and specifies what kind of output to write. If `nothing`, no output is written to file. See [Postprocessing](@ref) for more information.
+- `config::Config`: contains geometry, plasma properties, and numerical information about the simulation. See [Configuration](@ref) for more information.
+- `sim::SimParams`: contains grid generation and timestepping information. See [Simulations](@ref) for more information.
+- `postprocess::Union{Postprocess, Nothing}`: contains file to which output is to be written and specifies what kind of output to write. If `nothing`, no output is written to file. See [Postprocessing](@ref) for more information.
+- `restart`::String:An optional path to a JSON file containing plasma data. If non-empty, the solution will be restarted from that file.
 """
-function run_simulation(config::Config, sim::SimParams; postprocess = nothing, kwargs...)
-    U, params = setup_simulation(config, sim; postprocess, kwargs...)
+function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
+    U, params = setup_simulation(config, sim; postprocess, restart, kwargs...)
     return run_from_setup(U, params, config)
 end
 

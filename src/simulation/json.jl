@@ -3,8 +3,9 @@
 """
     $(TYPEDSIGNATURES)
 Run a simulation from a JSON input file.
-If `postprocess` is set and `postprocess.output_file` is non-empty, output will be written
+If `postprocess` is set in the JSON file and `postprocess.output_file` is non-empty, output will be written
 to `postprocess.output_file`.
+If `restart` is a JSON file, this function will also try to restart the simulation from that file.
 Returns a `Solution` object.
 """
 function run_simulation(json_file::String; restart::String = "")

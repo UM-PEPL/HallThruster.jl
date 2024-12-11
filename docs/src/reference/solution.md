@@ -1,4 +1,4 @@
-# Solution
+# Solutions
 
 ```@meta
 CurrentModule = HallThruster
@@ -13,8 +13,9 @@ Solution
 ## Functions
 
 ```@docs
-valid_fields()
-alternate_field_names()
+write_to_json
+valid_fields
+alternate_field_names
 Base.getindex(sol::Solution, frame::Integer)
 Base.getindex(sol::Solution, frames::AbstractVector)
 Base.getindex(sol::Solution, field::Symbol)

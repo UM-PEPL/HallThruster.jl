@@ -1,16 +1,29 @@
+@public Geometry1D
+
 """
-    Geometry1D
-Struct containing information about Hall thruster geometry.
-Required fields are `channel_length`, `inner_radius`, and `outer_radius`, all in meters.
-Contains a fourth field, `channel_area`, which is computed from the above three.
+$(TYPEDEF)
+
+Describes the geometry of a Hall thruster discharge channel.
 
 # Fields
 $(TYPEDFIELDS)
 """
 struct Geometry1D
+    """
+    The discharge channel length, in meters
+    """
     channel_length::Float64
+    """
+    The inner radius of the discharge channel, in meters
+    """
     inner_radius::Float64
+    """
+    The outer radius of the discharge channel, in meters
+    """
     outer_radius::Float64
+    """
+    The discharge channel cross-sectional area, computed from `inner_radius` and `outer_radius`
+    """
     channel_area::Float64
     function Geometry1D(; channel_length, inner_radius, outer_radius)
 		channel_length = convert_to_float64(channel_length, units(:m))

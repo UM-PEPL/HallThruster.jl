@@ -1,12 +1,25 @@
+@public MagneticField, load_magnetic_field, load_magnetic_field!
+
 """
     $(TYPEDEF)
+
+Specifies the radial magnetic field of a Hall thruster, measured along channel centerline.
 
 # Fields
 $(TYPEDFIELDS)
 """
 mutable struct MagneticField
+    """
+    The file where magnetic field information can be found. Can be left empty if `z` and `B` are explicitly specified.
+    """
     file::String
+    """
+    The axial coordinates at which the magnetic field is known, in meters.
+    """
     z::Vector{Float64}
+    """
+    The magnetic field at each point in `z`, measured in Teslas.
+    """
     B::Vector{Float64}
     function MagneticField(file, z = Float64[], B = Float64[])
         return new(file, z, B)

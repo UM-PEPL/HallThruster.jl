@@ -1,5 +1,9 @@
 # Running a simulation 
 
+```@meta
+CurrentModule = HallThruster
+```
+
 In this tutorial, we will take you through running a simulation of an SPT-100 Hall thruster in `HallThruster`.
 Along the way, you will learn how to
 - install the `HallThruster` package
@@ -20,7 +24,7 @@ You should see the following prompt (the version may differ depending on your de
 (@v1.10) pkg>
 ```
 
-To install `HallThruster` to your global environment, simply type 
+To install `HallThruster` io your global environment, simply type 
 
 ```julia
 (@v1.10) pkg> add HallThruster
@@ -67,7 +71,7 @@ Since we will be accessing a lot of code in `HallThruster`, we also tell Julia t
 You can leave this out, or change `het` to whatever you want.
 
 We need to tell `HallThruster` about what kind of simulation we want to run.
-This is the job of a `Config`.
+This is the job of a [`Config`](@ref).
 A `Config` struct contains most of the geometric, physical, and numerical information that HallThruster.jl needs in order to simulate a Hall thruster.
 There are a lot of options in a `Config`, but we will only use a few of them in this tutorial.
 You can read a full listing of these parameters, their effects, and their defaults on the [Configuration](../reference/config.md) page.
@@ -80,9 +84,9 @@ These are
 3. the neutral mass flow rate at the anode,
 4. the size of the simulation domain.
 
-We'll begin with the thruster, which is constructed using a `Thruster` struct.
+We'll begin by constructing a [`Thruster`](@ref)
 A `Thruster` has four components -- a name, a geometry, a magnetic field, and an optional flag that says whether the thruster is magnetically-shielded.
-The geometry is defined using a `Geometry1D` struct, which requires to specify the length of the discharge channel in combination with the inner and outer channel radii.
+The geometry is defined using a [`Geometry1D`](@ref) struct, which requires to specify the length of the discharge channel in combination with the inner and outer channel radii.
 For the SPT-100, a `Geometry1D` can be constructed like so:
 
 ```jldoctest; output=false
@@ -160,14 +164,14 @@ HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233)
 ```
 
 With the `Geometry1D` object constructed, we can turn to specifying the radial magnetic field.
-Unsurprisingly, we use a `MagneticField` struct for this.
+Unsurprisingly, we use a [`MagneticField`](@ref) struct for this.
 `MagneticField` has three fields — a filename and two arrays.
 The first array (`z`) specifies the axial coordinates (in meters) at which the magnetic field is known.
 The second (`B`) provides the magnetic field (in Tesla) at those points.
 While we can definitely manually pass these to `MagneticField`, in most cases you will want to pass a file instead.
 You can download a sample magnetic field file [here](https://github.com/UM-PEPL/HallThruster.jl/blob/v1.0/test/json/bfield_spt100.csv).
 
-Once you have downloaded the magnetic field file and placed it in your current working directory, you can load it using the `load_magnetic_field` function.
+Once you have downloaded the magnetic field file and placed it in your current working directory, you can load it using the [`load_magnetic_field`](@ref) function.
 
 ```julia
 bfield = het.load_magnetic_field("bfield_spt100.csv")
@@ -229,7 +233,7 @@ config = het.Config(
 
 Now that we have created a `Config` struct, we can run our simulation.
 You might notice that we did not specify a timestep or a grid at any point.
-To do this, we make use of the `SimParams` struct.
+To do this, we make use of the [`SimParams`](@ref) struct.
 
 ```jldoctest; output=false
 simparams = het.SimParams(
@@ -245,7 +249,7 @@ HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGri
 ```
 
 Here, we specified only four parameters, but `SimParams` has many more options that can be configured.
-See the page on [Simulation options](../reference/simparams.md) for more details.
+See the page on [Simulations](../reference/simparams.md) for more details.
 These four are:
 - The `grid`, which we have set to an `EvenGrid` with 100 cells. We can alternatively use an `UnevenGrid`, which provides more resolution near the discharge channel and less in the plume. More information about these grids can be found on the [Grid generation](../explanation/grid_generation.md) page.
 - The base timestep `dt`, in seconds. HallThruster uses adaptive timestepping by default, so typical timesteps will differ from the value provided here, but the base timestep is used in certain cases when the adaptive timestepping scheme gets stuck, or when uniform timestepping is explicitly requested (by passing `adaptive=false` to the `SimParams` struct). We give more detailed explanation of `HallThruster`'s timestepping strategy on the [Timestepping](../explanation/timestepping.md) page.
@@ -267,7 +271,7 @@ simparams = het.SimParams(
 HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
 ```
 
-Finally, we can pass these to the `run_simulation` function, which runs the simulation and returns a `Solution` object.
+Finally, we can pass these to the [`run_simulation`](@ref) function, which runs the simulation and returns a [`Solution`](@ref) object.
 
 ```jldoctest; filter = r"[0-9\.]+ seconds\."
 solution = het.run_simulation(config, simparams)
@@ -287,7 +291,7 @@ A return code of `:failure` means the simulation became unstable and blew up and
 
 ### The Solution object
 
-The `Solution` object is made up of a few fields.
+The [`Solution`](@ref) object is made up of a few fields.
 These are 
 
 - `retcode`: The return code, described above.
@@ -331,7 +335,7 @@ f, ax, _ = mk.lines(
 ### Average
 
 If you want a time-averaged global metric, you could average one of these vectors yourself, or you could let `HallThruster` do it for you.
-For this purpose, `HallThruster` provides the `time_average` function, which averages an entire `Solution` object.
+For this purpose, `HallThruster` provides the [`time_average`](@ref) function, which averages an entire `Solution` object.
 
 ```julia
 avg = het.time_average(solution)
@@ -362,7 +366,7 @@ Postprocessing functions like `discharge_current` and `thrust` work normally on 
 
 ### Extract plasma properties
 
-Lastly, we can obtain plasma properties by indexing a `Solution` object with a `:Symbol`.
+Lastly, we can obtain plasma properties by indexing a `Solution` object with a `Symbol`.
 For instance, if we want to extract the time-averaged ion velocity of singly-charged ions, we could do
 
 ```julia
@@ -403,9 +407,9 @@ Many other parameters can be extracted this way, including
 - the magnetic field (`:B`)
 - the electron temperature (`:Tev`)
 - the plasma density (`:ne`)
-- the anomalous collision frequency (`:nu_an`)
+- the anomalous collision frequency (`:nu_anom`)
 
-...and more! See [Postprocessing](../reference/postprocessing.md) for a full list.
+...and more! See [Solutions](@ref) for a full list.
 
 ## Conclusion
 

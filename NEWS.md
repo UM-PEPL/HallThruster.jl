@@ -35,8 +35,8 @@ het.Xenon
 
 #### JSON IO
 JSON input and output has been significantly reworded and enhanced. 
-See the page on [Using JSON for input and output](@ref) for more information.
-Users of the JSON interface will need to update their input files to conform to the new format.
+See  [Use JSON for input and output](@ref) for more information.
+Users of the old JSON interface will need to update their input files to conform to the new format.
 Some of the changes include:
 - JSON inputs now map directly onto the `Config` structs used by HallThruster.jl elsewhere. The key names are now identical between the JSON input and the `Config` struct.
 - JSON outputs now contain all input used to run the simulation, including a `Config` (under key `"config"`) and timestepping info (under key `"simulation"`).
@@ -70,7 +70,7 @@ We have a new python interface. See [Run a simulation from python](@ref) for mor
 #### Simulation changes
 - A new struct `SimParams` has been created to hold timestepping and grid generation options
 - `run_simulation` can now be called as `run_simulation(config::Config, simparams::SimParams)`.
-- See [Simulation options](reference/simparams.md) for more information.
+- See [Simulations](reference/simparams.md) for more information.
 
 #### Solution changes
 - `u` has been removed from `Solution`
@@ -111,5 +111,3 @@ We have a new python interface. See [Run a simulation from python](@ref) for mor
 - The `GKElectronNeutral` model has been removed entirely.
 - Serialization using JLD2 has been removed in favor of the JSON-based system described above.
 - Plotting capabilities are no longer provided by HallThruster.jl directly. 
-
-
