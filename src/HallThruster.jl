@@ -86,8 +86,6 @@ include("simulation/json.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
-export time_average, Xenon, Krypton
-
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)

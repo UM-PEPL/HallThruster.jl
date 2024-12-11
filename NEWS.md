@@ -56,7 +56,7 @@ Some of the changes include:
 #### Simulation changes
 - A new struct `SimParams` has been created to hold timestepping and grid generation options
 - `run_simulation` can now be called as `run_simulation(config::Config, simparams::SimParams)`.
-- See [Simulation options](reference/simulation_options.md) for more information.
+- See [Simulation options](reference/simparams.md) for more information.
 
 #### Solution changes
 - `u` has been removed from `Solution`

@@ -1,16 +1,59 @@
+@public SimParams, run_simulation
+
+"""
+	$TYPEDEF
+
+$(TYPEDFIELDS)
+"""
 mutable struct SimParams{C <: CurrentController}
+	"""
+	A grid specifier, either `HallThruster.EvenGrid(n)` or `HallThruster.UnevenGrid(n)`, where n is the desired number of cells. See [Grid generation](@ref) for more information.
+	"""
     grid::GridSpec
+	"""
+	The simulation base timestep in seconds. See [Timestepping](@ref) for more info.
+	"""
     dt::Float64
+	"""
+	The simulation duration in seconds.
+	"""
     duration::Float64
-    # Optional parameters
+    # Optional parameters 
+	"""
+	How many simulation frames to save in the `Solution` struct. **Default:** 1000
+	"""
     num_save::Int
-    adaptive::Bool
-    CFL::Float64
-    min_dt::Float64
-    max_dt::Float64
-    max_small_steps::Int
+	"""
+	Whether information such as the simulation run-time is printed to console. **Default:** `true`
+	"""
     verbose::Bool
+	"""
+	Whether errors are printed to console in addition to being captured in the `Solution` struct. **Default:** `true`
+	"""
     print_errors::Bool
+	"""
+	Whether to use adaptive timestepping. See [Timestepping](@ref) for more info. **Default:** `true`
+	"""
+    adaptive::Bool
+	"""
+	The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
+	"""
+    CFL::Float64
+	"""
+	The minimum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-10
+	""" 
+    min_dt::Float64
+	"""
+	The maximum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-7
+	"""
+    max_dt::Float64
+	"""
+	The maximum number of minimally-sized timesteps permitted in adaptive timestepping. **Default:** 100
+	"""
+    max_small_steps::Int
+	"""
+	Discharge current controller. **Default:** `HallThruster.NoController()`
+	"""
     current_control::C 
 
 	function SimParams(;
@@ -18,29 +61,28 @@ mutable struct SimParams{C <: CurrentController}
 		dt,
 		duration,
 		# Optional parameters
-		num_save::Int = 100,
+		num_save::Int = 1000,
+		verbose::Bool = true,
+		print_errors::Bool = true,
 		adaptive::Bool = true,
 		CFL::Float64 = 0.799,
 		min_dt = 1e-10,
 		max_dt = 1e-7,
 		max_small_steps::Int = 100,
-		verbose::Bool = true,
-		print_errors::Bool = true,
 		current_control::C = NoController(),
 	) where {C <: CurrentController}
-
 		return new{C}(
 			grid,
 			convert_to_float64(dt, units(:s)),
 			convert_to_float64(duration, units(:s)),
 			num_save,
+			verbose,
+			print_errors,
 			adaptive,
 			CFL,
 			convert_to_float64(min_dt, units(:s)),
 			convert_to_float64(max_dt, units(:s)),
 			max_small_steps,
-			verbose,
-			print_errors,
 			current_control,
 		)
 	end
@@ -232,7 +274,30 @@ function run_from_setup(U, params, config)
 end
 
 """
-    $(SIGNATURES)
+	$(TYPEDSIGNATURES)
+Run a Hall thruster simulation using the provided `Config` and `SimParams` objects.
+Returns a `Solution` object.
+
+## Arguments
+- `config::Config`
+
+    contains geometry, plasma properties, and numerical information about the simulation. See [Configuration](@ref) for more information.
+- `sim::SimParams`:
+
+    contains grid generation and timestepping information. See [Simulation parameters](@ref) for more information.
+- `sim::Union{Postprocess, Nothing}`:
+
+    contains file to which output is to be written and specifies what kind of output to write. If `nothing`, no output is written to file. See [Postprocessing](@ref) for more information.
+"""
+function run_simulation(config::Config, sim::SimParams; postprocess = nothing, kwargs...)
+    U, params = setup_simulation(config, sim; postprocess, kwargs...)
+    return run_from_setup(U, params, config)
+end
+
+"""
+    $(TYPEDSIGNATURES)
+**Deprecated**. Please use `run_simulation(::Config, ::SimParams; kwargs...)`
+
 Run a Hall thruster simulation using the provided Config object.
 
 ## Arguments
@@ -244,10 +309,5 @@ Run a Hall thruster simulation using the provided Config object.
 """
 function run_simulation(config::Config; kwargs...)
     U, params = setup_simulation(config; kwargs...)
-    return run_from_setup(U, params, config)
-end
-
-function run_simulation(config::Config, sim::SimParams; kwargs...)
-    U, params = setup_simulation(config, sim; kwargs...)
     return run_from_setup(U, params, config)
 end

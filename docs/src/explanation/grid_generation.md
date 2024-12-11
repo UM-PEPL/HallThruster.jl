@@ -1,6 +1,6 @@
 # Grid generation
 
-HallThruster.jl supports both regular and irregular grids. Grids are passed to the `run_simulation` function via the `SimParams` struct (see [Simulation options](../reference/simulation_options.md) for other parameters).
+HallThruster.jl supports both regular and irregular grids. Grids are passed to the `run_simulation` function via the `SimParams` struct (see [Simulation options](../reference/simparams.md) for other parameters).
 
 To create an evenly-spaced grid with `ncells` cells, we construct an `EvenGrid`
 

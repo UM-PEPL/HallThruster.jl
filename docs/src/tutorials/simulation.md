@@ -201,7 +201,7 @@ Now, we can set the rest of the options in `Config`.
 We'll use a discharge voltage of 300 V, a mass flow rate of 5 milligrams per second, and a domain length of 8 cm.
 We will also explicitly specify that the propellant is xenon.
 
-```jldoctest; output=false
+```julia
 config = het.Config(
     thruster = thruster,
     domain = (0.0, 0.08),
@@ -209,15 +209,11 @@ config = het.Config(
     anode_mass_flow_rate = 5e-6,
     propellant = het.Xenon,
 )
-
-# output
-
-HallThruster.Config{HallThruster.TwoZoneBohm, HallThruster.Mitchner, HallThruster.WallSheath, HallThruster.HyperbolicScheme{typeof(HallThruster.__rusanov), typeof(HallThruster.__van_leer)}, HallThruster.DefaultInitialization, Returns{Float64}, Vector{Returns{Float64}}, Vector{Returns{Float64}}, Returns{Float64}}(HallThruster.Thruster("SPT-100", HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233), HallThruster.MagneticField("bfield_spt100.csv", [0.00023880597014925425, 0.0009552238805970153, 0.002746268656716417, 0.00453731343283582, 0.006208955223880597, 0.007641791044776119, 0.008716417910447763, 0.009791044776119404, 0.010985074626865671, 0.011820895522388061  …  0.06435820895522387, 0.06698507462686568, 0.06985074626865673, 0.07271641791044776, 0.07582089552238806, 0.07976119402985075, 0.08429850746268656, 0.08811940298507463, 0.09170149253731344, 0.09504477611940298], [0.0006769662921348278, 0.0007050561797752805, 0.001014044943820229, 0.001519662921348315, 0.0021376404494382016, 0.002867977528089892, 0.0036264044943820246, 0.00441292134831461, 0.005480337078651688, 0.006266853932584273  …  0.004693820224719109, 0.0043005617977528166, 0.003879213483146078, 0.003514044943820238, 0.003148876404494391, 0.0027837078651685512, 0.0023904494382022586, 0.002109550561797763, 0.0019129213483146217, 0.0017443820224719263]), false), (0.0, 0.08), 300.0, 5.0e-6, 0.0, 2.0, 2.0, HallThruster.TwoZoneBohm(0.00625, 0.0625), HallThruster.Mitchner(), HallThruster.WallSheath(HallThruster.WallMaterial("Boron Nitride Silicon Dioxide", 40.0, 0.54), 1.0), HallThruster.HyperbolicScheme{typeof(HallThruster.__rusanov), typeof(HallThruster.__van_leer)}(HallThruster.FluxFunction{typeof(HallThruster.__rusanov)}(HallThruster.__rusanov), HallThruster.SlopeLimiter{typeof(HallThruster.__van_leer)}(HallThruster.__van_leer), true), HallThruster.DefaultInitialization(-1.0, 2.0e17, 1.0e18), Xenon, 1, 150.0, 500.0, 1000.0, 1.0, String[], :Lookup, :Lookup, :Lookup, true, 0.0025000000000000005, 1.0, Returns{Float64}(0.0), Returns{Float64}[Returns{Float64}(0.0)], Returns{Float64}[Returns{Float64}(0.0)], Returns{Float64}(0.0), false, false, 0.0, 100.0, 1.0, :sheath, 0, false, false, 1.0)
 ```
 
 As with `Geometry1D`, units may be provided here using `Unitful` or `DynamicQuantities`, e.g
 
-```jldoctest; output=false
+```julia
 using Unitful
 
 config = het.Config(
@@ -227,10 +223,6 @@ config = het.Config(
     anode_mass_flow_rate = 5.0u"mg/s",
     propellant = het.Xenon,
 )
-
-# output
-
-HallThruster.Config{HallThruster.TwoZoneBohm, HallThruster.Mitchner, HallThruster.WallSheath, HallThruster.HyperbolicScheme{typeof(HallThruster.__rusanov), typeof(HallThruster.__van_leer)}, HallThruster.DefaultInitialization, Returns{Float64}, Vector{Returns{Float64}}, Vector{Returns{Float64}}, Returns{Float64}}(HallThruster.Thruster("SPT-100", HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233), HallThruster.MagneticField("bfield_spt100.csv", [0.00023880597014925425, 0.0009552238805970153, 0.002746268656716417, 0.00453731343283582, 0.006208955223880597, 0.007641791044776119, 0.008716417910447763, 0.009791044776119404, 0.010985074626865671, 0.011820895522388061  …  0.06435820895522387, 0.06698507462686568, 0.06985074626865673, 0.07271641791044776, 0.07582089552238806, 0.07976119402985075, 0.08429850746268656, 0.08811940298507463, 0.09170149253731344, 0.09504477611940298], [0.0006769662921348278, 0.0007050561797752805, 0.001014044943820229, 0.001519662921348315, 0.0021376404494382016, 0.002867977528089892, 0.0036264044943820246, 0.00441292134831461, 0.005480337078651688, 0.006266853932584273  …  0.004693820224719109, 0.0043005617977528166, 0.003879213483146078, 0.003514044943820238, 0.003148876404494391, 0.0027837078651685512, 0.0023904494382022586, 0.002109550561797763, 0.0019129213483146217, 0.0017443820224719263]), false), (0.0, 0.08), 300.0, 4.9999999999999996e-6, 0.0, 2.0, 2.0, HallThruster.TwoZoneBohm(0.00625, 0.0625), HallThruster.Mitchner(), HallThruster.WallSheath(HallThruster.WallMaterial("Boron Nitride Silicon Dioxide", 40.0, 0.54), 1.0), HallThruster.HyperbolicScheme{typeof(HallThruster.__rusanov), typeof(HallThruster.__van_leer)}(HallThruster.FluxFunction{typeof(HallThruster.__rusanov)}(HallThruster.__rusanov), HallThruster.SlopeLimiter{typeof(HallThruster.__van_leer)}(HallThruster.__van_leer), true), HallThruster.DefaultInitialization(-1.0, 2.0e17, 1.0e18), Xenon, 1, 150.0, 500.0, 1000.0, 1.0, String[], :Lookup, :Lookup, :Lookup, true, 0.0025000000000000005, 1.0, Returns{Float64}(0.0), Returns{Float64}[Returns{Float64}(0.0)], Returns{Float64}[Returns{Float64}(0.0)], Returns{Float64}(0.0), false, false, 0.0, 100.0, 1.0, :sheath, 0, false, false, 1.0)
 ```
 
 ## Run
@@ -249,11 +241,11 @@ simparams = het.SimParams(
 
 # output
 
-HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, 0.799, 1.0e-10, 1.0e-7, 100, true, true, HallThruster.NoController())
+HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
 ```
 
 Here, we specified only four parameters, but `SimParams` has many more options that can be configured.
-See the page on [Simulation options](../reference/simulation_options.md) for more details.
+See the page on [Simulation options](../reference/simparams.md) for more details.
 These four are:
 - The `grid`, which we have set to an `EvenGrid` with 100 cells. We can alternatively use an `UnevenGrid`, which provides more resolution near the discharge channel and less in the plume. More information about these grids can be found on the [Grid generation](../explanation/grid_generation.md) page.
 - The base timestep `dt`, in seconds. HallThruster uses adaptive timestepping by default, so typical timesteps will differ from the value provided here, but the base timestep is used in certain cases when the adaptive timestepping scheme gets stuck, or when uniform timestepping is explicitly requested (by passing `adaptive=false` to the `SimParams` struct). We give more detailed explanation of `HallThruster`'s timestepping strategy on the [Timestepping](../explanation/timestepping.md) page.
@@ -272,7 +264,7 @@ simparams = het.SimParams(
 
 # output
 
-HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, 0.799, 1.0e-10, 1.0e-7, 100, true, true, HallThruster.NoController())
+HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
 ```
 
 Finally, we can pass these to the `run_simulation` function, which runs the simulation and returns a `Solution` object.
