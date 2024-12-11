@@ -4,28 +4,80 @@ using Documenter
 using DelimitedFiles
 using LinearAlgebra
 using Printf
-using Unitful
 
 doctest(HallThruster)
 
-# exercise all parts of the solver loop
-HallThruster.example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
+include("$(HallThruster.TEST_DIR)/unit_tests/thrusters.jl")
+test_thrusters()
 
-include("$(HallThruster.TEST_DIR)/unit_tests/test_restarts.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_gas.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_conservation_laws.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_limiters.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_reactions.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_misc.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_geometry.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_electrons.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_boundary_conditions.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_walls.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_initialization.jl")
-include("$(HallThruster.TEST_DIR)/unit_tests/test_json.jl")
+include("$(HallThruster.TEST_DIR)/unit_tests/thermodynamics.jl")
+test_thermodynamics()
 
-# LANDMARK regression tests
-include("$(HallThruster.TEST_DIR)/unit_tests/test_landmark_regression.jl")
+include("$(HallThruster.TEST_DIR)/unit_tests/fluxes.jl")
+test_fluxes()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/schemes.jl")
+test_schemes()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/limiters.jl")
+test_limiters()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/allocation.jl")
+test_allocation()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/interpolation.jl")
+test_interpolation()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/initialization.jl")
+test_initialization()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/configuration.jl")
+test_configuration()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/errors.jl")
+test_errors()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/linear_algebra.jl")
+test_linear_algebra()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/density_calculations.jl")
+test_density_calculations()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/collisions.jl")
+test_collisions()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/thermal_conductivity.jl")
+test_thermal_conductivity()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/walls.jl")
+test_walls()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/reactions.jl")
+test_reactions()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/gases.jl")
+test_gases()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/boundary_conditions.jl")
+test_boundaries()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/grid.jl")
+test_grid()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
+test_current_control()
+
+include("$(HallThruster.TEST_DIR)/unit_tests/setup.jl")
+test_setup()
+
+# JSON serialization tests
+include("$(HallThruster.TEST_DIR)/json/json.jl")
+test_json()
+
+# Regression tests
+include("$(HallThruster.TEST_DIR)/regression/test_regression.jl")
+test_regression()
 
 # Order verification tests
-include("$(HallThruster.TEST_DIR)/unit_tests/test_ovs.jl")
+include("$(HallThruster.TEST_DIR)/order_verification/test_ovs.jl")
+test_ovs()

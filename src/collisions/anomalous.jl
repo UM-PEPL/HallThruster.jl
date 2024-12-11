@@ -4,6 +4,25 @@ The abstract supertype of all types of anomalous transport models.
 Subtype this to define your own model.
 """
 abstract type AnomalousTransportModel end
+
+#=============================================================================
+ Serialization
+==============================================================================#
+"""
+$(SIGNATURES)
+Returns a NamedTuple mapping symbols to transport models for all built-in models.
+"""
+@inline function anom_models()
+    return (; NoAnom, Bohm, TwoZoneBohm,
+        MultiLogBohm, GaussianBohm,
+        LogisticPressureShift,)
+end
+
+function Serialization.SType(::Type{T}) where {T <: AnomalousTransportModel}
+    Serialization.TaggedUnion()
+end
+Serialization.options(::Type{T}) where {T <: AnomalousTransportModel} = anom_models()
+
 #=============================================================================
  Begin definition of built-in models
 ==============================================================================#
@@ -14,7 +33,7 @@ No anomalous collision frequency included in simulation
 """
 struct NoAnom <: AnomalousTransportModel end
 
-function (::NoAnom)(νan, params)
+function (::NoAnom)(νan, @nospecialize(_x1), @nospecialize(_x2))
     for i in eachindex(νan)
         νan[i] = 0.0
     end
@@ -24,15 +43,30 @@ end
 """
     Bohm(c) <: AnomalousTransportModel
 Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
+
+# Fields
+$(TYPEDFIELDS)
 """
-struct Bohm <: AnomalousTransportModel
+@kwdef struct Bohm <: AnomalousTransportModel
     c::Float64
 end
 
-function (model::Bohm)(νan, params)
+function (model::Bohm)(νan, params, config)
+    (; cache, grid, thruster) = params
+    (; B) = cache
 
-    for i in eachindex(νan)
-        B = params.cache.B[i]
+    # Profile is fixed in time, do not update after 5 iterations
+    if (params.iteration[] > 5)
+        return νan
+    end
+
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
+
+    for (_, zc) in enumerate(grid.cell_centers)
+        z = zc - z_shift
+        B = B_interp(z)
         ωce = e * B / me
         νan = model.c * ωce
     end
@@ -43,23 +77,39 @@ end
 """
     TwoZoneBohm(c1, c2) <: AnomalousTransportModel
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
-Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
+Takes two arguments: c1 and c2. The transition between these values is smoothed over `config.transition_length`.
+
+# Fields
+$(TYPEDFIELDS)
 """
-struct TwoZoneBohm <: AnomalousTransportModel
-    coeffs::NTuple{2, Float64}
-    TwoZoneBohm(c1, c2) = new((c1, c2))
-    TwoZoneBohm(t) = new(t)
+@kwdef struct TwoZoneBohm <: AnomalousTransportModel
+    c1::Float64
+    c2::Float64
 end
 
-function (model::TwoZoneBohm)(νan, params)
-    c1, c2 = model.coeffs
+function (model::TwoZoneBohm)(νan, params, config)
+    (; c1, c2) = model
+    (; cache, grid, thruster) = params
+    (; B) = cache
 
-    for i in eachindex(νan)
-        B = params.cache.B[i]
+    L_trans = config.transition_length
+    L_ch = config.thruster.geometry.channel_length
+
+    # Profile is fixed in time, do not update after 5 iterations
+    if (params.iteration[] > 5)
+        return νan
+    end
+
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
+
+    for (i, zc) in enumerate(grid.cell_centers)
+        z = zc - z_shift
+        B = B_interp(z)
         ωce = e * B / me
-
-        β = linear_transition(params.z_cell[i], params.L_ch, params.config.transition_length, c1, c2)
-        νan[i] = β * ωce
+        c = linear_transition(z, L_ch, L_trans, c1, c2)
+        νan[i] = c * ωce
     end
 
     return νan
@@ -76,8 +126,11 @@ At `z[i] < z < z[i+1]`, `log(c)` is defined by linearly interpolating between `l
 For `z < z[1]`, `c = c[1]` and for `z > z[end]`, `c(z) = c[end]`.
 
 The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]. The number of z values must be equal to the number of c values.
+
+# Fields
+$(TYPEDFIELDS)
 """
-struct MultiLogBohm <: AnomalousTransportModel
+@kwdef struct MultiLogBohm <: AnomalousTransportModel
     zs::Vector{Float64}
     cs::Vector{Float64}
     function MultiLogBohm(zs, cs)
@@ -88,146 +141,120 @@ struct MultiLogBohm <: AnomalousTransportModel
     end
 end
 
-function MultiLogBohm(coeffs)
-    N = length(coeffs) ÷ 2
-    zs = coeffs[1:N]
-    cs = coeffs[N+1:end]
-    return MultiLogBohm(zs, cs)
-end
+function (model::MultiLogBohm)(νan, params, config)
+    (; grid, thruster) = params
+    (; B) = params.cache
 
-function (model::MultiLogBohm)(νan, params)
-    (;z_cell) = params
-    (;B) = params.cache
-
-    for i in eachindex(νan)
-        ωce = e * B[i] / me
-        c = HallThruster.interpolate(z_cell[i], model.zs, model.cs, use_log = true)
-        νan[i] = c * ωce
-    end
-
-    return νan
-end
-
-"""
-    ShiftedMultiBohm(zs, cs, z0, dz, alpha, pstar) <: AnomalousTransportModel
-A version of MultiLogBohm where the coefficients are shifted depending on the background pressure.
-"""
-Base.@kwdef struct ShiftedMultiBohm <: HallThruster.AnomalousTransportModel
-    zs::Vector{Float64}
-    cs::Vector{Float64}
-    z0::Float64
-    dz::Float64
-    pstar::Float64
-    alpha::Float64
-end
-
-function (model::ShiftedMultiBohm)(νan, params)
-    (;zs, cs, z0, dz, alpha, pstar) = model
-
-    pb = params.config.background_pressure
-
-    torr_to_pa = 133.322
-
-    p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
-
-    for i in eachindex(νan)
-        B = params.cache.B[i]
-        ωce = e * B / me
-        c = HallThruster.interpolate(params.z_cell[i] - zstar, zs, cs, use_log = true)
-        νan[i] = c * ωce
-    end
-end
-
-"""
-    ShiftedGaussianBohm(trough_location, trough_width, trough_depth, z0, dz, alpha, pstar) <: AnomalousTransportModel
-Model in which the anomalous collision frequency is Bohm-like (ν_an ~ ω_ce), except in a Gaussian-shaped region defined by
-the parameters trough_location, trough_width, trough_max, and trough_min where the collision frequency is lower.
-The location of the trough is based on the background pressure and the user-provided coefficients.
-
-# Arguments
-- `trough_min`: the minimum Hall parameter
-- `trough_max`: the maximum Hall parameter
-- `trough_location`: the axial position (in meters) of the mean of the Gaussian trough
-- `trough_width`: the standard deviation (in meters) of the Gaussian trough
-- `z0`: the furthest upstream displacement permitted at high back-pressures, relative to `trough_location`
-- `dz`: the maximum allowable amount of axial displacement
-- `pstar`: the background pressure at which the shift upstream halts/plateaus
-- `alpha`: the slope of the pressure response curve, with a higher value corresponding to a steeper pressure response
-"""
-Base.@kwdef struct ShiftedGaussianBohm <: HallThruster.AnomalousTransportModel
-    trough_min::Float64
-    trough_max::Float64
-    trough_location::Float64
-    trough_width::Float64
-    z0::Float64
-    dz::Float64
-    pstar::Float64
-    alpha::Float64
-end
-
-function (model::ShiftedGaussianBohm)(νan, params)
-    (;trough_location, trough_width, trough_min, trough_max, z0, dz, alpha, pstar) = model
-
-    # do not recompute after a certain point - profile is meant to be fixed in time
+    # Profile is fixed in time, do not update after 5 iterations
     if (params.iteration[] > 5)
-        return νan;
+        return νan
     end
 
-    pb = params.config.background_pressure
-    torr_to_pa = 133.322
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
 
-    p_ratio = pb / (pstar * torr_to_pa)
-    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
-
-    B_interp = LinearInterpolation(params.z_cell, params.cache.B)
-
-    for i in eachindex(νan)
-        z = params.z_cell[i] - zstar
+    for (i, zc) in enumerate(grid.cell_centers)
+        z = zc - z_shift
         B = B_interp(z)
         ωce = e * B / me
-        μ = trough_location
-        c = trough_max * (1 - (1 - trough_min) * exp(-0.5 * ((z - μ) / trough_width)^2))
+        c = HallThruster.interpolate(z, model.zs, model.cs, use_log = true)
         νan[i] = c * ωce
     end
 
     return νan
 end
 
+"""
+    GaussianBohm(hall_min, hall_max, center, width) <: AnomalousTransportModel
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`), 
+except in a Gaussian-shaped region defined centered on z = `center`,
+where the collision frequency is lower.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+@kwdef struct GaussianBohm <: AnomalousTransportModel
+	"""the minimum Hall parameter"""
+    hall_min::Float64
+	"""the maximum Hall parameter"""
+    hall_max::Float64
+	"""the axial position (in meters) of the mean of the Gaussian trough"""
+    center::Float64
+	"""the standard deviation (in meters) of the Gaussian trough"""
+    width::Float64
+end
+
+function (model::GaussianBohm)(νan, params, config)
+    (; hall_min, hall_max, center, width) = model
+    (; cache, grid, thruster) = params
+    (; B) = cache
+
+    # Profile is fixed in time, do not update after 5 iterations
+    if (params.iteration[] > 5)
+        return νan
+    end
+
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
+
+    for (i, zc) in enumerate(grid.cell_centers)
+        z = zc - z_shift
+        B = B_interp(z)
+        ωce = e * B / me
+        c = hall_max * (1 - (1 - hall_min) * exp(-0.5 * ((z - center) / width)^2))
+        νan[i] = c * ωce
+    end
+
+    return νan
+end
+
+abstract type PressureShift <: AnomalousTransportModel end
 
 """
-    ShiftedTwoZoneBohm(coeffs, z0, dz, alpha, pstar) <: AnomalousTransportModel
-Model where the anomalous collision frequency has two values: c1 * ωce before some transition location and c2 * ωce after.
-Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
-The location of the transition is based on the background pressure and the user-provided coefficients.
+    LogisticPressureShift(model, z0, dz, pstar, alpha)
+A wrapper model that allows a transport profile to shift axially in response
+to changes in background pressure. The displacement/shift of the transport profile
+follows a logistic curve.
+
+# Fields
+$(TYPEDFIELDS)
 """
-Base.@kwdef struct ShiftedTwoZoneBohm <: HallThruster.AnomalousTransportModel
-    coeffs::NTuple{2, Float64}
+@kwdef struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
+	"""
+	An anomalous transport model
+	"""
+    model::A
+	"""
+	the center of the shift at 0 background pressure
+	"""
     z0::Float64
+	"""
+	the total pressure shift across (0, Inf) background pressure
+	"""
     dz::Float64
+	"""
+	the "turning point" pressure
+	"""
     pstar::Float64
+	"""
+	the slope of the pressure-displacement response curve
+	"""
     alpha::Float64
 end
 
-function (model::ShiftedTwoZoneBohm)(νan, params)
-    (;coeffs, z0, dz, alpha, pstar) = model
+function (model::LogisticPressureShift)(args...; kwargs...)
+    return model.model(args...; kwargs...)
+end
 
-    pb = params.config.background_pressure
+pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
 
-    torr_to_pa = 133.322
-
-    p_ratio = pb / (pstar * torr_to_pa)
-    zstar = params.L_ch + z0 + dz / (1 + (alpha - 1)^(2 * p_ratio  - 1))
-
-    c1, c2 = coeffs
-
-    for i in eachindex(νan)
-        B = params.cache.B[i]
-        ωce = HallThruster.e * B / HallThruster.me
-
-        β = linear_transition(params.z_cell[i], zstar, params.config.transition_length, c1, c2)
-        νan[i] = β * ωce
-    end
+function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
+    (; z0, dz, alpha, pstar) = model
+    p_ratio = pB / pstar 
+    zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
+    return channel_length * zstar
 end
 
 """
@@ -239,13 +266,3 @@ collision frequency, and are useful for defining more complex anomalous transpor
 models. If not defined by the user, this defaults to zero.
 """
 num_anom_variables(::AnomalousTransportModel)::Int = 0
-
-"""
-    allocate_anom_variables(::AnomalousTransportModel, ncells)
-Allocate arrays for anomalous transport state variables. `ncells` is the length
-of the arrays to be allocated. These anomalous transport variables are then stored
-in params.cache.anom_variables
-"""
-function allocate_anom_variables(model::AnomalousTransportModel, ncells)
-    [zeros(ncells) for _ in 1:num_anom_variables(model)]
-end

@@ -1,5 +1,12 @@
 .ipynb_checkpoints
 
+__pycache__
+
+.DS_Store
+docs/.DS_Store
+
+Manifest.toml
+
 docs/build
 .vscode
 landmark/webplotdigitizer
@@ -12,8 +19,3 @@ test/*.png
 !paper/*.png
 !docs/*.png
 run
-*.json
-!test/unit_tests/bfield_spt100.csv
-!test/unit_tests/input_twozone.json
-!test/unit_tests/input_shifted.json
-!test/unit_tests/input_newoptions.json

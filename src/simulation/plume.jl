@@ -1,38 +1,40 @@
-function update_plume_geometry!(U, params; initialize = false)
-    (; mi, z_cell, L_ch, exit_plane_index, config, A_ch, cache, index, ncells) = params
-    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev) = cache
-
-    if !initialize && !params.config.solve_plume
-        return
-    end
-
-    geometry = config.thruster.geometry
+function initialize_plume_geometry(params)
+    (; cache, thruster) = params
+    (; channel_area, inner_radius, outer_radius, channel_height) = cache
+    geometry = thruster.geometry
     r_in = geometry.inner_radius
     r_out = geometry.outer_radius
+    A_ch = geometry.channel_area
 
+    @inbounds begin
+        @. channel_area = A_ch
+        @. inner_radius = r_in
+        @. outer_radius = r_out
+        @. channel_height = r_out - r_in
+    end
+end
+
+function update_plume_geometry!(params)
+    (; cache, grid, mi, thruster, ncharge) = params
+    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni) = cache
+
+    L_ch = thruster.geometry.channel_length
+    exit_plane_index = max(findfirst(>=(L_ch), grid.cell_centers), 1)
     Tev_exit = Tev[exit_plane_index]
 
-    tanδ[1] = 0.0
-    dA_dz[1] = 0.0
-    channel_area[1] = A_ch
-    inner_radius[1] = r_in
-    outer_radius[1] = r_out
-    channel_height[1] = r_out - r_in
-
-    for i in 2:ncells
-        tanδ_is_zero = z_cell[i] <= L_ch || initialize
-
-        ui = sum(U[index.ρiui[Z], i] for Z in 1:config.ncharge) / sum(U[index.ρi[Z], i] for Z in 1:config.ncharge)
+    for i in (exit_plane_index + 1):(grid.num_cells)
+        ui = sum(niui[Z, i] for Z in 1:ncharge) /
+             sum(ni[Z, i] for Z in 1:ncharge)
         tanδ_i = sqrt(5 * e * Tev_exit / 3 / mi) / ui
 
-        tanδ[i] = tanδ_is_zero * 0.0 + !tanδ_is_zero * max(0.0, min(π/4,  tanδ_i))
-        avg_tan_δ = 0.5 * (tanδ[i] + tanδ[i-1])
-        Δz = z_cell[i] - z_cell[i-1]
-        inner_radius[i] = max(0.0, inner_radius[i-1] - avg_tan_δ * Δz)
-        outer_radius[i] = outer_radius[i-1] + avg_tan_δ * Δz
+        tanδ[i] = max(0.0, tanδ_i)
+        avg_tan_δ = 0.5 * (tanδ[i] + tanδ[i - 1])
+        Δz = grid.cell_centers[i] - grid.cell_centers[i - 1]
+        inner_radius[i] = max(0.0, inner_radius[i - 1] - avg_tan_δ * Δz)
+        outer_radius[i] = outer_radius[i - 1] + avg_tan_δ * Δz
         channel_height[i] = outer_radius[i] - inner_radius[i]
         channel_area[i] = π * (outer_radius[i]^2 - inner_radius[i]^2)
-        dA_dz[i] = (channel_area[i] - channel_area[i-1]) / Δz
+        dA_dz[i] = (channel_area[i] - channel_area[i - 1]) / Δz
     end
 
     return nothing

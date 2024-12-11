@@ -1,19 +1,31 @@
 function left_boundary_state!(bc_state, U, params)
-    (;index, config,) = params
-    (;Tev, channel_area) = params.cache
-    mi = config.propellant.m
-    Ti = config.ion_temperature
+    index = params.index
+    ncharge = params.ncharge
+    mi = params.mi
+    Ti = params.ion_temperature_K
+    un = params.neutral_velocity
+    mdot_a = params.anode_mass_flow_rate
+    nn_B = params.background_neutral_density
+    un_B = params.background_neutral_velocity
+    neutral_ingestion_multiplier = params.neutral_ingestion_multiplier
+    anode_bc = params.anode_bc
 
-    un = config.neutral_velocity
-    mdot_a = config.anode_mass_flow_rate
+    ingestion_density = nn_B * un_B / un * neutral_ingestion_multiplier
 
-    if config.anode_boundary_condition == :sheath
-        Vs = params.cache.Vs[]
+    left_boundary_state!(bc_state, U, index, ncharge, params.cache, mi,
+        Ti, un, ingestion_density, mdot_a, anode_bc,)
+end
+
+function left_boundary_state!(
+        bc_state, U, index, ncharge, cache, mi, Ti, un,
+        ingestion_density, mdot_a, anode_bc,)
+    if anode_bc == :sheath
+        Vs = cache.Vs[]
         # Compute sheath potential
         electron_repelling_sheath = Vs > 0
         if electron_repelling_sheath
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
-            Vs_norm = Vs / Tev[1]
+            Vs_norm = Vs / cache.Tev[1]
             # Compute correction factor (see Hara, PSST 28 (2019))
             χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
             bohm_factor = inv(√(1 + χ))
@@ -26,17 +38,17 @@ function left_boundary_state!(bc_state, U, params)
     end
 
     # Add inlet neutral density
-    bc_state[index.ρn] = mdot_a / channel_area[1] / un
+    bc_state[index.ρn] = mdot_a / cache.channel_area[1] / un
 
     # Add ingested mass flow rate at anode
-    bc_state[index.ρn] += params.background_neutral_density * params.background_neutral_velocity / un  * config.neutral_ingestion_multiplier
+    bc_state[index.ρn] += ingestion_density
 
-    @inbounds for Z in 1:params.config.ncharge
-        interior_density = U[index.ρi[Z],   begin+1]
-        interior_flux    = U[index.ρiui[Z], begin+1]
+    @inbounds for Z in 1:ncharge
+        interior_density = U[index.ρi[Z], 2]
+        interior_flux = U[index.ρiui[Z], 2]
         interior_velocity = interior_flux / interior_density
 
-        sound_speed = sqrt((kB * Ti + Z * e * Tev[1]) / mi)  # Ion acoustic speed
+        sound_speed = sqrt((kB * Ti + Z * e * cache.Tev[1]) / mi)  # Ion acoustic speed
         boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
 
         if interior_velocity <= -sound_speed
@@ -70,14 +82,13 @@ function left_boundary_state!(bc_state, U, params)
 end
 
 function right_boundary_state!(bc_state, U, params)
-    (;index, fluids) = params
-
+    (; index, ncharge) = params
     # Use Neumann boundary conditions for all neutral fluids
-    bc_state[index.ρn] = U[index.ρn, end-1]
+    bc_state[index.ρn] = U[index.ρn, end - 1]
 
-    @inbounds for Z in 1:params.config.ncharge
-        boundary_density = U[index.ρi[Z], end-1]
+    @inbounds for Z in 1:ncharge
+        boundary_density        = U[index.ρi[Z], end - 1]
         bc_state[index.ρi[Z]]   = boundary_density        # Neumann BC for ion density at right boundary
-        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end-1] # Neumann BC for ion flux at right boundary
+        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
     end
 end

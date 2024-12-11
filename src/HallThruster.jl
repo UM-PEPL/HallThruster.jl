@@ -4,12 +4,10 @@ using LinearAlgebra: Tridiagonal
 using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm
-using Unitful: @u_str, uconvert, ustrip, Quantity
-
-import SnoopPrecompile
+using PrecompileTools: @compile_workload
 
 using JSON3
-using JLD2
+using OrderedCollections
 
 # Packages used for making plots
 using Measures: mm
@@ -22,7 +20,20 @@ const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
+const MIN_NUMBER_DENSITY = 1e6
+
 include("utilities/utility_functions.jl")
+include("utilities/interpolation.jl")
+include("utilities/smoothing.jl")
+include("utilities/statistics.jl")
+include("utilities/linearalgebra.jl")
+include("utilities/integration.jl")
+include("utilities/macros.jl")
+include("utilities/serialization.jl")
+include("utilities/keywords.jl")
+include("utilities/units.jl")
+
+using .Serialization: serialize, deserialize
 
 include("physics/physicalconstants.jl")
 include("physics/gas.jl")
@@ -30,82 +41,154 @@ include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
 include("physics/thermodynamics.jl")
 
-include("wall_loss_models/wall_losses.jl")
-include("wall_loss_models/no_wall_losses.jl")
-include("wall_loss_models/constant_sheath_potential.jl")
-include("wall_loss_models/wall_sheath.jl")
+include("walls/materials.jl")
+include("walls/wall_losses.jl")
+include("walls/no_wall_losses.jl")
+include("walls/constant_sheath_potential.jl")
+include("walls/wall_sheath.jl")
 
 include("numerics/finite_differences.jl")
 include("numerics/limiters.jl")
-include("numerics/flux.jl")
+include("numerics/flux_functions.jl")
+include("numerics/schemes.jl")
+include("numerics/edge_fluxes.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
 include("collisions/ionization.jl")
 include("collisions/excitation.jl")
 include("collisions/elastic.jl")
-include("collisions/charge_exchange.jl")
 include("collisions/collision_frequencies.jl")
 
+include("thruster/geometry.jl")
+include("thruster/magnetic_field.jl")
+include("thruster/thruster.jl")
+include("thruster/spt100.jl")
+
+include("grid/gridspec.jl")
+include("grid/grid.jl")
+
+include("simulation/current_control.jl")
 include("simulation/initialization.jl")
-include("simulation/geometry.jl")
+include("simulation/configuration.jl")
+include("simulation/allocation.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
 include("simulation/update_heavy_species.jl")
 include("simulation/electronenergy.jl")
 include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
-include("simulation/configuration.jl")
 include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
+include("simulation/postprocess.jl")
 include("simulation/simulation.jl")
 include("simulation/json.jl")
-include("simulation/restart.jl")
-include("simulation/postprocess.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
-export time_average, Xenon, Krypton
+@public PYTHON_PATH
+
+"""
+$(SIGNATURES)
+
+The absolute path to the `HallThruster` python code on your machine.
+
+```julia
+julia> using HallThruster; HallThruster.PYTHON_PATH
+"/Users/archermarks/src/HallThruster/python"
+```
+"""
+const PYTHON_PATH = joinpath(PACKAGE_ROOT, "python")
 
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)
-    config_1 = HallThruster.Config(;
+    config_1 = Config(;
         thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
         wall_loss_model = WallSheath(BoronNitride),
-        neutral_temperature = 500
+        neutral_temperature_K = 500,
+        scheme = HyperbolicScheme(
+            flux_function = global_lax_friedrichs,
+            limiter = van_albada,
+        ),
     )
-    sol_1 = HallThruster.run_simulation(
-        config_1; ncells, duration, dt, nsave, verbose = false)
+    sol_1 = run_simulation(
+        config_1; ncells, duration, dt, nsave, verbose = false,)
+
+    if sol_1.retcode != :success
+        error()
+    end
 
     config_2 = HallThruster.Config(;
-        thruster = HallThruster.SPT_100,
-        domain = (0.0u"cm", 8.0u"cm"),
-        discharge_voltage = 300.0u"V",
-        anode_mass_flow_rate = 5u"mg/s",
+        thruster = SPT_100,
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
+        anom_model = MultiLogBohm([0.02, 0.025, 0.03], [0.0625, 0.00625, 0.0625]),
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
         conductivity_model = LANDMARK_conductivity(),
-        neutral_temperature = 500u"K"
+        neutral_temperature_K = 500,
+        ion_wall_losses = true,
+        solve_plume = true,
+        scheme = HyperbolicScheme(
+            flux_function = HLLE,
+            limiter = minmod,
+        ),
     )
-    sol_2 = HallThruster.run_simulation(
-        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false)
-    HallThruster.time_average(sol_1)
-    HallThruster.discharge_current(sol_1)
-    HallThruster.thrust(sol_1)
-    HallThruster.mass_eff(sol_1)
-    HallThruster.current_eff(sol_1)
-    HallThruster.divergence_eff(sol_1)
-    HallThruster.voltage_eff(sol_1)
+
+    sol_2 = run_simulation(
+        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+
+    if sol_2.retcode != :success
+        error()
+    end
+
+    config_3 = HallThruster.Config(;
+        thruster = SPT_100,
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
+        anom_model = GaussianBohm(
+            hall_min = 0.00625, hall_max = 0.0625, center = 0.025, width = 0.002,),
+        wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
+        conductivity_model = Braginskii(),
+        neutral_temperature_K = 500,
+        ion_wall_losses = false,
+        solve_plume = false,
+    )
+
+    sol_3 = run_simulation(
+        config_3; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+
+    if sol_3.retcode != :success
+        error()
+    end
+
+    time_average(sol_1)
+    discharge_current(sol_1)
+    thrust(sol_1)
+    mass_eff(sol_1)
+    current_eff(sol_1)
+    divergence_eff(sol_1)
+    voltage_eff(sol_1)
     return sol_1
 end
 
 # Precompile statements to improve load time
-SnoopPrecompile.@precompile_all_calls begin
+@compile_workload begin
     example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
+
+    for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
+        if splitext(file)[2] != ".json"
+            continue
+        end
+        sol = run_simulation(file)
+    end
+    rm("__output.json", force = true)
 end
 
 end # module
