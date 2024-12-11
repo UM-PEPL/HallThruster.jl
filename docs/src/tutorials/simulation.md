@@ -338,7 +338,7 @@ avg = het.time_average(solution)
 
 # output
 
-Hall thruster solution with 1 saved frames (retcode: success, end time: 0.001 seconds)
+Hall thruster solution with 1 saved frame (retcode: success, end time: 0.001 seconds)
 ```
 The result of the time-averaging operation is a new `Solution` object containing a single frame.
 All of the normal functions that operate on `Solution` objects, like `discharge_current`, still work on a time-averaged `Solution`.

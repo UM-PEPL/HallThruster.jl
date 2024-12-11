@@ -32,6 +32,7 @@ makedocs(
 		"Reference" => section("reference", [
 			"Configuration" => "config.md",
 			"Simulation parameters" => "simparams.md",
+			"Solution" => "solution.md",
 			"Postprocessing" => "postprocessing.md",
 			"Thrusters" => "thrusters.md",
 			"Propellants" => "propellants.md",

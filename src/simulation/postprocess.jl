@@ -5,6 +5,8 @@
 """
 $(TYPEDEF)
 Contains postprocessing options for a given simulation.
+When `run_simulation(config, sim_params; postprocess = Postprocess(...))` is called with a non-empty `output_file`, `HallThruster` will write the simulation results to a JSON file.
+The results in the file will be transformed according to the fields.
 
 ## Fields
 $(TYPEDFIELDS)
