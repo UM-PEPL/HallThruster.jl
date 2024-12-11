@@ -1,10 +1,16 @@
-using Documenter, HallThruster
+using HallThruster
+using Documenter
+using DocumenterCitations
 
 push!(LOAD_PATH, "../src/")
 
 function section(dir, pairs)
 	return [k => joinpath(dir, v) for (k,v) in pairs]
 end
+bib = CitationBibliography(
+	joinpath(@__DIR__, "src", "assets", "refs.bib");
+	style = :numeric,
+)
 
 makedocs(
 	sitename = "HallThruster.jl",
@@ -46,9 +52,11 @@ makedocs(
 	pagesonly = true,
 	format = Documenter.HTML(
 		collapselevel = 1,
+		assets = ["assets/citation.css"]
 	),
 	modules = [HallThruster],
 	checkdocs = :exports,
+	plugins = [bib],
 )
 
 deploydocs(

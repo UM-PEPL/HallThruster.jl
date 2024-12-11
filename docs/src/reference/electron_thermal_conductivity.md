@@ -41,7 +41,7 @@ conductivity_model = Braginskii()
 
 ## Custom thermal conductivity models
 
-The procedure for adding additional thermal conductivity models generally follows that of adding anomalous transport models, as described on the [Anomalous Transport](@ref) page. The two main differences is that the model type is of 'ThermalConductivityModel' rather than 'AnomalousTransportModel' and that the function needs to return ``\kappa`` rather than ``\nu an``. For demonstration pursposes however, let's say we wanted to implement the Braginskii model but without the anomalous collision frequency and a coefficient of 4.66 (singly charged ions only). We first define the type:
+The procedure for adding additional thermal conductivity models generally follows that of adding anomalous transport models, as described on the [Anomalous transport](@ref) page. The two main differences is that the model type is of 'ThermalConductivityModel' rather than 'AnomalousTransportModel' and that the function needs to return ``\kappa`` rather than ``\nu an``. For demonstration pursposes however, let's say we wanted to implement the Braginskii model but without the anomalous collision frequency and a coefficient of 4.66 (singly charged ions only). We first define the type:
 
 ```julia
 using HallThruster

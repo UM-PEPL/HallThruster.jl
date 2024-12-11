@@ -98,7 +98,7 @@ In this expression, ``\Omega_e = \omega_{ce}/\nu_e = e |B| / m_e \nu_e`` is the 
     \nu_e = \nu_c + \nu_{AN}
 ```
 
-In Hall thrusters, the observed axial/cross-field electron current is significantly higher than that which would result from classical collisions alone (here, ``\nu_c`` represents the classical electron momentum transfer collision frequency, see [Collisions and Reactions](@ref)). We model this enhanced transport in a fluid framework as an additional anomalous collision frequency, see [Anomalous Transport](@ref). The purpose of this code is to facilitate the development and testing of models for this important parameter.
+In Hall thrusters, the observed axial/cross-field electron current is significantly higher than that which would result from classical collisions alone (here, ``\nu_c`` represents the classical electron momentum transfer collision frequency, see [Collisions and Reactions](@ref)). We model this enhanced transport in a fluid framework as an additional anomalous collision frequency, see [Anomalous transport](@ref). The purpose of this code is to facilitate the development and testing of models for this important parameter.
 
 ## Discharge current and electric field
 

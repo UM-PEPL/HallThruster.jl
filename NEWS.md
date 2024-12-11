@@ -84,7 +84,7 @@ Some of the changes include:
     - `hall_max`: the maximum Hall parameter
     - `width`: the width of the Gaussian subtraction from the `Bohm`-like transport model.
     - `center`: the center of the Gaussian subtraction
-- See [Anomalous Transport](@ref) for a full listing of anomalous transport options.
+- See [Anomalous transport](@ref) for a full listing of anomalous transport options.
 
 #### Thruster changes
 - `Thruster.magnetic_field` now takes a `MagneticField` object, which contains a filename, z-coordinates, and magnetic field values. Arbitrary functions are no longer supported. If only a filename is provided, the constructor will load the magnetic field from the provided file.

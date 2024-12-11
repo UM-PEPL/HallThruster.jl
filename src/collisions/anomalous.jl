@@ -43,6 +43,9 @@ end
 """
     Bohm(c) <: AnomalousTransportModel
 Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
+
+# Fields
+$(TYPEDFIELDS)
 """
 @kwdef struct Bohm <: AnomalousTransportModel
     c::Float64
@@ -74,7 +77,10 @@ end
 """
     TwoZoneBohm(c1, c2) <: AnomalousTransportModel
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
-Takes two arguments: c1 and c2. The transition between these values can be smoothed by the user-provided transition function.
+Takes two arguments: c1 and c2. The transition between these values is smoothed over `config.transition_length`.
+
+# Fields
+$(TYPEDFIELDS)
 """
 @kwdef struct TwoZoneBohm <: AnomalousTransportModel
     c1::Float64
@@ -120,6 +126,9 @@ At `z[i] < z < z[i+1]`, `log(c)` is defined by linearly interpolating between `l
 For `z < z[1]`, `c = c[1]` and for `z > z[end]`, `c(z) = c[end]`.
 
 The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]. The number of z values must be equal to the number of c values.
+
+# Fields
+$(TYPEDFIELDS)
 """
 @kwdef struct MultiLogBohm <: AnomalousTransportModel
     zs::Vector{Float64}
@@ -158,20 +167,21 @@ end
 
 """
     GaussianBohm(hall_min, hall_max, center, width) <: AnomalousTransportModel
-Model in which the anomalous collision frequency is Bohm-like (ν_an ~ ω_ce), 
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`), 
 except in a Gaussian-shaped region defined centered on z = `center`,
 where the collision frequency is lower.
 
-# Arguments
-- `hall_min`: the minimum Hall parameter
-- `hall_max`: the maximum Hall parameter
-- `center`: the axial position (in meters) of the mean of the Gaussian trough
-- `width`: the standard deviation (in meters) of the Gaussian trough
+# Fields
+$(TYPEDFIELDS)
 """
 @kwdef struct GaussianBohm <: AnomalousTransportModel
+	"""the minimum Hall parameter"""
     hall_min::Float64
+	"""the maximum Hall parameter"""
     hall_max::Float64
+	"""the axial position (in meters) of the mean of the Gaussian trough"""
     center::Float64
+	"""the standard deviation (in meters) of the Gaussian trough"""
     width::Float64
 end
 
@@ -208,18 +218,29 @@ A wrapper model that allows a transport profile to shift axially in response
 to changes in background pressure. The displacement/shift of the transport profile
 follows a logistic curve.
 
-# Arguments
-- model: An anomalous transport model
-- z0: the center of the shift at 0 background pressure
-- dz: the total pressure shift across (0, Inf) background pressure
-- pstar: the "turning point" pressure
-- alpha: the slope of the pressure-displacement response curve
+# Fields
+$(TYPEDFIELDS)
 """
 @kwdef struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
+	"""
+	An anomalous transport model
+	"""
     model::A
+	"""
+	the center of the shift at 0 background pressure
+	"""
     z0::Float64
+	"""
+	the total pressure shift across (0, Inf) background pressure
+	"""
     dz::Float64
+	"""
+	the "turning point" pressure
+	"""
     pstar::Float64
+	"""
+	the slope of the pressure-displacement response curve
+	"""
     alpha::Float64
 end
 
