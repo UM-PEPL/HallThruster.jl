@@ -173,9 +173,9 @@ function test_ion_losses()
         grid = het.generate_grid(het.EvenGrid(2), geom, (0, 2 * L_ch))
 
         fluids = [
-            het.Fluid(Xenon(0); u = 300.0, T = Tn),
-            het.Fluid(Xenon(1); T = Tn),
-            het.Fluid(Xenon(2); T = Tn),
+            het.Fluid(het.Xenon(0); u = 300.0, T = Tn),
+            het.Fluid(het.Xenon(1); T = Tn),
+            het.Fluid(het.Xenon(2); T = Tn),
         ]
 
         Tev = 4.0

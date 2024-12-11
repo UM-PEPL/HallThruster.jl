@@ -27,7 +27,7 @@ function test_properties()
     ρ = 1.0
     T = 300
     u = 300
-    ϵ = Xenon.cv * T + 0.5 * u^2
+    ϵ = het.Xenon.cv * T + 0.5 * u^2
     Xe_0 = het.Xenon(0)
 
     continuity_eq = het.Fluid(Xe_0; u, T)

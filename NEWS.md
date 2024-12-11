@@ -18,6 +18,16 @@ EditURL = "NEWS.md"
 - With these improvements, HallThruster.jl may be suitable for use in a scripting workflow, depending on the expected run-time of your simulations.
 - For many users and workflows, the total time-to-first-simulation should be just a few seconds.
 
+#### Exports
+`Xenon`, `Krypton`, and `time_average` are no longer exported.
+Users will need to use the fully-qualified names, i.e. `HallThruster.Xenon`, `HallThruster.Krypton`, and `HallThruster.time_average` to access these variables.
+This can be made less verbose by bringing `HallThruster` into scope with a shorter name:
+```julia
+using HallThurster: HallThruster as het
+
+het.Xenon
+```
+
 #### Postprocessing changes
 - The `run_simulation` function now takes an optional `postprocess` keyword argument, which takes a `Postprocess` object.
 - The `Postprocess` struct allows the user to specify time-averaging, saving, and output info. Any requested postprocessing will be performed automatically after the simulation has finished and output the requested JSON file.
@@ -32,6 +42,10 @@ Some of the changes include:
 - JSON outputs now contain all input used to run the simulation, including a `Config` (under key `"config"`) and timestepping info (under key `"simulation"`).
 - JSON outputs can be used to restart simulations, replacing the restart capability previously provided by `JLD2`.
 - Users can provide postprocessing directives in the JSON input by providing a `"postprocessing"` key in their input, following the [`Postprocessing`](@ref) interface introduced in this update.
+
+### Python interface
+
+We have a new python interface. See [Run a simulation from python](@ref) for more.
 
 ### Interface changes
 

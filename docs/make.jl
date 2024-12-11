@@ -21,7 +21,7 @@ makedocs(
 			"Run a simulation" => "simulation.md",
 		]),
 		"How-to guides" => section("howto", [
-			"Use the JSON interface" => "json.md",
+			"Use JSON input and output" => "json.md",
 			"Run a simulation from python" => "python.md",
 			"Add a new propellant" => "new_propellant.md",
 			"Implement an anomalous transport model" => "new_anom_model.md",

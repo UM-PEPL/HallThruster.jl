@@ -57,7 +57,7 @@ function test_stage_limiter()
 
         p = (; index, cache = (; nϵ = [-1.0]),
             grid = (; cell_centers = [0.0]), min_Te = 1.0,
-            mi = Xenon.m, ncharge = 1,)
+            mi = het.Xenon.m, ncharge = 1,)
         U = [-1.0, -1.0, -1.0, -1.0]
         het.stage_limiter!(U, p)
 

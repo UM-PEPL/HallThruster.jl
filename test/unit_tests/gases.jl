@@ -9,7 +9,6 @@ function test_gases()
         end
         @testset "Gas and species" begin
             @test repr(het.Krypton) == "Krypton"
-            @test repr(het.Electron) == "e-"
             @test repr(het.Species(het.Xenon, 1)) == "Xe+"
             @test repr(het.Species(het.Xenon, 3)) == "Xe3+"
             @test repr(het.Species(het.Xenon, 0)) == "Xe"

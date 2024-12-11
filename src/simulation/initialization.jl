@@ -166,7 +166,7 @@ function initialize_from_restart!(U, params, frame)
 
     # load electron properties
     Te = LinearInterpolation(frame.z, frame.Tev).(z)
-    phi = LinearInterpolation(frame.z, frame.V).(z)
+    phi = LinearInterpolation(frame.z, frame.potential).(z)
     E = LinearInterpolation(frame.z, frame.E).(z)
 
     @. cache.nϵ = 1.5 * cache.ne * Te

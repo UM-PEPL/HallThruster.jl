@@ -172,7 +172,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 	Extra source term for electron energy equation. **Default:** `nothing`. 
 	"""
     source_energy::S_E
-end
 
     function Config(;
 			# Mandatory arguments
@@ -276,10 +275,9 @@ end
 			throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
         end
 
-        # return new{A, TC, W, HS, IC,
-        #     typeof(source_neutrals), typeof(source_ion_continuity),
-        #     typeof(source_ion_momentum), typeof(source_energy),}(
-		return Config(
+        return new{A, TC, W, HS, IC,
+             typeof(source_neutrals), typeof(source_ion_continuity),
+             typeof(source_ion_momentum), typeof(source_energy),}(
 			# Mandatory arguments
             thruster,
             domain,
@@ -311,7 +309,7 @@ end
             scheme,
             initial_condition,
             implicit_energy,
-            reaction_rate_directories,
+			reaction_rate_directories,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -323,6 +321,7 @@ end
             source_energy,
         )
     end
+end
 
 #=============================================================================
  Serialization of Config to JSON

@@ -12,7 +12,7 @@ function test_flux_computation()
     ρ = 1.0
     T = 300
     u = 300
-    ϵ = Xenon.cv * T + 0.5 * u^2
+    ϵ = het.Xenon.cv * T + 0.5 * u^2
     Xe_0 = het.Xenon(0)
 
     continuity_eq = het.Fluid(Xe_0; u, T)
@@ -28,7 +28,7 @@ function test_flux_computation()
     euler = (euler_state, euler_eq)
 
     @testset "Flux computation" begin
-        p = ρ * Xenon.R * T
+        p = ρ * het.Xenon.R * T
         f_euler = (ρ * u, ρ * u^2 + p, ρ * u * (ϵ + p / ρ))
         @test het.flux(continuity...) == (f_euler[1],)
         @test het.flux(isothermal...) == (f_euler[1], f_euler[2])
