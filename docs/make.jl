@@ -52,7 +52,10 @@ makedocs(
 	pagesonly = true,
 	format = Documenter.HTML(
 		collapselevel = 1,
-		assets = ["assets/citation.css"]
+		assets = [
+            "assets/citation.css",
+            "assets/favicon.ico",
+        ]
 	),
 	modules = [HallThruster],
 	checkdocs = :exports,
