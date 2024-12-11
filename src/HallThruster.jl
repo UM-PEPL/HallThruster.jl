@@ -86,6 +86,20 @@ include("simulation/json.jl")
 include("visualization/plotting.jl")
 include("visualization/recipes.jl")
 
+@public PYTHON_PATH
+
+"""
+$(SIGNATURES)
+
+The absolute path to the `HallThruster` python code on your machine.
+
+```julia
+julia> using HallThruster; HallThruster.PYTHON_PATH
+"/Users/archermarks/src/HallThruster/python"
+```
+"""
+const PYTHON_PATH = joinpath(PACKAGE_ROOT, "python")
+
 # this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)

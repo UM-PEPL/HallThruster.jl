@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-def run_hallthruster_jl(
+def run_simulation(
         input: dict | str | Path,
         jl_env: str | Path | None = None,
         jl_script: str | Path | None = None,

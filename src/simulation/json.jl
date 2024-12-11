@@ -72,10 +72,11 @@ function frame_dict(sol::Solution, frame::Integer)
     d["B"] = sol.params.cache.B
     d["ne"] = f.ne
     d["ue"] = f.ue
-    d["V"] = f.ϕ
+    d["potential"] = f.ϕ
     d["E"] = -f.∇ϕ
     d["Tev"] = f.Tev
     d["pe"] = f.pe
+	d["grad_pe"] = f.∇pe
     d["nu_en"] = f.νen
     d["nu_ei"] = f.νei
     d["nu_anom"] = f.νan
