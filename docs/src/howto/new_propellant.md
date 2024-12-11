@@ -51,7 +51,7 @@ solution = het.run_simulation(config, sim_params)
 ```
 
 These directories will be checked, in order, before the HallThruster.jl directory is checked.
-For example, if we passed `reaction_rate_directories = ["reactions", "more_reactions"], the code will first look in "reactions", then in "more_reactions", before finally checking "HallThruster.jl/reactions".
+For example, if we passed `reaction_rate_directories = ["reactions", "more_reactions"]`, the code will first look in `"reactions"`, then in `"more_reactions"`, before finally checking `"HallThruster.jl/reactions"`.
 An error will be emitted if the reaction rate files cannot be found.
 
 Note that you may need to tweak other settings in the `Config` and `SimParams` struct to get simulations using non-built-in propellants working well, as thrusters running on these propellants may exhibt very different stability and physical characteristics than the default parameters were designed to handle.
