@@ -66,7 +66,7 @@ function (model::Bohm)(νan, params, config)
 
     for (_, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        B = B_interp(z)
+        B = B_interp(zc)
         ωce = e * B / me
         νan = model.c * ωce
     end
@@ -106,7 +106,7 @@ function (model::TwoZoneBohm)(νan, params, config)
 
     for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        B = B_interp(z)
+        B = B_interp(zc)
         ωce = e * B / me
         c = linear_transition(z, L_ch, L_trans, c1, c2)
         νan[i] = c * ωce
@@ -156,7 +156,7 @@ function (model::MultiLogBohm)(νan, params, config)
 
     for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        B = B_interp(z)
+        B = B_interp(zc)
         ωce = e * B / me
         c = HallThruster.interpolate(z, model.zs, model.cs, use_log = true)
         νan[i] = c * ωce
@@ -201,7 +201,7 @@ function (model::GaussianBohm)(νan, params, config)
 
     for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
-        B = B_interp(z)
+        B = B_interp(zc)
         ωce = e * B / me
         c = hall_max * (1 - (1 - hall_min) * exp(-0.5 * ((z - center) / width)^2))
         νan[i] = c * ωce

@@ -4,6 +4,13 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.1
+
+### Minor changes
+#### Anomalous transport models
+The pressure shift now only applies to the coefficients of the transport model as opposed to shifting the entire magnetic field.
+This was the pre-0.18.0 behavior.
+
 ## v0.18.0
 
 !!! warning "Breaking release"
