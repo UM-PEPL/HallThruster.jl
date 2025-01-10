@@ -86,9 +86,9 @@ Note that if we already have a JSON file with these inputs, we can pass the json
 ```python
 input = {"config": config, "simulation": simulation, "postprocess": postprocess}
 
-solution = het.run_simulation(input, jl_environment = ".")
+solution = het.run_simulation(input, jl_env = ".")
 ```
-Here, we have provided the keyword argument `jl_environment` to tell Python where it should look for `HallThruster`.
+Here, we have provided the keyword argument `jl_env` to tell Python where it should look for `HallThruster`.
 This should be the directory in which you have a `Project.toml` specifying `HallThruster` as a dependency.
 If left blank, the script will assume that you want to use the global environment.
 
