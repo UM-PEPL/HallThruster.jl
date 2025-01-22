@@ -16,7 +16,7 @@ TwoZoneBohm
 GaussianBohm
 MultiLogBohm
 LogisticPressureShift
-SimplePressureShift
+SimpleLogisticShift
 ```
 
 ## The `AnomalousTransportModel` interface
