@@ -4,6 +4,14 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.2
+
+### New features
+#### Anomalous transport models
+A new `SimpleLogisticShift` pressure shift model has been added.
+This is a simplified version of the `LogisticPressureShift` with one fewer parameter.
+See [Anomalous transport](@ref) for more details.
+
 ## v0.18.1
 
 ### Minor changes

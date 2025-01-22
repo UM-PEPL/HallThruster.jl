@@ -15,7 +15,7 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
 @inline function anom_models()
     return (; NoAnom, Bohm, TwoZoneBohm,
         MultiLogBohm, GaussianBohm,
-        LogisticPressureShift,)
+        LogisticPressureShift, SimpleLogisticShift)
 end
 
 function Serialization.SType(::Type{T}) where {T <: AnomalousTransportModel}
@@ -212,11 +212,16 @@ end
 
 abstract type PressureShift <: AnomalousTransportModel end
 
+pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
+
+function (model::PressureShift)(args...; kwargs...)
+    return model.model(args...; kwargs...)
+end
+
 """
     LogisticPressureShift(model, z0, dz, pstar, alpha)
-A wrapper model that allows a transport profile to shift axially in response
-to changes in background pressure. The displacement/shift of the transport profile
-follows a logistic curve.
+A wrapper model that allows a transport profile to shift axially in response to changes in background pressure.
+The displacement/shift of the transport profile follows a logistic curve.
 
 # Fields
 $(TYPEDFIELDS)
@@ -244,17 +249,51 @@ $(TYPEDFIELDS)
     alpha::Float64
 end
 
-function (model::LogisticPressureShift)(args...; kwargs...)
-    return model.model(args...; kwargs...)
-end
-
-pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
-
 function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
     (; z0, dz, alpha, pstar) = model
     p_ratio = pB / pstar 
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
     return channel_length * zstar
+end
+
+"""
+    SimpleLogisticShift(model, z0, dz, pstar, alpha)
+A wrapper model that allows a transport profile to shift axially in response to changes in background pressure. 
+As with LogisticPressureShift, the displacement/shift of the transport profile follows a logistic curve.
+However, the parameterization is different, so that the shift is zero when
+the background pressure is zero.
+As such, it does not have a z0 parameter.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+@kwdef struct SimpleLogisticShift{A <: AnomalousTransportModel} <: PressureShift
+	"""
+	An AnomalousTransportModel
+	"""
+	model::A
+	"""
+	The maximum displacement in response to increasing pressure, scaled by the discharge channel length.
+	This should be positive.
+	"""
+	shift_length::Float64
+	"""
+	The pressure at the midpoint of the shift, in Torr.
+	Defaults to 25e-6 Torr, which gives good fits for the H9 and SPT-100.
+	"""
+	midpoint_pressure::Float64
+	"""
+	The slope of the pressure response curve.
+	Defaults to 2, which gives good fits for the H9 and SPT-100.
+	"""
+	slope::Float64 = 2.0
+end
+
+function pressure_shift(model::SimpleLogisticShift, pB::Float64, channel_length::Float64)
+    (; shift_length, midpoint_pressure, slope) = model
+    p_ratio = pB / midpoint_pressure 
+	zstar = shift_length * (inv(1 + exp(-slope * (p_ratio - 1))) - inv(1 + exp(slope)))
+    return -channel_length * zstar
 end
 
 """
