@@ -40,7 +40,7 @@ By default, rate_coeff looks for a lookup table stored in the reaction struct
 function rate_coeff(rxn::Reaction, energy)
     ind = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
     N = length(rxn.rate_coeffs) - 2
-    ind = ind > N ? N : ind
+    ind = ind > N ? N : ind < 0 ? 0 : ind
     r1 = rxn.rate_coeffs[ind + 1]
     r2 = rxn.rate_coeffs[ind + 2]
     return lerp(r1, r2, energy - ind)
