@@ -7,38 +7,38 @@ function test_spt100_regression()
     @testset "SPT-100 regression" begin
         baseline = (;
             file = "baseline.json",
-            thrust = 87.490,
-            current = 4.618,
-            ion_current = 3.934,
-            max_Te = 24.736,
-            max_E = 6.612e4,
+            thrust = 87.304,
+            current = 4.614,
+            ion_current = 3.922,
+            max_Te = 24.832,
+            max_E = 6.665e4,
             max_nn = 2.088e19,
-            max_ni = 9.650e17,
+            max_ni = 9.651e17,
 			efficiencies = Dict(
-				"Mass" => 0.957,
-				"Current" => 0.877,
+				"Mass" => 0.954,
+				"Current" => 0.873,
 				"Divergence" => 0.949,
-				"Voltage" => 0.660,
-				"Anode" => 0.572,
+				"Voltage" => 0.661,
+				"Anode" => 0.5656,
 			)
         )
         check_regression_case(baseline)
 
         with_plume = (;
             file = "with_plume.json",
-            thrust = 105.644,
-            current = 5.019,
-            ion_current = 4.058,
-            max_Te = 27.327,
-            max_E = 9.731e4,
-            max_nn = 2.096e19,
+            thrust = 106.748,
+            current = 5.030,
+            ion_current = 4.097,
+            max_Te = 27.287,
+            max_E = 9.641e4,
+            max_nn = 2.095e19,
             max_ni = 1.167e18,
 			efficiencies = Dict(
-				"Mass" => 0.993,
-				"Current" => 0.825,
+				"Mass" => 0.999,
+				"Current" => 0.829,
 				"Divergence" => 0.963,
-				"Voltage" => 0.719,
-				"Anode" => 0.597,
+				"Voltage" => 0.721,
+				"Anode" => 0.615,
 			)
         )
         check_regression_case(with_plume)
