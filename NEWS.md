@@ -4,6 +4,12 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.3
+
+### Bug fixes
+- Fix indexing error in rate coefficient calculation
+- Fix massive divergence angles when ion velocity is zero or negative
+
 ## v0.18.2
 
 ### New features
