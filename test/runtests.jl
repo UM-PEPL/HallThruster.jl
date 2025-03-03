@@ -5,6 +5,8 @@ using DelimitedFiles
 using LinearAlgebra
 using Printf
 
+include("unit_tests/serialization_test_utils.jl")
+
 doctest(HallThruster)
 
 include("$(HallThruster.TEST_DIR)/unit_tests/thrusters.jl")

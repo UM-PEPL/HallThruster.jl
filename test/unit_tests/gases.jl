@@ -1,7 +1,5 @@
 using HallThruster: HallThruster as het
 
-include("serialization_test_utils.jl")
-
 function test_gases()
     @testset "Gases" begin
         @testset "Serialization" begin

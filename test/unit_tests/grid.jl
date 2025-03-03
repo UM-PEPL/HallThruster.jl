@@ -1,8 +1,6 @@
 using HallThruster: HallThruster as ht
 using Test
 
-include("serialization_test_utils.jl")
-
 function test_grid_serialization()
     @testset "Serialization" begin
         test_roundtrip(ht.GridSpec, ht.EvenGrid(0))

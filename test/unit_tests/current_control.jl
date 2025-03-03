@@ -1,8 +1,6 @@
 using HallThruster: HallThruster as ht
 using Test
 
-include("serialization_test_utils.jl")
-
 function test_controller_serialization()
     @testset "Serialization" begin
         none = ht.NoController()
@@ -51,7 +49,7 @@ function test_pid_steady_state()
 end
 
 function update_springmass_system(state, controller, k, c, m, dt)
-    # integrate spring-mass system 
+    # integrate spring-mass system
     # state: [x,v,f]
     # k: spring constant
     # c: damping constant
@@ -59,7 +57,7 @@ function update_springmass_system(state, controller, k, c, m, dt)
     # f: external force
     # dt: timestep
 
-    # differential equation: 
+    # differential equation:
     # m*x'' + c*x' + k*x = f(t)
     # => x'' = f/m + c/m*x' + k/m*x
     #
@@ -67,7 +65,7 @@ function update_springmass_system(state, controller, k, c, m, dt)
     # x' = v
     # v' = (f - cv - kx)/m
     #
-    # implicit discretization 
+    # implicit discretization
     # x(t+dt) - x(t) = v(t) * dt
     # v(t+dt) - v(t) = (f - c*v(t+dt) - k*x(t+dt))/m * dt
 

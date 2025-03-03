@@ -13,9 +13,16 @@ $(SIGNATURES)
 Returns a NamedTuple mapping symbols to transport models for all built-in models.
 """
 @inline function anom_models()
-    return (; NoAnom, Bohm, TwoZoneBohm,
-        MultiLogBohm, GaussianBohm,
-        LogisticPressureShift, SimpleLogisticShift)
+    return (;
+        NoAnom,
+        Bohm,
+        TwoZoneBohm,
+        MultiLogBohm,
+        GaussianBohm,
+        ScaledGaussianBohm,
+        LogisticPressureShift,
+        SimpleLogisticShift
+    )
 end
 
 function Serialization.SType(::Type{T}) where {T <: AnomalousTransportModel}
@@ -167,7 +174,7 @@ end
 
 """
     GaussianBohm(hall_min, hall_max, center, width) <: AnomalousTransportModel
-Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`), 
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`),
 except in a Gaussian-shaped region defined centered on z = `center`,
 where the collision frequency is lower.
 
@@ -175,9 +182,9 @@ where the collision frequency is lower.
 $(TYPEDFIELDS)
 """
 @kwdef struct GaussianBohm <: AnomalousTransportModel
-	"""the minimum Hall parameter"""
+	"""the minimum inverse Hall parameter"""
     hall_min::Float64
-	"""the maximum Hall parameter"""
+	"""the maximum inverse Hall parameter"""
     hall_max::Float64
 	"""the axial position (in meters) of the mean of the Gaussian trough"""
     center::Float64
@@ -204,6 +211,54 @@ function (model::GaussianBohm)(νan, params, config)
         B = B_interp(zc)
         ωce = e * B / me
         c = hall_max * (1 - (1 - hall_min) * exp(-0.5 * ((z - center) / width)^2))
+        νan[i] = c * ωce
+    end
+
+    return νan
+end
+
+"""
+    ScaledGaussianBohm(anom_scale, barrier_scale, width, center) <: AnomalousTransportModel
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`),
+except in a Gaussian-shaped region defined centered on z = `center`,
+where the collision frequency is lower.
+Reparameterized version of the `GaussianBohm` model to make parameters non-dimensional and closer to O(1)
+
+# Fields
+$(TYPEDFIELDS)
+"""
+@kwdef struct ScaledGaussianBohm <: AnomalousTransportModel
+    """the maximum inverse hall parameter, should be in [0, 1]"""
+    anom_scale::Float64 = 0.0625
+	"""the factor by which transport is reduced by the baseline value at the center of the trough, should be in [0,1]. """
+    barrier_scale::Float64 = 0.9
+    """the standard deviation of the Gaussian trough, in channel lengths"""
+    width::Float64
+	"""the axial position of the mean of the Gaussian trough, in channel lengths"""
+    center::Float64
+end
+
+function (model::ScaledGaussianBohm)(νan, params, config)
+    (; anom_scale, barrier_scale, width, center) = model
+    (; cache, grid, thruster) = params
+    (; B) = cache
+
+    # Profile is fixed in time, do not update after 5 iterations
+    if (params.iteration[] > 5)
+        return νan
+    end
+
+    L_ch = thruster.geometry.channel_length
+    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
+    B_interp = LinearInterpolation(grid.cell_centers, B)
+    mean = L_ch * center
+    std = L_ch * width
+
+    for (i, zc) in enumerate(grid.cell_centers)
+        z = zc - z_shift
+        B = B_interp(zc)
+        ωce = e * B / me
+        c = anom_scale * (1 - barrier_scale * exp(-0.5 * ((z - mean)/(std))^2))
         νan[i] = c * ωce
     end
 
@@ -251,14 +306,14 @@ end
 
 function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
     (; z0, dz, alpha, pstar) = model
-    p_ratio = pB / pstar 
+    p_ratio = pB / pstar
     zstar = z0 + dz / (1 + (alpha - 1)^(2 * p_ratio - 1))
     return channel_length * zstar
 end
 
 """
     SimpleLogisticShift(model, z0, dz, pstar, alpha)
-A wrapper model that allows a transport profile to shift axially in response to changes in background pressure. 
+A wrapper model that allows a transport profile to shift axially in response to changes in background pressure.
 As with LogisticPressureShift, the displacement/shift of the transport profile follows a logistic curve.
 However, the parameterization is different, so that the shift is zero when
 the background pressure is zero.
@@ -281,7 +336,7 @@ $(TYPEDFIELDS)
 	The pressure at the midpoint of the shift, in Torr.
 	Defaults to 25e-6 Torr, which gives good fits for the H9 and SPT-100.
 	"""
-	midpoint_pressure::Float64
+	midpoint_pressure::Float64 = 25e-6
 	"""
 	The slope of the pressure response curve.
 	Defaults to 2, which gives good fits for the H9 and SPT-100.
@@ -291,7 +346,7 @@ end
 
 function pressure_shift(model::SimpleLogisticShift, pB::Float64, channel_length::Float64)
     (; shift_length, midpoint_pressure, slope) = model
-    p_ratio = pB / midpoint_pressure 
+    p_ratio = pB / midpoint_pressure
 	zstar = shift_length * (inv(1 + exp(-slope * (p_ratio - 1))) - inv(1 + exp(slope)))
     return -channel_length * zstar
 end
