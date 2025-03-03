@@ -13,10 +13,11 @@ CurrentModule = HallThruster
 NoAnom
 Bohm
 TwoZoneBohm
+ScaledGaussianBohm
 GaussianBohm
 MultiLogBohm
-LogisticPressureShift
 SimpleLogisticShift
+LogisticPressureShift
 ```
 
 ## The `AnomalousTransportModel` interface
