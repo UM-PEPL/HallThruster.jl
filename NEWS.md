@@ -4,6 +4,15 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.4
+
+### New features
+#### Anomalous transport models
+A new `ScaledGaussianBohm` transport model has been added.
+This is a reparameterized version of the `GaussianBohm` model with non-dimensional parameters of order unity.
+See [Anomalous transport](@ref) for more details.
+
+
 ## v0.18.3
 
 ### Bug fixes
