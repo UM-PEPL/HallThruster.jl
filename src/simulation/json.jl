@@ -89,8 +89,8 @@ end
 
 """
     $(TYPEDSIGNATURES)
-Convert `sol` to an `OrderedDict`, containing both the inputs used to run the simulation 
-and any requested outputs. 
+Convert `sol` to an `OrderedDict`, containing both the inputs used to run the simulation
+and any requested outputs.
 This function is used to convert a `Solution` to a format suitable for writing to an output file.
 """
 function serialize_sol(
@@ -137,6 +137,7 @@ Write `sol` to `file`, if `file` is a JSON file.
 function write_to_json(
         file::String, sol::Solution;
         average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,)
+
     ext = splitext(file)[2]
     if lowercase(ext) != ".json"
         throw(ArgumentError("$(file) is not a JSON file."))
@@ -144,6 +145,11 @@ function write_to_json(
 
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
-    JSON3.write(file, output, allow_inf=true)
+    @show file
+
+    open(file, "w") do f
+        JSON3.write(f, output, allow_inf=true)
+    end
+
     return nothing
 end

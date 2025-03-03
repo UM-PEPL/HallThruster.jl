@@ -168,6 +168,26 @@ function example_simulation(; ncells, duration, dt, nsave)
         error()
     end
 
+    config_4 = HallThruster.Config(;
+        thruster = SPT_100,
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        anode_mass_flow_rate = 5e-6,
+        anom_model = ScaledGaussianBohm(anom_scale = 0.0625, barrier_scale = 0.9, center = 1.0, width = 0.1),
+        wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
+        conductivity_model = Braginskii(),
+        neutral_temperature_K = 500,
+        ion_wall_losses = false,
+        solve_plume = false,
+    )
+
+    sol_4 = run_simulation(
+        config_4; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+
+    if sol_4.retcode != :success
+        error()
+    end
+
     time_average(sol_1)
     discharge_current(sol_1)
     thrust(sol_1)

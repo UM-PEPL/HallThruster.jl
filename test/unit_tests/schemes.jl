@@ -1,7 +1,5 @@
 using HallThruster: HallThruster as het
 
-include("serialization_test_utils.jl")
-
 function test_scheme_serialization()
     @testset "Serialization" begin
         scheme1 = het.HyperbolicScheme()

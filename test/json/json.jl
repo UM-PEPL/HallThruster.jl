@@ -1,7 +1,5 @@
 using JSON3: JSON3
 
-include(joinpath(het.TEST_DIR, "unit_tests", "serialization_test_utils.jl"))
-
 function test_json()
     @testset "JSON" begin
         test_path = joinpath(het.PACKAGE_ROOT, "test", "json")

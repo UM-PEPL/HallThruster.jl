@@ -1,7 +1,5 @@
 using HallThruster: HallThruster as het
 
-include("serialization_test_utils.jl")
-
 function test_flux_serialization()
     @testset "Serialization" begin
         test_instances(het.FluxFunction, het.flux_functions)
@@ -53,7 +51,7 @@ function test_flux_computation()
     end
 
     @testset "Reconstruction" begin
-        # check that if the states actually lie along a line, we correctly 
+        # check that if the states actually lie along a line, we correctly
         # reproduce the linear values at the inteface
         euler_state_0 = collect(euler_state)
         euler_state_L = 0.5 .* euler_state_0
