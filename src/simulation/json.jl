@@ -145,8 +145,6 @@ function write_to_json(
 
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
-    @show file
-
     open(file, "w") do f
         JSON3.write(f, output, allow_inf=true)
     end
