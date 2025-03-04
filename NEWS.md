@@ -4,6 +4,10 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.5
+### Bug fixes
+- Remove debug print left in prev version
+
 ## v0.18.4
 
 ### New features
