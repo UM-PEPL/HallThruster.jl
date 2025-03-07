@@ -13,7 +13,7 @@ These default to `config.discharge_voltage/10`, `2e17`, and `1e18`, respectively
 
 The ion densities are Gaussian with a constant offset and a scaling factor proportional to the mass flow rate and discharge voltage.  For ions with charge 1, the density is
 ```math
-\rho_{i} = \rho_min m_i \sqrt{\frac{V_d}{300}}\frac{\dot{m}}{5\times10^{-6}}\left(1 + \frac{\rho_max}{\rho_min} \exp\left[-\left(\frac{z - z_0 - L_{ch}/2}{L_{ch}/3}\right)^2\right]\right)
+\rho_{i} = m_i \sqrt{\frac{V_d}{300}}\frac{\dot{m}}{5\times10^{-6}}\left(\rho_{min}  + (\rho_{max}-\rho_{min}) \exp\left[-\left(\frac{z - z_0 - L_{ch}/2}{L_{ch}/3}\right)^2\right]\right)
 ```
 For ions with charge `Z`, the density is assumed to scale as
 ```math
@@ -48,14 +48,14 @@ The neutral density at the anode is computed in the same way as during a simulat
 ```
 The density at the cathode is assumed to be 1/100 that at the anode. In the domain, the neutral density has a sigmoid shape:
 ```math
-\rho_n(z) = \frac{1}{2}\left(\rho_{n,anode} + \rho_{n, cathode} + (\rho_{n, anode} - \rho_{n, cathode})\tanh\left(\frac{z - z_0 - L_{ch}/2}{L_{ch} / 6}\right)\right)
+\rho_n(z) = \frac{1}{2}\left(\rho_{n,anode} + \rho_{n, cathode} + (\rho_{n, cathode} - \rho_{n, anode})\tanh\left(\frac{z - z_0 - L_{ch}/2}{L_{ch} / 24}\right)\right)
 ```
 
 ### Electron energy
 
 The number density is computed from the ion densities. The electron temperature is a Gaussian with height ``V_d / 10`` eV plus a linear baseline to make sure the boundary conditions are satisfied:
 ```math
-T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + T_{e,max}\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
+T_e(z) = \left(1 - \frac{z - z_0}{z_N - z_0}\right) T_{e, anode} + \left(\frac{z - z_0}{z_N - z_0}\right) T_{e, cathode} + (T_{e,max} - T_{e,min})\exp\left[-\left(\frac{z - z_0 - L_{ch}}{L_{ch}/3}\right)^2\right]
 ```
 
 ### Example
