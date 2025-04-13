@@ -304,9 +304,9 @@ These are
 We can extract some useful global metrics from a solution, like thrust, discharge_current, and anode_efficiency.
 
 ```julia
-thrust = het.thruster(solution)
+thrust = het.thrust(solution)
 discharge_current = het.discharge_current(solution)
-anode_eff = het.anode_efficiency(solution)
+anode_eff = het.anode_eff(solution)
 ```
 These functions return a vector of thrusts or discharge currents at each of the times in `solution.t`.
 There are serveral other functions that act analogously, computing efficiencies or other global metrics.
