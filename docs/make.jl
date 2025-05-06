@@ -17,6 +17,7 @@ makedocs(
 	pages = [
 		"Overview" => "index.md",
 		"Release notes" => "NEWS.md",
+		"Science highlights" => "highlights.md",
 		"Tutorials" => section("tutorials", [
 			"Run a simulation" => "simulation.md",
 		]),
