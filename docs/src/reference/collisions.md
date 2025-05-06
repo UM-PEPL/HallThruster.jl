@@ -18,7 +18,7 @@ HallThruster.jl provides two models out of the box. These are
 
 | Model                   | Supported species                                            | Maximum charge state | Description                                                  |
 | ----------------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------------ |
-| `IonizationLookup`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | `3`                  | Ionization look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
+| `IonizationLookup`         | `Xenon`, `Krypton`, `Argon`, `MolecularNitrogen (only up to 1+)` out of the box. With user-provided tables, can support any species | `3`                  | Ionization look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
 | `LandmarkIonizationLookup` | `Xenon`                                                      | `1`                  | Lookup table provided for the LANDMARK benchmark. Table is stored in the `landmark` subfolder of the HallThruster.jl directory. |
 
 ### `IonizationLookup`
@@ -41,7 +41,7 @@ The rate coefficient files must have the ionization energy in the first row, wit
 
 ```
 Ionization energy (eV): 13.9996055
-Energy (eV) Rate coefficient (m3/s)
+Energy (eV) Rate coefficient (m^3/s)
 1.0 1.812780887933804e-23
 2.0	6.784605416289418e-19
 3.0	2.86241339516785e-17
@@ -65,6 +65,8 @@ As with ionization, HallThruster.jl provides two models out of the box. These ar
 | ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `ExcitationLookup`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | Excitation look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
 | `LandmarkExcitationLookup` | `Xenon`                                                      | Lookup table provided for the LANDMARK benchmark. Table is stored in the `landmark` subfolder of the HallThruster.jl directory. |
+
+Unlike ionization, which will throw an error if rate coefficients up to the specified charge state are not provided, HallThruster.jl will just not apply excitation reactions if they are not present.
 
 
 ### `ExcitationLookup`
@@ -101,13 +103,13 @@ Energy (eV)	Rate coefficient (m3/s)
 
 This accounts for excitation of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark. LANDMARK does explicitly provide excitation rates, and instead gives an energy loss coefficient. However, using the provided ionization rate coefficients, we can back out the excitation rate coefficients. These are then used to construct an `ExcitationReaction`.
 
-## Electron-neutral elastic scattering
+## Electron-neutral elastic or momentum-transfer scattering
 
 These are `ReactionModels` of type `ElectronNeutralModel`. HallThruster.jl provides three models out of the box. These are
 
 | Model                   | Supported species                                            | Description                                                  |
 | ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `ElectronNeutralLookup`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | Electron-neutral elastic scattering look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
+| `ElectronNeutralLookup`         | `Xenon`, `Krypton`, `MolecularNitrogen` out of the box. With user-provided tables can support any species | Electron-neutral scattering look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
 | `LandmarkElectronNeutral` | `Xenon`                                                      | Constant rate coefficient of `2.5e-13` |
 | `GKElectronNeutral` | `Xenon` | Uses Eq. 36.13 on pg. 58 from Goebel and Katz to fit Xenon e-n cross section |
 

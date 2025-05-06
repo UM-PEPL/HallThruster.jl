@@ -30,8 +30,8 @@ Species(element::Gas, Z::Int)
 - `Krypton`
 
 `Gas` definitions and partial rate coefficients are available for these gases.
-- `Argon`: Single, double, and triple ionization from neutral argon. No elastic, excitation, or stepwise ionizations are included at present.
-
+- `Argon`: Single, double, and triple ionization from neutral argon. No excitation or momentum transfer collisions.
+- `MolecularNitrogen`: Single ionization and momentum transfer collisions. No dissociation or excitation.
 - `Bismuth`
 - `Mercury`
 

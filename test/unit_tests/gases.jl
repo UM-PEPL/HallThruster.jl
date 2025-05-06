@@ -10,6 +10,8 @@ function test_gases()
             @test repr(het.Species(het.Xenon, 1)) == "Xe+"
             @test repr(het.Species(het.Xenon, 3)) == "Xe3+"
             @test repr(het.Species(het.Xenon, 0)) == "Xe"
+            @test repr(het.Species(het.MolecularNitrogen, 1)) == "N2+"
+            @test repr(het.Species(het.MolecularNitrogen, 0)) == "N2"
 
             M = 5.0
             γ = 1.0

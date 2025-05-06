@@ -15,7 +15,7 @@ struct Gas
 	"""Specific heat ratio / adiabatic index"""
 	γ::Float64
 	"""Molar mass (grams/mol) or atomic mass units"""
-	M::Float64 
+	M::Float64
 	"""Mass of atom in kg"""
 	m::Float64
 	"""Specific heat at constant pressure"""
@@ -119,6 +119,12 @@ const Krypton = Gas("Krypton", "Kr"; γ = 5 / 3, M = 83.798)
 Xenon gas
 """
 const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
+
+"""
+	MolecularNitrogen::Gas
+Molecular nitrogen gas
+"""
+const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7/5, M = 28.0134)
 
 """
     Bismuth::Gas
