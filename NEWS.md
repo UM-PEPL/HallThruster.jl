@@ -4,6 +4,11 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.18.6
+
+### New features
+- Added molecular nitrogen (`HallThruster.MolecularNitrogen`) propellant along with ionization and elastic scattering cross sections.
+
 ## v0.18.5
 ### Bug fixes
 - Remove debug print left in prev version
@@ -42,7 +47,7 @@ This was the pre-0.18.0 behavior.
 
 !!! warning "Breaking release"
     v0.18.0 is a breaking release, made as part of our effort to move toward v1.0.0 in the next few months.
-    Users may need to update their code to avoid errors. 
+    Users may need to update their code to avoid errors.
     Check out the list of changes and removals below to see how to migrate your code.
 
 ### Major changes
@@ -68,7 +73,7 @@ het.Xenon
 - See [Postprocessing](@ref) for more information
 
 #### JSON IO
-JSON input and output has been significantly reworded and enhanced. 
+JSON input and output has been significantly reworded and enhanced.
 See  [Use JSON for input and output](@ref) for more information.
 Users of the old JSON interface will need to update their input files to conform to the new format.
 Some of the changes include:
@@ -144,4 +149,4 @@ We have a new python interface. See [Run a simulation from python](@ref) for mor
 - The `IonizationModel`, `ExcitationModel`, and `ElectronNeutralModel` interfaces have been removed in favor of a simpler `Symbol`-based lookup system.
 - The `GKElectronNeutral` model has been removed entirely.
 - Serialization using JLD2 has been removed in favor of the JSON-based system described above.
-- Plotting capabilities are no longer provided by HallThruster.jl directly. 
+- Plotting capabilities are no longer provided by HallThruster.jl directly.
