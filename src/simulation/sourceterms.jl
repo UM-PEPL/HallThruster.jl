@@ -88,30 +88,60 @@ function apply_ion_acceleration!(fluids::Vector{IsothermalFluid}, grid, cache)
     cache.dt_E[] = sqrt(dt_max)
 end
 
-function apply_ion_wall_losses!(dU, U, params)
-    (; index, ncharge, mi, thruster, cache, grid, transition_length, wall_loss_scale) = params
+# function apply_ion_wall_losses!(dU, U, params)
+#     (; index, ncharge, mi, thruster, cache, grid, transition_length, wall_loss_scale) = params
+#     geometry = thruster.geometry
+#     L_ch = geometry.channel_length
+#     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
+#     e_inv_m = e / mi
+
+#     h = wall_loss_scale * edge_to_center_density_ratio()
+
+#     @inbounds for i in 2:(length(grid.cell_centers) - 1)
+#         u_bohm = sqrt(e_inv_m * cache.Tev[i])
+#         in_channel = linear_transition(
+#             grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
+#         νiw_base = in_channel * u_bohm * inv_Δr * h
+
+#         for Z in 1:ncharge
+#             νiw           = sqrt(Z) * νiw_base
+#             density_loss  = U[index.ρi[Z], i] * νiw
+#             momentum_loss = U[index.ρiui[Z], i] * νiw
+
+#             # Neutrals gain density due to ion recombination at the walls
+#             dU[index.ρi[Z], i] -= density_loss
+#             dU[index.ρn, i] += density_loss
+#             dU[index.ρiui[Z], i] -= momentum_loss
+#         end
+#     end
+# end
+
+function apply_ion_wall_losses!(continuity, isothermal, params)
+     (; thruster, cache, grid, transition_length, wall_loss_scale) = params
+
     geometry = thruster.geometry
     L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
-    e_inv_m = e / mi
-
     h = wall_loss_scale * edge_to_center_density_ratio()
 
-    @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        u_bohm = sqrt(e_inv_m * cache.Tev[i])
-        in_channel = linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
-        νiw_base = in_channel * u_bohm * inv_Δr * h
+    neutral_fluid = continuity[1]
+    @inbounds for ion_fluid in isothermal
+        m = ion_fluid.species.element.m
+        Z = ion_fluid.species.Z
+        qe_m = Z * e / m
 
-        for Z in 1:ncharge
-            νiw           = sqrt(Z) * νiw_base
-            density_loss  = U[index.ρi[Z], i] * νiw
-            momentum_loss = U[index.ρiui[Z], i] * νiw
+        for i in 2:length(ion_fluid.density)-1
+            u_bohm = sqrt(qe_m * cache.Tev[i])
+            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
+            νiw = in_channel * u_bohm * inv_Δr * h
+
+            density_loss  = ion_fluid.density[i] * νiw
+            momentum_loss = ion_fluid.momentum[i] * νiw
 
             # Neutrals gain density due to ion recombination at the walls
-            dU[index.ρi[Z], i] -= density_loss
-            dU[index.ρn, i] += density_loss
-            dU[index.ρiui[Z], i] -= momentum_loss
+            neutral_fluid.dens_ddt[i] += density_loss
+            ion_fluid.dens_ddt[i] -= density_loss
+            ion_fluid.mom_ddt[i] -= momentum_loss
         end
     end
 end

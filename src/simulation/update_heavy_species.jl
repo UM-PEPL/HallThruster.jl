@@ -18,6 +18,10 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
 
     user_source!(fluid_containers, params)
 
+    if ion_wall_losses 
+        apply_ion_wall_losses!(continuity, isothermal, params)
+    end
+
     # Transfer fluid container d/dt to dU
     index = 1
     for fluid in continuity
@@ -32,10 +36,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
     end
 
     apply_reactions!(dU, U, params)
-
-    if ion_wall_losses
-        apply_ion_wall_losses!(dU, U, params)
-    end
 
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
