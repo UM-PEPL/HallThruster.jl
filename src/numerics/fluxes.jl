@@ -11,7 +11,6 @@ function compute_edge_states!(fluid::ContinuityFluid, limiter, do_reconstruct)
     if do_reconstruct
         @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
-
             # Reconstruct density
             u₋ = density[i - 1]
             uᵢ = density[i]

@@ -39,7 +39,6 @@ include("physics/physicalconstants.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
-include("physics/thermodynamics.jl")
 
 include("walls/materials.jl")
 include("walls/wall_losses.jl")
@@ -49,9 +48,8 @@ include("walls/wall_sheath.jl")
 
 include("numerics/finite_differences.jl")
 include("numerics/limiters.jl")
-include("numerics/flux_functions.jl")
 include("numerics/schemes.jl")
-include("numerics/edge_fluxes.jl")
+include("numerics/fluxes.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
