@@ -179,6 +179,9 @@ function setup_simulation(config::Config, sim::SimParams;
         background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
+        fluid_containers = allocate_fluids(
+            config.propellant, config.ncharge, length(grid.cell_centers)-2, fluids[1].u, fluids[1].T, fluids[2].T
+        )
     )
 
     # Initialize ion and electron variables
@@ -197,6 +200,12 @@ function setup_simulation(config::Config, sim::SimParams;
     initialize_plume_geometry(params)
     update_heavy_species!(U, params)
     update_electrons!(params, config)
+
+    _from_state_vector!(
+        params.fluid_containers.continuity,
+        params.fluid_containers.isothermal,
+        U,
+    )
 
     return U, params
 end

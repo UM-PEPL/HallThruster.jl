@@ -1,14 +1,23 @@
 function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_conditions)
-    (; index, cache, grid, simulation, ncharge, ion_wall_losses) = params
+    (; cache, grid, simulation, ncharge, ion_wall_losses, fluid_containers) = params
     (; source_neutrals, source_ion_continuity, source_ion_momentum) = sources
-    (; F, UL, UR) = cache
 
-    # Compute edges and apply convective update
-    compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions)
-    update_convective_term!(dU, U, F, grid, index, cache, ncharge)
+
+    if apply_boundary_conditions
+        @views left_boundary_state!(U[:, 1], U, params)
+        @views right_boundary_state!(U[:, end], U, params)
+    end
+
+    # Populate fluid containers to compute fluxes
+
+    _from_state_vector!(fluid_containers.continuity, fluid_containers.isothermal, U)
+
+    # Compute edge fluxes and apply convective update
+    update_convective_terms!(dU, fluid_containers.continuity, fluid_containers.isothermal, grid, scheme, cache.dlnA_dz)
 
     apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
+        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
+    )
 
     apply_reactions!(dU, U, params)
 
@@ -18,61 +27,94 @@ function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_c
         apply_ion_wall_losses!(dU, U, params)
     end
 
-    update_timestep!(cache, dU, simulation.CFL, length(grid.cell_centers))
+    # Update maximum allowable timestep
+    CFL = params.simulation.CFL
+    min_dt_u = fluid_containers.continuity[1].max_timestep[]
+    for fluid in fluid_containers.isothermal
+        min_dt_u = min(min_dt_u, fluid.max_timestep[])
+    end
+
+    cache.dt[] = min(
+        CFL * cache.dt_iz[],
+        sqrt(CFL) * cache.dt_E[],
+        CFL * min_dt_u,
+    )
+
+    # Set changes in left and right cells to zero
+    @. @views dU[:, 1] = 0.0
+    @. @views dU[:, end] = 0.0
 
     return nothing
 end
 
-function update_timestep!(cache, dU, CFL, ncells)
-    # Compute maximum allowable timestep
-    cache.dt[] = min(
-        CFL * cache.dt_iz[],                          # max ionization timestep
-        sqrt(CFL) * cache.dt_E[],                     # max acceleration timestep
-        CFL * minimum(@views cache.dt_u[1:(ncells - 1)]), # max fluid timestep
-    )
 
-    @. @views dU[:, 1] = 0.0
-    @. @views dU[:, end] = 0.0
-end
-
-function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
-    (; dA_dz, channel_area) = cache
+function update_convective_terms!(fluid::ContinuityFluid, grid)
     ncells = length(grid.cell_centers)
     @inbounds for i in 2:(ncells - 1)
-        left = left_edge(i)
-        right = right_edge(i)
+        left, right = left_edge(i), right_edge(i)
+        Δz = grid.dz_cell[i]
+        fluid.dens_ddt[i] = (fluid.flux_dens[left]- fluid.flux_dens[right]) / Δz
+    end
+end
 
+function update_convective_terms!(fluid::IsothermalFluid, grid, dlnA_dz)
+    ncells = length(grid.cell_centers)
+
+    @inbounds for i in 2:(ncells-1)
+        left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
 
-        dlnA_dz = dA_dz[i] / channel_area[i]
+        # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
+        ρi = fluid.density[i]
+        ρiui = fluid.momentum[i]
+        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
+        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui^2 / ρi * dlnA_dz[i]
+    end
+end
 
-        # Neutral flux
-        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz
+function update_convective_terms!(
+    dU,
+    continuity::Vector{ContinuityFluid},
+    isothermal::Vector{IsothermalFluid},
+    grid,
+    scheme,
+    dlnA_dz
+    )
 
-        # Handle ions
-        for Z in 1:ncharge
-            # Ion fluxes
-            # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
-            ρi                   = U[index.ρi[Z], i]
-            ρiui                 = U[index.ρiui[Z], i]
-            dU[index.ρi[Z], i]   = (F[index.ρi[Z], left] - F[index.ρi[Z], right]) / Δz - ρiui * dlnA_dz
-            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz - ρiui^2 / ρi * dlnA_dz
-        end
+    index = 1
+    for fluid in continuity
+        compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_fluxes!(fluid, grid)
+        update_convective_terms!(fluid, grid)
+        @. @views dU[index, :] = fluid.dens_ddt
+        index += 1
+    end
+
+    for fluid in isothermal
+        compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_fluxes!(fluid, grid)
+        update_convective_terms!(fluid, grid, dlnA_dz)
+        @. @views dU[index, :] = fluid.dens_ddt
+        @. @views dU[index + 1, :] = fluid.mom_ddt
+        index += 2
     end
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
 function integrate_heavy_species!(
-        U, params, config::Config, dt, apply_boundary_conditions = true,)
+        U, params, config::Config, dt, apply_boundary_conditions = true,
+    )
     (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
     sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
 
-    integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
+    return integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
 end
 
 function integrate_heavy_species!(
-        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,)
+        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,
+    )
     (; k, u1) = params.cache
+
     # First step of SSPRK22
     iterate_heavy_species!(k, U, params, scheme, sources; apply_boundary_conditions)
     @. u1 = U + dt * k
@@ -82,6 +124,9 @@ function integrate_heavy_species!(
     iterate_heavy_species!(k, u1, params, scheme, sources; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
     stage_limiter!(U, params)
+
+    # Update arrays in cache
+    return update_heavy_species!(U, params)
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
@@ -111,7 +156,7 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
 
-    @. ϵ = nϵ / ne + landmark * K
+    return @. ϵ = nϵ / ne + landmark * K
 end
 
 function update_heavy_species!(U, params)
@@ -121,6 +166,7 @@ function update_heavy_species!(U, params)
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
 
-    update_heavy_species!(
-        U, cache, index, grid.cell_centers, ncharge, mi, landmark,)
+    return update_heavy_species!(
+        U, cache, index, grid.cell_centers, ncharge, mi, landmark,
+    )
 end

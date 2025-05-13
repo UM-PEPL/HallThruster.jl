@@ -95,7 +95,8 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
 
         # Plume divergence variables
         channel_area = zeros(ncells),    # Area of channel / plume
-        dA_dz = zeros(ncells),          # derivative of area w.r.t. axial coordinate
+        dA_dz = zeros(ncells),           # derivative of area w.r.t. axial coordinate
+        dlnA_dz = zeros(ncells),         # derivative of ln(area) 
         channel_height = zeros(ncells),  # Height of channel / plume (outer - inner)
         inner_radius = zeros(ncells),    # Channel/plume inner radius
         outer_radius = zeros(ncells),    # Channel/plume outer radius
@@ -109,6 +110,7 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         dt = zeros(1),
         dt_E = zeros(1),
         dt_u = zeros(nedges),
+        U = U,
     )
 
     return U, cache

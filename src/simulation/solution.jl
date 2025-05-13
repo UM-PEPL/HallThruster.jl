@@ -330,7 +330,6 @@ function solve(U, params, config, tspan; saveat)
 
             # update heavy species quantities
             integrate_heavy_species!(U, params, scheme, sources, params.dt[])
-            update_heavy_species!(U, params)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)

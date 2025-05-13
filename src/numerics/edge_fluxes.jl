@@ -4,118 +4,106 @@
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states!(
-        UL, UR, U, params, limiter, do_reconstruct; apply_boundary_conditions = false,)
-    (nvars, ncells) = size(U)
+function compute_edge_states!(fluid::ContinuityFluid, limiter, do_reconstruct)
+    (; density, dens_L, dens_R) = fluid
+    N = length(fluid.density)
 
-    # compute left and right edge states
     if do_reconstruct
-        @inbounds for j in 1:nvars
-            if params.is_velocity_index[j] # reconstruct velocity as primitive variable instead of momentum density
-                for i in 2:(ncells - 1)
-                    u₋ = U[j, i - 1] / U[j - 1, i - 1]
-                    uᵢ = U[j, i] / U[j - 1, i]
-                    u₊ = U[j, i + 1] / U[j - 1, i + 1]
-                    uR, uL = reconstruct(u₋, uᵢ, u₊, limiter)
+        @inbounds for i in 2:(N - 1)
+            iL, iR = left_edge(i), right_edge(i)
 
-                    ρL = UL[j - 1, right_edge(i)] #use previously-reconstructed edge density to compute momentum
-                    ρR = UR[j - 1, left_edge(i)]
-                    UL[j, right_edge(i)] = uL * ρL
-                    UR[j, left_edge(i)] = uR * ρR
-                end
-            else
-                for i in 2:(ncells - 1)
-                    u₋ = U[j, i - 1]
-                    uᵢ = U[j, i]
-                    u₊ = U[j, i + 1]
-
-                    UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(
-                        u₋, uᵢ, u₊, limiter,)
-                end
-            end
+            # Reconstruct density
+            u₋ = density[i - 1]
+            uᵢ = density[i]
+            u₊ = density[i + 1]
+            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊, limiter)
         end
     else
-        @inbounds for i in 2:(ncells - 1), j in 1:nvars
-            UL[j, right_edge(i)] = U[j, i]
-            UR[j, left_edge(i)]  = U[j, i]
+        @inbounds for i in 2:(N - 1)
+            iL, iR = left_edge(i), right_edge(i)
+            dens_L[iR] = density[i]
+            dens_R[iL] = density[i]
         end
     end
 
-    if apply_boundary_conditions
-        @views left_boundary_state!(UL[:, 1], U, params)
-        @views right_boundary_state!(UR[:, end], U, params)
+    fluid.dens_L[1] = fluid.density[1]
+    return fluid.dens_R[end] = fluid.density[end]
+end
+
+function compute_edge_states!(fluid::IsothermalFluid, limiter, do_reconstruct)
+    (; density, momentum, dens_L, dens_R, mom_L, mom_R) = fluid
+    N = length(fluid.density)
+
+    if do_reconstruct
+        @inbounds for i in 2:(N - 1)
+            iL, iR = left_edge(i), right_edge(i)
+
+            # Reconstruct density
+            u₋ = density[i - 1]
+            uᵢ = density[i]
+            u₊ = density[i + 1]
+            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊, limiter)
+
+            # Reconstruct velocity as primitive variable instead of momentum density
+            u₋ = momentum[i - 1] / u₋
+            uᵢ = momentum[i] / uᵢ
+            u₊ = momentum[i + 1] / u₊
+            uR, uL = reconstruct(u₋, uᵢ, u₊, limiter)
+            mom_L[iR] = uL * dens_L[iR]
+            mom_R[iL] = uR * dens_R[iL]
+        end
     else
-        @. @views UL[:, 1] = U[:, 1]
-        @. @views UR[:, end] = U[:, end]
-    end
-end
-
-function compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
-    # Compute maximum wave speed in domain and use this to update the max allowable timestep, if using adaptive timestepping
-    @inbounds for i in eachindex(grid.edges)
-        # Compute wave speeds for each component of the state vector.
-        # The only wave speed for neutrals is the neutral convection velocity
-        neutral_fluid = fluids[1]
-        U_neutrals = (U[index.ρn, i],)
-        u = velocity(U_neutrals, neutral_fluid)
-        λ_global[1] = abs(u)
-
-        # Ion wave speeds
-        for Z in 1:ncharge
-            fluid_ind = Z + 1
-            fluid = fluids[fluid_ind]
-            γ = fluid.species.element.γ
-            UL_ions = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i])
-            UR_ions = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i])
-
-            uL = velocity(UL_ions, fluid)
-            uR = velocity(UR_ions, fluid)
-            aL = sound_speed(UL_ions, fluid)
-            aR = sound_speed(UL_ions, fluid)
-
-            # Maximum wave speed
-            s_max = max(abs(uL + aL), abs(uL - aL), abs(uR + aR), abs(uR - aR))
-
-            # a Δt / Δx = 1 for CFL condition, user-supplied CFL number restriction applied later, in update_values
-            dt_max = grid.dz_edge[i] / s_max
-            dt_u[i] = dt_max
-
-            # Update maximum wavespeeds and maximum allowable timestep
-            λ_global[fluid_ind] = max(s_max, λ_global[fluid_ind])
+        @inbounds for i in 2:(N - 1)
+            iL, iR = left_edge(i), right_edge(i)
+            dens_L[iR] = density[i]
+            dens_R[iL] = density[i]
+            mom_L[iR] = momentum[i]
+            mom_R[iL] = momentum[i]
         end
     end
+
+    fluid.dens_L[1] = fluid.density[1]
+    fluid.dens_R[end] = fluid.density[end]
+    fluid.mom_L[1] = fluid.momentum[1]
+    return fluid.mom_R[end] = fluid.momentum[end]
 end
 
-function compute_fluxes!(F, UL, UR, flux_function, λ_global, grid, fluids, index, ncharge)
-    @inbounds for i in eachindex(grid.edges)
-        # Neutral fluxes at edge i
-        left_state_n  = (UL[index.ρn, i],)
-        right_state_n = (UR[index.ρn, i],)
+function compute_fluxes!(fluid::ContinuityFluid, grid)
+    (; flux_dens, dens_L, dens_R, wave_speed, velocity) = fluid
+    smax = wave_speed[]
+    fluid.max_timestep[] = Inf
 
-        F[index.ρn, i] = flux_function(
-            left_state_n, right_state_n, fluids[1], λ_global[1],)[1]
-
-        # Ion fluxes at edge i
-        for Z in 1:ncharge
-            left_state_i        = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i])
-            right_state_i       = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i])
-            fluid_ind           = Z + 1
-            F_mass, F_momentum  = flux_function(left_state_i, right_state_i, fluids[fluid_ind], λ_global[fluid_ind])
-            F[index.ρi[Z], i]   = F_mass
-            F[index.ρiui[Z], i] = F_momentum
-        end
+    @inbounds for i in eachindex(fluid.dens_L)
+        ρ_L, ρ_R = dens_L[i], dens_R[i]
+        flux_dens[i] = 0.5 * (velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
+        fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
     end
 end
 
-function compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions = false)
-    (; index, fluids, grid, cache, ncharge) = params
-    (; λ_global, dt_u) = cache
+function compute_fluxes!(fluid::IsothermalFluid, grid)
+    (; flux_dens, flux_mom, dens_L, dens_R, mom_L, mom_R, wave_speed) = fluid
+    a = fluid.sound_speed
+    RT = a^2 / fluid.species.element.γ
 
-    # Reconstruct the states at the left and right edges using MUSCL scheme
-    compute_edge_states!(
-        UL, UR, U, params, scheme.limiter, scheme.reconstruct; apply_boundary_conditions,)
-    compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
-    compute_fluxes!(F, UL, UR, scheme.flux_function, λ_global, grid, fluids, index, ncharge)
+    max_wave_speed = 0.0
+    fluid.max_timestep[] = Inf
 
-    return F
+    @inbounds for i in eachindex(dens_L)
+        ρ_L, ρ_R = dens_L[i], dens_R[i]
+        ρu_L, ρu_R = mom_L[i], mom_R[i]
+
+        u_L, u_R = ρu_L / ρ_L, ρu_R / ρ_R
+
+        smax = max(abs(u_L - a), abs(u_L + a), abs(u_R - a), abs(u_R + a))
+        fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
+        max_wave_speed = max(smax, max_wave_speed)
+
+        flux_mom_L = ρ_L * (u_L^2 + RT)
+        flux_mom_R = ρ_R * (u_R^2 + RT)
+
+        flux_dens[i] = 0.5 * ((ρu_L + ρu_R) - smax * (ρ_R - ρ_L))
+        flux_mom[i] = 0.5 * ((flux_mom_L + flux_mom_R) - smax * (ρu_R - ρu_L))
+    end
+
+    return wave_speed[] = max_wave_speed
 end
