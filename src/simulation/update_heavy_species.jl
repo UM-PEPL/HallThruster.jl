@@ -2,11 +2,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
     (; cache, grid, ion_wall_losses, fluid_containers) = params
     (; continuity, isothermal) = fluid_containers
 
-    if apply_boundary_conditions
-        @views left_boundary_state!(U[:, 1], U, params)
-        @views right_boundary_state!(U[:, end], U, params)
-    end
-
     # Populate fluid containers to compute fluxes
     _from_state_vector!(continuity, isothermal, U)
 
