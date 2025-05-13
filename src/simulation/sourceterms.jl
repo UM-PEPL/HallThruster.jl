@@ -67,28 +67,25 @@ end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
-function apply_ion_acceleration!(dU, U, params)
-    (; index, grid, cache, mi, ncharge) = params
-    apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
-end
-function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
-    inv_m = inv(mi)
-    inv_e = inv(e)
+function apply_ion_acceleration!(fluids::Vector{IsothermalFluid}, grid, cache)
     dt_max = Inf
 
-    @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        E = -cache.∇ϕ[i]
-        Δz = grid.dz_cell[i]
-        inv_E = inv(abs(E))
+    @inbounds for fluid in fluids
+        Z = fluid.species.Z
+        m = fluid.species.element.m
+        qe_m = Z * e / m
 
-        @inbounds for Z in 1:(ncharge)
-            Q_accel = Z * e * U[index.ρi[Z], i] * inv_m * E
-            dt_max = min(dt_max, sqrt(mi * Δz * inv_e * inv_E / Z))
-            dU[index.ρiui[Z], i] += Q_accel
+        @simd for i in 2:length(fluid.dens_ddt)-1
+            qE_m = -qe_m * cache.∇ϕ[i]
+            dz = grid.dz_cell[i]
+
+            Q_accel = qE_m * fluid.density[i]
+            dt_max = min(dt_max, abs(dz/qE_m))
+            fluid.mom_ddt[i] += Q_accel
         end
     end
 
-    cache.dt_E[] = dt_max
+    cache.dt_E[] = sqrt(dt_max)
 end
 
 function apply_ion_wall_losses!(dU, U, params)

@@ -9,19 +9,31 @@ function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_c
     end
 
     # Populate fluid containers to compute fluxes
-
     _from_state_vector!(fluid_containers.continuity, fluid_containers.isothermal, U)
 
     # Compute edge fluxes and apply convective update
-    update_convective_terms!(dU, fluid_containers.continuity, fluid_containers.isothermal, grid, scheme, cache.dlnA_dz)
+    update_convective_terms!(fluid_containers.continuity, fluid_containers.isothermal, grid, scheme, cache.dlnA_dz)
+
+    apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
+
+    # Transfer fluid container d/dt to dU
+    index = 1
+    for fluid in fluid_containers.continuity
+        @. @views dU[index, :] = fluid.dens_ddt
+        index += 1
+    end
+
+    for fluid in fluid_containers.isothermal
+        @. @views dU[index, :] = fluid.dens_ddt
+        @. @views dU[index + 1, :] = fluid.mom_ddt
+        index += 2
+    end
 
     apply_user_ion_source_terms!(
         dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
     )
 
     apply_reactions!(dU, U, params)
-
-    apply_ion_acceleration!(dU, U, params)
 
     if ion_wall_losses
         apply_ion_wall_losses!(dU, U, params)
@@ -73,7 +85,6 @@ function update_convective_terms!(fluid::IsothermalFluid, grid, dlnA_dz)
 end
 
 function update_convective_terms!(
-    dU,
     continuity::Vector{ContinuityFluid},
     isothermal::Vector{IsothermalFluid},
     grid,
@@ -81,23 +92,19 @@ function update_convective_terms!(
     dlnA_dz
     )
 
-    index = 1
     for fluid in continuity
         compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
         compute_fluxes!(fluid, grid)
         update_convective_terms!(fluid, grid)
-        @. @views dU[index, :] = fluid.dens_ddt
-        index += 1
     end
 
     for fluid in isothermal
         compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
         compute_fluxes!(fluid, grid)
         update_convective_terms!(fluid, grid, dlnA_dz)
-        @. @views dU[index, :] = fluid.dens_ddt
-        @. @views dU[index + 1, :] = fluid.mom_ddt
-        index += 2
     end
+
+
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
@@ -126,7 +133,7 @@ function integrate_heavy_species!(
     stage_limiter!(U, params)
 
     # Update arrays in cache
-    return update_heavy_species!(U, params)
+    update_heavy_species!(U, params)
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
