@@ -293,8 +293,7 @@ function solve(U, params, config, tspan; saveat)
     sim = params.simulation
 
     # Extract stuff from config
-    (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
-    sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
+    (; source_heavy_species, scheme) = config
 
     try
         while t < tspan[2]
@@ -329,7 +328,7 @@ function solve(U, params, config, tspan; saveat)
             end
 
             # update heavy species quantities
-            integrate_heavy_species!(U, params, scheme, sources, params.dt[])
+            integrate_heavy_species!(U, params, scheme, source_heavy_species, params.dt[])
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)

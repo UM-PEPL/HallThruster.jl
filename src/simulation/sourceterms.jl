@@ -116,22 +116,6 @@ function apply_ion_wall_losses!(dU, U, params)
     end
 end
 
-function apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
-    (; index, grid, ncharge) = params
-    # Apply user-provided source terms
-    ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
-        # User-provided neutral source term
-        dU[index.ρn, i] += source_neutrals(U, params, i)
-        for Z in 1:ncharge
-            # User-provided ion source terms
-            dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
-            dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
-        end
-    end
-end
-
 function excitation_losses!(Q, cache, landmark, grid, excitation_reactions)
     (; νex, ϵ, nn, ne, K) = cache
     ncells = length(grid.cell_centers)

@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 ## Mandatory Fields
 $(TYPEDFIELDS)
 """
-struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_N, S_IC, S_IM, S_E,}
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_H, S_E,}
 	"""
 	The thruster to simulate. See [Thrusters](@ref) for more information
 	"""
@@ -156,22 +156,14 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 	Model for elastic scattering collisions between electrons and neutral atoms. **Default:** `:Lookup`.
 	"""
     electron_neutral_model::Symbol
-	"""
-	Extra user-provided neutral source term. **Default:** `nothing` 
-	"""
-    source_neutrals::S_N
-	"""
-	Vector of extra source terms for ion continuity, one for each charge state. **Default:** `nothing`.
-	"""
-    source_ion_continuity::S_IC
-	"""
-	Vector of extra source terms for ion momentum, one for each charge state. **Default:** `nothing`.
-	"""
-    source_ion_momentum::S_IM
-	"""
+    """
+    Extra source terms for heavy species. **Default::** `nothing`
+    """
+    source_heavy_species::S_H
+    """
 	Extra source term for electron energy equation. **Default:** `nothing`. 
 	"""
-    source_energy::S_E
+    source_electron_energy::S_E
 
     function Config(;
 			# Mandatory arguments
@@ -211,26 +203,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ionization_model = :Lookup,
             excitation_model = :Lookup,
             electron_neutral_model = :Lookup,
-            source_neutrals = nothing,
-            source_ion_continuity = nothing,
-            source_ion_momentum = nothing,
-            source_energy = Returns(0.0),
+            source_heavy_species = Returns(0.0),
+            source_electron_energy = Returns(0.0),
     ) where {A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
             HS <: HyperbolicScheme,
             IC <: InitialCondition,}
-        # check that number of ion source terms matches number of charges for both
-        # continuity and momentum
-        #
-        source_ion_continuity = ion_source_terms(
-            ncharge, source_ion_continuity, "continuity",)
-        source_ion_momentum = ion_source_terms(ncharge, source_ion_momentum, "momentum")
-
-        # Neutral source terms
-        if isnothing(source_neutrals)
-            source_neutrals = Returns(0.0)
-        end
 
         # Convert to Float64 if using Unitful
         discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
@@ -275,9 +254,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 			throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
         end
 
-        return new{A, TC, W, HS, IC,
-             typeof(source_neutrals), typeof(source_ion_continuity),
-             typeof(source_ion_momentum), typeof(source_energy),}(
+        return new{A, TC, W, HS, IC, typeof(source_heavy_species), typeof(source_electron_energy)}(
 			# Mandatory arguments
             thruster,
             domain,
@@ -315,10 +292,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ionization_model,
             excitation_model,
             electron_neutral_model,
-            source_neutrals,
-            source_ion_continuity,
-            source_ion_momentum,
-            source_energy,
+            source_heavy_species,
+            source_electron_energy,
         )
     end
 end
@@ -329,18 +304,8 @@ end
 
 # Don't write source terms to output or read them from input
 function Serialization.exclude(::Type{C}) where {C <: Config}
-    return (:source_neutrals, :source_ion_continuity,
-        :source_ion_momentum, :source_potential, :source_energy,)
+    return (:source_heavy_species, :source_electron_energy,)
 end
-
-function ion_source_terms(ncharge, source, type)
-    if ncharge != length(source)
-        throw(ArgumentError("Number of ion $type source terms must match number of charges"))
-    end
-    return source
-end
-
-ion_source_terms(ncharge, ::Nothing, args...) = fill(Returns(0.0), ncharge)
 
 function make_keys(fluid_range, subscript)
     len = length(fluid_range)

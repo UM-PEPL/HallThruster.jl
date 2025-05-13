@@ -2,7 +2,7 @@
 function update_electrons!(params, config, t = 0)
     (; nn, Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency,
     Z_eff, νiz, νex, νew_momentum, κ) = params.cache
-    (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
+    (; source_electron_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature and pressure given new density
     update_temperature!(Tev, nϵ, ne, params.min_Te)
@@ -26,7 +26,7 @@ function update_electrons!(params, config, t = 0)
     conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
-    update_electron_energy!(params, wall_loss_model, source_energy, params.dt[])
+    update_electron_energy!(params, wall_loss_model, source_electron_energy, params.dt[])
 end
 
 function freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)

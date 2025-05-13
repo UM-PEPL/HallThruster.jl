@@ -1,6 +1,6 @@
-function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_conditions)
-    (; cache, grid, simulation, ncharge, ion_wall_losses, fluid_containers) = params
-    (; source_neutrals, source_ion_continuity, source_ion_momentum) = sources
+function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_boundary_conditions)
+    (; cache, grid, ion_wall_losses, fluid_containers) = params
+    (; continuity, isothermal) = fluid_containers
 
 
     if apply_boundary_conditions
@@ -9,29 +9,27 @@ function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_c
     end
 
     # Populate fluid containers to compute fluxes
-    _from_state_vector!(fluid_containers.continuity, fluid_containers.isothermal, U)
+    _from_state_vector!(continuity, isothermal, U)
 
     # Compute edge fluxes and apply convective update
-    update_convective_terms!(fluid_containers.continuity, fluid_containers.isothermal, grid, scheme, cache.dlnA_dz)
+    update_convective_terms!(continuity, isothermal, grid, scheme, cache.dlnA_dz)
 
-    apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
+    apply_ion_acceleration!(isothermal, grid, cache)
+
+    user_source!(fluid_containers, params)
 
     # Transfer fluid container d/dt to dU
     index = 1
-    for fluid in fluid_containers.continuity
+    for fluid in continuity
         @. @views dU[index, :] = fluid.dens_ddt
         index += 1
     end
 
-    for fluid in fluid_containers.isothermal
+    for fluid in isothermal
         @. @views dU[index, :] = fluid.dens_ddt
         @. @views dU[index + 1, :] = fluid.mom_ddt
         index += 2
     end
-
-    apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
-    )
 
     apply_reactions!(dU, U, params)
 
@@ -118,17 +116,17 @@ function integrate_heavy_species!(
 end
 
 function integrate_heavy_species!(
-        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,
+        U, params, scheme::HyperbolicScheme, user_source, dt, apply_boundary_conditions = true,
     )
     (; k, u1) = params.cache
 
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, scheme, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, U, params, scheme, user_source; apply_boundary_conditions)
     @. u1 = U + dt * k
     stage_limiter!(u1, params)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params, scheme, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, scheme, user_source; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
     stage_limiter!(U, params)
 
