@@ -2,7 +2,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
     (; cache, grid, ion_wall_losses, fluid_containers) = params
     (; continuity, isothermal) = fluid_containers
 
-
     if apply_boundary_conditions
         @views left_boundary_state!(U[:, 1], U, params)
         @views right_boundary_state!(U[:, end], U, params)
@@ -18,9 +17,11 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
 
     user_source!(fluid_containers, params)
 
-    if ion_wall_losses 
+    if ion_wall_losses
         apply_ion_wall_losses!(continuity, isothermal, params)
     end
+
+    apply_reactions!(params.fluid_arr, params)
 
     # Transfer fluid container d/dt to dU
     index = 1
@@ -34,8 +35,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
         @. @views dU[index + 1, :] = fluid.mom_ddt
         index += 2
     end
-
-    apply_reactions!(dU, U, params)
 
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
@@ -58,19 +57,19 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
 end
 
 
-function update_convective_terms!(fluid::ContinuityFluid, grid)
+function update_convective_terms_continuity!(fluid, grid)
     ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
+    return @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
-        fluid.dens_ddt[i] = (fluid.flux_dens[left]- fluid.flux_dens[right]) / Δz
+        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz
     end
 end
 
-function update_convective_terms!(fluid::IsothermalFluid, grid, dlnA_dz)
+function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     ncells = length(grid.cell_centers)
 
-    @inbounds for i in 2:(ncells-1)
+    return @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
 
@@ -83,26 +82,27 @@ function update_convective_terms!(fluid::IsothermalFluid, grid, dlnA_dz)
 end
 
 function update_convective_terms!(
-    continuity::Vector{ContinuityFluid},
-    isothermal::Vector{IsothermalFluid},
-    grid,
-    scheme,
-    dlnA_dz
+        continuity,
+        isothermal,
+        grid,
+        scheme,
+        dlnA_dz
     )
 
     for fluid in continuity
-        compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
-        compute_fluxes!(fluid, grid)
-        update_convective_terms!(fluid, grid)
+        compute_edge_states_continuity!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_fluxes_continuity!(fluid, grid)
+        update_convective_terms_continuity!(fluid, grid)
     end
 
     for fluid in isothermal
-        compute_edge_states!(fluid, scheme.limiter, scheme.reconstruct)
-        compute_fluxes!(fluid, grid)
-        update_convective_terms!(fluid, grid, dlnA_dz)
+        compute_edge_states_isothermal!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_fluxes_isothermal!(fluid, grid)
+        update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     end
 
 
+    return
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
@@ -131,7 +131,7 @@ function integrate_heavy_species!(
     stage_limiter!(U, params)
 
     # Update arrays in cache
-    update_heavy_species!(U, params)
+    return update_heavy_species!(U, params)
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)

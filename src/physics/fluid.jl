@@ -1,46 +1,9 @@
 abstract type AbstractFluid end
 
-struct ContinuityFluid <: AbstractFluid 
-    # Conservative variables
-    density::Vector{Float64}
-
-    # Time derivative of conservative variables
-    dens_ddt::Vector{Float64}
-
-    # Edge states
-    dens_L::Vector{Float64}
-    dens_R::Vector{Float64}
-
-    # Fluxes
-    flux_dens::Vector{Float64}
-
-    # Data
-    wave_speed::Array{Float64, 0}
-    max_timestep::Array{Float64, 0}
-    species::Species
-    sound_speed::Float64
-    velocity::Float64
-
-    function ContinuityFluid(species, vel, temp, num_cells)
-        R = species.element.R
-        γ = species.element.γ
-        a = sqrt(γ * R * temp)
-
-        return new(
-            # Conservative variables and time derivatives
-            zeros(num_cells+2),
-            zeros(num_cells+2),
-
-            # Edge states
-            zeros(num_cells+1), zeros(num_cells+1),
-
-            # Fluxes
-            zeros(num_cells+1),
-
-            # Data
-            fill(max(abs(vel+a), abs(vel-a))), fill(0.0), species, a, vel
-        )
-    end
+@enum ConservationLawType begin
+    _ContinuityOnly
+    _IsothermalEuler
+    _EulerEquations
 end
 
 struct IsothermalFluid <: AbstractFluid
@@ -67,8 +30,10 @@ struct IsothermalFluid <: AbstractFluid
     max_timestep::Array{Float64, 0}
     species::Species
     sound_speed::Float64
+    const_velocity::Float64
+    type::ConservationLawType
 
-    function IsothermalFluid(species, temp, num_cells)
+    function IsothermalFluid(type, species, num_cells; temp, vel = 0.0)
         R = species.element.R
         γ = species.element.γ
         a = sqrt(γ * R * temp)
@@ -86,18 +51,18 @@ struct IsothermalFluid <: AbstractFluid
             zeros(num_cells+1), zeros(num_cells+1),
 
             # Data
-            fill(a), fill(0.0), species, a
+            fill(max(abs(vel+a), abs(vel-a))), fill(0.0), species, a, vel, type
         )
     end
 end
 
 function allocate_fluids(propellant, ncharge, ncells, u_neutral, T_neutral, T_ion)
     continuity = [
-        ContinuityFluid(propellant(0), u_neutral, T_neutral, ncells)
+        IsothermalFluid(_ContinuityOnly, propellant(0), ncells; vel=u_neutral, temp=T_neutral)
     ]
 
     isothermal= [
-        IsothermalFluid(propellant(Z), T_ion, ncells) for Z in 1:ncharge 
+        IsothermalFluid(_IsothermalEuler, propellant(Z), ncells; temp=T_ion) for Z in 1:ncharge 
     ]
     return (;continuity, isothermal)
 end
@@ -118,12 +83,6 @@ function _from_state_vector!(continuity, isothermal, U)
         @. @views fluid.density = U[2*i, :]
         @. @views fluid.momentum = U[2*i+1, :]
     end
-end
-
-@enum ConservationLawType begin
-    _ContinuityOnly
-    _IsothermalEuler
-    _EulerEquations
 end
 Base.@kwdef struct Fluid
     species::Species

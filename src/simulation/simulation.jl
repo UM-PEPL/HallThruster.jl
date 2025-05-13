@@ -101,23 +101,33 @@ function setup_simulation(config::Config, sim::SimParams;
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
     index = configure_index(fluids, fluid_ranges)
 
+    # Generate grid and allocate state
+    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
+    U, cache = allocate_arrays(grid, config)
+
+    fluid_containers = allocate_fluids(
+        config.propellant, config.ncharge, length(grid.cell_centers)-2,
+        config.neutral_velocity, config.neutral_temperature_K, config.ion_temperature_K
+    )
+
+    fluid_arr = [
+        fluid_containers.continuity...,
+        fluid_containers.isothermal...
+    ]
+
     # load collisions and reactions
     ionization_reactions = load_ionization_reactions(
         config.ionization_model, unique(species);
         directories = config.reaction_rate_directories,)
-    ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
-    ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
+    ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_arr)
+    ionization_product_indices = product_indices(ionization_reactions, fluid_arr)
 
     excitation_reactions = load_excitation_reactions(
         config.excitation_model, unique(species),)
-    excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
+    excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_arr)
 
     electron_neutral_collisions = load_elastic_collisions(
         config.electron_neutral_model, unique(species),)
-
-    # Generate grid and allocate state
-    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
-    U, cache = allocate_arrays(grid, config)
 
     # Load magnetic field
     thruster = config.thruster
@@ -179,9 +189,8 @@ function setup_simulation(config::Config, sim::SimParams;
         background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
-        fluid_containers = allocate_fluids(
-            config.propellant, config.ncharge, length(grid.cell_centers)-2, fluids[1].u, fluids[1].T, fluids[2].T
-        )
+        fluid_containers,
+        fluid_arr,
     )
 
     # Initialize ion and electron variables

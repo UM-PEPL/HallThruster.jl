@@ -268,7 +268,7 @@ end
 
 
 function solve(U, params, config, tspan; saveat)
-    # Initialie starting time and iterations
+    # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
     iteration[] = 1

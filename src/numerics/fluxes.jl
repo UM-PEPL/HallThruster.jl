@@ -4,7 +4,7 @@
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states!(fluid::ContinuityFluid, limiter, do_reconstruct)
+function compute_edge_states_continuity!(fluid, limiter, do_reconstruct)
     (; density, dens_L, dens_R) = fluid
     N = length(fluid.density)
 
@@ -29,7 +29,7 @@ function compute_edge_states!(fluid::ContinuityFluid, limiter, do_reconstruct)
     return fluid.dens_R[end] = fluid.density[end]
 end
 
-function compute_edge_states!(fluid::IsothermalFluid, limiter, do_reconstruct)
+function compute_edge_states_isothermal!(fluid, limiter, do_reconstruct)
     (; density, momentum, dens_L, dens_R, mom_L, mom_R) = fluid
     N = length(fluid.density)
 
@@ -67,19 +67,19 @@ function compute_edge_states!(fluid::IsothermalFluid, limiter, do_reconstruct)
     return fluid.mom_R[end] = fluid.momentum[end]
 end
 
-function compute_fluxes!(fluid::ContinuityFluid, grid)
-    (; flux_dens, dens_L, dens_R, wave_speed, velocity) = fluid
+function compute_fluxes_continuity!(fluid, grid)
+    (; flux_dens, dens_L, dens_R, wave_speed, const_velocity) = fluid
     smax = wave_speed[]
     fluid.max_timestep[] = Inf
 
     @inbounds for i in eachindex(fluid.dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
-        flux_dens[i] = 0.5 * (velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
+        flux_dens[i] = 0.5 * (const_velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
         fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
     end
 end
 
-function compute_fluxes!(fluid::IsothermalFluid, grid)
+function compute_fluxes_isothermal!(fluid, grid)
     (; flux_dens, flux_mom, dens_L, dens_R, mom_L, mom_R, wave_speed) = fluid
     a = fluid.sound_speed
     RT = a^2 / fluid.species.element.γ

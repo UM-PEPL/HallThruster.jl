@@ -1,68 +1,89 @@
-function apply_reactions!(dU, U, params)
-    (; index, ionization_reactions, index,
-    ionization_reactant_indices, ionization_product_indices,
-    cache, mi, landmark, ncharge, neutral_velocity) = params
+function apply_reactions!(fluid_arr, params)
+    (;
+        ionization_reactions,
+        ionization_reactant_indices,
+        ionization_product_indices,
+        cache, landmark
+    ) = params
 
     rxns = zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
+        ionization_reactions, ionization_reactant_indices, ionization_product_indices,
+    )
 
-    apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
+    apply_reactions!(fluid_arr, rxns, cache, landmark)
 end
 
-function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
+function apply_reactions!(fluids, rxns, cache, landmark)
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
-    inv_m = inv(mi)
-    ncells = length(ne)
-
-    νiz .= 0.0
-    inelastic_losses .= 0.0
-    @inbounds for i in eachindex(ne)
-        ne[i] = 0.0
-        for Z in 1:ncharge
-            ne[i] += Z * U[index.ρi[Z], i]
+    # Calculate electron number density
+    cache.ne .= 0.0
+    for fluid in fluids
+        Z = fluid.species.Z
+        m = fluid.species.element.m
+        if Z == 0
+            continue
         end
-        ne[i] *= inv_m
+
+        inv_m = 1/m
+
+        @inbounds @simd for i in eachindex(ne)
+            ne[i] += fluid.density[i] * inv_m * Z
+        end
     end
-    inv_ne = cache.cell_cache_1
-    @. inv_ne = inv(cache.ne)
-    @. ϵ = cache.nϵ * inv_ne
-    if !landmark
-        @. ϵ += K
+
+    # Zero ionization frequency and inelastic losses
+    @inbounds begin
+        νiz .= 0.0
+        inelastic_losses .= 0.0
+        @. ϵ = cache.nϵ / cache.ne
+        if !landmark
+            @. ϵ += K
+        end
     end
 
     dt_max = Inf
-
-    @inbounds for (rxn, reactant_index, product_index) in rxns
-        for i in 2:(ncells - 1)
-            r = rate_coeff(rxn, ϵ[i])
-            ρ_reactant = U[reactant_index, i]
-            ρdot = reaction_rate(r, ne[i], ρ_reactant)
-            dt_max = min(dt_max, ρ_reactant / ρdot)
-            ndot = ρdot * inv_m
-            νiz[i] += ndot * inv_ne[i]
-
-            inelastic_losses[i] += ndot * rxn.energy
-
-            # Change in density due to ionization
-            dU[reactant_index, i] -= ρdot
-            dU[product_index, i]  += ρdot
-
-            if !landmark
-                # Momentum transfer due to ionization
-                if reactant_index == index.ρn
-                    reactant_velocity = un
-                else
-                    reactant_velocity = U[reactant_index + 1, i] / ρ_reactant
-                    dU[reactant_index + 1, i] -= ρdot * reactant_velocity
-                end
-
-                dU[product_index + 1, i] += ρdot * reactant_velocity
-            end
-        end
+    for (rxn, reactant_index, product_index) in rxns
+        reactant = fluids[reactant_index]
+        product = fluids[product_index]
+        _dt = apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+        dt_max = min(_dt, dt_max)
     end
 
     cache.dt_iz[] = dt_max
+end
+
+function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+    dt_max = Inf
+    reactant_velocity = reactant.const_velocity
+    inv_m = 1 / reactant.species.element.m
+
+    @inbounds @simd for i in 2:length(reactant.density)-1
+        r = rate_coeff(rxn, ϵ[i])
+        ρ_reactant = reactant.density[i]
+        ρdot = reaction_rate(r, ne[i], ρ_reactant)
+        dt_max = min(dt_max, ρ_reactant / ρdot)
+        ndot = ρdot * inv_m
+        νiz[i] += ndot / ne[i]
+
+        inelastic_losses[i] += ndot * rxn.energy
+
+        # Change in density due to ionization
+        reactant.dens_ddt[i] -= ρdot
+        product.dens_ddt[i] += ρdot
+
+        if !landmark
+            # Momentum transfer due to ionization
+            if reactant.type != _ContinuityOnly
+                reactant_velocity = reactant.momentum[i] / ρ_reactant
+                reactant.mom_ddt[i] -= ρdot * reactant_velocity
+            end
+
+            product.mom_ddt[i] += ρdot * reactant_velocity
+        end
+    end
+
+    return dt_max
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
@@ -87,34 +108,6 @@ function apply_ion_acceleration!(fluids::Vector{IsothermalFluid}, grid, cache)
 
     cache.dt_E[] = sqrt(dt_max)
 end
-
-# function apply_ion_wall_losses!(dU, U, params)
-#     (; index, ncharge, mi, thruster, cache, grid, transition_length, wall_loss_scale) = params
-#     geometry = thruster.geometry
-#     L_ch = geometry.channel_length
-#     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
-#     e_inv_m = e / mi
-
-#     h = wall_loss_scale * edge_to_center_density_ratio()
-
-#     @inbounds for i in 2:(length(grid.cell_centers) - 1)
-#         u_bohm = sqrt(e_inv_m * cache.Tev[i])
-#         in_channel = linear_transition(
-#             grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
-#         νiw_base = in_channel * u_bohm * inv_Δr * h
-
-#         for Z in 1:ncharge
-#             νiw           = sqrt(Z) * νiw_base
-#             density_loss  = U[index.ρi[Z], i] * νiw
-#             momentum_loss = U[index.ρiui[Z], i] * νiw
-
-#             # Neutrals gain density due to ion recombination at the walls
-#             dU[index.ρi[Z], i] -= density_loss
-#             dU[index.ρn, i] += density_loss
-#             dU[index.ρiui[Z], i] -= momentum_loss
-#         end
-#     end
-# end
 
 function apply_ion_wall_losses!(continuity, isothermal, params)
      (; thruster, cache, grid, transition_length, wall_loss_scale) = params

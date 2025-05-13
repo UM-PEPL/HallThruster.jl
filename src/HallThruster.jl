@@ -109,7 +109,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
         scheme = HyperbolicScheme(
-            flux_function = global_lax_friedrichs,
             limiter = van_albada,
         ),
     )
@@ -133,7 +132,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         ion_wall_losses = true,
         solve_plume = true,
         scheme = HyperbolicScheme(
-            flux_function = HLLE,
             limiter = minmod,
         ),
     )
