@@ -188,12 +188,8 @@ function left_boundary_state!(bc_state, U, params)
     Ti = params.ion_temperature_K
     un = params.neutral_velocity
     mdot_a = params.anode_mass_flow_rate
-    nn_B = params.background_neutral_density
-    un_B = params.background_neutral_velocity
-    neutral_ingestion_multiplier = params.neutral_ingestion_multiplier
     anode_bc = params.anode_bc
-
-    ingestion_density = nn_B * un_B / un * neutral_ingestion_multiplier
+    ingestion_density = params.ingestion_density
 
     return left_boundary_state!(
         bc_state, U, index, ncharge, params.cache, mi,

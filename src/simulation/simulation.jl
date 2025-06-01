@@ -185,8 +185,6 @@ function setup_simulation(config::Config, sim::SimParams;
         excitation_reactant_indices,
         electron_neutral_collisions,
         # Physics stuff - concretely-typed
-        background_neutral_velocity = background_neutral_velocity(config),
-        background_neutral_density = background_neutral_density(config),
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
         fluid_containers,
