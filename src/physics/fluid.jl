@@ -19,7 +19,7 @@ struct IsothermalFluid <: AbstractFluid
     dens_L::Vector{Float64}
     dens_R::Vector{Float64}
     mom_L::Vector{Float64}
-    mom_R::Vector{Float64}    
+    mom_R::Vector{Float64}
 
     # Fluxes
     flux_dens::Vector{Float64}
@@ -40,57 +40,60 @@ struct IsothermalFluid <: AbstractFluid
 
         return new(
             # Conservative variables and time derivatives
-            zeros(num_cells+2), zeros(num_cells+2),
-            zeros(num_cells+2), zeros(num_cells+2),
+            zeros(num_cells + 2), zeros(num_cells + 2),
+            zeros(num_cells + 2), zeros(num_cells + 2),
 
             # Edge states
-            zeros(num_cells+1), zeros(num_cells+1),
-            zeros(num_cells+1), zeros(num_cells+1),
+            zeros(num_cells + 1), zeros(num_cells + 1),
+            zeros(num_cells + 1), zeros(num_cells + 1),
 
             # Fluxes
-            zeros(num_cells+1), zeros(num_cells+1),
+            zeros(num_cells + 1), zeros(num_cells + 1),
 
             # Data
-            fill(max(abs(vel+a), abs(vel-a))), fill(0.0), species, a, vel, type
+            fill(max(abs(vel + a), abs(vel - a))), fill(0.0), species, a, vel, type
         )
     end
 end
 
 function allocate_fluids(propellant, ncharge, ncells, u_neutral, T_neutral, T_ion)
     continuity = [
-        IsothermalFluid(_ContinuityOnly, propellant(0), ncells; vel=u_neutral, temp=T_neutral)
+        IsothermalFluid(_ContinuityOnly, propellant(0), ncells; vel = u_neutral, temp = T_neutral),
     ]
 
-    isothermal= [
-        IsothermalFluid(_IsothermalEuler, propellant(Z), ncells; temp=T_ion) for Z in 1:ncharge 
+    isothermal = [
+        IsothermalFluid(_IsothermalEuler, propellant(Z), ncells; temp = T_ion) for Z in 1:ncharge
     ]
-    return (;continuity, isothermal)
+    return (; continuity, isothermal)
 end
 
 function _to_state_vector!(U, continuity, isothermal)
     @. @views U[1, :] = continuity[1].density
 
-    for (i, fluid) in eachindex(isothermal)
-        @. @views U[2*i, :] = fluid.density
-        @. @views U[2*i+1, :] = fluid.momentum
+    for (i, fluid) in enumerate(isothermal)
+        @. @views U[2 * i, :] = fluid.density
+        @. @views U[2 * i + 1, :] = fluid.momentum
     end
+    return
 end
 
 function _from_state_vector!(continuity, isothermal, U)
     @. @views continuity[1].density = U[1, :]
 
     for (i, fluid) in enumerate(isothermal)
-        @. @views fluid.density = U[2*i, :]
-        @. @views fluid.momentum = U[2*i+1, :]
+        @. @views fluid.density = U[2 * i, :]
+        @. @views fluid.momentum = U[2 * i + 1, :]
     end
+    return
 end
+
 Base.@kwdef struct Fluid
     species::Species
     type::ConservationLawType
     nvars::Int
-    u::Union{Float64,Nothing} = nothing
-    T::Union{Float64,Nothing} = nothing
-    a::Union{Float64,Nothing} = nothing
+    u::Union{Float64, Nothing} = nothing
+    T::Union{Float64, Nothing} = nothing
+    a::Union{Float64, Nothing} = nothing
 end
 
 @inline nvars(f::Fluid) = f.nvars
@@ -107,20 +110,20 @@ end
 
 function ContinuityOnly(s; u, T)
     a = √(s.element.γ * kB * T / s.element.m)
-    return Fluid(species = s, type=_ContinuityOnly, nvars=1, u=Float64(u), T=Float64(T), a = Float64(a))
+    return Fluid(species = s, type = _ContinuityOnly, nvars = 1, u = Float64(u), T = Float64(T), a = Float64(a))
 end
 ContinuityOnly(s, u, T) = ContinuityOnly(s; u, T)
 Fluid(s, u, T) = ContinuityOnly(s, u, T)
 
 function IsothermalEuler(s; T)
     a = √(s.element.γ * kB * T / s.element.m)
-    return Fluid(species = s, type=_IsothermalEuler, nvars=2, T=Float64(T), a = Float64(a))
+    return Fluid(species = s, type = _IsothermalEuler, nvars = 2, T = Float64(T), a = Float64(a))
 end
 IsothermalEuler(s, T) = IsothermalEuler(s; T)
 Fluid(s, T) = IsothermalEuler(s, T)
 
 function EulerEquations(s)
-    return Fluid(species = s, type=_EulerEquations, nvars=3)
+    return Fluid(species = s, type = _EulerEquations, nvars = 3)
 end
 
 function ranges(fluids)

@@ -1,9 +1,6 @@
-function iterate_heavy_species!(dU, U, params, scheme, user_source!)
+function iterate_heavy_species!(params, scheme, user_source!)
     (; cache, grid, ion_wall_losses, fluid_containers) = params
     (; continuity, isothermal) = fluid_containers
-
-    # Populate fluid containers to compute fluxes
-    _from_state_vector!(continuity, isothermal, U)
 
     # Compute edge fluxes and apply convective update
     update_convective_terms!(continuity, isothermal, grid, scheme, cache.dlnA_dz)
@@ -18,19 +15,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!)
 
     apply_reactions!(params.fluid_arr, params)
 
-    # Transfer fluid container d/dt to dU
-    index = 1
-    for fluid in continuity
-        @. @views dU[index, :] = fluid.dens_ddt
-        index += 1
-    end
-
-    for fluid in isothermal
-        @. @views dU[index, :] = fluid.dens_ddt
-        @. @views dU[index + 1, :] = fluid.mom_ddt
-        index += 2
-    end
-
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
     min_dt_u = fluid_containers.continuity[1].max_timestep[]
@@ -43,10 +27,6 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!)
         sqrt(CFL) * cache.dt_E[],
         CFL * min_dt_u,
     )
-
-    # Set changes in left and right cells to zero
-    @. @views dU[:, 1] = 0.0
-    @. @views dU[:, end] = 0.0
 
     return
 end
@@ -103,11 +83,28 @@ function update_convective_terms!(
 end
 
 function integrate_heavy_species!(U, params, scheme::HyperbolicScheme, user_source, dt)
-    (; k) = params.cache
+    (;continuity, isothermal) = params.fluid_containers
 
-    # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, scheme, user_source)
-    @. U = U + dt * k
+    # Populate fluid containers from state vector
+    _from_state_vector!(continuity, isothermal, U)
+
+    # Update RHS of heavy species
+    iterate_heavy_species!(params, scheme, user_source)
+
+    # Integrate forward in time
+    for fluid in continuity
+        @. fluid.density += dt * fluid.dens_ddt
+    end
+
+    for fluid in isothermal
+        @. fluid.density += dt * fluid.dens_ddt
+        @. fluid.momentum += dt * fluid.mom_ddt
+    end
+
+    # Transfer fluid container to U
+    _to_state_vector!(U, continuity, isothermal)
+
+    # Apply stage limiter
     stage_limiter!(U, params)
 
     # Update arrays in cache
