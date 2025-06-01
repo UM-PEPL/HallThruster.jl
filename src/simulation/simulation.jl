@@ -205,6 +205,14 @@ function setup_simulation(config::Config, sim::SimParams;
 
     # make values in params available for first timestep
     initialize_plume_geometry(params)
+
+    # unnecessary once BCs use fluid containers
+    _from_state_vector!(
+        params.fluid_containers.continuity,
+        params.fluid_containers.isothermal,
+        U,
+    )
+
     update_heavy_species!(U, params)
     update_electrons!(params, config)
 

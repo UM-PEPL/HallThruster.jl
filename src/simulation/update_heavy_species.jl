@@ -112,47 +112,51 @@ function integrate_heavy_species!(U, params, scheme::HyperbolicScheme, user_sour
     return
 end
 
-function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
-    (; nn, ne, ni, ui, niui, Z_eff, ji, K, ϵ, nϵ) = cache
+function update_heavy_species_cache!(fluids, cache)
+    (; nn, ne, ni, ui, niui, Z_eff, ji) = cache
+
     # Compute neutral number density
-    inv_m = inv(mi)
-    @. @views nn = U[index.ρn, :] * inv_m
+    @inbounds for fluid in fluids.continuity
+        inv_m = inv(fluid.species.element.m)
+        @. nn = fluid.density * inv_m
+    end
+
+    @. ne = 0
+    @. Z_eff = 0
+    @. ji = 0
 
     # Update plasma quantities
-    @inbounds for i in eachindex(z_cell)
-        # Compute ion derived quantities
-        ne[i] = 0.0
-        Z_eff[i] = 0.0
-        ji[i] = 0.0
-        @inbounds for Z in 1:(ncharge)
-            _ni = U[index.ρi[Z], i] * inv_m
-            _niui = U[index.ρiui[Z], i] * inv_m
-            ni[Z, i] = _ni
-            niui[Z, i] = _niui
-            ui[Z, i] = _niui / _ni
+    @inbounds for (f, fluid) in enumerate(fluids.isothermal)
+        inv_m = inv(fluid.species.element.m)
+        Z = fluid.species.Z
+
+        for i in eachindex(fluid.density)
+            _ni = fluid.density[i] * inv_m
+            _niui = fluid.momentum[i] * inv_m
+            ni[f, i] = _ni
+            niui[f, i] = _niui
+            ui[f, i] = _niui / _ni
             ne[i] += Z * _ni
             Z_eff[i] += _ni
             ji[i] += Z * e * _niui
         end
+    end
 
+    @inbounds for i in eachindex(Z_eff)
         # Effective ion charge state (density-weighted average charge state)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
 
-    @. ϵ = nϵ / ne + landmark * K
     return
 end
 
 function update_heavy_species!(U, params)
-    (; index, grid, cache, mi, ncharge, landmark) = params
-
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
 
-    update_heavy_species!(
-        U, cache, index, grid.cell_centers, ncharge, mi, landmark,
-    )
+    # Update cache variables
+    update_heavy_species_cache!(params.fluid_containers, params.cache)
     return
 end
 
