@@ -1,4 +1,4 @@
-function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_boundary_conditions)
+function iterate_heavy_species!(dU, U, params, scheme, user_source!)
     (; cache, grid, ion_wall_losses, fluid_containers) = params
     (; continuity, isothermal) = fluid_containers
 
@@ -48,23 +48,24 @@ function iterate_heavy_species!(dU, U, params, scheme, user_source!; apply_bound
     @. @views dU[:, 1] = 0.0
     @. @views dU[:, end] = 0.0
 
-    return nothing
+    return
 end
 
 
 function update_convective_terms_continuity!(fluid, grid)
     ncells = length(grid.cell_centers)
-    return @inbounds for i in 2:(ncells - 1)
+    @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
         fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz
     end
+    return
 end
 
 function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     ncells = length(grid.cell_centers)
 
-    return @inbounds for i in 2:(ncells - 1)
+    @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
 
@@ -74,6 +75,8 @@ function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
         fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
         fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui^2 / ρi * dlnA_dz[i]
     end
+
+    return
 end
 
 function update_convective_terms!(
@@ -96,37 +99,20 @@ function update_convective_terms!(
         update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     end
 
-
     return
 end
 
-# Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
-function integrate_heavy_species!(
-        U, params, config::Config, dt, apply_boundary_conditions = true,
-    )
-    (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
-    sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
-
-    return integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
-end
-
-function integrate_heavy_species!(
-        U, params, scheme::HyperbolicScheme, user_source, dt, apply_boundary_conditions = true,
-    )
-    (; k, u1) = params.cache
+function integrate_heavy_species!(U, params, scheme::HyperbolicScheme, user_source, dt)
+    (; k) = params.cache
 
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, scheme, user_source; apply_boundary_conditions)
-    @. u1 = U + dt * k
-    stage_limiter!(u1, params)
-
-    # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params, scheme, user_source; apply_boundary_conditions)
-    @. U = (U + u1 + dt * k) / 2
+    iterate_heavy_species!(k, U, params, scheme, user_source)
+    @. U = U + dt * k
     stage_limiter!(U, params)
 
     # Update arrays in cache
-    return update_heavy_species!(U, params)
+    update_heavy_species!(U, params)
+    return
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
@@ -156,7 +142,8 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
 
-    return @. ϵ = nϵ / ne + landmark * K
+    @. ϵ = nϵ / ne + landmark * K
+    return
 end
 
 function update_heavy_species!(U, params)
@@ -166,7 +153,129 @@ function update_heavy_species!(U, params)
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
 
-    return update_heavy_species!(
+    update_heavy_species!(
         U, cache, index, grid.cell_centers, ncharge, mi, landmark,
     )
+    return
+end
+
+function stage_limiter!(U, params)
+    (; grid, index, min_Te, cache, mi, ncharge) = params
+    stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, mi)
+    return
+end
+
+function stage_limiter!(U, z_cell, nϵ, index, min_Te, ncharge, mi)
+    min_density = MIN_NUMBER_DENSITY * mi
+    @inbounds for i in eachindex(z_cell)
+        U[index.ρn, i] = max(U[index.ρn, i], min_density)
+
+        for Z in 1:ncharge
+            density_floor = max(U[index.ρi[Z], i], min_density)
+            velocity = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
+            U[index.ρi[Z], i] = density_floor
+            U[index.ρiui[Z], i] = density_floor * velocity
+        end
+        nϵ[i] = max(nϵ[i], 1.5 * MIN_NUMBER_DENSITY * min_Te)
+    end
+    return
+end
+
+function left_boundary_state!(bc_state, U, params)
+    index = params.index
+    ncharge = params.ncharge
+    mi = params.mi
+    Ti = params.ion_temperature_K
+    un = params.neutral_velocity
+    mdot_a = params.anode_mass_flow_rate
+    nn_B = params.background_neutral_density
+    un_B = params.background_neutral_velocity
+    neutral_ingestion_multiplier = params.neutral_ingestion_multiplier
+    anode_bc = params.anode_bc
+
+    ingestion_density = nn_B * un_B / un * neutral_ingestion_multiplier
+
+    return left_boundary_state!(
+        bc_state, U, index, ncharge, params.cache, mi,
+        Ti, un, ingestion_density, mdot_a, anode_bc,
+    )
+end
+
+function left_boundary_state!(
+        bc_state, U, index, ncharge, cache, mi, Ti, un,
+        ingestion_density, mdot_a, anode_bc,
+    )
+    if anode_bc == :sheath
+        Vs = cache.Vs[]
+        # Compute sheath potential
+        electron_repelling_sheath = Vs > 0
+        if electron_repelling_sheath
+            # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
+            Vs_norm = Vs / cache.Tev[1]
+            # Compute correction factor (see Hara, PSST 28 (2019))
+            χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
+            bohm_factor = inv(√(1 + χ))
+        else
+            # Ion-repelling sheath, ions have zero velocity at anode
+            bohm_factor = 0.0
+        end
+    else
+        bohm_factor = 1.0
+    end
+
+    # Add inlet neutral density
+    bc_state[index.ρn] = mdot_a / cache.channel_area[1] / un
+
+    # Add ingested mass flow rate at anode
+    bc_state[index.ρn] += ingestion_density
+
+    return @inbounds for Z in 1:ncharge
+        interior_density = U[index.ρi[Z], 2]
+        interior_flux = U[index.ρiui[Z], 2]
+        interior_velocity = interior_flux / interior_density
+
+        sound_speed = sqrt((kB * Ti + Z * e * cache.Tev[1]) / mi)  # Ion acoustic speed
+        boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
+
+        if interior_velocity <= -sound_speed
+            # Supersonic outflow, pure Neumann boundary condition
+            boundary_density = interior_density
+            boundary_flux = interior_flux
+        else
+            # Subsonic outflow, need to drive the flow toward sonic
+            # For the isothermal Euler equations, the Riemann invariants are
+            # J⁺ = u + c ln ρ
+            # J⁻ = u - c ln ρ
+            # For the boundary condition, we take c = u_bohm
+
+            # 1. Compute outgoing characteristic using interior state
+            J⁻ = interior_velocity - sound_speed * log(interior_density)
+
+            # 2. Compute incoming characteristic using J⁻ invariant
+            J⁺ = 2 * boundary_velocity - J⁻
+
+            # 3. Compute boundary density using J⁺ and J⁻ invariants
+            boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+
+            # Compute boundary flux
+            boundary_flux = boundary_velocity * boundary_density
+        end
+
+        bc_state[index.ρn] -= boundary_flux / un
+        bc_state[index.ρi[Z]] = boundary_density
+        bc_state[index.ρiui[Z]] = boundary_flux
+    end
+end
+
+function right_boundary_state!(bc_state, U, params)
+    (; index, ncharge) = params
+    # Use Neumann boundary conditions for all neutral fluids
+    bc_state[index.ρn] = U[index.ρn, end - 1]
+
+    @inbounds for Z in 1:ncharge
+        boundary_density = U[index.ρi[Z], end - 1]
+        bc_state[index.ρi[Z]] = boundary_density        # Neumann BC for ion density at right boundary
+        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
+    end
+    return
 end
