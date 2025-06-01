@@ -101,11 +101,11 @@ function integrate_heavy_species!(U, params, scheme::HyperbolicScheme, user_sour
         @. fluid.momentum += dt * fluid.mom_ddt
     end
 
+    # Apply stage limiter
+    stage_limiter!(continuity, isothermal)
+
     # Transfer fluid container to U
     _to_state_vector!(U, continuity, isothermal)
-
-    # Apply stage limiter
-    stage_limiter!(U, params)
 
     # Update arrays in cache
     update_heavy_species!(U, params)
@@ -156,26 +156,24 @@ function update_heavy_species!(U, params)
     return
 end
 
-function stage_limiter!(U, params)
-    (; grid, index, min_Te, cache, mi, ncharge) = params
-    stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, mi)
-    return
-end
-
-function stage_limiter!(U, z_cell, nϵ, index, min_Te, ncharge, mi)
-    min_density = MIN_NUMBER_DENSITY * mi
-    @inbounds for i in eachindex(z_cell)
-        U[index.ρn, i] = max(U[index.ρn, i], min_density)
-
-        for Z in 1:ncharge
-            density_floor = max(U[index.ρi[Z], i], min_density)
-            velocity = U[index.ρiui[Z], i] / U[index.ρi[Z], i]
-            U[index.ρi[Z], i] = density_floor
-            U[index.ρiui[Z], i] = density_floor * velocity
+function stage_limiter!(continuity, isothermal)
+    @inbounds for fluid in continuity
+        min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
+        @simd for i in eachindex(fluid.density)
+            fluid.density[i] = max(fluid.density[i], min_density)
         end
-        nϵ[i] = max(nϵ[i], 1.5 * MIN_NUMBER_DENSITY * min_Te)
     end
-    return
+
+    @inbounds for fluid in isothermal
+        m = fluid.species.element.m
+        min_density = MIN_NUMBER_DENSITY * m
+        @simd for i in eachindex(fluid.density)
+            dens = fluid.density[i]
+            vel = fluid.momentum[i] / dens
+            fluid.density[i] = max(dens, min_density)
+            fluid.momentum[i] = fluid.density[i] * vel
+        end
+    end
 end
 
 function left_boundary_state!(bc_state, U, params)
