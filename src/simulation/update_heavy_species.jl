@@ -29,8 +29,17 @@ function integrate_heavy_species!(params, scheme::HyperbolicScheme, user_source,
         end
     end
 
+    # Apply fluid boundary conditions
+    Ti = params.ion_temperature_K
+    mdot_a = params.anode_mass_flow_rate
+    ingestion_density = params.ingestion_density
+    anode_bc = params.anode_bc
+
+    apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    apply_right_boundary!(params.fluid_containers)
+
     # Update arrays in cache and apply boundaries
-    update_heavy_species!(params)
+    update_heavy_species_cache!(params.fluid_containers, params.cache)
 
     return false
 end
@@ -118,7 +127,6 @@ function update_convective_terms!(
     return
 end
 
-
 function update_heavy_species_cache!(fluids, cache)
     (; nn, ne, ni, ui, niui, Z_eff, ji) = cache
 
@@ -154,21 +162,6 @@ function update_heavy_species_cache!(fluids, cache)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
 
-    return
-end
-
-function update_heavy_species!(params)
-    Ti = params.ion_temperature_K
-    mdot_a = params.anode_mass_flow_rate
-    ingestion_density = params.ingestion_density
-    anode_bc = params.anode_bc
-
-    # Apply fluid boundary conditions
-    apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
-    apply_right_boundary!(params.fluid_containers)
-
-    # Update cache variables
-    update_heavy_species_cache!(params.fluid_containers, params.cache)
     return
 end
 

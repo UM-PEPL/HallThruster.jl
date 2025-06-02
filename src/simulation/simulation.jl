@@ -93,17 +93,18 @@ function setup_simulation(config::Config, sim::SimParams;
         postprocess::Union{Postprocess, Nothing} = nothing, include_dirs = String[],
         restart::AbstractString = "",)
 
-    #check that Landmark uses the correct thermal conductivity
+    # check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
-    index = configure_index(fluids, fluid_ranges)
+    species = [
+        config.propellant(Z) for Z in 0:config.ncharge
+    ]
 
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
-    U, cache = allocate_arrays(grid, config)
+    cache = allocate_arrays(grid, config)
 
     fluid_containers = allocate_fluids(
         config.propellant, config.ncharge, length(grid.cell_centers)-2,
@@ -175,8 +176,7 @@ function setup_simulation(config::Config, sim::SimParams;
         dt = [dt],
         grid,
         postprocess,
-        # fluid bookkeeping - concretely-typed
-        index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
+        cache,
         # reactions - concretely-typed
         ionization_reactions,
         ionization_reactant_indices,
@@ -192,7 +192,7 @@ function setup_simulation(config::Config, sim::SimParams;
     )
 
     # Initialize ion and electron variables
-    initialize!(U, params, config)
+    initialize!(params, config)
 
     # Initialize the anomalous collision frequency using a 
     # two-zone Bohm approximation for the first iteration
@@ -200,19 +200,12 @@ function setup_simulation(config::Config, sim::SimParams;
 
     if !isempty(restart)
         # Initialize the solution from a restart JSON file
-        initialize_from_restart!(U, params, restart)
+        initialize_from_restart!(params, restart)
     end
-
-    # Populate fluid containers
-    _from_state_vector!(
-        params.fluid_containers.continuity,
-        params.fluid_containers.isothermal,
-        U,
-    )
 
     # make values in params available for first timestep
     initialize_plume_geometry(params)
-    update_heavy_species!(params)
+    update_heavy_species_cache!(params.fluid_containers, params.cache)
     update_electrons!(params, config)
 
     return params
@@ -223,7 +216,7 @@ function setup_simulation(
         duration, nsave,
         grid::GridSpec = EvenGrid(0),
         ncells = 0,
-        dt, restart::AbstractString = "",
+        dt, restart::String = "",
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
         Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
@@ -320,6 +313,6 @@ Run a Hall thruster simulation using the provided Config object.
 - `nsave`: How many frames to save.
 """
 function run_simulation(config::Config; kwargs...)
-    U, params = setup_simulation(config; kwargs...)
-    return run_from_setup(U, params, config)
+    params = setup_simulation(config; kwargs...)
+    return run_from_setup(params, config)
 end

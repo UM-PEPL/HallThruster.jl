@@ -12,8 +12,6 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
     # made less general to handle common use cases as part of fluid refactor
     nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
 
-    U = zeros(nvariables, ncells)
-
     cache = (;
         # Caches for energy solve
         Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
@@ -81,15 +79,6 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         Vs = [0.0],
         anom_multiplier = [1.0],
 
-        # Edge state caches
-        F = zeros(nvariables, nedges),
-        UL = zeros(nvariables, nedges),
-        UR = zeros(nvariables, nedges),
-
-        # timestepping caches
-        k = copy(U),
-        u1 = copy(U),
-
         # other caches
         cell_cache_1 = zeros(ncells),
 
@@ -110,8 +99,7 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         dt = zeros(1),
         dt_E = zeros(1),
         dt_u = zeros(nedges),
-        U = U,
     )
 
-    return U, cache
+    return cache
 end

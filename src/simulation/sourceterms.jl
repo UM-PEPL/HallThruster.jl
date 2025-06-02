@@ -16,22 +16,6 @@ end
 function apply_reactions!(fluids, rxns, cache, landmark)
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
-    # Calculate electron number density
-    cache.ne .= 0.0
-    for fluid in fluids
-        Z = fluid.species.Z
-        m = fluid.species.element.m
-        if Z == 0
-            continue
-        end
-
-        inv_m = 1/m
-
-        @inbounds @simd for i in eachindex(ne)
-            ne[i] += fluid.density[i] * inv_m * Z
-        end
-    end
-
     # Zero ionization frequency and inelastic losses
     @inbounds begin
         νiz .= 0.0
