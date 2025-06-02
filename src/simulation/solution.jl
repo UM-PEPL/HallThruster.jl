@@ -267,7 +267,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
 end
 
 
-function solve(U, params, config, tspan; saveat)
+function solve(params, config, tspan; saveat)
     # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -328,10 +328,10 @@ function solve(U, params, config, tspan; saveat)
             end
 
             # update heavy species quantities
-            integrate_heavy_species!(U, params, scheme, source_heavy_species, params.dt[])
+            any_nan = integrate_heavy_species!(params, scheme, source_heavy_species, params.dt[])
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
-            if any(!isfinite, U)
+            if any_nan
                 if sim.print_errors
                     @warn("NaN or Inf detected in heavy species solver at time $(t)")
                 end

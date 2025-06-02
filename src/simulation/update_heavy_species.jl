@@ -1,13 +1,50 @@
-function iterate_heavy_species!(params, scheme, user_source!)
-    (; cache, grid, ion_wall_losses, fluid_containers) = params
-    (; continuity, isothermal) = fluid_containers
+function integrate_heavy_species!(params, scheme::HyperbolicScheme, user_source, dt)
+    (;continuity, isothermal) = params.fluid_containers
+
+    fluids = params.fluid_containers
+
+    # We have temporarily replaced SSPRK22 with forward euler using two substeps.
+    # This has the same cost and is about as stable
+    num_substeps = 2
+    _dt = dt / num_substeps
+    for _ in 1:num_substeps
+        # Update RHS of heavy species
+        iterate_heavy_species!(fluids, params, scheme, user_source)
+
+        # Integrate forward in time
+        for fluid in continuity
+            @. fluid.density += _dt * fluid.dens_ddt
+        end
+
+        for fluid in isothermal
+            @. fluid.density += _dt * fluid.dens_ddt
+            @. fluid.momentum += _dt * fluid.mom_ddt
+        end
+
+        # Apply stage limiter and check for infs or nans
+        any_nan = stage_limiter!(continuity, isothermal)
+
+        if any_nan
+            return true
+        end
+    end
+
+    # Update arrays in cache and apply boundaries
+    update_heavy_species!(params)
+
+    return false
+end
+
+function iterate_heavy_species!(fluids, params, scheme, user_source!)
+    (; cache, grid, ion_wall_losses) = params
+    (; continuity, isothermal) = fluids
 
     # Compute edge fluxes and apply convective update
     update_convective_terms!(continuity, isothermal, grid, scheme, cache.dlnA_dz)
 
     apply_ion_acceleration!(isothermal, grid, cache)
 
-    user_source!(fluid_containers, params)
+    user_source!(fluids, params)
 
     if ion_wall_losses
         apply_ion_wall_losses!(continuity, isothermal, params)
@@ -17,8 +54,8 @@ function iterate_heavy_species!(params, scheme, user_source!)
 
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
-    min_dt_u = fluid_containers.continuity[1].max_timestep[]
-    for fluid in fluid_containers.isothermal
+    min_dt_u = fluids.continuity[1].max_timestep[]
+    for fluid in fluids.isothermal
         min_dt_u = min(min_dt_u, fluid.max_timestep[])
     end
 
@@ -30,7 +67,6 @@ function iterate_heavy_species!(params, scheme, user_source!)
 
     return
 end
-
 
 function update_convective_terms_continuity!(fluid, grid)
     ncells = length(grid.cell_centers)
@@ -82,35 +118,6 @@ function update_convective_terms!(
     return
 end
 
-function integrate_heavy_species!(U, params, scheme::HyperbolicScheme, user_source, dt)
-    (;continuity, isothermal) = params.fluid_containers
-
-    # Populate fluid containers from state vector
-    _from_state_vector!(continuity, isothermal, U)
-
-    # Update RHS of heavy species
-    iterate_heavy_species!(params, scheme, user_source)
-
-    # Integrate forward in time
-    for fluid in continuity
-        @. fluid.density += dt * fluid.dens_ddt
-    end
-
-    for fluid in isothermal
-        @. fluid.density += dt * fluid.dens_ddt
-        @. fluid.momentum += dt * fluid.mom_ddt
-    end
-
-    # Apply stage limiter
-    stage_limiter!(continuity, isothermal)
-
-    # Transfer fluid container to U
-    _to_state_vector!(U, continuity, isothermal)
-
-    # Update arrays in cache
-    update_heavy_species!(U, params)
-    return
-end
 
 function update_heavy_species_cache!(fluids, cache)
     (; nn, ne, ni, ui, niui, Z_eff, ji) = cache
@@ -150,10 +157,15 @@ function update_heavy_species_cache!(fluids, cache)
     return
 end
 
-function update_heavy_species!(U, params)
+function update_heavy_species!(params)
+    Ti = params.ion_temperature_K
+    mdot_a = params.anode_mass_flow_rate
+    ingestion_density = params.ingestion_density
+    anode_bc = params.anode_bc
+
     # Apply fluid boundary conditions
-    @views left_boundary_state!(U[:, 1], U, params)
-    @views right_boundary_state!(U[:, end], U, params)
+    apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    apply_right_boundary!(params.fluid_containers)
 
     # Update cache variables
     update_heavy_species_cache!(params.fluid_containers, params.cache)
@@ -162,6 +174,10 @@ end
 
 function stage_limiter!(continuity, isothermal)
     @inbounds for fluid in continuity
+        if any(!isfinite, fluid.density)
+            return true
+        end
+
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             fluid.density[i] = max(fluid.density[i], min_density)
@@ -169,6 +185,10 @@ function stage_limiter!(continuity, isothermal)
     end
 
     @inbounds for fluid in isothermal
+        if any(!isfinite, fluid.density) || any(!isfinite, fluid.momentum)
+            return true
+        end
+
         m = fluid.species.element.m
         min_density = MIN_NUMBER_DENSITY * m
         @simd for i in eachindex(fluid.density)
@@ -178,58 +198,46 @@ function stage_limiter!(continuity, isothermal)
             fluid.momentum[i] = fluid.density[i] * vel
         end
     end
+    return false
 end
 
-function left_boundary_state!(bc_state, U, params)
-    index = params.index
-    ncharge = params.ncharge
-    mi = params.mi
-    Ti = params.ion_temperature_K
-    un = params.neutral_velocity
-    mdot_a = params.anode_mass_flow_rate
-    anode_bc = params.anode_bc
-    ingestion_density = params.ingestion_density
+function apply_left_boundary!(fluids, cache, Ti, mdot_a, ingestion_density, anode_bc)
+    Te_L = cache.Tev[1]
 
-    return left_boundary_state!(
-        bc_state, U, index, ncharge, params.cache, mi,
-        Ti, un, ingestion_density, mdot_a, anode_bc,
-    )
-end
-
-function left_boundary_state!(
-        bc_state, U, index, ncharge, cache, mi, Ti, un,
-        ingestion_density, mdot_a, anode_bc,
-    )
-    if anode_bc == :sheath
+    bohm_factor = if anode_bc == :sheath
         Vs = cache.Vs[]
         # Compute sheath potential
         electron_repelling_sheath = Vs > 0
         if electron_repelling_sheath
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
-            Vs_norm = Vs / cache.Tev[1]
+            Vs_norm = Vs / Te_L
             # Compute correction factor (see Hara, PSST 28 (2019))
             χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
-            bohm_factor = inv(√(1 + χ))
+            inv(√(1 + χ))
         else
             # Ion-repelling sheath, ions have zero velocity at anode
-            bohm_factor = 0.0
+            0.0
         end
     else
-        bohm_factor = 1.0
+        1.0
     end
 
     # Add inlet neutral density
-    bc_state[index.ρn] = mdot_a / cache.channel_area[1] / un
-
     # Add ingested mass flow rate at anode
-    bc_state[index.ρn] += ingestion_density
+    un = fluids.continuity[1].const_velocity
+    neutral_density = mdot_a / cache.channel_area[1] / un
+    neutral_density += ingestion_density
 
-    return @inbounds for Z in 1:ncharge
-        interior_density = U[index.ρi[Z], 2]
-        interior_flux = U[index.ρiui[Z], 2]
+    @inbounds for fluid in fluids.isothermal
+
+        mi = fluid.species.element.m
+        Z = fluid.species.Z
+
+        interior_density = fluid.density[2]
+        interior_flux = fluid.momentum[2]
         interior_velocity = interior_flux / interior_density
 
-        sound_speed = sqrt((kB * Ti + Z * e * cache.Tev[1]) / mi)  # Ion acoustic speed
+        sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
         boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
 
         if interior_velocity <= -sound_speed
@@ -256,21 +264,25 @@ function left_boundary_state!(
             boundary_flux = boundary_velocity * boundary_density
         end
 
-        bc_state[index.ρn] -= boundary_flux / un
-        bc_state[index.ρi[Z]] = boundary_density
-        bc_state[index.ρiui[Z]] = boundary_flux
+        neutral_density -= boundary_flux / un
+        fluid.density[1] = boundary_density
+        fluid.momentum[1] = boundary_flux
     end
+
+    fluids.continuity[1].density[1] = neutral_density
+
+    return
 end
 
-function right_boundary_state!(bc_state, U, params)
-    (; index, ncharge) = params
-    # Use Neumann boundary conditions for all neutral fluids
-    bc_state[index.ρn] = U[index.ρn, end - 1]
-
-    @inbounds for Z in 1:ncharge
-        boundary_density = U[index.ρi[Z], end - 1]
-        bc_state[index.ρi[Z]] = boundary_density        # Neumann BC for ion density at right boundary
-        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
+function apply_right_boundary!(fluids)
+    @inbounds for fluid in fluids.continuity
+        fluid.density[end] = fluid.density[end-1]
     end
+
+    @inbounds for fluid in fluids.isothermal
+        fluid.density[end] = fluid.density[end-1]
+        fluid.momentum[end] = fluid.momentum[end-1]
+    end
+
     return
 end
