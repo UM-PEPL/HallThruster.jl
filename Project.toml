@@ -8,19 +8,18 @@ DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Measures = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 
 [weakdeps]
-Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 DynamicQuantities = "06fc5a27-2a28-4c7c-a15d-362465fb6821"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [extensions]
-UnitfulExt = "Unitful"
 DynamicQuantitiesExt = "DynamicQuantities"
+UnitfulExt = "Unitful"
 
 [compat]
 DelimitedFiles = "1"
@@ -28,7 +27,6 @@ DocStringExtensions = "0.9"
 Documenter = "1"
 DynamicQuantities = "1"
 JSON3 = "1"
-LinearAlgebra = "<0.0.1, 1"
 Measures = "0.3"
 OrderedCollections = "1"
 PrecompileTools = "1"
@@ -46,4 +44,4 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Symbolics", "Printf", "Statistics", "Unitful"]
+test = ["Test", "Symbolics", "Printf", "Statistics"]

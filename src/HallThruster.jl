@@ -1,6 +1,5 @@
 module HallThruster
 
-using LinearAlgebra: Tridiagonal
 using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm

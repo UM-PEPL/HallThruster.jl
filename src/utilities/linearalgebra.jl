@@ -1,3 +1,14 @@
+struct Tridiagonal{F <: Number}
+    dl::Vector{F} 
+    d::Vector{F}
+    du::Vector{F}
+    function Tridiagonal(dl::Vector{F}, d::Vector{F}, du::Vector{F}) where F <: Number
+        @assert length(dl) == length(d) - 1
+        @assert length(du) == length(d) - 1
+        return new{F}(dl, d, du)
+    end
+end
+
 function tridiagonal_forward_sweep!(A::Tridiagonal, b)
     n = length(A.d)
 
