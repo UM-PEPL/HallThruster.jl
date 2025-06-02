@@ -1,10 +1,13 @@
-@inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁, limiter)
+check_r(r) = isfinite(r) && r >= 0
+van_leer_limiter(r) = check_r(r) * (4r / (r + 1)^2)
+
+@inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
-    Δu = 0.25 * limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
+    Δu = 0.25 * van_leer_limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states_continuity!(fluid, limiter, do_reconstruct)
+function compute_edge_states_continuity!(fluid, do_reconstruct)
     (; density, dens_L, dens_R) = fluid
     N = length(fluid.density)
 
@@ -15,7 +18,7 @@ function compute_edge_states_continuity!(fluid, limiter, do_reconstruct)
             u₋ = density[i - 1]
             uᵢ = density[i]
             u₊ = density[i + 1]
-            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊, limiter)
+            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊)
         end
     else
         @inbounds for i in 2:(N - 1)
@@ -29,7 +32,7 @@ function compute_edge_states_continuity!(fluid, limiter, do_reconstruct)
     return fluid.dens_R[end] = fluid.density[end]
 end
 
-function compute_edge_states_isothermal!(fluid, limiter, do_reconstruct)
+function compute_edge_states_isothermal!(fluid, do_reconstruct)
     (; density, momentum, dens_L, dens_R, mom_L, mom_R) = fluid
     N = length(fluid.density)
 
@@ -41,13 +44,13 @@ function compute_edge_states_isothermal!(fluid, limiter, do_reconstruct)
             u₋ = density[i - 1]
             uᵢ = density[i]
             u₊ = density[i + 1]
-            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊, limiter)
+            dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊)
 
             # Reconstruct velocity as primitive variable instead of momentum density
             u₋ = momentum[i - 1] / u₋
             uᵢ = momentum[i] / uᵢ
             u₊ = momentum[i + 1] / u₊
-            uR, uL = reconstruct(u₋, uᵢ, u₊, limiter)
+            uR, uL = reconstruct(u₋, uᵢ, u₊)
             mom_L[iR] = uL * dens_L[iR]
             mom_R[iL] = uR * dens_R[iL]
         end

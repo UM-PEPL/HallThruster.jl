@@ -292,9 +292,6 @@ function solve(params, config, tspan; saveat)
 
     sim = params.simulation
 
-    # Extract stuff from config
-    (; source_heavy_species, scheme) = config
-
     try
         while t < tspan[2]
             # compute new timestep 
@@ -328,7 +325,7 @@ function solve(params, config, tspan; saveat)
             end
 
             # update heavy species quantities
-            any_nan = integrate_heavy_species!(params, scheme, source_heavy_species, params.dt[])
+            any_nan = integrate_heavy_species!(params, config.source_heavy_species, params.dt[])
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any_nan

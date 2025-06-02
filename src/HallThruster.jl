@@ -47,8 +47,6 @@ include("walls/constant_sheath_potential.jl")
 include("walls/wall_sheath.jl")
 
 include("numerics/finite_differences.jl")
-include("numerics/limiters.jl")
-include("numerics/schemes.jl")
 include("numerics/fluxes.jl")
 
 include("collisions/anomalous.jl")
@@ -107,9 +105,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         anode_mass_flow_rate = 5e-6,
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
-        scheme = HyperbolicScheme(
-            limiter = van_albada,
-        ),
     )
     sol_1 = run_simulation(
         config_1; ncells, duration, dt, nsave, verbose = false,)
@@ -130,36 +125,12 @@ function example_simulation(; ncells, duration, dt, nsave)
         neutral_temperature_K = 500,
         ion_wall_losses = true,
         solve_plume = true,
-        scheme = HyperbolicScheme(
-            limiter = minmod,
-        ),
     )
 
     sol_2 = run_simulation(
         config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
 
     if sol_2.retcode != :success
-        error()
-    end
-
-    config_3 = HallThruster.Config(;
-        thruster = SPT_100,
-        domain = (0.0, 0.08),
-        discharge_voltage = 300.0,
-        anode_mass_flow_rate = 5e-6,
-        anom_model = GaussianBohm(
-            hall_min = 0.00625, hall_max = 0.0625, center = 0.025, width = 0.002,),
-        wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
-        conductivity_model = Braginskii(),
-        neutral_temperature_K = 500,
-        ion_wall_losses = false,
-        solve_plume = false,
-    )
-
-    sol_3 = run_simulation(
-        config_3; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
-
-    if sol_3.retcode != :success
         error()
     end
 

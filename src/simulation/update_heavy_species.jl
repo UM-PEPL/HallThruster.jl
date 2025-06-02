@@ -1,4 +1,4 @@
-function integrate_heavy_species!(params, scheme::HyperbolicScheme, user_source, dt)
+function integrate_heavy_species!(params, user_source, dt)
     (;continuity, isothermal) = params.fluid_containers
 
     fluids = params.fluid_containers
@@ -9,7 +9,7 @@ function integrate_heavy_species!(params, scheme::HyperbolicScheme, user_source,
     _dt = dt / num_substeps
     for _ in 1:num_substeps
         # Update RHS of heavy species
-        iterate_heavy_species!(fluids, params, scheme, user_source)
+        iterate_heavy_species!(fluids, params, user_source)
 
         # Integrate forward in time
         for fluid in continuity
@@ -44,12 +44,12 @@ function integrate_heavy_species!(params, scheme::HyperbolicScheme, user_source,
     return false
 end
 
-function iterate_heavy_species!(fluids, params, scheme, user_source!)
+function iterate_heavy_species!(fluids, params, user_source!)
     (; cache, grid, ion_wall_losses) = params
     (; continuity, isothermal) = fluids
 
     # Compute edge fluxes and apply convective update
-    update_convective_terms!(continuity, isothermal, grid, scheme, cache.dlnA_dz)
+    update_convective_terms!(continuity, isothermal, grid, params.reconstruct, cache.dlnA_dz)
 
     apply_ion_acceleration!(isothermal, grid, cache)
 
@@ -108,18 +108,18 @@ function update_convective_terms!(
         continuity,
         isothermal,
         grid,
-        scheme,
+        reconstruct,
         dlnA_dz
     )
 
     for fluid in continuity
-        compute_edge_states_continuity!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_edge_states_continuity!(fluid, reconstruct)
         compute_fluxes_continuity!(fluid, grid)
         update_convective_terms_continuity!(fluid, grid)
     end
 
     for fluid in isothermal
-        compute_edge_states_isothermal!(fluid, scheme.limiter, scheme.reconstruct)
+        compute_edge_states_isothermal!(fluid, reconstruct)
         compute_fluxes_isothermal!(fluid, grid)
         update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     end

@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 ## Mandatory Fields
 $(TYPEDFIELDS)
 """
-struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_H, S_E}
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, IC <: InitialCondition, S_H, S_E}
     """
     The thruster to simulate. See [Thrusters](@ref) for more information
     """
@@ -115,10 +115,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     transition_length::Float64
     """
-    Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. See [Schemes](../reference/schemes.md) for more info. **Default:** `HyperbolicScheme(flux_function = rusanov, limiter = van_leer, reconstruct = true)`.
-    """
-    scheme::HS
-    """
     An `InitialCondition`; see [Initialization](../explanation/initialization.md) for more information. **Default:** `DefaultInitialization()`.
     """
     initial_condition::IC
@@ -140,6 +136,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     See [Verification and validation](../explanation/verification.md) for an explanation of how we use these to verify the accuracy of the code.
     """
     anom_smoothing_iters::Int
+    """
+    Whether to use gradient reconstruction to get second-order spatial accuracy for the ions. Defaults to true.
+    """
+    reconstruct::Bool
     """
     Whether we are using the physics model from the LANDMARK benchmark. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. **Default:** `false`.
     """
@@ -194,11 +194,11 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale = 1.0,
             magnetic_field_scale::Float64 = 1.0,
             transition_length = 0.1 * thruster.geometry.channel_length,
-            scheme::HS = HyperbolicScheme(),
             initial_condition::IC = DefaultInitialization(),
             implicit_energy = 1.0,
             reaction_rate_directories = String[],
             anom_smoothing_iters = 0,
+            reconstruct = true,
             LANDMARK = false,
             ionization_model = :Lookup,
             excitation_model = :Lookup,
@@ -209,7 +209,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
-            HS <: HyperbolicScheme,
             IC <: InitialCondition,
         }
 
@@ -257,7 +256,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
         end
 
-        return new{A, TC, W, HS, IC, typeof(source_heavy_species), typeof(source_electron_energy)}(
+        return new{A, TC, W, IC, typeof(source_heavy_species), typeof(source_electron_energy)}(
             # Mandatory arguments
             thruster,
             domain,
@@ -286,11 +285,11 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale,
             magnetic_field_scale,
             transition_length,
-            scheme,
             initial_condition,
             implicit_energy,
             reaction_rate_directories,
             anom_smoothing_iters,
+            reconstruct,
             LANDMARK,
             ionization_model,
             excitation_model,
@@ -400,6 +399,7 @@ function params_from_config(config)
         ion_temperature_K = config.ion_temperature_K,
         neutral_velocity = config.neutral_velocity,
         ingestion_density,
+        reconstruct = config.reconstruct,
         anode_mass_flow_rate = config.anode_mass_flow_rate,
         neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
         ion_wall_losses = config.ion_wall_losses,
