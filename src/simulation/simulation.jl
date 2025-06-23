@@ -136,7 +136,7 @@ function setup_simulation(config::Config, sim::SimParams;
 
     # Fill up cell lengths and magnetic field vectors
     itp = LinearInterpolation(thruster.magnetic_field.z, thruster.magnetic_field.B)
-    @. cache.B = itp(grid.cell_centers)
+    @. cache.B = itp(grid.cell_centers) * config.magnetic_field_scale
 
     # make the adaptive timestep independent of input condition
     dt = sim.dt
