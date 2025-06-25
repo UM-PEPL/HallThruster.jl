@@ -22,8 +22,8 @@ const Ti = 300
 const L = 0.05
 
 ϕ = sin_wave(x / L, amplitude = 5, phase = π / 2, nwaves = 0.5)
-ne = sin_wave(x / L, amplitude = 1e13, phase = π / 2, nwaves = 2, offset = 6e13)
-nn = sin_wave(x / L, amplitude = 2e18, phase = π / 2, nwaves = 1, offset = 6e18)
+ne = sin_wave(x / L, amplitude = 1.0e13, phase = π / 2, nwaves = 2, offset = 6.0e13)
+nn = sin_wave(x / L, amplitude = 2.0e18, phase = π / 2, nwaves = 1, offset = 6.0e18)
 ui = sin_wave(x / L, amplitude = 2000, phase = -π / 2, nwaves = 0.5, offset = 3000)
 ϵ = sin_wave(x / L, amplitude = 3, phase = -π / 2, nwaves = 1, offset = 6)
 nϵ = ne * ϵ
@@ -52,7 +52,7 @@ source_ρn = eval(build_function(expand_derivatives(continuity_neutrals), [x]))
 source_ρi = eval(build_function(expand_derivatives(continuity_ions), [x]))
 source_ρiui = eval(build_function(expand_derivatives(momentum_ions), [x]))
 
-function solve_ions(ncells, scheme; t_end = 1e-4)
+function solve_ions(ncells, scheme; t_end = 1.0e-4)
     # Create config struct
     thruster = het.SPT_100
     A_ch = het.channel_area(thruster)

@@ -15,7 +15,7 @@ function test_property(property, laws)
 end
 
 function test_conservation_laws()
-    @testset "Conservation laws" begin
+    return @testset "Conservation laws" begin
         Xe_0 = het.Xenon(0)
         @test het.nvars(het.ContinuityOnly(Xe_0; u = 300, T = 300)) == 1
         @test het.nvars(het.IsothermalEuler(Xe_0; T = 300)) == 2
@@ -45,7 +45,7 @@ function test_properties()
     laws = [continuity, isothermal, euler]
     laws_vector = [continuity, isothermal, euler]
 
-    @testset "Thermodynamic property computation" begin
+    return @testset "Thermodynamic property computation" begin
         # Check that thermodynamic property computations give identical
         # results for the different fluid types
         @test test_property(het.temperature, laws)
@@ -73,9 +73,5 @@ function test_properties()
     end
 end
 
-function test_thermodynamics()
-    @testset "Thermodynamics/Conservation laws" begin
-        test_properties()
-        test_conservation_laws()
-    end
-end
+test_properties()
+test_conservation_laws()

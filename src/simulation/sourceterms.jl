@@ -1,12 +1,15 @@
 function apply_reactions!(dU, U, params)
-    (; index, ionization_reactions, index,
-    ionization_reactant_indices, ionization_product_indices,
-    cache, mi, landmark, ncharge, neutral_velocity) = params
+    (;
+        index, ionization_reactions, index,
+        ionization_reactant_indices, ionization_product_indices,
+        cache, mi, landmark, ncharge, neutral_velocity,
+    ) = params
 
     rxns = zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices,)
+        ionization_reactions, ionization_reactant_indices, ionization_product_indices,
+    )
 
-    apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
+    return apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
 end
 
 function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
@@ -46,7 +49,7 @@ function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
 
             # Change in density due to ionization
             dU[reactant_index, i] -= ρdot
-            dU[product_index, i]  += ρdot
+            dU[product_index, i] += ρdot
 
             if !landmark
                 # Momentum transfer due to ionization
@@ -62,14 +65,14 @@ function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
         end
     end
 
-    cache.dt_iz[] = dt_max
+    return cache.dt_iz[] = dt_max
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
 function apply_ion_acceleration!(dU, U, params)
     (; index, grid, cache, mi, ncharge) = params
-    apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
+    return apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
 end
 function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
     inv_m = inv(mi)
@@ -88,7 +91,7 @@ function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
         end
     end
 
-    cache.dt_E[] = dt_max
+    return cache.dt_E[] = dt_max
 end
 
 function apply_ion_wall_losses!(dU, U, params)
@@ -100,15 +103,16 @@ function apply_ion_wall_losses!(dU, U, params)
 
     h = wall_loss_scale * edge_to_center_density_ratio()
 
-    @inbounds for i in 2:(length(grid.cell_centers) - 1)
+    return @inbounds for i in 2:(length(grid.cell_centers) - 1)
         u_bohm = sqrt(e_inv_m * cache.Tev[i])
         in_channel = linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
+        )
         νiw_base = in_channel * u_bohm * inv_Δr * h
 
         for Z in 1:ncharge
-            νiw           = sqrt(Z) * νiw_base
-            density_loss  = U[index.ρi[Z], i] * νiw
+            νiw = sqrt(Z) * νiw_base
+            density_loss = U[index.ρi[Z], i] * νiw
             momentum_loss = U[index.ρiui[Z], i] * νiw
 
             # Neutrals gain density due to ion recombination at the walls
@@ -120,16 +124,17 @@ function apply_ion_wall_losses!(dU, U, params)
 end
 
 function apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
+        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
+    )
     (; index, grid, ncharge) = params
     # Apply user-provided source terms
     ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
+    return @inbounds for i in 2:(ncells - 1)
         # User-provided neutral source term
         dU[index.ρn, i] += source_neutrals(U, params, i)
         for Z in 1:ncharge
             # User-provided ion source terms
-            dU[index.ρi[Z], i]   += source_ion_continuity[Z](U, params, i)
+            dU[index.ρi[Z], i] += source_ion_continuity[Z](U, params, i)
             dU[index.ρiui[Z], i] += source_ion_momentum[Z](U, params, i)
         end
     end
@@ -177,7 +182,8 @@ function source_electron_energy!(Q, params, wall_loss_model)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, landmark, grid, excitation_reactions,)
+        inelastic_losses, cache, landmark, grid, excitation_reactions,
+    )
 
     # compute wall losses
     wall_power_loss!(wall_losses, wall_loss_model, params)

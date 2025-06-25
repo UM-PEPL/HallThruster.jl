@@ -56,7 +56,7 @@ Replacement for the new `public` keyword in v1.11, which is not present in the L
 When a new LTS version is declared, this can be safely removed and replaced with the bare `public` keyword.
 """
 macro public(ex)
-    if VERSION >= v"1.11.0-DEV.469"
+    return if VERSION >= v"1.11.0-DEV.469"
         args = ex isa Symbol ? (ex,) : Base.isexpr(ex, :tuple) ? ex.args : error("something informative")
         esc(Expr(:public, args...))
     else

@@ -7,9 +7,9 @@ Base.@kwdef struct Fluid
     species::Species
     type::ConservationLawType
     nvars::Int
-    u::Union{Float64,Nothing} = nothing
-    T::Union{Float64,Nothing} = nothing
-    a::Union{Float64,Nothing} = nothing
+    u::Union{Float64, Nothing} = nothing
+    T::Union{Float64, Nothing} = nothing
+    a::Union{Float64, Nothing} = nothing
 end
 
 @inline nvars(f::Fluid) = f.nvars
@@ -26,20 +26,20 @@ end
 
 function ContinuityOnly(s; u, T)
     a = √(s.element.γ * kB * T / s.element.m)
-    return Fluid(species = s, type=_ContinuityOnly, nvars=1, u=Float64(u), T=Float64(T), a = Float64(a))
+    return Fluid(species = s, type = _ContinuityOnly, nvars = 1, u = Float64(u), T = Float64(T), a = Float64(a))
 end
 ContinuityOnly(s, u, T) = ContinuityOnly(s; u, T)
 Fluid(s, u, T) = ContinuityOnly(s, u, T)
 
 function IsothermalEuler(s; T)
     a = √(s.element.γ * kB * T / s.element.m)
-    return Fluid(species = s, type=_IsothermalEuler, nvars=2, T=Float64(T), a = Float64(a))
+    return Fluid(species = s, type = _IsothermalEuler, nvars = 2, T = Float64(T), a = Float64(a))
 end
 IsothermalEuler(s, T) = IsothermalEuler(s; T)
 Fluid(s, T) = IsothermalEuler(s, T)
 
 function EulerEquations(s)
-    return Fluid(species = s, type=_EulerEquations, nvars=3)
+    return Fluid(species = s, type = _EulerEquations, nvars = 3)
 end
 
 function ranges(fluids)

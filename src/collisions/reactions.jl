@@ -57,8 +57,8 @@ function _indices(symbol, reactions, species_range_dict)
 end
 
 function reactant_indices(reactions, species_range_dict)
-    _indices(:reactant, reactions, species_range_dict)
+    return _indices(:reactant, reactions, species_range_dict)
 end
 function product_indices(reactions, species_range_dict)
-    _indices(:product, reactions, species_range_dict)
+    return _indices(:product, reactions, species_range_dict)
 end

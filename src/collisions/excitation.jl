@@ -17,10 +17,11 @@ function Base.show(io::IO, i::ExcitationReaction)
     return print(io, rxn_str)
 end
 
-ovs_rate_coeff_ex(ϵ) = 1e-12 * exp(-8.32 / ϵ)
+ovs_rate_coeff_ex(ϵ) = 1.0e-12 * exp(-8.32 / ϵ)
 
 function load_excitation_reactions(
-        model::Symbol, species; directories = String[], kwargs...,)
+        model::Symbol, species; directories = String[], kwargs...,
+    )
     if model == :None
         return ExcitationReaction[]
     elseif model == :Landmark
@@ -49,7 +50,8 @@ function load_excitation_reactions(
                 filename = rate_coeff_filename(reactant, product, "excitation", folder)
                 if ispath(filename)
                     energy, rate_coeff = load_rate_coeffs(
-                        reactant, product, "excitation", folder,)
+                        reactant, product, "excitation", folder,
+                    )
                     reaction = HallThruster.ExcitationReaction(energy, reactant, rate_coeff)
                     push!(reactions, reaction)
                     break

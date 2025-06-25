@@ -1,7 +1,9 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_slope_limiters()
-    @testset "Slope limiters" begin
+    return @testset "Slope limiters" begin
         # List of slope limiters
         slope_limiters = [
             het.koren,
@@ -50,14 +52,16 @@ function test_slope_limiters()
 end
 
 function test_stage_limiter()
-    @testset "Stage limiter" begin
+    return @testset "Stage limiter" begin
         index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
         config = (ncharge = 1, propellant = het.Xenon)
         min_ne = het.MIN_NUMBER_DENSITY
 
-        p = (; index, cache = (; nϵ = [-1.0]),
+        p = (;
+            index, cache = (; nϵ = [-1.0]),
             grid = (; cell_centers = [0.0]), min_Te = 1.0,
-            mi = het.Xenon.m, ncharge = 1,)
+            mi = het.Xenon.m, ncharge = 1,
+        )
         U = [-1.0, -1.0, -1.0, -1.0]
         het.stage_limiter!(U, p)
 
@@ -71,15 +75,11 @@ function test_stage_limiter()
 end
 
 function test_limiter_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         test_instances(het.SlopeLimiter, het.slope_limiters)
     end
 end
 
-function test_limiters()
-    @testset "Limiters" begin
-        test_slope_limiters()
-        test_stage_limiter()
-        test_limiter_serialization()
-    end
-end
+test_slope_limiters()
+test_stage_limiter()
+test_limiter_serialization()

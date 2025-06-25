@@ -7,7 +7,7 @@ het.num_anom_variables(::TestAnomModel) = 3
 struct NewInitialization <: het.InitialCondition end
 
 function test_sim_initialization()
-    @testset "Sim initialization" begin
+    return @testset "Sim initialization" begin
         domain = (0.0, 0.08)
         thruster = het.SPT_100
         config = het.Config(;
@@ -22,8 +22,9 @@ function test_sim_initialization()
             neutral_temperature_K = 100.0,
             ion_temperature_K = 300.0,
             initial_condition = het.DefaultInitialization(;
-                max_electron_temperature = 10.0),
-            anode_mass_flow_rate = 3e-6,
+                max_electron_temperature = 10.0
+            ),
+            anode_mass_flow_rate = 3.0e-6,
             discharge_voltage = 500.0,
         )
 
@@ -69,14 +70,14 @@ function test_sim_initialization()
 end
 
 function test_anom_initialization()
-    @testset "Anom initialization" begin
+    return @testset "Anom initialization" begin
         anom_model = het.NoAnom()
 
         config = het.Config(;
             thruster = het.SPT_100,
             domain = (0.0, 0.08),
             discharge_voltage = 300.0,
-            anode_mass_flow_rate = 5e-6,
+            anode_mass_flow_rate = 5.0e-6,
             wall_loss_model = het.WallSheath(het.BoronNitride, 0.15),
             anom_model,
         )
@@ -87,21 +88,18 @@ function test_anom_initialization()
 
         # Check that anomalous transport is initialized to a two-zone Bohm approximation instead of the prescribed NoAnom.
         sol = het.run_simulation(
-            config; ncells, dt = 0.0, duration = 0.0, sim_options...,)
+            config; ncells, dt = 0.0, duration = 0.0, sim_options...,
+        )
         @test initial_model(zeros(ncells + 2), sol.params, config) == sol.params.cache.νan
         @test anom_model(zeros(ncells + 2), sol.params, config) != sol.params.cache.νan
 
         # Check that after one iteration, the anomalous transport is the correct value
-        dt = 1e-8
+        dt = 1.0e-8
         sol = het.run_simulation(config; ncells, dt, duration = dt, sim_options...)
         @test initial_model(zeros(ncells + 2), sol.params, config) != sol.params.cache.νan
         @test anom_model(zeros(ncells + 2), sol.params, config) == sol.params.cache.νan
     end
 end
 
-function test_initialization()
-    @testset "Initialization" begin
-        test_sim_initialization()
-        test_anom_initialization()
-    end
-end
+test_sim_initialization()
+test_anom_initialization()

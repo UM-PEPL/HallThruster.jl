@@ -33,7 +33,7 @@ Average a `Solution` over time, starting at time `start_time`.
 Return a `Solution` object with a single frame containing the averaged simulation properties
 """
 function time_average(sol::Solution, start_time)
-	start_time = convert_to_float64(start_time, units(:s))
+    start_time = convert_to_float64(start_time, units(:s))
     start_frame = findfirst(>=(start_time), sol.t)
     return time_average(sol, start_frame)
 end
@@ -88,14 +88,14 @@ end
 Compute the thrust at a specific frame of a `Solution`.
 """
 function thrust(sol::Solution, frame::Integer)
-	mi = sol.params.mi
-	f = sol.frames[frame]
+    mi = sol.params.mi
+    f = sol.frames[frame]
     left_area = f.channel_area[begin]
     right_area = f.channel_area[end]
     thrust = 0.0
     for Z in 1:(sol.config.ncharge)
-		thrust += right_area * mi * f.niui[Z, end]^2 / f.ni[Z, end]
-		thrust -= left_area * mi * f.niui[Z, begin]^2 / f.ni[Z, begin]
+        thrust += right_area * mi * f.niui[Z, end]^2 / f.ni[Z, end]
+        thrust -= left_area * mi * f.niui[Z, begin]^2 / f.ni[Z, begin]
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
@@ -150,7 +150,7 @@ Compute the voltage/acceleration efficiency at a specific frame of a `Solution`.
 function voltage_eff(sol::Solution, frame::Integer)
     Vd = sol.config.discharge_voltage
     mi = sol.config.propellant.m
-	ui = sol.frames[frame].niui[1, end] / sol.frames[frame].ni[1, end]
+    ui = sol.frames[frame].niui[1, end] / sol.frames[frame].ni[1, end]
     voltage_eff = 0.5 * mi * ui^2 / e / Vd
     return voltage_eff
 end
@@ -175,8 +175,10 @@ end
     $(TYPEDSIGNATURES)
 Compute the divergence efficiency at each frame of a `Solution`.
 """
-divergence_eff(sol::Solution) = [divergence_eff(sol, frame)
-                                 for frame in eachindex(sol.frames)]
+divergence_eff(sol::Solution) = [
+    divergence_eff(sol, frame)
+        for frame in eachindex(sol.frames)
+]
 
 """
     $(TYPEDSIGNATURES)
@@ -184,10 +186,10 @@ Compute the ion current at a specific frame of a `Solution`.
 """
 function ion_current(sol::Solution, frame)
     Ii = 0.0
-	f = sol.frames[frame]
+    f = sol.frames[frame]
     right_area = sol.frames[frame].channel_area[end]
     for Z in 1:(sol.config.ncharge)
-		Ii += Z * e * f.niui[Z,end] * f.channel_area[end]
+        Ii += Z * e * f.niui[Z, end] * f.channel_area[end]
     end
 
     return Ii
@@ -204,13 +206,13 @@ ion_current(sol::Solution) = [ion_current(sol, frame) for frame in eachindex(sol
 Compute the electron current at a specific frame of a `Solution`.
 """
 electron_current(sol::Solution, frame) = discharge_current(sol, frame) -
-                                         ion_current(sol, frame)
+    ion_current(sol, frame)
 """
     $(TYPEDSIGNATURES)
 Compute the electron current at each frame of a `Solution`.
 """
 function electron_current(sol::Solution)
-    [electron_current(sol, frame) for frame in eachindex(sol.frames)]
+    return [electron_current(sol, frame) for frame in eachindex(sol.frames)]
 end
 
 """
@@ -231,13 +233,13 @@ Compute the mass utilization efficiency at a specific frame of a `Solution`.
 """
 function mass_eff(sol::Solution, frame)
     mass_eff = 0.0
-	f = sol.frames[frame]
+    f = sol.frames[frame]
     right_area = f.channel_area[end]
-	mi = sol.params.mi
+    mi = sol.params.mi
     mdot = sol.config.anode_mass_flow_rate
 
     for Z in 1:sol.config.ncharge
-		mass_eff += mi * f.niui[Z, end] * right_area / mdot
+        mass_eff += mi * f.niui[Z, end] * right_area / mdot
     end
 
     return mass_eff
@@ -248,4 +250,3 @@ end
 Compute the mass utilization efficiency at each frame of a `Solution`.
 """
 mass_eff(sol::Solution) = [mass_eff(sol, frame) for frame in eachindex(sol.frames)]
-

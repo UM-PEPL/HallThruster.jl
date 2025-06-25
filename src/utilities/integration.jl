@@ -1,6 +1,6 @@
 function cumtrapz(x, y, y0 = zero(typeof(y[1] * x[1])))
     int = zeros(typeof(y[1] * x[1]), length(x))
-    cumtrapz!(int, x, y, y0)
+    return cumtrapz!(int, x, y, y0)
 end
 
 function cumtrapz!(cache, x, y, y0 = zero(typeof(y[1] * x[1])))

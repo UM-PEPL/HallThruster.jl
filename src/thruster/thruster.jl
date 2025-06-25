@@ -17,7 +17,7 @@ $(TYPEDFIELDS)
     """
     The thruster geometry
     """
-    geometry::Geometry1D   
+    geometry::Geometry1D
     """
     Contains a magnetic field at discrete axial locations
     """

@@ -1,7 +1,9 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_scheme_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         scheme1 = het.HyperbolicScheme()
         test_roundtrip(het.HyperbolicScheme, scheme1)
 
@@ -22,7 +24,7 @@ function test_scheme_serialization()
 end
 
 function test_schemes()
-    @testset "Hyperbolic schemes" begin
+    return @testset "Hyperbolic schemes" begin
         test_scheme_serialization()
     end
 end

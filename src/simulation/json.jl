@@ -19,7 +19,7 @@ function run_simulation(json_file::String; restart::String = "")
         throw(ArgumentError("$json_file is not a valid JSON file"))
     end
 
-    obj = JSON3.read(read(json_file), allow_inf=true)
+    obj = JSON3.read(read(json_file), allow_inf = true)
 
     # Read config and sim params from file
     if haskey(obj, "input")
@@ -33,7 +33,7 @@ function run_simulation(json_file::String; restart::String = "")
 
     postprocess::Union{Postprocess, Nothing} = nothing
     if haskey(input, "postprocess") && haskey(input.postprocess, "output_file") &&
-       !isempty(input.postprocess.output_file)
+            !isempty(input.postprocess.output_file)
         postprocess = deserialize(Postprocess, input.postprocess)
     end
 
@@ -77,7 +77,7 @@ function frame_dict(sol::Solution, frame::Integer)
     d["E"] = -f.∇ϕ
     d["Tev"] = f.Tev
     d["pe"] = f.pe
-	d["grad_pe"] = f.∇pe
+    d["grad_pe"] = f.∇pe
     d["nu_en"] = f.νen
     d["nu_ei"] = f.νei
     d["nu_anom"] = f.νan
@@ -94,7 +94,8 @@ and any requested outputs.
 This function is used to convert a `Solution` to a format suitable for writing to an output file.
 """
 function serialize_sol(
-        sol::Solution; average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,)
+        sol::Solution; average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,
+    )
     output = OrderedDict{String, Any}()
     output["retcode"] = string(sol.retcode)
     output["error"] = sol.error
@@ -136,7 +137,8 @@ Write `sol` to `file`, if `file` is a JSON file.
 """
 function write_to_json(
         file::String, sol::Solution;
-        average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,)
+        average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,
+    )
 
     ext = splitext(file)[2]
     if lowercase(ext) != ".json"
@@ -146,7 +148,7 @@ function write_to_json(
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
     open(file, "w") do f
-        JSON3.write(f, output, allow_inf=true)
+        JSON3.write(f, output, allow_inf = true)
     end
 
     return nothing

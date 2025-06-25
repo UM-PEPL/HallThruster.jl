@@ -29,12 +29,12 @@ const koren = SlopeLimiter(__koren)
 
 function stage_limiter!(U, params)
     (; grid, index, min_Te, cache, mi, ncharge) = params
-    stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, mi)
+    return stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, mi)
 end
 
 function stage_limiter!(U, z_cell, nϵ, index, min_Te, ncharge, mi)
     min_density = MIN_NUMBER_DENSITY * mi
-    @inbounds for i in eachindex(z_cell)
+    return @inbounds for i in eachindex(z_cell)
         U[index.ρn, i] = max(U[index.ρn, i], min_density)
 
         for Z in 1:ncharge

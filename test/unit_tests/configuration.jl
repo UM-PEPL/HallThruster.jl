@@ -1,12 +1,14 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_config_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         cfg = het.Config(;
             thruster = het.SPT_100,
             discharge_voltage = 300.0,
             domain = (0.0, 0.8),
-            anode_mass_flow_rate = 5e-6,
+            anode_mass_flow_rate = 5.0e-6,
         )
 
         d = het.serialize(cfg)
@@ -21,7 +23,7 @@ function test_config_serialization()
             :thruster => het.serialize(het.SPT_100),
             :discharge_voltage => 800.0,
             :domain => (0.0, 0.4),
-            :anode_mass_flow_rate => 9e-6,
+            :anode_mass_flow_rate => 9.0e-6,
             :wall_loss_model => OD(
                 :type => "NoWallLosses"
             ),
@@ -33,11 +35,11 @@ end
 function test_configuration()
     test_config_serialization()
 
-    @testset "Configuration" begin
+    return @testset "Configuration" begin
         common_opts = (;
             ncharge = 3,
             discharge_voltage = 300,
-            anode_mass_flow_rate = 5e-6,
+            anode_mass_flow_rate = 5.0e-6,
             thruster = het.SPT_100,
             domain = (0.0, 5.0e-2),
         )
@@ -60,7 +62,8 @@ function test_configuration()
         )
 
         @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature_K,)
+            species[1], config.neutral_velocity, config.neutral_temperature_K,
+        )
         @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
         @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
         @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
@@ -72,23 +75,28 @@ function test_configuration()
 
         # load collisions and reactions
         ionization_reactions = het.load_ionization_reactions(
-            config.ionization_model, unique(species),)
+            config.ionization_model, unique(species),
+        )
         ionization_reactant_indices = het.reactant_indices(
-            ionization_reactions, species_range_dict,)
+            ionization_reactions, species_range_dict,
+        )
         @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
 
         ionization_product_indices = het.product_indices(
-            ionization_reactions, species_range_dict,)
+            ionization_reactions, species_range_dict,
+        )
         @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
         excitation_reactions = het.load_excitation_reactions(
-            config.excitation_model, unique(species),)
+            config.excitation_model, unique(species),
+        )
         excitation_reactant_indices = het.reactant_indices(
-            excitation_reactions, species_range_dict,)
+            excitation_reactions, species_range_dict,
+        )
         @test excitation_reactant_indices == [1]
 
         # Test that initialization and configuration works properly when background neutrals are included
-        pB_Torr = 5e-6
+        pB_Torr = 5.0e-6
         TB_K = 120.0
 
         config_bg = het.Config(;
@@ -108,7 +116,8 @@ function test_configuration()
         )
 
         @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature_K,)
+            species[1], config.neutral_velocity, config.neutral_temperature_K,
+        )
         @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
         @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
         @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
@@ -120,19 +129,27 @@ function test_configuration()
 
         # load collisions and reactions
         ionization_reactions = het.load_ionization_reactions(
-            config.ionization_model, unique(species),)
+            config.ionization_model, unique(species),
+        )
         ionization_reactant_indices = het.reactant_indices(
-            ionization_reactions, species_range_dict,)
+            ionization_reactions, species_range_dict,
+        )
         @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
 
         ionization_product_indices = het.product_indices(
-            ionization_reactions, species_range_dict,)
+            ionization_reactions, species_range_dict,
+        )
         @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
 
         excitation_reactions = het.load_excitation_reactions(
-            config.excitation_model, unique(species),)
+            config.excitation_model, unique(species),
+        )
         excitation_reactant_indices = het.reactant_indices(
-            excitation_reactions, species_range_dict,)
+            excitation_reactions, species_range_dict,
+        )
         @test excitation_reactant_indices == [1]
     end
 end
+
+test_config_serialization()
+test_configuration()

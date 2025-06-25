@@ -28,7 +28,8 @@ function load_elastic_collisions(model::Symbol, species; directories = String[],
                 filename = rate_coeff_filename(reactant, product, collision_type, folder)
                 if ispath(filename)
                     _, rate_coeff = load_rate_coeffs(
-                        reactant, product, collision_type, folder,)
+                        reactant, product, collision_type, folder,
+                    )
                     reaction = HallThruster.ElasticCollision(reactant, rate_coeff)
                     push!(reactions, reaction)
                     found = true

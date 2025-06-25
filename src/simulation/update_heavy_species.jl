@@ -8,7 +8,8 @@ function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_c
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
     apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,)
+        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
+    )
 
     apply_reactions!(dU, U, params)
 
@@ -32,13 +33,13 @@ function update_timestep!(cache, dU, CFL, ncells)
     )
 
     @. @views dU[:, 1] = 0.0
-    @. @views dU[:, end] = 0.0
+    return @. @views dU[:, end] = 0.0
 end
 
 function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
     (; dA_dz, channel_area) = cache
     ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
+    return @inbounds for i in 2:(ncells - 1)
         left = left_edge(i)
         right = right_edge(i)
 
@@ -53,9 +54,9 @@ function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
         for Z in 1:ncharge
             # Ion fluxes
             # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
-            ρi                   = U[index.ρi[Z], i]
-            ρiui                 = U[index.ρiui[Z], i]
-            dU[index.ρi[Z], i]   = (F[index.ρi[Z], left] - F[index.ρi[Z], right]) / Δz - ρiui * dlnA_dz
+            ρi = U[index.ρi[Z], i]
+            ρiui = U[index.ρiui[Z], i]
+            dU[index.ρi[Z], i] = (F[index.ρi[Z], left] - F[index.ρi[Z], right]) / Δz - ρiui * dlnA_dz
             dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz - ρiui^2 / ρi * dlnA_dz
         end
     end
@@ -63,15 +64,17 @@ end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
 function integrate_heavy_species!(
-        U, params, config::Config, dt, apply_boundary_conditions = true,)
+        U, params, config::Config, dt, apply_boundary_conditions = true,
+    )
     (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
     sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
 
-    integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
+    return integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
 end
 
 function integrate_heavy_species!(
-        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,)
+        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,
+    )
     (; k, u1) = params.cache
     # First step of SSPRK22
     iterate_heavy_species!(k, U, params, scheme, sources; apply_boundary_conditions)
@@ -81,7 +84,7 @@ function integrate_heavy_species!(
     # Second step of SSPRK22
     iterate_heavy_species!(k, u1, params, scheme, sources; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params)
+    return stage_limiter!(U, params)
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
@@ -111,7 +114,7 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
         Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
     end
 
-    @. ϵ = nϵ / ne + landmark * K
+    return @. ϵ = nϵ / ne + landmark * K
 end
 
 function update_heavy_species!(U, params)
@@ -121,6 +124,7 @@ function update_heavy_species!(U, params)
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
 
-    update_heavy_species!(
-        U, cache, index, grid.cell_centers, ncharge, mi, landmark,)
+    return update_heavy_species!(
+        U, cache, index, grid.cell_centers, ncharge, mi, landmark,
+    )
 end

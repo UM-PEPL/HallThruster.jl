@@ -9,7 +9,7 @@ end
 
 (f::FluxFunction)(args...; kwargs...) = f.flux(args...; kwargs...)
 
-# declare flux functions 
+# declare flux functions
 function __rusanov end
 function __global_lax_friedrichs end
 function __HLLE end
@@ -53,74 +53,80 @@ end
 for NUM_CONSERVATIVE in 1:3
     eval(
         quote
-        @inbounds @fastmath function __rusanov(
-                UL::NTuple{$NUM_CONSERVATIVE, T},
-                UR::NTuple{$NUM_CONSERVATIVE, T},
-                fluid,
-                args...,
-        ) where {T}
-            uL = velocity(UL, fluid)
-            uR = velocity(UR, fluid)
-            aL = sound_speed(UL, fluid)
-            aR = sound_speed(UL, fluid)
+            @inbounds @fastmath function __rusanov(
+                    UL::NTuple{$NUM_CONSERVATIVE, T},
+                    UR::NTuple{$NUM_CONSERVATIVE, T},
+                    fluid,
+                    args...,
+                ) where {T}
+                uL = velocity(UL, fluid)
+                uR = velocity(UR, fluid)
+                aL = sound_speed(UL, fluid)
+                aR = sound_speed(UL, fluid)
 
-            sL_max = max(abs(uL - aL), abs(uL + aL), abs(uL))
-            sR_max = max(abs(uR - aR), abs(uR + aR), abs(uR))
+                sL_max = max(abs(uL - aL), abs(uL + aL), abs(uL))
+                sR_max = max(abs(uR - aR), abs(uR + aR), abs(uR))
 
-            smax = max(sL_max, sR_max)
+                smax = max(sL_max, sR_max)
 
-            FL = flux(UL, fluid)
-            FR = flux(UR, fluid)
+                FL = flux(UL, fluid)
+                FR = flux(UR, fluid)
 
-            return @NTuple [0.5 * ((FL[j] + FR[j]) - smax * (UR[j] - UL[j]))
-                            for
-                            j in 1:($(NUM_CONSERVATIVE))]
-        end
+                return @NTuple [
+                    0.5 * ((FL[j] + FR[j]) - smax * (UR[j] - UL[j]))
+                        for
+                        j in 1:($(NUM_CONSERVATIVE))
+                ]
+            end
 
-        @fastmath function __HLLE(
-                UL::NTuple{$NUM_CONSERVATIVE, T},
-                UR::NTuple{$NUM_CONSERVATIVE, T},
-                fluid,
-                args...,
-        ) where {T}
-            uL = velocity(UL, fluid)
-            uR = velocity(UR, fluid)
-            aL = sound_speed(UL, fluid)
-            aR = sound_speed(UL, fluid)
+            @fastmath function __HLLE(
+                    UL::NTuple{$NUM_CONSERVATIVE, T},
+                    UR::NTuple{$NUM_CONSERVATIVE, T},
+                    fluid,
+                    args...,
+                ) where {T}
+                uL = velocity(UL, fluid)
+                uR = velocity(UR, fluid)
+                aL = sound_speed(UL, fluid)
+                aR = sound_speed(UL, fluid)
 
-            sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
-            sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
+                sL_min, sL_max = min(0, uL - aL), max(0, uL + aL)
+                sR_min, sR_max = min(0, uR - aR), max(0, uR + aR)
 
-            smin = min(sL_min, sR_min)
-            smax = max(sL_max, sR_max)
+                smin = min(sL_min, sR_min)
+                smax = max(sL_max, sR_max)
 
-            FL = flux(UL, fluid)
-            FR = flux(UR, fluid)
+                FL = flux(UL, fluid)
+                FR = flux(UR, fluid)
 
-            return @NTuple[0.5 * (FL[j] + FR[j]) -
-                           0.5 * (smax + smin) / (smax - smin) * (FR[j] - FL[j]) +
-                           smax * smin / (smax - smin) * (UR[j] - UL[j])
-                           for
-                           j in 1:($(NUM_CONSERVATIVE))]
-        end
+                return @NTuple[
+                    0.5 * (FL[j] + FR[j]) -
+                        0.5 * (smax + smin) / (smax - smin) * (FR[j] - FL[j]) +
+                        smax * smin / (smax - smin) * (UR[j] - UL[j])
+                        for
+                        j in 1:($(NUM_CONSERVATIVE))
+                ]
+            end
 
-        @fastmath function __global_lax_friedrichs(
-                UL::NTuple{$NUM_CONSERVATIVE, T},
-                UR::NTuple{$NUM_CONSERVATIVE, T},
-                fluid,
-                max_wave_speed = 0.0,
-                args...,
-        ) where {T}
-            uL = velocity(UL, fluid)
-            uR = velocity(UR, fluid)
+            @fastmath function __global_lax_friedrichs(
+                    UL::NTuple{$NUM_CONSERVATIVE, T},
+                    UR::NTuple{$NUM_CONSERVATIVE, T},
+                    fluid,
+                    max_wave_speed = 0.0,
+                    args...,
+                ) where {T}
+                uL = velocity(UL, fluid)
+                uR = velocity(UR, fluid)
 
-            FL = flux(UL, fluid)
-            FR = flux(UR, fluid)
+                FL = flux(UL, fluid)
+                FR = flux(UR, fluid)
 
-            return @NTuple[0.5 * (FL[j] + FR[j]) + 0.5 * max_wave_speed * (UL[j] - UR[j])
-                           for
-                           j in 1:($(NUM_CONSERVATIVE))]
-        end
-    end,
+                return @NTuple[
+                    0.5 * (FL[j] + FR[j]) + 0.5 * max_wave_speed * (UL[j] - UR[j])
+                        for
+                        j in 1:($(NUM_CONSERVATIVE))
+                ]
+            end
+        end,
     )
 end

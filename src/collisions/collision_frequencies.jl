@@ -3,7 +3,8 @@
 Effective frequency of electron scattering caused by collisions with neutrals
 """
 @inline function freq_electron_neutral(
-        collisions::Vector{ElasticCollision}, nn::Number, Tev::Number,)
+        collisions::Vector{ElasticCollision}, nn::Number, Tev::Number,
+    )
     νen = 0.0
     @inbounds for c in collisions
         νen += rate_coeff(c, 3 / 2 * Tev) * nn
@@ -13,8 +14,9 @@ end
 
 function freq_electron_neutral!(
         νen::Vector{T}, collisions::Vector{ElasticCollision},
-        nn::Vector{T}, Tev::Vector{T},) where {T <: Number}
-    @inbounds for i in eachindex(νen)
+        nn::Vector{T}, Tev::Vector{T},
+    ) where {T <: Number}
+    return @inbounds for i in eachindex(νen)
         νen[i] = freq_electron_neutral(collisions, nn[i], Tev[i])
     end
 end
@@ -28,8 +30,9 @@ Effective frequency at which electrons are scattered due to collisions with ions
 end
 
 function freq_electron_ion!(
-        νei::Vector{T}, ne::Vector{T}, Tev::Vector{T}, Z::Vector{T},) where {T <: Number}
-    @inbounds for i in eachindex(νei)
+        νei::Vector{T}, ne::Vector{T}, Tev::Vector{T}, Z::Vector{T},
+    ) where {T <: Number}
+    return @inbounds for i in eachindex(νei)
         νei[i] = freq_electron_ion(ne[i], Tev[i], Z[i])
     end
 end
@@ -40,7 +43,8 @@ Update the classical collision frequency.
 """
 function freq_electron_classical!(
         νc::Vector{T}, νen::Vector{T}, νei::Vector{T},
-        νiz::Vector{T}, νex::Vector{T}, landmark::Bool,) where {T}
+        νiz::Vector{T}, νex::Vector{T}, landmark::Bool,
+    ) where {T}
     @inbounds for i in eachindex(νc)
         νc[i] = νen[i] + νei[i]
     end
@@ -49,7 +53,7 @@ function freq_electron_classical!(
         return
     end
 
-    @inbounds for i in eachindex(νc)
+    return @inbounds for i in eachindex(νc)
         νc[i] += νiz[i] + νex[i]
     end
 end
@@ -62,9 +66,9 @@ charge state Z, electron number density in m^-3, and electron temperature in eV.
 """
 @inline function coulomb_logarithm(ne, Tev, Z = 1)
     if Tev < 10 * Z^2
-        ln_Λ = 23 - 0.5 * log(1e-6 * ne * Z^2 / Tev^3)
+        ln_Λ = 23 - 0.5 * log(1.0e-6 * ne * Z^2 / Tev^3)
     else
-        ln_Λ = 24 - 0.5 * log(1e-6 * ne / Tev^2)
+        ln_Λ = 24 - 0.5 * log(1.0e-6 * ne / Tev^2)
     end
 
     return ln_Λ

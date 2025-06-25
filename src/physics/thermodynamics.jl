@@ -21,9 +21,11 @@ end
 @inline pressure(U::NTuple{1, T}, f::Fluid) where {T} = U[1] * R(f) * f.T
 @inline pressure(U::NTuple{2, T}, f::Fluid) where {T} = U[1] * R(f) * f.T
 @inline pressure(U::NTuple{3, T}, f::Fluid) where {T} = (γ(f) - 1) *
-                                                        (U[3] - 0.5 * U[2]^2 / U[1])
+    (U[3] - 0.5 * U[2]^2 / U[1])
 
 @inline sound_speed(U::NTuple{1, T}, f::Fluid) where {T} = f.a
 @inline sound_speed(U::NTuple{2, T}, f::Fluid) where {T} = f.a
-@inline sound_speed(U::NTuple{3, T}, f::Fluid) where {T} = sqrt(γ(f) * R(f) *
-                                                                temperature(U, f))
+@inline sound_speed(U::NTuple{3, T}, f::Fluid) where {T} = sqrt(
+    γ(f) * R(f) *
+        temperature(U, f)
+)

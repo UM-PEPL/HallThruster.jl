@@ -12,13 +12,16 @@ function left_boundary_state!(bc_state, U, params)
 
     ingestion_density = nn_B * un_B / un * neutral_ingestion_multiplier
 
-    left_boundary_state!(bc_state, U, index, ncharge, params.cache, mi,
-        Ti, un, ingestion_density, mdot_a, anode_bc,)
+    return left_boundary_state!(
+        bc_state, U, index, ncharge, params.cache, mi,
+        Ti, un, ingestion_density, mdot_a, anode_bc,
+    )
 end
 
 function left_boundary_state!(
         bc_state, U, index, ncharge, cache, mi, Ti, un,
-        ingestion_density, mdot_a, anode_bc,)
+        ingestion_density, mdot_a, anode_bc,
+    )
     if anode_bc == :sheath
         Vs = cache.Vs[]
         # Compute sheath potential
@@ -43,7 +46,7 @@ function left_boundary_state!(
     # Add ingested mass flow rate at anode
     bc_state[index.ρn] += ingestion_density
 
-    @inbounds for Z in 1:ncharge
+    return @inbounds for Z in 1:ncharge
         interior_density = U[index.ρi[Z], 2]
         interior_flux = U[index.ρiui[Z], 2]
         interior_velocity = interior_flux / interior_density
@@ -86,9 +89,9 @@ function right_boundary_state!(bc_state, U, params)
     # Use Neumann boundary conditions for all neutral fluids
     bc_state[index.ρn] = U[index.ρn, end - 1]
 
-    @inbounds for Z in 1:ncharge
-        boundary_density        = U[index.ρi[Z], end - 1]
-        bc_state[index.ρi[Z]]   = boundary_density        # Neumann BC for ion density at right boundary
+    return @inbounds for Z in 1:ncharge
+        boundary_density = U[index.ρi[Z], end - 1]
+        bc_state[index.ρi[Z]] = boundary_density        # Neumann BC for ion density at right boundary
         bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
     end
 end

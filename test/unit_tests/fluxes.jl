@@ -1,7 +1,9 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_flux_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         test_instances(het.FluxFunction, het.flux_functions)
     end
 end
@@ -39,9 +41,9 @@ function test_flux_computation()
 
         #global_lax_friedrichs
         @test het.global_lax_friedrichs(continuity_state, continuity...) ==
-              het.flux(continuity...)
+            het.flux(continuity...)
         @test het.global_lax_friedrichs(isothermal_state, isothermal...) ==
-              het.flux(isothermal...)
+            het.flux(isothermal...)
         @test het.global_lax_friedrichs(euler_state, euler...) == het.flux(euler...)
 
         # HLLE flux
@@ -50,7 +52,7 @@ function test_flux_computation()
         @test het.HLLE(euler_state, euler...) == het.flux(euler...)
     end
 
-    @testset "Reconstruction" begin
+    return @testset "Reconstruction" begin
         # check that if the states actually lie along a line, we correctly
         # reproduce the linear values at the inteface
         euler_state_0 = collect(euler_state)
@@ -63,14 +65,19 @@ function test_flux_computation()
 
         index = (ρi = [1], ρiui = [2])
         scheme = het.HyperbolicScheme(het.FluxFunction(identity), het.no_limiter, false)
-        config = het.Config(; discharge_voltage = 300.0, thruster = het.SPT_100,
+        config = het.Config(;
+            discharge_voltage = 300.0, thruster = het.SPT_100,
             anode_mass_flow_rate = 1.0e-6,
-            domain = (0, 1), scheme, ncharge = 1,)
-        params = (; index, het.params_from_config(config)...,
-            is_velocity_index = [false, true, false],)
+            domain = (0, 1), scheme, ncharge = 1,
+        )
+        params = (;
+            index, het.params_from_config(config)...,
+            is_velocity_index = [false, true, false],
+        )
 
         het.compute_edge_states!(
-            edge_L, edge_R, U_euler, params, scheme.limiter, scheme.reconstruct,)
+            edge_L, edge_R, U_euler, params, scheme.limiter, scheme.reconstruct,
+        )
         @test edge_L[:, 1] == euler_state_L
         @test edge_R[:, end] == euler_state_R
         @test edge_L[:, 2] == euler_state_0
@@ -78,7 +85,8 @@ function test_flux_computation()
 
         scheme = het.HyperbolicScheme(het.FluxFunction(identity), het.no_limiter, true)
         het.compute_edge_states!(
-            edge_L, edge_R, U_euler, params, scheme.limiter, scheme.reconstruct,)
+            edge_L, edge_R, U_euler, params, scheme.limiter, scheme.reconstruct,
+        )
         @test edge_L[:, 1] == euler_state_L
         @test edge_R[:, end] == euler_state_R
 
@@ -89,7 +97,8 @@ function test_flux_computation()
         for limiter in het.slope_limiters
             scheme = het.HyperbolicScheme(het.FluxFunction(identity), limiter, true)
             het.compute_edge_states!(
-                edge_L, edge_R, U_euler_2, params, scheme.limiter, scheme.reconstruct,)
+                edge_L, edge_R, U_euler_2, params, scheme.limiter, scheme.reconstruct,
+            )
             @test edge_L[:, 1] == euler_state_L2
             @test edge_R[:, end] == euler_state_R
             @test edge_L[:, 2] == euler_state_0
@@ -98,9 +107,5 @@ function test_flux_computation()
     end
 end
 
-function test_fluxes()
-    @testset "Fluxes" begin
-        test_flux_serialization()
-        test_flux_computation()
-    end
-end
+test_flux_serialization()
+test_flux_computation()

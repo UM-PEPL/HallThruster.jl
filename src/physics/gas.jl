@@ -8,41 +8,41 @@ A chemical element in the gaseous state. Container for element properties used i
 $(TYPEDFIELDS)
 """
 struct Gas
-	"""Full name of gas (i.e. Xenon)"""
-	name::String
-	"""Short name/symbol (i.e. Xe for Xenon)"""
-	short_name::String
-	"""Specific heat ratio / adiabatic index"""
-	γ::Float64
-	"""Molar mass (grams/mol) or atomic mass units"""
-	M::Float64
-	"""Mass of atom in kg"""
-	m::Float64
-	"""Specific heat at constant pressure"""
-	cp::Float64
-	"""Specific heat at constant volume"""
-	cv::Float64
-	"""Gas constant"""
-	R::Float64
-	@doc"""
-		Gas(name, short_name; γ, M) -> Gas
-	Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
-	Other gas properties, including gas constant, specific heats at constant pressure/volume, and
-	mass of atom/molecule in kg will are then computed.
+    """Full name of gas (i.e. Xenon)"""
+    name::String
+    """Short name/symbol (i.e. Xe for Xenon)"""
+    short_name::String
+    """Specific heat ratio / adiabatic index"""
+    γ::Float64
+    """Molar mass (grams/mol) or atomic mass units"""
+    M::Float64
+    """Mass of atom in kg"""
+    m::Float64
+    """Specific heat at constant pressure"""
+    cp::Float64
+    """Specific heat at constant volume"""
+    cv::Float64
+    """Gas constant"""
+    R::Float64
+    @doc"""
+    	Gas(name, short_name; γ, M) -> Gas
+    Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
+    Other gas properties, including gas constant, specific heats at constant pressure/volume, and
+    mass of atom/molecule in kg will are then computed.
+    
+    ```jldoctest;setup = :(using HallThruster: Gas)
+    julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
+    Xenon
+    ```
+    """ ->
+    function Gas(name, short_name; γ, M)::Gas
+        R = R0 / M
+        m = M / NA
+        cp = γ / (γ - 1) * R
+        cv = cp - R
 
-	```jldoctest;setup = :(using HallThruster: Gas)
-	julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
-	Xenon
-	```
-	"""->
-	function Gas(name, short_name; γ, M)::Gas
-		R = R0 / M
-		m = M / NA
-		cp = γ / (γ - 1) * R
-		cv = cp - R
-
-		return new(name, short_name, γ, M, m, cp, cv, R)
-	end
+        return new(name, short_name, γ, M, m, cp, cv, R)
+    end
 end
 
 Base.show(io::IO, g::Gas) = print(io, g.name)
@@ -71,24 +71,24 @@ Xe3+
 ```
 """
 struct Species
-	"""The gas that forms the base of the species"""
+    """The gas that forms the base of the species"""
     element::Gas
-	"""The charge state of the species, i.e. Z = 1 for a singly-charged species"""
+    """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
     Z::Int
-	"""The symbol of the species, i.e. `Symbol(Xe+)` for `Species(Xenon, 1)`"""
+    """The symbol of the species, i.e. `Symbol(Xe+)` for `Species(Xenon, 1)`"""
     symbol::Symbol
-	@doc"""
-		Species(element::Gas, Z::Int) -> Species
-	Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
-
-	```julia
-	julia> Xenon(0) == Species(Xenon, 0)
-	true
-	```
-	"""->
-	function Species(element::Gas, Z::Int) :: Species
-		return new(element, Z, Symbol(species_string(element, Z)))
-	end
+    @doc"""
+    	Species(element::Gas, Z::Int) -> Species
+    Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
+    
+    ```julia
+    julia> Xenon(0) == Species(Xenon, 0)
+    true
+    ```
+    """ ->
+    function Species(element::Gas, Z::Int)::Species
+        return new(element, Z, Symbol(species_string(element, Z)))
+    end
 end
 
 Base.show(io::IO, s::Species) = print(io, string(s))
@@ -124,7 +124,7 @@ const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
 	MolecularNitrogen::Gas
 Molecular nitrogen gas
 """
-const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7/5, M = 28.0134)
+const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7 / 5, M = 28.0134)
 
 """
     Bismuth::Gas

@@ -19,7 +19,7 @@ function HallThruster.units(s::Symbol)
 end
 
 function HallThruster.convert_to_float64(quantity::Quantity, unit)
-    uconvert(unit, quantity) |> ustrip |> Float64
+    return uconvert(unit, quantity) |> ustrip |> Float64
 end
 
 end

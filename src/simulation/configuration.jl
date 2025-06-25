@@ -5,181 +5,181 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 ## Mandatory Fields
 $(TYPEDFIELDS)
 """
-struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_N, S_IC, S_IM, S_E,}
-	"""
-	The thruster to simulate. See [Thrusters](@ref) for more information
-	"""
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_N, S_IC, S_IM, S_E}
+    """
+    The thruster to simulate. See [Thrusters](@ref) for more information
+    """
     thruster::Thruster
-	"""
-	The simulation domain, given as (left, right). Dimensions are in meters.
-	"""
+    """
+    The simulation domain, given as (left, right). Dimensions are in meters.
+    """
     domain::Tuple{Float64, Float64}
-	"""
-	The potential difference between anode and cathode, in V. Used to set the left boundary condition for electrostatic potential.
-	"""
+    """
+    The potential difference between anode and cathode, in V. Used to set the left boundary condition for electrostatic potential.
+    """
     discharge_voltage::Float64
-	"""
-	The mass flow rate of neutral atoms through the anode, in kg/s.
-
-	---
-	# Optional fields
-	---
-	"""
+    """
+    The mass flow rate of neutral atoms through the anode, in kg/s.
+    
+    ---
+    # Optional fields
+    ---
+    """
     anode_mass_flow_rate::Float64
-	"""
-	Maximum ion charge state. **Default:** 1.
-	"""
+    """
+    Maximum ion charge state. **Default:** 1.
+    """
     ncharge::Int
-	"""
-	A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
-	"""
+    """
+    A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
+    """
     propellant::Gas
-	"""
-	The potential at the right boundary of the simulation. **Default:** `0`
-	"""
+    """
+    The potential at the right boundary of the simulation. **Default:** `0`
+    """
     cathode_coupling_voltage::Float64
-	"""
-	Can be either `:sheath` or `:dirichlet`. If `:sheath`, electron temperature has a Neumann boundary condition at the anode and a self-consistent anode sheath potential is computed. If `:dirichlet`, electron temperature at anode is set to `anode_Tev` and no sheath potential is modeled. **Default:** `:sheath`.
-	"""	
+    """
+    Can be either `:sheath` or `:dirichlet`. If `:sheath`, electron temperature has a Neumann boundary condition at the anode and a self-consistent anode sheath potential is computed. If `:dirichlet`, electron temperature at anode is set to `anode_Tev` and no sheath potential is modeled. **Default:** `:sheath`.
+    """
     anode_boundary_condition::Symbol
-	"""
-	Electron temperature at left boundary (anode) if `anode_boundary_condition == :sheath`. **Default:** 2.0.
-	"""
+    """
+    Electron temperature at left boundary (anode) if `anode_boundary_condition == :sheath`. **Default:** 2.0.
+    """
     anode_Tev::Float64
-	"""
-	Electron temperature at right boundary (cathode). **Default:** 2.0
-	"""
+    """
+    Electron temperature at right boundary (cathode). **Default:** 2.0
+    """
     cathode_Tev::Float64
-	"""
-	Model for computing the anomalous collision frequency. See [Anomalous Transport](../reference/anomalous_transport.md) for more info. **Default:** `TwoZoneBohm(1/160, 1/16)`.
-	"""
+    """
+    Model for computing the anomalous collision frequency. See [Anomalous Transport](../reference/anomalous_transport.md) for more info. **Default:** `TwoZoneBohm(1/160, 1/16)`.
+    """
     anom_model::A
-	"""
-	How radial losses due to sheaths are computed. Other wall models are described on the [Wall Loss Models](wall_loss_models.md) page. **Default:** `WallSheath(BNSiO2, 1.0)`.
-	"""
+    """
+    How radial losses due to sheaths are computed. Other wall models are described on the [Wall Loss Models](wall_loss_models.md) page. **Default:** `WallSheath(BNSiO2, 1.0)`.
+    """
     wall_loss_model::W
-	"""
-	Model for the cross-field electron thermal conductivity. See [Electron Thermal Conductivity](../reference/electron_thermal_conductivity.md) for more. **Default:** `Mitchner()`
-	"""
+    """
+    Model for the cross-field electron thermal conductivity. See [Electron Thermal Conductivity](../reference/electron_thermal_conductivity.md) for more. **Default:** `Mitchner()`
+    """
     conductivity_model::TC
-	"""
-	Whether to include electron-ion collisions. See [Collisions and Reactions](@ref) for more. **Default:** `true`.
-	"""
+    """
+    Whether to include electron-ion collisions. See [Collisions and Reactions](@ref) for more. **Default:** `true`.
+    """
     electron_ion_collisions::Bool
-	"""
-	Neutral velocity in m/s. **Default:** `300.0`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
-	"""
+    """
+    Neutral velocity in m/s. **Default:** `300.0`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
+    """
     neutral_velocity::Float64
-	"""
-	Neutral temperature in Kelvins. **Default:** `500.0`.
-	"""
+    """
+    Neutral temperature in Kelvins. **Default:** `500.0`.
+    """
     neutral_temperature_K::Float64
-	"""
-	Ion temperature in Kelvins. **Default:** 1000.0
-	"""
+    """
+    Ion temperature in Kelvins. **Default:** 1000.0
+    """
     ion_temperature_K::Float64
-	"""
-	Whether we model ion losses to the walls. **Default:** `false`.
-	"""
+    """
+    Whether we model ion losses to the walls. **Default:** `false`.
+    """
     ion_wall_losses::Bool
-	"""
-	The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
-	"""
+    """
+    The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
+    """
     background_pressure_Torr::Float64
-	"""
-	The temperature of the background neutrals, in K. **Default:** `150.0`.
-	"""
+    """
+    The temperature of the background neutrals, in K. **Default:** `150.0`.
+    """
     background_temperature_K::Float64
-	"""
-	The factor by which the ingested mass flow rate computed from the background pressure and temperature is multiplied. **Default:** 1.
-	"""
+    """
+    The factor by which the ingested mass flow rate computed from the background pressure and temperature is multiplied. **Default:** 1.
+    """
     neutral_ingestion_multiplier::Float64
-	"""
-	Whether quasi-1D beam expansion should be modelled outside of the channel. See [Quasi-1D plume model](../explanation/plume.md) for more. **Default:** `false`
-	"""
+    """
+    Whether quasi-1D beam expansion should be modelled outside of the channel. See [Quasi-1D plume model](../explanation/plume.md) for more. **Default:** `false`
+    """
     solve_plume::Bool
-	"""
-	Whether the thrust output by HallThruster.jl should include a divergence correction factor of `cos(divergence_angle)`. **Default:** `false`.
-	"""
+    """
+    Whether the thrust output by HallThruster.jl should include a divergence correction factor of `cos(divergence_angle)`. **Default:** `false`.
+    """
     apply_thrust_divergence_correction::Bool
-	"""
-	The degree to which radial electron losses are applied in the plume. See [Wall Loss Models](@ref) for more information. **Default:** 1.
-	"""
+    """
+    The degree to which radial electron losses are applied in the plume. See [Wall Loss Models](@ref) for more information. **Default:** 1.
+    """
     electron_plume_loss_scale::Float64
-	"""
-	Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. **Default:** `1.0`.
-	"""
+    """
+    Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. **Default:** `1.0`.
+    """
     magnetic_field_scale::Float64
-	"""
-	Distance over which the transition between inside and outside the channel is smoothed. Affects wall losses as well as two-zone Bohm-like transport models. **Default:** `0.1 * thruster.geometry.channel_length`
-	"""
+    """
+    Distance over which the transition between inside and outside the channel is smoothed. Affects wall losses as well as two-zone Bohm-like transport models. **Default:** `0.1 * thruster.geometry.channel_length`
+    """
     transition_length::Float64
-	"""
-	Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. See [Schemes](../reference/schemes.md) for more info. **Default:** `HyperbolicScheme(flux_function = rusanov, limiter = van_leer, reconstruct = true)`.
-	"""
+    """
+    Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. See [Schemes](../reference/schemes.md) for more info. **Default:** `HyperbolicScheme(flux_function = rusanov, limiter = van_leer, reconstruct = true)`.
+    """
     scheme::HS
-	"""
-	An `InitialCondition`; see [Initialization](../explanation/initialization.md) for more information. **Default:** `DefaultInitialization()`.
-	"""
+    """
+    An `InitialCondition`; see [Initialization](../explanation/initialization.md) for more information. **Default:** `DefaultInitialization()`.
+    """
     initial_condition::IC
-	"""
-	The degree to which the energy is solved implicitly. `0.0` is a fully-explicit forward Euler, `0.5` is Crank-Nicholson, and `1.0` is backward Euler. **Default:** `1.0`.
-	"""
+    """
+    The degree to which the energy is solved implicitly. `0.0` is a fully-explicit forward Euler, `0.5` is Crank-Nicholson, and `1.0` is backward Euler. **Default:** `1.0`.
+    """
     implicit_energy::Float64
-	"""
-	Additional directories in which we should look for rate coefficients. These are searched before the default directory, so replacement rate coefficients for built-in propellants can be provided. **Default:** String[]
-	"""
+    """
+    Additional directories in which we should look for rate coefficients. These are searched before the default directory, so replacement rate coefficients for built-in propellants can be provided. **Default:** String[]
+    """
     reaction_rate_directories::Vector{String}
-	"""
-	 How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
-
-	---
-	# Verification and validation options
-	---
-	These options are used in code benchmarking and verification and are not usually needed by end-users.
-	See [Verification and validation](../explanation/verification.md) for an explanation of how we use these to verify the accuracy of the code.
-	"""
+    """
+     How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
+    
+    ---
+    # Verification and validation options
+    ---
+    These options are used in code benchmarking and verification and are not usually needed by end-users.
+    See [Verification and validation](../explanation/verification.md) for an explanation of how we use these to verify the accuracy of the code.
+    """
     anom_smoothing_iters::Int
-	"""
-	Whether we are using the physics model from the LANDMARK benchmark. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. **Default:** `false`.
-	"""
+    """
+    Whether we are using the physics model from the LANDMARK benchmark. This affects whether certain terms are included in the equations, such as electron and heavy species momentum transfer due to ionization and the form of the electron thermal conductivity. **Default:** `false`.
+    """
     LANDMARK::Bool
-	"""
-	Model for ionization reactions. **Default:** `:Lookup`.
-	"""
+    """
+    Model for ionization reactions. **Default:** `:Lookup`.
+    """
     ionization_model::Symbol
-	"""
-	Model for excitation reactions. **Default:** `:Lookup`. 
-	"""
+    """
+    Model for excitation reactions. **Default:** `:Lookup`. 
+    """
     excitation_model::Symbol
-	"""
-	Model for elastic scattering collisions between electrons and neutral atoms. **Default:** `:Lookup`.
-	"""
+    """
+    Model for elastic scattering collisions between electrons and neutral atoms. **Default:** `:Lookup`.
+    """
     electron_neutral_model::Symbol
-	"""
-	Extra user-provided neutral source term. **Default:** `nothing` 
-	"""
+    """
+    Extra user-provided neutral source term. **Default:** `nothing` 
+    """
     source_neutrals::S_N
-	"""
-	Vector of extra source terms for ion continuity, one for each charge state. **Default:** `nothing`.
-	"""
+    """
+    Vector of extra source terms for ion continuity, one for each charge state. **Default:** `nothing`.
+    """
     source_ion_continuity::S_IC
-	"""
-	Vector of extra source terms for ion momentum, one for each charge state. **Default:** `nothing`.
-	"""
+    """
+    Vector of extra source terms for ion momentum, one for each charge state. **Default:** `nothing`.
+    """
     source_ion_momentum::S_IM
-	"""
-	Extra source term for electron energy equation. **Default:** `nothing`. 
-	"""
+    """
+    Extra source term for electron energy equation. **Default:** `nothing`. 
+    """
     source_energy::S_E
 
     function Config(;
-			# Mandatory arguments
+            # Mandatory arguments
             thruster::Thruster,
             domain,
             discharge_voltage,
             anode_mass_flow_rate,
-			# Optional arguments
+            # Optional arguments
             ncharge = 1,
             propellant = Xenon,
             cathode_coupling_voltage = 0.0,
@@ -215,16 +215,19 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             source_ion_continuity = nothing,
             source_ion_momentum = nothing,
             source_energy = Returns(0.0),
-    ) where {A <: AnomalousTransportModel,
+        ) where {
+            A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
             HS <: HyperbolicScheme,
-            IC <: InitialCondition,}
+            IC <: InitialCondition,
+        }
         # check that number of ion source terms matches number of charges for both
         # continuity and momentum
         #
         source_ion_continuity = ion_source_terms(
-            ncharge, source_ion_continuity, "continuity",)
+            ncharge, source_ion_continuity, "continuity",
+        )
         source_ion_momentum = ion_source_terms(ncharge, source_ion_momentum, "momentum")
 
         # Neutral source terms
@@ -251,7 +254,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             # compute neutral velocity from thermal speed
             neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
             neutral_velocity = 0.25 *
-                               sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
+                sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
         else
             neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
             neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
@@ -264,7 +267,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         )
 
         anode_mass_flow_rate = convert_to_float64(
-            anode_mass_flow_rate, units(:kg) / units(:s),)
+            anode_mass_flow_rate, units(:kg) / units(:s),
+        )
 
         background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
         background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Pa))
@@ -272,18 +276,20 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         transition_length = convert_to_float64(transition_length, units(:m))
 
         if anode_boundary_condition ∉ [:sheath, :dirichlet]
-			throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
+            throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
         end
 
-        return new{A, TC, W, HS, IC,
-             typeof(source_neutrals), typeof(source_ion_continuity),
-             typeof(source_ion_momentum), typeof(source_energy),}(
-			# Mandatory arguments
+        return new{
+            A, TC, W, HS, IC,
+            typeof(source_neutrals), typeof(source_ion_continuity),
+            typeof(source_ion_momentum), typeof(source_energy),
+        }(
+            # Mandatory arguments
             thruster,
             domain,
             discharge_voltage,
             anode_mass_flow_rate,
-			# Optional arguments
+            # Optional arguments
             ncharge,
             propellant,
             cathode_coupling_voltage,
@@ -309,7 +315,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             scheme,
             initial_condition,
             implicit_energy,
-			reaction_rate_directories,
+            reaction_rate_directories,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -329,8 +335,10 @@ end
 
 # Don't write source terms to output or read them from input
 function Serialization.exclude(::Type{C}) where {C <: Config}
-    return (:source_neutrals, :source_ion_continuity,
-        :source_ion_momentum, :source_potential, :source_energy,)
+    return (
+        :source_neutrals, :source_ion_continuity,
+        :source_ion_momentum, :source_potential, :source_energy,
+    )
 end
 
 function ion_source_terms(ncharge, source, type)
@@ -366,9 +374,12 @@ function configure_fluids(config)
     propellant = config.propellant
 
     neutral_fluid = ContinuityOnly(
-        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,)
-    ion_fluids = [IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
-                  for Z in 1:(config.ncharge)]
+        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,
+    )
+    ion_fluids = [
+        IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
+            for Z in 1:(config.ncharge)
+    ]
 
     fluids = [neutral_fluid; ion_fluids]
 

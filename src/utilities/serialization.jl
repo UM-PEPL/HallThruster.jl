@@ -17,13 +17,13 @@ abstract type Composite <: SType end
 struct TaggedUnion <: Composite end
 struct Struct <: Composite end
 
-SType(::Type{T}) where {T}                   = Struct()
-SType(::Type{T}) where {T <: Base.Bool}      = Boolean()
-SType(::Type{T}) where {T <: Base.Nothing}   = Null()
-SType(::Type{T}) where {T <: Base.Number}    = Number()
+SType(::Type{T}) where {T} = Struct()
+SType(::Type{T}) where {T <: Base.Bool} = Boolean()
+SType(::Type{T}) where {T <: Base.Nothing} = Null()
+SType(::Type{T}) where {T <: Base.Number} = Number()
 SType(::Type{T}) where {T <: AbstractString} = String()
 SType(::Type{T}) where {T <: AbstractVector} = ArrayType()
-SType(::Type{T}) where {T <: Tuple}          = TupleType()
+SType(::Type{T}) where {T <: Tuple} = TupleType()
 
 SType(::Type{Symbol}) = String()
 
@@ -66,14 +66,14 @@ deserialize(::S, ::Type{Any}, x::T) where {S <: SType, T} = deserialize(T, x)
 function serialize(::Struct, x::T) where {T}
     return OrderedDict(
         field => serialize(getfield(x, field))
-    for (field, _) in iterate_fields(T)
+            for (field, _) in iterate_fields(T)
     )
 end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
     args = NamedTuple(
         field => deserialize(fieldtype(T, field), dict[field])
-    for field in keys(dict)
+            for field in keys(dict)
     )
     return T(; args...)
 end
@@ -84,7 +84,7 @@ function serialize(::TaggedUnion, x::T) where {T}
         if T <: opts[k]
             pairs = (
                 field => serialize(getfield(x, field))
-            for (field, _) in iterate_fields(T)
+                    for (field, _) in iterate_fields(T)
             )
             return OrderedDict(typetag(T) => string(k), pairs...)
         end
@@ -99,10 +99,10 @@ function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
 
     args = NamedTuple(
         let
-            key = Symbol(field)
-            key => deserialize(fieldtype(subtype, key), dict[field])
+                key = Symbol(field)
+                key => deserialize(fieldtype(subtype, key), dict[field])
         end
-    for field in keys(dict) if field != tag
+            for field in keys(dict) if field != tag
     )
     return subtype(; args...)
 end

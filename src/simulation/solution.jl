@@ -50,43 +50,43 @@ $(TYPEDFIELDS)
 
 """
 struct Solution{T, P, C, S}
-	"""
-	A vector of times (in seconds) at which simulation output has been saved
-	"""
+    """
+    A vector of times (in seconds) at which simulation output has been saved
+    """
     t::T
-	"""
-	A vector of frames, or snapshots of the simulation state, at the times specified in `t`
-	"""
+    """
+    A vector of frames, or snapshots of the simulation state, at the times specified in `t`
+    """
     frames::S
-	"""
-	The solution parameters vector. Contains auxilliary information about the simulation.
-	"""
+    """
+    The solution parameters vector. Contains auxilliary information about the simulation.
+    """
     params::P
-	"""
-	The `Config` used to run the simulation
-	"""
+    """
+    The `Config` used to run the simulation
+    """
     config::C
-	"""
-	The solution return code. This can be one of three values:
-	1. `:success`: the simulation completed successfully.
-	2. `:failure`: the simulation failed due to a numerical issue or instability, resulting in a `NaN` or `Inf being detected somewhere in the solution`
-	3. `:error`: another error occurred. Check the `error` string to see what kind of error.
-	"""
+    """
+    The solution return code. This can be one of three values:
+    1. `:success`: the simulation completed successfully.
+    2. `:failure`: the simulation failed due to a numerical issue or instability, resulting in a `NaN` or `Inf being detected somewhere in the solution`
+    3. `:error`: another error occurred. Check the `error` string to see what kind of error.
+    """
     retcode::Symbol
-	"""
-	Holds to error text and backtrace, if an error occurred. Empty if `sol.retcode != :error`.
-	"""
+    """
+    Holds to error text and backtrace, if an error occurred. Empty if `sol.retcode != :error`.
+    """
     error::String
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
-	num_frames = length(sol.frames)
-	retcode_str = string(sol.retcode)
-	end_time = sol.t[end]
-	plural = num_frames == 1 ? "" : "s"
+    num_frames = length(sol.frames)
+    retcode_str = string(sol.retcode)
+    end_time = sol.t[end]
+    plural = num_frames == 1 ? "" : "s"
 
-	return print(io, "Hall thruster solution with $(num_frames) saved frame$(plural) \
-			  (retcode: $(retcode_str), end time: $(end_time) seconds)")
+    return print(io, "Hall thruster solution with $(num_frames) saved frame$(plural) \
+              (retcode: $(retcode_str), end time: $(end_time) seconds)")
 end
 
 Base.firstindex(sol::Solution) = 1
@@ -100,8 +100,8 @@ All other fields remain unchanged.
 """
 function Base.getindex(sol::Solution, frame::Integer)
     return Solution(
-		[sol.t[frame]],
-		[sol.frames[frame]],
+        [sol.t[frame]],
+        [sol.frames[frame]],
         sol.params,
         sol.config,
         sol.retcode,
@@ -117,8 +117,8 @@ This can be used to extract a contiguous slice of frames (by passing in a range 
 """
 function Base.getindex(sol::Solution, frames::AbstractVector)
     return Solution(
-		sol.t[frames],
-		sol.frames[frames],
+        sol.t[frames],
+        sol.frames[frames],
         sol.params,
         sol.config,
         sol.retcode,
@@ -126,14 +126,16 @@ function Base.getindex(sol::Solution, frames::AbstractVector)
     )
 end
 
-@inline _saved_fields_vector() = (:μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
+@inline _saved_fields_vector() = (
+    :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
     :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex,
     :νe, :Id, :ji, :nn,
     :anom_multiplier, :ohmic_heating, :wall_losses,
     :inelastic_losses, :Vs,
     :channel_area, :inner_radius, :outer_radius, :dA_dz,
     :tanδ, :anom_variables,
-    :dt,)
+    :dt,
+)
 
 @inline _saved_fields_matrix() = (:ni, :ui, :niui)
 
@@ -165,18 +167,18 @@ $(alternate_field_names())
 ```
 """
 @inline alternate_field_names() = (;
-	mobility = :μ,
-	potential = :ϕ,
-	thermal_conductivity = :κ,
-	grad_pe = :∇pe,
-	nu_anom = :νan,
-	nu_class = :νc,
-	nu_wall = :νew_momentum,	
-	nu_ei = :νei,
-	nu_en = :νen,
-	nu_iz = :νiz,
-	nu_ex = :νex,
-	tan_divergence_angle = :tanδ,
+    mobility = :μ,
+    potential = :ϕ,
+    thermal_conductivity = :κ,
+    grad_pe = :∇pe,
+    nu_anom = :νan,
+    nu_class = :νc,
+    nu_wall = :νew_momentum,
+    nu_ei = :νei,
+    nu_en = :νen,
+    nu_iz = :νiz,
+    nu_ex = :νex,
+    tan_divergence_angle = :tanδ,
 )
 
 """
@@ -189,12 +191,12 @@ $(valid_fields())
 ```
 """
 function valid_fields()
-	return (
-		:z, :B, :E,
-		saved_fields()...,
-		keys(alternate_field_names())...,
-		:E, :ωce, :cyclotron_freq,
-	)
+    return (
+        :z, :B, :E,
+        saved_fields()...,
+        keys(alternate_field_names())...,
+        :E, :ωce, :cyclotron_freq,
+    )
 end
 
 """
@@ -219,28 +221,28 @@ Additionally, for values in `saved_fields` with non-ascii/special characters in 
 """
 function Base.getindex(sol::Solution, field::Symbol)
 
-	# Transform alternate field name, if needed
-	alts = alternate_field_names()
-	if field in keys(alts)
-		field = alts[field]
-	end
+    # Transform alternate field name, if needed
+    alts = alternate_field_names()
+    if field in keys(alts)
+        field = alts[field]
+    end
 
-	if field in saved_fields()
-		return [getproperty(frame, field) for frame in sol.frames]
-	end
+    if field in saved_fields()
+        return [getproperty(frame, field) for frame in sol.frames]
+    end
 
-	# Special cases
+    # Special cases
     if field == :B
         return sol.params.cache.B
     elseif field == :ωce || field == :cyclotron_freq || field == :omega_ce
         return @. e * sol.params.cache.B / me
     elseif field == :E
         return -sol[:∇ϕ]
-	elseif field == :z
-		return sol.params.grid.cell_centers
-	end
+    elseif field == :z
+        return sol.params.grid.cell_centers
+    end
 
-	throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
+    throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
 end
 
 """
@@ -251,19 +253,19 @@ As an example, `sol[:ui, 1]` returns the velocity of singly-charged ions for eve
 For non-ion quantities, passing an integer as a second index causes an error.
 """
 function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
-	is_ion_quantity = field in _saved_fields_matrix()
+    is_ion_quantity = field in _saved_fields_matrix()
 
-	if !is_ion_quantity
-		throw(ArgumentError("Indexing a `solution` by `[field::Symbol, ::Integer]` is only supported for ion \
-							quantities. To access a quantity at a specific frame, call `sol[field][frame]`."))
-	end
-
-    if charge <= 0 || charge > sol.config.ncharge 
-		throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
-							Maximum charge state in provided solution is $(sol.config.ncharge)."))
+    if !is_ion_quantity
+        throw(ArgumentError("Indexing a `solution` by `[field::Symbol, ::Integer]` is only supported for ion \
+                            quantities. To access a quantity at a specific frame, call `sol[field][frame]`."))
     end
 
-	return [frame[field][charge, :] for frame in sol.frames]
+    if charge <= 0 || charge > sol.config.ncharge
+        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
+                            Maximum charge state in provided solution is $(sol.config.ncharge)."))
+    end
+
+    return [frame[field][charge, :] for frame in sol.frames]
 end
 
 
@@ -298,7 +300,7 @@ function solve(U, params, config, tspan; saveat)
 
     try
         while t < tspan[2]
-            # compute new timestep 
+            # compute new timestep
             if sim.adaptive
                 if uniform_steps
                     params.dt[] = sim.dt
@@ -395,10 +397,10 @@ function solve(U, params, config, tspan; saveat)
 
     return Solution(
         saveat[1:ind],
-		frames[1:ind],
-		params,
-		config,
-		retcode,
-		errstring,
+        frames[1:ind],
+        params,
+        config,
+        retcode,
+        errstring,
     )
 end

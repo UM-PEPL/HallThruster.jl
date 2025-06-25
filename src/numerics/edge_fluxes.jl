@@ -5,7 +5,8 @@
 end
 
 function compute_edge_states!(
-        UL, UR, U, params, limiter, do_reconstruct; apply_boundary_conditions = false,)
+        UL, UR, U, params, limiter, do_reconstruct; apply_boundary_conditions = false,
+    )
     (nvars, ncells) = size(U)
 
     # compute left and right edge states
@@ -30,18 +31,19 @@ function compute_edge_states!(
                     u₊ = U[j, i + 1]
 
                     UR[j, left_edge(i)], UL[j, right_edge(i)] = reconstruct(
-                        u₋, uᵢ, u₊, limiter,)
+                        u₋, uᵢ, u₊, limiter,
+                    )
                 end
             end
         end
     else
         @inbounds for i in 2:(ncells - 1), j in 1:nvars
             UL[j, right_edge(i)] = U[j, i]
-            UR[j, left_edge(i)]  = U[j, i]
+            UR[j, left_edge(i)] = U[j, i]
         end
     end
 
-    if apply_boundary_conditions
+    return if apply_boundary_conditions
         @views left_boundary_state!(UL[:, 1], U, params)
         @views right_boundary_state!(UR[:, end], U, params)
     else
@@ -52,7 +54,7 @@ end
 
 function compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
     # Compute maximum wave speed in domain and use this to update the max allowable timestep, if using adaptive timestepping
-    @inbounds for i in eachindex(grid.edges)
+    return @inbounds for i in eachindex(grid.edges)
         # Compute wave speeds for each component of the state vector.
         # The only wave speed for neutrals is the neutral convection velocity
         neutral_fluid = fluids[1]
@@ -87,21 +89,22 @@ function compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, n
 end
 
 function compute_fluxes!(F, UL, UR, flux_function, λ_global, grid, fluids, index, ncharge)
-    @inbounds for i in eachindex(grid.edges)
+    return @inbounds for i in eachindex(grid.edges)
         # Neutral fluxes at edge i
-        left_state_n  = (UL[index.ρn, i],)
+        left_state_n = (UL[index.ρn, i],)
         right_state_n = (UR[index.ρn, i],)
 
         F[index.ρn, i] = flux_function(
-            left_state_n, right_state_n, fluids[1], λ_global[1],)[1]
+            left_state_n, right_state_n, fluids[1], λ_global[1],
+        )[1]
 
         # Ion fluxes at edge i
         for Z in 1:ncharge
-            left_state_i        = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i])
-            right_state_i       = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i])
-            fluid_ind           = Z + 1
-            F_mass, F_momentum  = flux_function(left_state_i, right_state_i, fluids[fluid_ind], λ_global[fluid_ind])
-            F[index.ρi[Z], i]   = F_mass
+            left_state_i = (UL[index.ρi[Z], i], UL[index.ρiui[Z], i])
+            right_state_i = (UR[index.ρi[Z], i], UR[index.ρiui[Z], i])
+            fluid_ind = Z + 1
+            F_mass, F_momentum = flux_function(left_state_i, right_state_i, fluids[fluid_ind], λ_global[fluid_ind])
+            F[index.ρi[Z], i] = F_mass
             F[index.ρiui[Z], i] = F_momentum
         end
     end
@@ -113,7 +116,8 @@ function compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(
-        UL, UR, U, params, scheme.limiter, scheme.reconstruct; apply_boundary_conditions,)
+        UL, UR, U, params, scheme.limiter, scheme.reconstruct; apply_boundary_conditions,
+    )
     compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
     compute_fluxes!(F, UL, UR, scheme.flux_function, λ_global, grid, fluids, index, ncharge)
 

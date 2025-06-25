@@ -1,33 +1,35 @@
-using HallThruster: HallThruster as ht
+using HallThruster: HallThruster as het
 using Test
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_controller_serialization()
-    @testset "Serialization" begin
-        none = ht.NoController()
+    return @testset "Serialization" begin
+        none = het.NoController()
         test_roundtrip(het.CurrentController, none)
 
-        pid = ht.PIDController(target_value = 15.0)
+        pid = het.PIDController(target_value = 15.0)
         test_roundtrip(het.CurrentController, pid)
 
-        pid_dict = ht.Serialization.OrderedDict(
+        pid_dict = het.Serialization.OrderedDict(
             :type => "PIDController",
             :target_value => 15.0,
             :integral_constant => 1.0,
         )
-        pid2 = ht.deserialize(ht.CurrentController, pid_dict)
-        @test pid2 isa ht.PIDController
+        pid2 = het.deserialize(het.CurrentController, pid_dict)
+        @test pid2 isa het.PIDController
         @test pid2.target_value == pid_dict[:target_value]
         @test pid2.integral_constant == pid_dict[:integral_constant]
-        test_roundtrip(ht.CurrentController, pid_dict)
+        test_roundtrip(het.CurrentController, pid_dict)
     end
 end
 
 function test_pid_steady_state()
-    @testset "PID controller at steady state" begin
+    return @testset "PID controller at steady state" begin
         # A PID controller that is already at the target value should effect no change
         # to the control variable
         target = 14.3
-        controller = ht.PIDController(
+        controller = het.PIDController(
             target_value = target,
             proportional_constant = 1.5,
             integral_constant = 4.0,
@@ -40,7 +42,7 @@ function test_pid_steady_state()
         val = target
 
         for _ in 1:10
-            control = ht.apply_controller(controller, val, control, dt)
+            control = het.apply_controller(controller, val, control, dt)
         end
 
         @test control == starting_control
@@ -75,7 +77,7 @@ function update_springmass_system(state, controller, k, c, m, dt)
     x = x + v * dt
 
     # apply force from PID controller
-    f = ht.apply_controller(controller, x, f, dt)
+    f = het.apply_controller(controller, x, f, dt)
 
     # update velocity (implicitly)
     v = (v + (f - k * x) * (dt / m)) / (1 + dt * c / m)
@@ -106,7 +108,7 @@ function test_pid_springmass()
     c = sqrt(4 * m * k)
     dt = 0.2
     tmax = 240.0
-    atol = 1e-6
+    atol = 1.0e-6
     t = 0:dt:tmax
 
     target_value = 0.5
@@ -128,7 +130,7 @@ function test_pid_springmass()
         equilibrium_x = 0.4
         K_p = k * equilibrium_x / (target_value - equilibrium_x)
 
-        p_controller = ht.PIDController(;
+        p_controller = het.PIDController(;
             target_value,
             proportional_constant = K_p,
             integral_constant = 0,
@@ -148,7 +150,7 @@ function test_pid_springmass()
 
         equilibrium_x = target_value
 
-        i_controller = ht.PIDController(;
+        i_controller = het.PIDController(;
             target_value,
             proportional_constant = 0.0,
             integral_constant = 0.3,
@@ -167,7 +169,7 @@ function test_pid_springmass()
         # => x = 0
         equilibrium_x = 0.0
 
-        d_controller = ht.PIDController(;
+        d_controller = het.PIDController(;
             target_value,
             proportional_constant = 0.0,
             integral_constant = 0.0,
@@ -181,10 +183,10 @@ function test_pid_springmass()
         @test isapprox(f, k * x[end]; atol)
     end
 
-    @testset "Tuned" begin
+    return @testset "Tuned" begin
         equilibrium_x = target_value
 
-        controller = ht.PIDController(;
+        controller = het.PIDController(;
             target_value,
             proportional_constant = 4.0,
             integral_constant = 0.3,
@@ -199,12 +201,6 @@ function test_pid_springmass()
     end
 end
 
-function test_current_control()
-    @testset "Current control" begin
-        test_controller_serialization()
-        test_pid_steady_state()
-        @testset "Spring-mass system" begin
-            test_pid_springmass()
-        end
-    end
-end
+test_controller_serialization()
+test_pid_steady_state()
+test_pid_springmass()
