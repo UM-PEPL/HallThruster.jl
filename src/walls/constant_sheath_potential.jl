@@ -6,7 +6,7 @@ end
 
 function freq_electron_wall(::ConstantSheathPotential, _params, _i)
     @nospecialize(_params, _i)
-    return 1e7
+    return 1.0e7
 end
 
 function wall_power_loss!(Q, model::ConstantSheathPotential, params)
@@ -16,9 +16,11 @@ function wall_power_loss!(Q, model::ConstantSheathPotential, params)
     L_ch = thruster.geometry.channel_length
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        αϵ = linear_transition(grid.cell_centers[i], L_ch, transition_length,
-            inner_loss_coeff, outer_loss_coeff,)
-        Q[i] = 1e7 * αϵ * ϵ[i] * exp(-sheath_potential / ϵ[i])
+        αϵ = linear_transition(
+            grid.cell_centers[i], L_ch, transition_length,
+            inner_loss_coeff, outer_loss_coeff,
+        )
+        Q[i] = 1.0e7 * αϵ * ϵ[i] * exp(-sheath_potential / ϵ[i])
     end
 
     return nothing

@@ -41,16 +41,25 @@ macro keywords(expr)
             P = T.args[2:end]
             Q = Any[isexpr(U, :<:) ? U.args[1] : U for U in P]
             SQ = :($S{$(Q...)})
-            typecalls = (:(typeof($(arg.args[1]))) for arg in fieldsblock.args if !(arg isa
-                                                                                    Base.LineNumberNode) &&
-                                                                                  (arg.args[2] in Q))
+            typecalls = (
+                :(typeof($(arg.args[1]))) for arg in fieldsblock.args if !(
+                        arg isa
+                        Base.LineNumberNode
+                    ) &&
+                    (arg.args[2] in Q)
+            )
             ST = :($S{$(typecalls...)})
             body1 = Expr(:block, __source__, Expr(:call, esc(ST), fieldnames...))
             sig1 = Expr(:call, esc(S), Expr(:parameters, parameters...))
             def1 = Expr(:function, sig1, body1)
             body2 = Expr(:block, __source__, Expr(:call, esc(SQ), fieldnames...))
-            sig2 = :($(Expr(
-                :call, esc(SQ), Expr(:parameters, parameters...),)) where {$(esc.(P)...)})
+            sig2 = :(
+                $(
+                    Expr(
+                        :call, esc(SQ), Expr(:parameters, parameters...),
+                    )
+                ) where {$(esc.(P)...)}
+            )
             def2 = Expr(:function, sig2, body2)
             kwdefs = Expr(:block, def1, def2)
         else
@@ -80,13 +89,16 @@ function extract_names_and_defvals_from_kwdef_fieldblock!(block, names, defvals)
                 end
             end
         else
-            def, name, defval = @something(def_name_defval_from_kwdef_fielddef(item),
-                continue)
+            def, name, defval = @something(
+                def_name_defval_from_kwdef_fielddef(item),
+                continue
+            )
             block.args[i] = def
             push!(names, name)
             push!(defvals, defval)
         end
     end
+    return
 end
 
 function def_name_defval_from_kwdef_fielddef(kwdef)
@@ -100,13 +112,17 @@ function def_name_defval_from_kwdef_fielddef(kwdef)
         def, name, _ = @something(def_name_defval_from_kwdef_fielddef(lhs), return nothing)
         return def, name, rhs
     elseif kwdef isa Expr && kwdef.head in (:const, :atomic)
-        def, name, defval = @something(def_name_defval_from_kwdef_fielddef(kwdef.args[1]),
-            return nothing)
+        def, name, defval = @something(
+            def_name_defval_from_kwdef_fielddef(kwdef.args[1]),
+            return nothing
+        )
         return Expr(kwdef.head, def), name, defval
     elseif kwdef isa Expr && kwdef.head in (:escape, :var"hygienic-scope")
-        def, name, defval = @something(def_name_defval_from_kwdef_fielddef(kwdef.args[1]),
-            return nothing)
+        def, name, defval = @something(
+            def_name_defval_from_kwdef_fielddef(kwdef.args[1]),
+            return nothing
+        )
         return Expr(kwdef.head, def), name,
-        isnothing(defval) ? defval : Expr(kwdef.head, defval)
+            isnothing(defval) ? defval : Expr(kwdef.head, defval)
     end
 end

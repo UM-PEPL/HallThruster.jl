@@ -6,92 +6,94 @@
 $(TYPEDFIELDS)
 """
 mutable struct SimParams{C <: CurrentController}
-	"""
-	A grid specifier, either `HallThruster.EvenGrid(n)` or `HallThruster.UnevenGrid(n)`, where n is the desired number of cells. See [Grid generation](@ref) for more information.
-	"""
+    """
+    A grid specifier, either `HallThruster.EvenGrid(n)` or `HallThruster.UnevenGrid(n)`, where n is the desired number of cells. See [Grid generation](@ref) for more information.
+    """
     grid::GridSpec
-	"""
-	The simulation base timestep in seconds. See [Timestepping](@ref) for more info.
-	"""
+    """
+    The simulation base timestep in seconds. See [Timestepping](@ref) for more info.
+    """
     dt::Float64
-	"""
-	The simulation duration in seconds.
-	"""
+    """
+    The simulation duration in seconds.
+    """
     duration::Float64
-    # Optional parameters 
-	"""
-	How many simulation frames to save in the `Solution` struct. **Default:** 1000
-	"""
+    # Optional parameters
+    """
+    How many simulation frames to save in the `Solution` struct. **Default:** 1000
+    """
     num_save::Int
-	"""
-	Whether information such as the simulation run-time is printed to console. **Default:** `true`
-	"""
+    """
+    Whether information such as the simulation run-time is printed to console. **Default:** `true`
+    """
     verbose::Bool
-	"""
-	Whether errors are printed to console in addition to being captured in the `Solution` struct. **Default:** `true`
-	"""
+    """
+    Whether errors are printed to console in addition to being captured in the `Solution` struct. **Default:** `true`
+    """
     print_errors::Bool
-	"""
-	Whether to use adaptive timestepping. See [Timestepping](@ref) for more info. **Default:** `true`
-	"""
+    """
+    Whether to use adaptive timestepping. See [Timestepping](@ref) for more info. **Default:** `true`
+    """
     adaptive::Bool
-	"""
-	The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
-	"""
+    """
+    The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
+    """
     CFL::Float64
-	"""
-	The minimum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-10
-	""" 
+    """
+    The minimum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-10
+    """
     min_dt::Float64
-	"""
-	The maximum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-7
-	"""
+    """
+    The maximum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-7
+    """
     max_dt::Float64
-	"""
-	The maximum number of minimally-sized timesteps permitted in adaptive timestepping. **Default:** 100
-	"""
+    """
+    The maximum number of minimally-sized timesteps permitted in adaptive timestepping. **Default:** 100
+    """
     max_small_steps::Int
-	"""
-	Discharge current controller. **Default:** `HallThruster.NoController()`
-	"""
-    current_control::C 
+    """
+    Discharge current controller. **Default:** `HallThruster.NoController()`
+    """
+    current_control::C
 
-	function SimParams(;
-		grid::GridSpec,
-		dt,
-		duration,
-		# Optional parameters
-		num_save::Int = 1000,
-		verbose::Bool = true,
-		print_errors::Bool = true,
-		adaptive::Bool = true,
-		CFL::Float64 = 0.799,
-		min_dt = 1e-10,
-		max_dt = 1e-7,
-		max_small_steps::Int = 100,
-		current_control::C = NoController(),
-	) where {C <: CurrentController}
-		return new{C}(
-			grid,
-			convert_to_float64(dt, units(:s)),
-			convert_to_float64(duration, units(:s)),
-			num_save,
-			verbose,
-			print_errors,
-			adaptive,
-			CFL,
-			convert_to_float64(min_dt, units(:s)),
-			convert_to_float64(max_dt, units(:s)),
-			max_small_steps,
-			current_control,
-		)
-	end
+    function SimParams(;
+            grid::GridSpec,
+            duration,
+            dt = 1.0e-9,
+            # Optional parameters
+            num_save::Int = 1000,
+            verbose::Bool = true,
+            print_errors::Bool = true,
+            adaptive::Bool = true,
+            CFL::Float64 = 0.799,
+            min_dt = 1.0e-10,
+            max_dt = 1.0e-7,
+            max_small_steps::Int = 100,
+            current_control::C = NoController(),
+        ) where {C <: CurrentController}
+        return new{C}(
+            grid,
+            convert_to_float64(dt, units(:s)),
+            convert_to_float64(duration, units(:s)),
+            num_save,
+            verbose,
+            print_errors,
+            adaptive,
+            CFL,
+            convert_to_float64(min_dt, units(:s)),
+            convert_to_float64(max_dt, units(:s)),
+            max_small_steps,
+            current_control,
+        )
+    end
 end
 
 
-function setup_simulation(config::Config, sim::SimParams;
+function setup_simulation(
+        config::Config, sim::SimParams;
         postprocess::Union{Postprocess, Nothing} = nothing, include_dirs = String[],
-        restart::AbstractString = "",)
+        restart::AbstractString = "",
+    )
 
     # check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
@@ -107,28 +109,31 @@ function setup_simulation(config::Config, sim::SimParams;
     cache = allocate_arrays(grid, config)
 
     fluid_containers = allocate_fluids(
-        config.propellant, config.ncharge, length(grid.cell_centers)-2,
+        config.propellant, config.ncharge, length(grid.cell_centers) - 2,
         config.neutral_velocity, config.neutral_temperature_K, config.ion_temperature_K
     )
 
     fluid_arr = [
         fluid_containers.continuity...,
-        fluid_containers.isothermal...
+        fluid_containers.isothermal...,
     ]
 
     # load collisions and reactions
     ionization_reactions = load_ionization_reactions(
         config.ionization_model, unique(species);
-        directories = config.reaction_rate_directories,)
+        directories = config.reaction_rate_directories,
+    )
     ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_arr)
     ionization_product_indices = product_indices(ionization_reactions, fluid_arr)
 
     excitation_reactions = load_excitation_reactions(
-        config.excitation_model, unique(species),)
+        config.excitation_model, unique(species),
+    )
     excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_arr)
 
     electron_neutral_collisions = load_elastic_collisions(
-        config.electron_neutral_model, unique(species),)
+        config.electron_neutral_model, unique(species),
+    )
 
     # Load magnetic field
     thruster = config.thruster
@@ -159,7 +164,7 @@ function setup_simulation(config::Config, sim::SimParams;
     # Simulation parameters
     # IMPORTANT: for effective precompilation, we do not include any types
     # in here that are non-concrete or likely to change between runs.
-    # For instance, any method that accepts a Config{...} will need to be recompiled for 
+    # For instance, any method that accepts a Config{...} will need to be recompiled for
     # all definitions of {...}, regardless of whether it actually needs to be
     # Therefore, we do not include `config` in the `params` struct, instead
     # passing it around sparingly to the methods that really need it.
@@ -194,7 +199,7 @@ function setup_simulation(config::Config, sim::SimParams;
     # Initialize ion and electron variables
     initialize!(params, config)
 
-    # Initialize the anomalous collision frequency using a 
+    # Initialize the anomalous collision frequency using a
     # two-zone Bohm approximation for the first iteration
     TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params, config)
 
@@ -219,10 +224,10 @@ function setup_simulation(
         dt, restart::String = "",
         CFL = 0.799, adaptive = false,
         control_current = false, target_current = 0.0,
-        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5e-4,
-        dtmin = 1e-10, dtmax = 1e-7, max_small_steps = 100,
+        Kp = 0.0, Ti = Inf, Td = 0.0, time_constant = 5.0e-4,
+        dtmin = 1.0e-10, dtmax = 1.0e-7, max_small_steps = 100,
         verbose = true, print_errors = true,
-)
+    )
     dt = convert_to_float64(dt, units(:s))
     duration = convert_to_float64(duration, units(:s))
     dtmin = convert_to_float64(dtmin, units(:s))

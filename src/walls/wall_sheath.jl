@@ -1,4 +1,3 @@
-
 function wall_electron_temperature(params, transition_length, i)
     (; cache, grid, thruster) = params
 
@@ -12,7 +11,8 @@ function wall_electron_temperature(params, transition_length, i)
     L_ch = thruster.geometry.channel_length
 
     Tev = linear_transition(
-        grid.cell_centers[i], L_ch, transition_length, Tev_channel, Tev_plume,)
+        grid.cell_centers[i], L_ch, transition_length, Tev_channel, Tev_plume,
+    )
 
     return Tev
 end

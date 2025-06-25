@@ -300,86 +300,12 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     end
 end
 
-#=============================================================================
- Serialization of Config to JSON
-==============================================================================#
+"""
+$(SIGNATURES)
 
-# Don't write source terms to output or read them from input
-function Serialization.exclude(::Type{C}) where {C <: Config}
-    return (:source_heavy_species, :source_electron_energy)
-end
-
-function make_keys(fluid_range, subscript)
-    len = length(fluid_range)
-    if len == 1
-        return (Symbol("ρ$(subscript)"))
-    elseif len == 2
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-        )
-    elseif len == 3
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-            Symbol("ρ$(subscript)E$(subscript)"),
-        )
-    else
-        throw(ArgumentError("Too many equations on fluid (this should be unreachable)"))
-    end
-end
-
-function configure_fluids(config)
-    propellant = config.propellant
-
-    neutral_fluid = ContinuityOnly(
-        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,
-    )
-    ion_fluids = [
-        IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
-            for Z in 1:(config.ncharge)
-    ]
-
-    fluids = [neutral_fluid; ion_fluids]
-
-    species = [f.species for f in fluids]
-
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => 0:0 for fluid in fluids)
-
-    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-        species_range_dict[Symbol(fluid.species)] = fluid_range
-    end
-
-    last_fluid_index = fluid_ranges[end][end]
-    is_velocity_index = fill(false, last_fluid_index)
-    for i in 3:2:last_fluid_index
-        is_velocity_index[i] = true
-    end
-
-    return fluids, fluid_ranges, species, species_range_dict, is_velocity_index
-end
-
-function configure_index(fluids, fluid_ranges)
-    first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
-
-    keys_neutrals = (:ρn,)
-    values_neutrals = (1,)
-
-    keys_ions = (:ρi, :ρiui)
-    values_ions = (
-        [f[1] for f in fluid_ranges[first_ion_fluid_index:end]],
-        [f[2] for f in fluid_ranges[first_ion_fluid_index:end]],
-    )
-
-    keys_fluids = (keys_neutrals..., keys_ions...)
-    values_fluids = (values_neutrals..., values_ions...)
-    index = NamedTuple{keys_fluids}(values_fluids)
-    return index
-end
-
+Extract some useful (statically-typed) params from the config object to avoid recompiling methods later downstream
+"""
 function params_from_config(config)
-
     un_B = background_neutral_velocity(config)
     nn_B = background_neutral_density(config)
     un = config.neutral_velocity
@@ -410,4 +336,13 @@ function params_from_config(config)
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
     )
+end
+
+#=============================================================================
+ Serialization of Config to JSON
+==============================================================================#
+
+# Don't write source terms to output or read them from input
+function Serialization.exclude(::Type{C}) where {C <: Config}
+    return (:source_heavy_species, :source_electron_energy)
 end

@@ -19,7 +19,7 @@ const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
-const MIN_NUMBER_DENSITY = 1e6
+const MIN_NUMBER_DENSITY = 1.0e6
 
 include("utilities/utility_functions.jl")
 include("utilities/interpolation.jl")
@@ -100,12 +100,13 @@ function example_simulation(; ncells, duration, dt, nsave)
         thruster = HallThruster.SPT_100,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
-        anode_mass_flow_rate = 5e-6,
+        anode_mass_flow_rate = 5.0e-6,
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
     )
     sol_1 = run_simulation(
-        config_1; ncells, duration, dt, nsave, verbose = false,)
+        config_1; ncells, duration, dt, nsave, verbose = false,
+    )
 
     if sol_1.retcode != :success
         error()
@@ -115,7 +116,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         thruster = SPT_100,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
-        anode_mass_flow_rate = 5e-6,
+        anode_mass_flow_rate = 5.0e-6,
         anom_model = MultiLogBohm([0.02, 0.025, 0.03], [0.0625, 0.00625, 0.0625]),
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         LANDMARK = true,
@@ -126,7 +127,8 @@ function example_simulation(; ncells, duration, dt, nsave)
     )
 
     sol_2 = run_simulation(
-        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
+    )
 
     if sol_2.retcode != :success
         error()
@@ -136,7 +138,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         thruster = SPT_100,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
-        anode_mass_flow_rate = 5e-6,
+        anode_mass_flow_rate = 5.0e-6,
         anom_model = ScaledGaussianBohm(anom_scale = 0.0625, barrier_scale = 0.9, center = 1.0, width = 0.1),
         wall_loss_model = ConstantSheathPotential(20.0, 1.0, 1.0),
         conductivity_model = Braginskii(),
@@ -146,7 +148,8 @@ function example_simulation(; ncells, duration, dt, nsave)
     )
 
     sol_4 = run_simulation(
-        config_4; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,)
+        config_4; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
+    )
 
     if sol_4.retcode != :success
         error()
@@ -164,7 +167,7 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    example_simulation(; ncells = 20, duration = 1e-7, dt = 1e-8, nsave = 2)
+    example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"

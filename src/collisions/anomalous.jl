@@ -21,12 +21,12 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
         GaussianBohm,
         ScaledGaussianBohm,
         LogisticPressureShift,
-        SimpleLogisticShift
+        SimpleLogisticShift,
     )
 end
 
 function Serialization.SType(::Type{T}) where {T <: AnomalousTransportModel}
-    Serialization.TaggedUnion()
+    return Serialization.TaggedUnion()
 end
 Serialization.options(::Type{T}) where {T <: AnomalousTransportModel} = anom_models()
 
@@ -182,13 +182,13 @@ where the collision frequency is lower.
 $(TYPEDFIELDS)
 """
 @kwdef struct GaussianBohm <: AnomalousTransportModel
-	"""the minimum inverse Hall parameter"""
+    """the minimum inverse Hall parameter"""
     hall_min::Float64
-	"""the maximum inverse Hall parameter"""
+    """the maximum inverse Hall parameter"""
     hall_max::Float64
-	"""the axial position (in meters) of the mean of the Gaussian trough"""
+    """the axial position (in meters) of the mean of the Gaussian trough"""
     center::Float64
-	"""the standard deviation (in meters) of the Gaussian trough"""
+    """the standard deviation (in meters) of the Gaussian trough"""
     width::Float64
 end
 
@@ -230,11 +230,11 @@ $(TYPEDFIELDS)
 @kwdef struct ScaledGaussianBohm <: AnomalousTransportModel
     """the maximum inverse hall parameter, should be in [0, 1]"""
     anom_scale::Float64 = 0.0625
-	"""the factor by which transport is reduced by the baseline value at the center of the trough, should be in [0,1]. """
+    """the factor by which transport is reduced by the baseline value at the center of the trough, should be in [0,1]. """
     barrier_scale::Float64 = 0.9
     """the standard deviation of the Gaussian trough, in channel lengths"""
     width::Float64
-	"""the axial position of the mean of the Gaussian trough, in channel lengths"""
+    """the axial position of the mean of the Gaussian trough, in channel lengths"""
     center::Float64
 end
 
@@ -258,7 +258,7 @@ function (model::ScaledGaussianBohm)(νan, params, config)
         z = zc - z_shift
         B = B_interp(zc)
         ωce = e * B / me
-        c = anom_scale * (1 - barrier_scale * exp(-0.5 * ((z - mean)/(std))^2))
+        c = anom_scale * (1 - barrier_scale * exp(-0.5 * ((z - mean) / (std))^2))
         νan[i] = c * ωce
     end
 
@@ -282,25 +282,25 @@ The displacement/shift of the transport profile follows a logistic curve.
 $(TYPEDFIELDS)
 """
 @kwdef struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
-	"""
-	An anomalous transport model
-	"""
+    """
+    An anomalous transport model
+    """
     model::A
-	"""
-	the center of the shift at 0 background pressure
-	"""
+    """
+    the center of the shift at 0 background pressure
+    """
     z0::Float64
-	"""
-	the total pressure shift across (0, Inf) background pressure
-	"""
+    """
+    the total pressure shift across (0, Inf) background pressure
+    """
     dz::Float64
-	"""
-	the "turning point" pressure
-	"""
+    """
+    the "turning point" pressure
+    """
     pstar::Float64
-	"""
-	the slope of the pressure-displacement response curve
-	"""
+    """
+    the slope of the pressure-displacement response curve
+    """
     alpha::Float64
 end
 
@@ -323,31 +323,31 @@ As such, it does not have a z0 parameter.
 $(TYPEDFIELDS)
 """
 @kwdef struct SimpleLogisticShift{A <: AnomalousTransportModel} <: PressureShift
-	"""
-	An AnomalousTransportModel
-	"""
-	model::A
-	"""
-	The maximum displacement in response to increasing pressure, scaled by the discharge channel length.
-	This should be positive.
-	"""
-	shift_length::Float64
-	"""
-	The pressure at the midpoint of the shift, in Torr.
-	Defaults to 25e-6 Torr, which gives good fits for the H9 and SPT-100.
-	"""
-	midpoint_pressure::Float64 = 25e-6
-	"""
-	The slope of the pressure response curve.
-	Defaults to 2, which gives good fits for the H9 and SPT-100.
-	"""
-	slope::Float64 = 2.0
+    """
+    An AnomalousTransportModel
+    """
+    model::A
+    """
+    The maximum displacement in response to increasing pressure, scaled by the discharge channel length.
+    This should be positive.
+    """
+    shift_length::Float64
+    """
+    The pressure at the midpoint of the shift, in Torr.
+    Defaults to 25e-6 Torr, which gives good fits for the H9 and SPT-100.
+    """
+    midpoint_pressure::Float64 = 25.0e-6
+    """
+    The slope of the pressure response curve.
+    Defaults to 2, which gives good fits for the H9 and SPT-100.
+    """
+    slope::Float64 = 2.0
 end
 
 function pressure_shift(model::SimpleLogisticShift, pB::Float64, channel_length::Float64)
     (; shift_length, midpoint_pressure, slope) = model
     p_ratio = pB / midpoint_pressure
-	zstar = shift_length * (inv(1 + exp(-slope * (p_ratio - 1))) - inv(1 + exp(slope)))
+    zstar = shift_length * (inv(1 + exp(-slope * (p_ratio - 1))) - inv(1 + exp(slope)))
     return -channel_length * zstar
 end
 

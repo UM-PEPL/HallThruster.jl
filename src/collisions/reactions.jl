@@ -62,9 +62,9 @@ function _indices(symbol, reactions, fluids)
 end
 
 function reactant_indices(reactions, fluids)
-    _indices(:reactant, reactions, fluids)
+    return _indices(:reactant, reactions, fluids)
 end
 
 function product_indices(reactions, fluids)
-    _indices(:product, reactions, fluids)
+    return _indices(:product, reactions, fluids)
 end

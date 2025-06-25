@@ -15,10 +15,10 @@ Dx = Differential(x)
 L = 0.05
 
 ϕ = sin_wave(x / L, amplitude = 300, phase = π / 2, nwaves = 0.25)
-ne = sin_wave(x / L, amplitude = 2e15, phase = π / 4, nwaves = 0.5, offset = 1.1e16)
-nn = sin_wave(x / L, amplitude = 5e18, phase = pi / 3, nwaves = 2.0, offset = 6e18)
+ne = sin_wave(x / L, amplitude = 2.0e15, phase = π / 4, nwaves = 0.5, offset = 1.1e16)
+nn = sin_wave(x / L, amplitude = 5.0e18, phase = pi / 3, nwaves = 2.0, offset = 6.0e18)
 ui = sin_wave(x / L, amplitude = 13000, phase = π / 4, nwaves = 0.75, offset = 10000)
-μ = sin_wave(x / L, amplitude = 1e4, phase = π / 2, nwaves = 1.2, offset = 1.1e4)
+μ = sin_wave(x / L, amplitude = 1.0e4, phase = π / 2, nwaves = 1.2, offset = 1.1e4)
 ϵ = sin_wave(x / L, amplitude = 20, phase = 1.3 * π / 2, nwaves = 1.1, offset = 30)
 ∇ϕ = Dx(ϕ)
 niui = ne * ui
@@ -38,9 +38,9 @@ nn_func = eval(build_function(nn, [x]))
 ϵ_func = eval(build_function(ϵ, [x]))
 
 k(ϵ) = 8.32 * het.ovs_rate_coeff_ex(ϵ)
-W(ϵ) = 1e7 * ϵ * exp(-20 / ϵ)
+W(ϵ) = 1.0e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
-            ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
+    ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
 source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
 
 function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
@@ -51,7 +51,8 @@ function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
     res0 = 0.0
     while iter < max_steps && abs(residual / res0) > rtol
         het.update_electron_energy!(
-            params, config.wall_loss_model, config.source_energy, dt,)
+            params, config.wall_loss_model, config.source_energy, dt,
+        )
         params.cache.νiz .= 0.0
         params.cache.νex .= 0.0
         params.cache.inelastic_losses .= 0.0
@@ -75,7 +76,8 @@ function verify_energy(ncells; niters = 20000)
 
     # fill cache values
     _, cache = het.allocate_arrays(
-        grid, (; ncharge = 1, anom_model = het.NoAnom()),)
+        grid, (; ncharge = 1, anom_model = het.NoAnom()),
+    )
     @. cache.μ = μ_func(z_cell)
     @. cache.κ = κ_func(z_cell)
     @. cache.ne = ne_func(z_cell)
@@ -122,13 +124,16 @@ function verify_energy(ncells; niters = 20000)
 
     ionization_reactions = het.load_ionization_reactions(config.ionization_model, species)
     ionization_reactant_indices = het.reactant_indices(
-        ionization_reactions, species_range_dict,)
+        ionization_reactions, species_range_dict,
+    )
     ionization_product_indices = het.product_indices(
-        ionization_reactions, species_range_dict,)
+        ionization_reactions, species_range_dict,
+    )
 
     excitation_reactions = het.load_excitation_reactions(config.excitation_model, species)
     excitation_reactant_indices = het.reactant_indices(
-        excitation_reactions, species_range_dict,)
+        excitation_reactions, species_range_dict,
+    )
 
     dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
     params_base = (;

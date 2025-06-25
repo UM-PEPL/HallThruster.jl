@@ -1,8 +1,10 @@
 using HallThruster: HallThruster as ht
 using Test
 
+include("$(ht.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_grid_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         test_roundtrip(ht.GridSpec, ht.EvenGrid(0))
         test_roundtrip(ht.GridSpec, ht.UnevenGrid(100))
 
@@ -28,7 +30,7 @@ function test_grid_serialization()
 end
 
 function test_grid_invariants(spec, grid, dom)
-    @testset "Grid invariants" begin
+    return @testset "Grid invariants" begin
         n = spec.num_cells
         @test grid.num_cells == n + 2
         @test length(grid.edges) == n + 1
@@ -40,13 +42,13 @@ function test_grid_invariants(spec, grid, dom)
 
         @test all(
             grid.cell_centers[i] == 0.5 * (grid.edges[i] + grid.edges[i - 1])
-        for i in 2:n
+                for i in 2:n
         )
     end
 end
 
 function test_even_grid()
-    @testset "EvenGrid" begin
+    return @testset "EvenGrid" begin
         n = 151
         spec = ht.EvenGrid(n)
         geom = ht.SPT_100.geometry
@@ -66,7 +68,7 @@ function test_even_grid()
 end
 
 function test_uneven_grid()
-    @testset "UnevenGrid" begin
+    return @testset "UnevenGrid" begin
         n = 25
         spec = ht.UnevenGrid(n)
         geom = ht.SPT_100.geometry
@@ -79,8 +81,8 @@ function test_uneven_grid()
 
         @testset "Spacing" begin
             # Grid spacing at right side of domain should be 2x spacing at left end
-            @test isapprox(dz_cell[end], 2 * dz_cell[1], rtol = 1e-3)
-            @test isapprox(dz_edge[end - 1], 2 * dz_edge[2], rtol = 1e-3)
+            @test isapprox(dz_cell[end], 2 * dz_cell[1], rtol = 1.0e-3)
+            @test isapprox(dz_edge[end - 1], 2 * dz_edge[2], rtol = 1.0e-3)
 
             # Cell widths (dz_cell) should be unifom until 1.5 * channel_length
             for (i, z) in enumerate(edges)
@@ -101,16 +103,12 @@ function test_uneven_grid()
                 if (z >= 1.5 * geom.channel_length - 2 * dz_cell[1])
                     break
                 end
-                @test isapprox(dz_edge[i], dz_edge[2], rtol = 1e-3)
+                @test isapprox(dz_edge[i], dz_edge[2], rtol = 1.0e-3)
             end
         end
     end
 end
 
-function test_grid()
-    @testset "Grid" begin
-        test_grid_serialization()
-        test_even_grid()
-        test_uneven_grid()
-    end
-end
+test_grid_serialization()
+test_even_grid()
+test_uneven_grid()

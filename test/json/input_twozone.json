@@ -46,7 +46,7 @@
   "simulation": {
     "dt": 5E-9,
     "adaptive": true,
-    "duration": 1E-5,
+    "duration": 1E-6,
     "num_save": 1000,
     "grid": {
       "type": "EvenGrid",

@@ -1,7 +1,9 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; nn, Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency,
-    Z_eff, νiz, νex, νew_momentum, κ) = params.cache
+    (;
+        nn, Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency,
+        Z_eff, νiz, νex, νew_momentum, κ,
+    ) = params.cache
     (; source_electron_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature and pressure given new density
@@ -26,26 +28,30 @@ function update_electrons!(params, config, t = 0)
     conductivity_model(κ, params)
 
     # Update the electron temperature and pressure
-    update_electron_energy!(params, wall_loss_model, source_electron_energy, params.dt[])
+    return update_electron_energy!(params, wall_loss_model, source_electron_energy, params.dt[])
 end
 
 function freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
     (; thruster, grid, transition_length) = params
     L_ch = thruster.geometry.channel_length
     # Update wall collisions
-    @inbounds for i in eachindex(radial_loss_frequency)
+    return @inbounds for i in eachindex(radial_loss_frequency)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
         radial_loss_frequency[i] = freq_electron_wall(
-            wall_loss_model, params, i,)
+            wall_loss_model, params, i,
+        )
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
+            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
+        )
     end
 end
 
 function update_electrical_vars!(params)
     (; cache, anom_smoothing_iters, landmark, grid) = params
-    (; cell_cache_1, νan, νe, νc, μ, B, νew_momentum, anom_multiplier,
-    Vs, ue, ji, channel_area, ne, Id, K, pe, ∇pe, ϕ, ∇ϕ) = cache
+    (;
+        cell_cache_1, νan, νe, νc, μ, B, νew_momentum, anom_multiplier,
+        Vs, ue, ji, channel_area, ne, Id, K, pe, ∇pe, ϕ, ∇ϕ,
+    ) = cache
 
     # Smooth anomalous transport model
     if anom_smoothing_iters > 0
@@ -69,12 +75,15 @@ function update_electrical_vars!(params)
     V_R = params.cathode_coupling_voltage
     apply_drag = !landmark && params.iteration[] > 5
     Id[] = integrate_discharge_current(
-        grid, cache, V_L, V_R, params.neutral_velocity, apply_drag,)
+        grid, cache, V_L, V_R, params.neutral_velocity, apply_drag,
+    )
 
     # Update the anomalous collision frequency multiplier to match target current
-    anom_multiplier[] = exp(apply_controller(
-        params.simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
-    ))
+    anom_multiplier[] = exp(
+        apply_controller(
+            params.simulation.current_control, Id[], log(anom_multiplier[]), params.dt[],
+        )
+    )
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in eachindex(ue)
@@ -92,7 +101,7 @@ function update_electrical_vars!(params)
     compute_electric_field!(∇ϕ, cache, params.neutral_velocity, apply_drag)
 
     # Update electrostatic potential
-    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, params.discharge_voltage + Vs[])
+    return cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, params.discharge_voltage + Vs[])
 end
 
 # Compute the axially-constant discharge current using Ohm's law
@@ -144,7 +153,7 @@ function electron_kinetic_energy!(K, νe, B, ue)
     #   = 1/2 me (ue^2 + Ωe^2 ue^2)
     #   = 1/2 me (1 + Ωe^2) ue^2
     #   divide by e to get units of eV
-    @. K = 0.5 * me * (1 + (e * B / me / νe)^2) * ue^2 / e
+    return @. K = 0.5 * me * (1 + (e * B / me / νe)^2) * ue^2 / e
 end
 
 function compute_pressure_gradient!(∇pe, pe, z_cell)
@@ -157,12 +166,14 @@ function compute_pressure_gradient!(∇pe, pe, z_cell)
     @inbounds for j in 2:(ncells - 1)
         # Compute pressure gradient
         ∇pe[j] = central_difference(
-            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1],)
+            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1],
+        )
     end
 
     # pressure gradient (backward)
     ∇pe[end] = backward_difference(
-        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],)
+        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],
+    )
 
     return nothing
 end

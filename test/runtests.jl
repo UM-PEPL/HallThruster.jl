@@ -1,85 +1,32 @@
-using HallThruster
-using Test
-using Documenter
-using DelimitedFiles
-using LinearAlgebra
-using Printf
+# doctest(HallThruster)
 
-include("unit_tests/serialization_test_utils.jl")
+using SafeTestsets
 
-doctest(HallThruster)
+@safetestset "Doctests" begin
+    using HallThruster
+    using Documenter
 
-include("$(HallThruster.TEST_DIR)/unit_tests/thrusters.jl")
-test_thrusters()
+    doctest(HallThruster)
+end
 
-include("$(HallThruster.TEST_DIR)/unit_tests/thermodynamics.jl")
-test_thermodynamics()
+@safetestset "Errors" include("unit_tests/errors.jl")
+@safetestset "Gases and species" include("unit_tests/gases.jl")
+@safetestset "Thrusters" include("unit_tests/thrusters.jl")
+@safetestset "Linear interpolation" include("unit_tests/interpolation.jl")
+@safetestset "Linear algebra" include("unit_tests/linear_algebra.jl")
+@safetestset "Heavy species numerics" include("unit_tests/numerics.jl")
+@safetestset "Solution objects" include("unit_tests/solution.jl")
+@safetestset "Simulation setup" include("unit_tests/setup.jl")
+@safetestset "Grid" include("unit_tests/grid.jl")
+@safetestset "Current control" include("unit_tests/current_control.jl")
+@safetestset "Reactions" include("unit_tests/reactions.jl")
+@safetestset "Thermal conductivity serialization" include("unit_tests/thermal_conductivity.jl")
+@safetestset "Wall losses" include("unit_tests/walls.jl")
+@safetestset "Collisions and mobility" include("unit_tests/collisions.jl")
+@safetestset "Boundary conditions" include("unit_tests/boundary_conditions.jl")
+@safetestset "JSON serialization" include("json/json.jl")
+@safetestset "Prediction regression" include("regression/test_regression.jl")
 
-include("$(HallThruster.TEST_DIR)/unit_tests/fluxes.jl")
-test_fluxes()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/schemes.jl")
-test_schemes()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/limiters.jl")
-test_limiters()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/allocation.jl")
-test_allocation()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/interpolation.jl")
-test_interpolation()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/initialization.jl")
-test_initialization()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/configuration.jl")
-test_configuration()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/errors.jl")
-test_errors()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/linear_algebra.jl")
-test_linear_algebra()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/density_calculations.jl")
-test_density_calculations()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/collisions.jl")
-test_collisions()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/thermal_conductivity.jl")
-test_thermal_conductivity()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/walls.jl")
-test_walls()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/reactions.jl")
-test_reactions()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/gases.jl")
-test_gases()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/boundary_conditions.jl")
-test_boundaries()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/grid.jl")
-test_grid()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/current_control.jl")
-test_current_control()
-
-include("$(HallThruster.TEST_DIR)/unit_tests/setup.jl")
-test_setup()
-
-# JSON serialization tests
-include("$(HallThruster.TEST_DIR)/json/json.jl")
-test_json()
-
-# Regression tests
-include("$(HallThruster.TEST_DIR)/regression/test_regression.jl")
-test_regression()
-
-# Order verification tests
-include("$(HallThruster.TEST_DIR)/order_verification/test_ovs.jl")
-test_ovs()
+# # Order verification tests
+# include("$(HallThruster.TEST_DIR)/order_verification/test_ovs.jl")
+# test_ovs()

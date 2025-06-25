@@ -19,7 +19,8 @@ function Base.show(io::IO, i::IonizationReaction)
 end
 
 function load_ionization_reactions(
-        model::Symbol, species; directories = String[], kwargs...,)
+        model::Symbol, species; directories = String[], kwargs...,
+    )
     if model == :Landmark
         # check species
         if length(species) > 2 || species[1] != Xenon(0) || species[2] != Xenon(1)
@@ -46,7 +47,8 @@ function load_ionization_reactions(
                     filename = rate_coeff_filename(reactant, product, "ionization", folder)
                     if ispath(filename)
                         energy, rate_coeff = load_rate_coeffs(
-                            reactant, product, "ionization", folder,)
+                            reactant, product, "ionization", folder,
+                        )
                         reaction = IonizationReaction(energy, reactant, product, rate_coeff)
                         push!(reactions, reaction)
                         found = true

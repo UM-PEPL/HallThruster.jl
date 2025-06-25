@@ -1,5 +1,5 @@
-check_r(r) = isfinite(r) && r >= 0
-van_leer_limiter(r) = check_r(r) * (4r / (r + 1)^2)
+@inline check_r(r) = isfinite(r) && r >= 0
+@inline van_leer_limiter(r) = check_r(r) * (4r / (r + 1)^2)
 
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
@@ -75,7 +75,7 @@ function compute_fluxes_continuity!(fluid, grid)
     smax = wave_speed[]
     fluid.max_timestep[] = Inf
 
-    @inbounds for i in eachindex(fluid.dens_L)
+    return @inbounds for i in eachindex(fluid.dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
         flux_dens[i] = 0.5 * (const_velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
         fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)

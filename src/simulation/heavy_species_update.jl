@@ -1,5 +1,5 @@
 function integrate_heavy_species!(params, user_source, dt)
-    (;continuity, isothermal) = params.fluid_containers
+    (; continuity, isothermal) = params.fluid_containers
 
     fluids = params.fluid_containers
 
@@ -269,12 +269,12 @@ end
 
 function apply_right_boundary!(fluids)
     @inbounds for fluid in fluids.continuity
-        fluid.density[end] = fluid.density[end-1]
+        fluid.density[end] = fluid.density[end - 1]
     end
 
     @inbounds for fluid in fluids.isothermal
-        fluid.density[end] = fluid.density[end-1]
-        fluid.momentum[end] = fluid.momentum[end-1]
+        fluid.density[end] = fluid.density[end - 1]
+        fluid.momentum[end] = fluid.momentum[end - 1]
     end
 
     return

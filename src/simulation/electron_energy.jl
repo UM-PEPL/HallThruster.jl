@@ -23,7 +23,7 @@ function update_electron_energy!(params, wall_loss_model, source_energy, dt)
     # Make sure Tev is positive, limit if below user-configured minumum electron temperature
     limit_energy!(nϵ, ne, min_Te)
     update_temperature!(Tev, nϵ, ne, min_Te)
-    update_pressure!(pe, nϵ, landmark)
+    return update_pressure!(pe, nϵ, landmark)
 end
 
 function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
@@ -32,7 +32,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     explicit = 1.0 - implicit
     Q = cache.cell_cache_1
 
-    @inbounds for i in 2:(grid.num_cells - 1)
+    return @inbounds for i in 2:(grid.num_cells - 1)
         neL = ne[i - 1]
         ne0 = ne[i]
         neR = ne[i + 1]
@@ -111,9 +111,9 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
         Aϵ.du[i] = (FR_factor_R - FL_factor_R) / Δz
 
         # Contribution to implicit part from timestepping
-        Aϵ.d[i]      = 1.0 + implicit * dt * Aϵ.d[i]
+        Aϵ.d[i] = 1.0 + implicit * dt * Aϵ.d[i]
         Aϵ.dl[i - 1] = implicit * dt * Aϵ.dl[i - 1]
-        Aϵ.du[i]     = implicit * dt * Aϵ.du[i]
+        Aϵ.du[i] = implicit * dt * Aϵ.du[i]
 
         # Explicit flux
         F_explicit = (FR - FL) / Δz
@@ -143,11 +143,11 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
         Aϵ.du[1] = -1.0 / ne[2]
     end
 
-    bϵ[end] = 1.5 * Te_R * ne[end]
+    return bϵ[end] = 1.5 * Te_R * ne[end]
 end
 
 function limit_energy!(nϵ, ne, min_Te)
-    @inbounds for i in eachindex(nϵ)
+    return @inbounds for i in eachindex(nϵ)
         if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
             nϵ[i] = 1.5 * min_Te * ne[i]
         end
@@ -156,7 +156,7 @@ end
 
 function update_temperature!(Tev, nϵ, ne, min_Te)
     # Update plasma quantities based on new density
-    @inbounds for i in eachindex(Tev)
+    return @inbounds for i in eachindex(Tev)
         # Compute new electron temperature
         Tev[i] = 2.0 / 3.0 * max(min_Te, nϵ[i] / ne[i])
     end
@@ -168,7 +168,7 @@ function update_pressure!(pe, nϵ, landmark)
     else
         pe_factor = 2.0 / 3.0
     end
-    @inbounds for i in eachindex(pe)
+    return @inbounds for i in eachindex(pe)
         pe[i] = pe_factor * nϵ[i]
     end
 end

@@ -17,7 +17,7 @@ end
 ==============================================================================#
 Serialization.SType(::Type{T}) where {T <: CurrentController} = Serialization.TaggedUnion()
 function Serialization.options(::Type{T}) where {T <: CurrentController}
-    (; NoController, PIDController)
+    return (; NoController, PIDController)
 end
 Serialization.exclude(::Type{T}) where {T <: CurrentController} = (:errors, :smoothed_val)
 

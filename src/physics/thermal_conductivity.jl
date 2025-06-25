@@ -12,7 +12,8 @@ S. I. Braginskii, in Reviews of Plasma Physics (1965), Vol. 1, p. 205.
 const LOOKUP_ZS = range(1, 5, length = 5)
 const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
 const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
-    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS,)
+    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS,
+)
 
 #=============================================================================
  Serialization
@@ -22,11 +23,11 @@ const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
 end
 
 function Serialization.SType(::Type{T}) where {T <: ThermalConductivityModel}
-    Serialization.TaggedUnion()
+    return Serialization.TaggedUnion()
 end
 
 function Serialization.options(::Type{T}) where {T <: ThermalConductivityModel}
-    thermal_conductivity_models()
+    return thermal_conductivity_models()
 end
 
 #=============================================================================

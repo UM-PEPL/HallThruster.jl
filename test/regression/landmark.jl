@@ -4,7 +4,7 @@ using Test
 function test_landmark_regression()
     case1 = (;
         file = "LANDMARK case 1",
-        CFL = 0.25,
+        CFL = 0.2,
         landmark_case = 1,
         thrust = 92.408,
         current = 7.676,
@@ -13,13 +13,13 @@ function test_landmark_regression()
         max_E = 3.219e4,
         max_nn = 3.805e19,
         max_ni = 1.033e18,
-		efficiencies = Dict(
-			"Mass" => 1.029,
-			"Current" => 0.516,
-			"Divergence" => 1.0,
-			"Voltage" => 0.84,
-			"Anode" => 0.594,
-		)
+        efficiencies = Dict(
+            "Mass" => 1.029,
+            "Current" => 0.516,
+            "Divergence" => 1.0,
+            "Voltage" => 0.84,
+            "Anode" => 0.594,
+        ),
     )
 
     case2 = (;
@@ -31,15 +31,15 @@ function test_landmark_regression()
         ion_current = 3.655,
         max_Te = 33.168,
         max_E = 44412.88,
-        max_nn = 5.350e19,
+        max_nn = 5.35e19,
         max_ni = 3.937e18,
-		efficiencies = Dict(
-			"Mass" => 0.954,
-			"Current" => 0.455,
-			"Divergence" => 1.0,
-			"Voltage" => 0.980,
-			"Anode" => 0.404,
-		)
+        efficiencies = Dict(
+            "Mass" => 0.954,
+            "Current" => 0.455,
+            "Divergence" => 1.0,
+            "Voltage" => 0.98,
+            "Anode" => 0.404,
+        ),
     )
     case3 = (;
         file = "LANDMARK case 3",
@@ -52,16 +52,16 @@ function test_landmark_regression()
         max_E = 4.48e4,
         max_nn = 6.249e19,
         max_ni = 4.705e18,
-		efficiencies = Dict(
-			"Mass" => 0.936,
-			"Current" => 0.466,
-			"Divergence" => 1.0,
-			"Voltage" => 0.983,
-			"Anode" => 0.395,
-		)
+        efficiencies = Dict(
+            "Mass" => 0.936,
+            "Current" => 0.466,
+            "Divergence" => 1.0,
+            "Voltage" => 0.983,
+            "Anode" => 0.395,
+        ),
     )
 
-    @testset "LANDMARK regression" begin
+    return @testset "LANDMARK regression" begin
         check_regression_case(case1)
         check_regression_case(case2)
         check_regression_case(case3)

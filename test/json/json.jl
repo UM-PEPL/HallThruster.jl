@@ -1,7 +1,10 @@
 using JSON3: JSON3
+using HallThruster: HallThruster as het
+
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
 function test_json()
-    @testset "JSON" begin
+    return @testset "JSON" begin
         test_path = joinpath(het.PACKAGE_ROOT, "test", "json")
         json_path = joinpath(test_path, "input_shifted.json")
         sol = het.run_simulation(json_path)
@@ -13,13 +16,13 @@ function test_json()
         @test config.anom_model.model.hall_min ≈ 1 / 160
         @test config.anom_model.model.hall_max ≈ 1 / 16
         @test config.anom_model.alpha ≈ 43.0
-        @test config.anom_model.pstar ≈ 3e-5
+        @test config.anom_model.pstar ≈ 3.0e-5
         @test config.anom_model.z0 ≈ -0.12
         @test config.anom_model.dz ≈ 0.2
         @test config.discharge_voltage ≈ 300.0
         @test config.thruster.name == "SPT-100"
         @test config.propellant == het.Xenon
-        @test config.anode_mass_flow_rate ≈ 3e-6
+        @test config.anode_mass_flow_rate ≈ 3.0e-6
         @test config.ion_wall_losses == true
         @test sol.params.simulation.adaptive == true
         @test config.neutral_ingestion_multiplier == 6.0
@@ -61,3 +64,5 @@ function test_json()
         rm(outfile, force = true)
     end
 end
+
+test_json()

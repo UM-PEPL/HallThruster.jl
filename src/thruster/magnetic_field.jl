@@ -37,7 +37,7 @@ If one is found in the present directory or in any of the provided `include_dirs
 Throws an ArgumentError if one is not found.
 """
 function load_magnetic_field!(magnetic_field::MagneticField; include_dirs = String[])::Nothing
-    if isempty(magnetic_field.z) || isempty(magnetic_field.B)
+    return if isempty(magnetic_field.z) || isempty(magnetic_field.B)
         include_dirs = [include_dirs; pwd()]
         for dir in include_dirs
             file = joinpath(dir, magnetic_field.file)
@@ -58,7 +58,7 @@ Given a path to a file, loads a `MagneticField` from the data in that file.
 Looks in the present working directory and any additional directories passed to `include_dirs`.
 """
 function load_magnetic_field(file::String; include_dirs = String[])::MagneticField
-	field = MagneticField(;file);
-	load_magnetic_field!(field; include_dirs)
-	return field
+    field = MagneticField(; file)
+    load_magnetic_field!(field; include_dirs)
+    return field
 end

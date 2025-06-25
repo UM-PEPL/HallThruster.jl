@@ -3,14 +3,14 @@ function apply_reactions!(fluid_arr, params)
         ionization_reactions,
         ionization_reactant_indices,
         ionization_product_indices,
-        cache, landmark
+        cache, landmark,
     ) = params
 
     rxns = zip(
         ionization_reactions, ionization_reactant_indices, ionization_product_indices,
     )
 
-    apply_reactions!(fluid_arr, rxns, cache, landmark)
+    return apply_reactions!(fluid_arr, rxns, cache, landmark)
 end
 
 function apply_reactions!(fluids, rxns, cache, landmark)
@@ -34,7 +34,7 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         dt_max = min(_dt, dt_max)
     end
 
-    cache.dt_iz[] = dt_max
+    return cache.dt_iz[] = dt_max
 end
 
 function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
@@ -42,7 +42,7 @@ function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses,
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
 
-    @inbounds @simd for i in 2:length(reactant.density)-1
+    @inbounds @simd for i in 2:(length(reactant.density) - 1)
         r = rate_coeff(rxn, ϵ[i])
         ρ_reactant = reactant.density[i]
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
@@ -72,7 +72,7 @@ end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
-function apply_ion_acceleration!(fluids::Vector{IsothermalFluid}, grid, cache)
+function apply_ion_acceleration!(fluids::Vector{Fluid}, grid, cache)
     dt_max = Inf
 
     @inbounds for fluid in fluids
@@ -80,21 +80,21 @@ function apply_ion_acceleration!(fluids::Vector{IsothermalFluid}, grid, cache)
         m = fluid.species.element.m
         qe_m = Z * e / m
 
-        @simd for i in 2:length(fluid.dens_ddt)-1
+        @simd for i in 2:(length(fluid.dens_ddt) - 1)
             qE_m = -qe_m * cache.∇ϕ[i]
             dz = grid.dz_cell[i]
 
             Q_accel = qE_m * fluid.density[i]
-            dt_max = min(dt_max, abs(dz/qE_m))
+            dt_max = min(dt_max, abs(dz / qE_m))
             fluid.mom_ddt[i] += Q_accel
         end
     end
 
-    cache.dt_E[] = sqrt(dt_max)
+    return cache.dt_E[] = sqrt(dt_max)
 end
 
 function apply_ion_wall_losses!(continuity, isothermal, params)
-     (; thruster, cache, grid, transition_length, wall_loss_scale) = params
+    (; thruster, cache, grid, transition_length, wall_loss_scale) = params
 
     geometry = thruster.geometry
     L_ch = geometry.channel_length
@@ -102,17 +102,17 @@ function apply_ion_wall_losses!(continuity, isothermal, params)
     h = wall_loss_scale * edge_to_center_density_ratio()
 
     neutral_fluid = continuity[1]
-    @inbounds for ion_fluid in isothermal
+    return @inbounds for ion_fluid in isothermal
         m = ion_fluid.species.element.m
         Z = ion_fluid.species.Z
         qe_m = Z * e / m
 
-        for i in 2:length(ion_fluid.density)-1
+        for i in 2:(length(ion_fluid.density) - 1)
             u_bohm = sqrt(qe_m * cache.Tev[i])
-            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,)
+            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
             νiw = in_channel * u_bohm * inv_Δr * h
 
-            density_loss  = ion_fluid.density[i] * νiw
+            density_loss = ion_fluid.density[i] * νiw
             momentum_loss = ion_fluid.momentum[i] * νiw
 
             # Neutrals gain density due to ion recombination at the walls
@@ -165,7 +165,8 @@ function source_electron_energy!(Q, params, wall_loss_model)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, landmark, grid, excitation_reactions,)
+        inelastic_losses, cache, landmark, grid, excitation_reactions,
+    )
 
     # compute wall losses
     wall_power_loss!(wall_losses, wall_loss_model, params)

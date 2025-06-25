@@ -1,52 +1,109 @@
-using Unitful
+using HallThruster: HallThruster as het
 
-function test_setup()
-	@testset "Simulation setup" begin
-		geom = het.Geometry1D(
-			channel_length = 2.5u"cm",
-			inner_radius = 3.45u"cm",
-			outer_radius = 5u"cm",
-		)
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
-		@test geom.channel_length ≈ 0.025
-		@test geom.inner_radius ≈ 0.0345
-		@test geom.outer_radius ≈ 0.05
+function test_config_serialization()
+    return @testset "Serialization" begin
+        cfg = het.Config(;
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.8),
+            anode_mass_flow_rate = 5.0e-6,
+        )
 
-		simparams = het.SimParams(
-			grid = het.EvenGrid(100),
-			dt = 5u"ns",
-			duration = 1u"ms",
-			num_save = 1000,
-			verbose = false,
-		)
-		@test simparams.dt ≈ 5e-9
-		@test simparams.duration ≈ 1e-3
+        d = het.serialize(cfg)
+        for k in het.Serialization.exclude(het.Config)
+            @test !haskey(d, string(k))
+        end
 
-		config = het.Config(
-			thruster = het.SPT_100,
-			domain = (0.0u"cm", 8.0u"cm"),
-			discharge_voltage = 300.0u"V",
-			anode_mass_flow_rate = 5.0u"mg/s",
-			propellant = het.Xenon,
-		)
+        test_roundtrip(het.Config, cfg)
 
-		@test config.domain == (0.0, 0.08)
-		@test config.anode_mass_flow_rate ≈  5e-6
-		@test config.discharge_voltage ≈  300.0
-
-		solution = het.run_simulation(config, simparams)
-		avg = het.time_average(solution, 0.5u"ms")  # units are supported too, if Unitful or DynamicQuantities loaded
-		@test length(avg.frames) == 1
-		@test avg.t[end] == simparams.duration
-
-		tenth_frame = solution[10]      # extract frame number 10 as a new Solution object
-		@test length(tenth_frame.frames) == 1
-		@test tenth_frame.frames[] == solution.frames[10]
-
-		middle_800 = solution[101:900]  # extract frames 100:900
-		@test length(middle_800.frames) == 800
-		@test middle_800.t[1] == solution.t[101]
-		@test middle_800.t[end] == solution.t[900]
-	end
+        OD = het.Serialization.OrderedDict
+        d = OD(
+            :thruster => het.serialize(het.SPT_100),
+            :discharge_voltage => 800.0,
+            :domain => (0.0, 0.4),
+            :anode_mass_flow_rate => 9.0e-6,
+            :wall_loss_model => OD(
+                :type => "NoWallLosses"
+            ),
+        )
+        test_roundtrip(het.Config, d)
+    end
 end
 
+function test_setup()
+    anom_model = het.NoAnom()
+    config = het.Config(;
+        ncharge = 3,
+        discharge_voltage = 300,
+        anode_mass_flow_rate = 5.0e-6,
+        thruster = het.SPT_100,
+        domain = (0.0, 5.0e-2),
+        anom_model = anom_model,
+        initial_condition = het.DefaultInitialization(;
+            max_electron_temperature = 10.0
+        )
+    )
+
+    ncells = 100
+
+    simparams = het.SimParams(
+        grid = het.EvenGrid(ncells),
+        duration = 1.0e-6,
+    )
+
+    params = het.setup_simulation(config, simparams)
+
+    @testset "Configuration" begin
+        species = Set([f.species for f in params.fluid_arr])
+        expected_species = Set([het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)])
+        @test species == expected_species
+
+        neutral_fluid = params.fluid_containers.continuity[1]
+        @test length(params.fluid_containers.continuity) == 1
+        @test neutral_fluid.const_velocity == config.neutral_velocity
+        @test het.temperature(neutral_fluid) ≈ config.neutral_temperature_K
+
+        for ion_fluid in params.fluid_containers.isothermal
+            @test het.temperature(ion_fluid) ≈ config.ion_temperature_K
+        end
+
+        # Check array sizes
+        (;
+            Aϵ, bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue,
+            ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ni, ui, niui, nn, ji,
+        ) = params.cache
+
+        for arr in (
+                bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen,
+                νei, radial_loss_frequency, νew_momentum, ji, nn,
+            )
+            @test size(arr) == (ncells + 2,)
+        end
+
+        for arr in (ni, ui, niui)
+            @test size(arr) == (3, ncells + 2)
+        end
+
+        @test length(Aϵ.dl) == ncells + 1
+        @test length(Aϵ.d) == ncells + 2
+        @test length(Aϵ.du) == ncells + 1
+    end
+
+    return @testset "Anom initialization" begin
+        initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
+        v = anom_model(zeros(ncells + 2), params, config)
+        init = initial_model(zeros(ncells + 2), params, config)
+
+        @test all(init .== params.cache.νan)
+        @test all(v .!= params.cache.νan)
+
+        sol = het.run_from_setup(params, config)
+        @test all(init .!= sol.params.cache.νan)
+        @test all(v .== sol.params.cache.νan)
+    end
+end
+
+test_config_serialization()
+test_setup()

@@ -2,15 +2,15 @@ abstract type InitialCondition end
 
 Base.@kwdef struct DefaultInitialization <: InitialCondition
     max_electron_temperature::Float64 = -1.0
-    min_ion_density::Float64 = 2e17
-    max_ion_density::Float64 = 1e18
+    min_ion_density::Float64 = 2.0e17
+    max_ion_density::Float64 = 1.0e18
 end
 
 #=============================================================================
  Serialization
 ==============================================================================#
 Serialization.SType(::Type{T}) where {T <: InitialCondition} = Serialization.TaggedUnion()
-Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultInitialization,)
+Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultInitialization)
 
 #=============================================================================
 Definitions
@@ -26,14 +26,16 @@ function initialize_heavy_species_default!(params, config; kwargs...)
 
     ρn = inlet_neutral_density(config)
     un = config.neutral_velocity
-    initialize_heavy_species_default!(
+    return initialize_heavy_species_default!(
         params, anode_Tev, domain, discharge_voltage,
-        anode_mass_flow_rate, ρn, un; kwargs...,)
+        anode_mass_flow_rate, ρn, un; kwargs...,
+    )
 end
 
 function initialize_heavy_species_default!(
         params, anode_Tev, domain, discharge_voltage, anode_mass_flow_rate, ρn_0, un;
-        min_ion_density = 2e17, max_ion_density = 1e18,)
+        min_ion_density = 2.0e17, max_ion_density = 1.0e18,
+    )
 
     (; grid, cache, ncharge, thruster, mi) = params
     L_ch = thruster.geometry.channel_length
@@ -43,11 +45,13 @@ function initialize_heavy_species_default!(
     ni_width = L_ch / 3
     ni_min = min_ion_density
     ni_max = max_ion_density
-    scaling_factor = sqrt(discharge_voltage / 300) * (anode_mass_flow_rate / 5e-6)
+    scaling_factor = sqrt(discharge_voltage / 300) * (anode_mass_flow_rate / 5.0e-6)
     ion_density_function = (z, Z) -> mi * scaling_factor *
-                                     (ni_min +
-                                      (ni_max - ni_min) *
-                                      exp(-(((z - z0) - ni_center) / ni_width)^2)) / Z^2
+        (
+        ni_min +
+            (ni_max - ni_min) *
+            exp(-(((z - z0) - ni_center) / ni_width)^2)
+    ) / Z^2
 
     bohm_velocity = Z -> -sqrt(Z * e * anode_Tev / mi)
 
@@ -55,7 +59,7 @@ function initialize_heavy_species_default!(
     scale(Z) = 2 / 3 * (final_velocity(Z) - bohm_velocity(Z))
     ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * ((z - z0) / L_ch)^2
     function ion_velocity_f2(z, Z)
-        lerp(z, z0 + L_ch, domain[2], ion_velocity_f1(L_ch, Z), final_velocity(Z))
+        return lerp(z, z0 + L_ch, domain[2], ion_velocity_f1(L_ch, Z), final_velocity(Z))
     end
 
     ion_velocity_function = (z, Z) -> if z - z0 < L_ch
@@ -74,8 +78,10 @@ function initialize_heavy_species_default!(
     neutral_function = z -> smooth_if(z - z0, L_ch / 2, ρn_0, ρn_1, L_ch / 6)
 
     # Electron density
-    number_density_function = z -> sum(Z * ion_density_function(z, Z) / mi
-    for Z in 1:ncharge)
+    number_density_function = z -> sum(
+        Z * ion_density_function(z, Z) / mi
+            for Z in 1:ncharge
+    )
 
     # Fill the fluid containers
     @inbounds for fluid in params.fluid_containers.continuity
@@ -93,20 +99,24 @@ function initialize_heavy_species_default!(
     return nothing
 end
 
-function initialize_electrons_default!(params, anode_Tev, cathode_Tev, domain,
-        discharge_voltage; max_electron_temperature = -1.0,)
+function initialize_electrons_default!(
+        params, anode_Tev, cathode_Tev, domain,
+        discharge_voltage; max_electron_temperature = -1.0,
+    )
     (; grid, cache, min_Te, thruster) = params
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
     # Electron temperature
     Te_baseline = z -> lerp(z, domain[1], domain[2], anode_Tev, cathode_Tev)
     Te_max = max_electron_temperature > 0.0 ? max_electron_temperature :
-             discharge_voltage / 10
+        discharge_voltage / 10
     Te_width = L_ch / 3
 
     # Gaussian Te profile
-    energy_function = z -> 3 / 2 * (Te_baseline(z) +
-                            (Te_max - min_Te) * exp(-(((z - z0) - L_ch) / Te_width)^2))
+    energy_function = z -> 3 / 2 * (
+        Te_baseline(z) +
+            (Te_max - min_Te) * exp(-(((z - z0) - L_ch) / Te_width)^2)
+    )
 
     for (i, z) in enumerate(grid.cell_centers)
         cache.nϵ[i] = cache.ne[i] * energy_function(z)
@@ -123,9 +133,11 @@ function initialize!(params, config, init::DefaultInitialization)
     un = config.neutral_velocity
     initialize_heavy_species_default!(
         params, anode_Tev, domain, discharge_voltage,
-        anode_mass_flow_rate, ρn, un; max_ion_density, min_ion_density,)
-    initialize_electrons_default!(
-        params, anode_Tev, cathode_Tev, domain, discharge_voltage; max_electron_temperature,)
+        anode_mass_flow_rate, ρn, un; max_ion_density, min_ion_density,
+    )
+    return initialize_electrons_default!(
+        params, anode_Tev, cathode_Tev, domain, discharge_voltage; max_electron_temperature,
+    )
 end
 
 """

@@ -9,7 +9,7 @@ using .OVS_Energy
 using .OVS_Ions
 
 function test_ovs_energy()
-    @testset "Order verification (electron energy)" begin
+    return @testset "Order verification (electron energy)" begin
         vfunc = x -> OVS_Energy.verify_energy(x)
         refinements = refines(6, 20, 2)
 
@@ -26,14 +26,15 @@ function test_ovs_energy()
             case_ind = ((i - 1) ÷ num_norms) + 1
             println(
                 "Electron energy ($(cases[case_ind]), $(norms_to_test[norm_ind])-norm): ",
-                slope,)
+                slope,
+            )
             @test slope > 0.8
         end
     end
 end
 
 function test_ovs_ions()
-    @testset "Order verification (neutrals and ions)" begin
+    return @testset "Order verification (neutrals and ions)" begin
         refinements = refines(5, 10, 2)
 
         limiter = het.van_leer
@@ -49,7 +50,8 @@ function test_ovs_ions()
             for reconstruct in [false, true]
                 scheme = het.HyperbolicScheme(flux, limiter, reconstruct)
                 orders, _ = test_refinements(
-                    ncells -> OVS_Ions.solve_ions(ncells, scheme), refinements, norms_to_test,)
+                    ncells -> OVS_Ions.solve_ions(ncells, scheme), refinements, norms_to_test,
+                )
                 for (i, order) in enumerate(orders)
                     norm_ind = mod1(i, num_norms)
                     case_ind = ((i - 1) ÷ num_norms) + 1
@@ -75,5 +77,5 @@ end
 
 function test_ovs()
     test_ovs_energy()
-    test_ovs_ions()
+    return test_ovs_ions()
 end

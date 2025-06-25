@@ -1,7 +1,9 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_conductivity_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         @testset "Braginskii" begin
             test_subtype(het.ThermalConductivityModel, het.Braginskii())
         end
@@ -16,8 +18,4 @@ function test_conductivity_serialization()
     end
 end
 
-function test_thermal_conductivity()
-    @testset "Thermal conductivity" begin
-        test_conductivity_serialization()
-    end
-end
+test_conductivity_serialization()

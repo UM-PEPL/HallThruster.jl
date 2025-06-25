@@ -14,9 +14,9 @@ julia> forward_diff_coeffs(0//1, 1//2, 3//2)
     h1 = x1 - x0
     h2 = x2 - x1
     return (
-        -(2h1 + h2)/h1/(h1 + h2),
-        (h1 + h2)/(h1*h2),
-        - h1/h2/(h1 + h2)
+        -(2h1 + h2) / h1 / (h1 + h2),
+        (h1 + h2) / (h1 * h2),
+        - h1 / h2 / (h1 + h2),
     )
 end
 
@@ -36,9 +36,9 @@ julia> central_diff_coeffs(-1//2, 0//1, 1//1)
     h1 = x1 - x0
     h2 = x2 - x1
     return (
-        -h2/h1/(h1+h2),
-        -(h1-h2)/(h1*h2),
-        h1/h2/(h1+h2)
+        -h2 / h1 / (h1 + h2),
+        -(h1 - h2) / (h1 * h2),
+        h1 / h2 / (h1 + h2),
     )
 end
 
@@ -58,9 +58,9 @@ julia> backward_diff_coeffs(-3//2, -1//1, 0//1)
     h1 = x1 - x0
     h2 = x2 - x1
     return (
-        h2/h1/(h1 + h2),
-        -(h1 + h2)/(h1*h2),
-        (h1+2h2)/h2/(h1+h2),
+        h2 / h1 / (h1 + h2),
+        -(h1 + h2) / (h1 * h2),
+        (h1 + 2h2) / h2 / (h1 + h2),
     )
 end
 
@@ -99,7 +99,7 @@ julia> upwind_diff_coeffs(-3//1, 0//1, 2//1)
 """
 @inline function upwind_diff_coeffs(x0, x1, x2)
     h1 = x1 - x0
-    return (-1/h1, 1/h1, 0/h1)
+    return (-1 / h1, 1 / h1, 0 / h1)
 end
 
 """
@@ -114,7 +114,7 @@ julia> downwind_diff_coeffs(-1//1, 0//1, 2//1)
 """
 @inline function downwind_diff_coeffs(x0, x1, x2)
     h2 = x2 - x1
-    return (0/h2, -1/h2, 1/h2)
+    return (0 / h2, -1 / h2, 1 / h2)
 end
 
 """
@@ -213,5 +213,5 @@ julia> c0 * 0.0 + c1 * 2.0 == lerp(0.5, 0.0, 1.0, 0.0, 2.0)
 true
 """
 @inline function interpolation_coeffs(x, x0, x1)
-    return (x - x0) / (x1 - x0), (1 - (x - x0)/ (x1 - x0))
+    return (x - x0) / (x1 - x0), (1 - (x - x0) / (x1 - x0))
 end

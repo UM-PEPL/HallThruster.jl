@@ -26,9 +26,9 @@ struct Geometry1D
     """
     channel_area::Float64
     function Geometry1D(; channel_length, inner_radius, outer_radius)
-		channel_length = convert_to_float64(channel_length, units(:m))
-		inner_radius = convert_to_float64(inner_radius, units(:m))
-		outer_radius = convert_to_float64(outer_radius, units(:m))
+        channel_length = convert_to_float64(channel_length, units(:m))
+        inner_radius = convert_to_float64(inner_radius, units(:m))
+        outer_radius = convert_to_float64(outer_radius, units(:m))
         A_ch = channel_area(outer_radius, inner_radius)
         return new(channel_length, inner_radius, outer_radius, A_ch)
     end
@@ -47,7 +47,8 @@ Compute the perimeteter of the thruster channel, equal to the sum of the inner a
 """
 @inline channel_perimeter(outer_radius, inner_radius) = 2π * (outer_radius + inner_radius)
 @inline channel_perimeter(geometry::Geometry1D) = channel_perimeter(
-    geometry.outer_radius, geometry.inner_radius,)
+    geometry.outer_radius, geometry.inner_radius,
+)
 
 """
     channel_width(outer_radius, inner_radius)
@@ -55,7 +56,8 @@ Compute the thruster channel width
 """
 @inline channel_width(outer_radius, inner_radius) = outer_radius - inner_radius
 @inline channel_width(geometry::Geometry1D) = channel_width(
-    geometry.outer_radius, geometry.inner_radius,)
+    geometry.outer_radius, geometry.inner_radius,
+)
 
 #=============================================================================
  Serialization

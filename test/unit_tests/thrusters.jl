@@ -1,7 +1,9 @@
 using HallThruster: HallThruster as het
 
+include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
+
 function test_thruster_serialization()
-    @testset "Serialization" begin
+    return @testset "Serialization" begin
         thruster = het.SPT_100
         @testset "Magnetic field" begin
             test_roundtrip(het.MagneticField, thruster.magnetic_field)
@@ -28,7 +30,7 @@ function test_thruster_serialization()
 end
 
 function test_geometry()
-    @testset "Geometry" begin
+    return @testset "Geometry" begin
         SPT_100 = het.SPT_100
         r0 = SPT_100.geometry.inner_radius
         r1 = SPT_100.geometry.outer_radius
@@ -39,7 +41,8 @@ function test_geometry()
         @test het.channel_area(SPT_100) == A_ch
 
         mygeom = het.Geometry1D(
-            channel_length = 1.0, inner_radius = 1.0, outer_radius = 2.0,)
+            channel_length = 1.0, inner_radius = 1.0, outer_radius = 2.0,
+        )
         @test mygeom.channel_area == 3π
 
         Bmax = 0.015
@@ -48,9 +51,9 @@ function test_geometry()
         bfield = SPT_100.magnetic_field
         itp = het.LinearInterpolation(bfield.z, bfield.B)
 
-        @test isapprox(itp(L_ch), Bmax, rtol = 1e-3)
-        @test isapprox(itp(L_ch / 2), Bmax * exp(-0.5 * (L_ch / 2 / 0.011)^2), rtol = 1e-3)
-        @test isapprox(itp(2 * L_ch), Bmax * exp(-0.5 * (L_ch / 0.018)^2), rtol = 1e-3)
+        @test isapprox(itp(L_ch), Bmax, rtol = 1.0e-3)
+        @test isapprox(itp(L_ch / 2), Bmax * exp(-0.5 * (L_ch / 2 / 0.011)^2), rtol = 1.0e-3)
+        @test isapprox(itp(2 * L_ch), Bmax * exp(-0.5 * (L_ch / 0.018)^2), rtol = 1.0e-3)
 
         @test het.channel_width(r1, r0) ≈ r1 - r0
         @test het.channel_width(het.SPT_100) ≈ r1 - r0
@@ -60,9 +63,5 @@ function test_geometry()
     end
 end
 
-function test_thrusters()
-    @testset "Thrusters" begin
-        test_geometry()
-        test_thruster_serialization()
-    end
-end
+test_geometry()
+test_thruster_serialization()

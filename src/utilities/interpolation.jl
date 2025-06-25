@@ -62,7 +62,7 @@ end
 end
 
 function (itp::LinearInterpolation)(x::T; use_log = false) where {T}
-    interpolate(x, itp.xs, itp.ys; use_log)
+    return interpolate(x, itp.xs, itp.ys; use_log)
 end
 
 """
