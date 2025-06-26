@@ -18,7 +18,7 @@ These are specified in the [Configuration](@ref) stage, using the following keys
 - `source_electron_energy`
 
 We use [Symbolics.jl](https://github.com/JuliaSymbolics/Symbolics.jl) to construct these source terms automatically from the governing equations of our model.
-We automatically test for first and second-order spatial accuracy of all of the [numerical fluxes](../reference/schemes.md) that we use for ions, as well as for the Crank-Nicholson/implicit solver we use for the electrons.
+We automatically test for first and second-order spatial accuracy of our ion solver with and without gradient reconstruction enabled, as well as for the Crank-Nicholson solver we use for the electrons.
 
 ## Landmark benchmark
 

@@ -1,10 +1,10 @@
-function iterate_heavy_species!(dU, U, params, scheme, sources; apply_boundary_conditions)
+function iterate_heavy_species!(dU, U, params, reconstruct, sources; apply_boundary_conditions)
     (; index, cache, grid, simulation, ncharge, ion_wall_losses) = params
     (; source_neutrals, source_ion_continuity, source_ion_momentum) = sources
     (; F, UL, UR) = cache
 
     # Compute edges and apply convective update
-    compute_fluxes!(F, UL, UR, U, params, scheme; apply_boundary_conditions)
+    compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions)
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
     apply_user_ion_source_terms!(
@@ -66,23 +66,23 @@ end
 function integrate_heavy_species!(
         U, params, config::Config, dt, apply_boundary_conditions = true,
     )
-    (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
+    (; source_neutrals, source_ion_continuity, source_ion_momentum, reconstruct) = config
     sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
 
-    return integrate_heavy_species!(U, params, scheme, sources, dt, apply_boundary_conditions)
+    return integrate_heavy_species!(U, params, reconstruct, sources, dt, apply_boundary_conditions)
 end
 
 function integrate_heavy_species!(
-        U, params, scheme::HyperbolicScheme, sources, dt, apply_boundary_conditions = true,
+        U, params, reconstruct, sources, dt, apply_boundary_conditions = true,
     )
     (; k, u1) = params.cache
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, scheme, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, U, params, reconstruct, sources; apply_boundary_conditions)
     @. u1 = U + dt * k
     stage_limiter!(u1, params)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params, scheme, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, reconstruct, sources; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
     return stage_limiter!(U, params)
 end

@@ -270,7 +270,7 @@ end
 
 
 function solve(U, params, config, tspan; saveat)
-    # Initialie starting time and iterations
+    # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
     iteration[] = 1
@@ -295,7 +295,7 @@ function solve(U, params, config, tspan; saveat)
     sim = params.simulation
 
     # Extract stuff from config
-    (; source_neutrals, source_ion_continuity, source_ion_momentum, scheme) = config
+    (; source_neutrals, source_ion_continuity, source_ion_momentum, reconstruct) = config
     sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
 
     try
@@ -331,7 +331,7 @@ function solve(U, params, config, tspan; saveat)
             end
 
             # update heavy species quantities
-            integrate_heavy_species!(U, params, scheme, sources, params.dt[])
+            integrate_heavy_species!(U, params, reconstruct, sources, params.dt[])
             update_heavy_species!(U, params)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary

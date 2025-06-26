@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 ## Mandatory Fields
 $(TYPEDFIELDS)
 """
-struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_N, S_IC, S_IM, S_E}
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, IC <: InitialCondition, S_N, S_IC, S_IM, S_E}
     """
     The thruster to simulate. See [Thrusters](@ref) for more information
     """
@@ -20,7 +20,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     discharge_voltage::Float64
     """
     The mass flow rate of neutral atoms through the anode, in kg/s.
-    
+
     ---
     # Optional fields
     ---
@@ -115,9 +115,9 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     transition_length::Float64
     """
-    Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. See [Schemes](../reference/schemes.md) for more info. **Default:** `HyperbolicScheme(flux_function = rusanov, limiter = van_leer, reconstruct = true)`.
+    Whether to employ gradient reconstruction
     """
-    scheme::HS
+    reconstruct::Bool
     """
     An `InitialCondition`; see [Initialization](../explanation/initialization.md) for more information. **Default:** `DefaultInitialization()`.
     """
@@ -132,7 +132,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     reaction_rate_directories::Vector{String}
     """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
-    
+
     ---
     # Verification and validation options
     ---
@@ -202,7 +202,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale = 1.0,
             magnetic_field_scale::Float64 = 1.0,
             transition_length = 0.1 * thruster.geometry.channel_length,
-            scheme::HS = HyperbolicScheme(),
+            reconstruct::Bool = true,
             initial_condition::IC = DefaultInitialization(),
             implicit_energy = 1.0,
             reaction_rate_directories = String[],
@@ -219,7 +219,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
-            HS <: HyperbolicScheme,
             IC <: InitialCondition,
         }
         # check that number of ion source terms matches number of charges for both
@@ -280,7 +279,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         end
 
         return new{
-            A, TC, W, HS, IC,
+            A, TC, W, IC,
             typeof(source_neutrals), typeof(source_ion_continuity),
             typeof(source_ion_momentum), typeof(source_energy),
         }(
@@ -312,7 +311,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale,
             magnetic_field_scale,
             transition_length,
-            scheme,
+            reconstruct,
             initial_condition,
             implicit_energy,
             reaction_rate_directories,

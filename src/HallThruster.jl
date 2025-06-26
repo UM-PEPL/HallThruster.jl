@@ -31,6 +31,7 @@ include("utilities/macros.jl")
 include("utilities/serialization.jl")
 include("utilities/keywords.jl")
 include("utilities/units.jl")
+include("utilities/finite_differences.jl")
 
 using .Serialization: serialize, deserialize
 
@@ -45,12 +46,6 @@ include("walls/wall_losses.jl")
 include("walls/no_wall_losses.jl")
 include("walls/constant_sheath_potential.jl")
 include("walls/wall_sheath.jl")
-
-include("numerics/finite_differences.jl")
-include("numerics/limiters.jl")
-include("numerics/flux_functions.jl")
-include("numerics/schemes.jl")
-include("numerics/edge_fluxes.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
@@ -73,11 +68,12 @@ include("simulation/configuration.jl")
 include("simulation/allocation.jl")
 include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
-include("simulation/update_heavy_species.jl")
-include("simulation/electronenergy.jl")
+include("simulation/heavy_species_fluxes.jl")
+include("simulation/heavy_species_update.jl")
+include("simulation/electron_energy.jl")
+include("simulation/electron_update.jl")
 include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
-include("simulation/update_electrons.jl")
 include("simulation/solution.jl")
 include("simulation/postprocess.jl")
 include("simulation/simulation.jl")
@@ -107,10 +103,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         anode_mass_flow_rate = 5.0e-6,
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
-        scheme = HyperbolicScheme(
-            flux_function = global_lax_friedrichs,
-            limiter = van_albada,
-        ),
     )
     sol_1 = run_simulation(
         config_1; ncells, duration, dt, nsave, verbose = false,
@@ -132,10 +124,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         neutral_temperature_K = 500,
         ion_wall_losses = true,
         solve_plume = true,
-        scheme = HyperbolicScheme(
-            flux_function = HLLE,
-            limiter = minmod,
-        ),
     )
 
     sol_2 = run_simulation(

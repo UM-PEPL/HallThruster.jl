@@ -93,7 +93,7 @@ function run_landmark(
     config = het.Config(;
         ncharge = 1,
         domain,
-        scheme = het.HyperbolicScheme(reconstruct = false),
+        reconstruct = case > 1,
         anode_Tev = 2 / 3 * ϵ_anode,
         cathode_Tev = 2 / 3 * ϵ_cathode,
         discharge_voltage = 300.0,
