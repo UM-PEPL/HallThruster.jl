@@ -1,12 +1,18 @@
 function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species)
-    (; index, cache, grid, simulation, propellants, ion_wall_losses) = params
-    (; F, UL, UR) = cache
-
-    ncharge = propellants[1].max_charge
+    (; cache, grid, ion_wall_losses, fluid_containers) = params
 
     # Compute edges and apply convective update
-    compute_fluxes!(F, UL, UR, U, params, reconstruct)
-    update_convective_term!(dU, U, F, grid, index, cache, ncharge)
+    _from_state_vector!(fluid_containers, U)
+    update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
+    _to_state_vector!(U, fluid_containers)
+
+    # Update d/dt
+    @. @views dU[1, :] = fluid_containers.continuity[1].dens_ddt
+
+    for (i, fluid) in enumerate(fluid_containers.isothermal)
+        @. @views dU[2 * i, :] = fluid.dens_ddt
+        @. @views dU[2 * i + 1, :] = fluid.mom_ddt
+    end
 
     source_heavy_species(dU, U, params)
     apply_reactions!(dU, U, params)
@@ -17,9 +23,20 @@ function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species
         apply_ion_wall_losses!(dU, U, params)
     end
 
-    update_timestep!(cache, dU, simulation.CFL, length(grid.cell_centers))
+    # Update maximum allowable timestep
+    CFL = params.simulation.CFL
+    min_dt_u = params.fluid_containers.continuity[1].max_timestep[]
+    for fluid in params.fluid_containers.isothermal
+        min_dt_u = min(min_dt_u, fluid.max_timestep[])
+    end
 
-    return nothing
+    cache.dt[] = min(
+        CFL * cache.dt_iz[],
+        sqrt(CFL) * cache.dt_E[],
+        CFL * min_dt_u,
+    )
+
+    return
 end
 
 function update_timestep!(cache, dU, CFL, ncells)
@@ -34,55 +51,33 @@ function update_timestep!(cache, dU, CFL, ncells)
     return @. @views dU[:, end] = 0.0
 end
 
-function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
-    (; dA_dz, channel_area) = cache
-    ncells = length(grid.cell_centers)
-    return @inbounds for i in 2:(ncells - 1)
-        left = left_edge(i)
-        right = right_edge(i)
+"""
+$(SIGNATURES)
 
-        Δz = grid.dz_cell[i]
+Step the heavy species forward in time using the Strong-Stability-preserving RK22 (SSPRK22) algorithm.
+This method is better known as Heun's method (https://en.wikipedia.org/wiki/Heun%27s_method).
+The Butcher tableau of this method is
 
-        dlnA_dz = dA_dz[i] / channel_area[i]
+ 0 │
+ 1 │ 1
+ ─-╀─────────
+   │ 1/2  1/2
 
-        # Neutral flux
-        dU[index.ρn, i] = (F[index.ρn, left] - F[index.ρn, right]) / Δz
+The canonical form goes as follows for an ODE dy/dt = f(t, y) and step size h:
 
-        # Handle ions
-        for Z in 1:ncharge
-            # Ion fluxes
-            # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
-            ρi = U[index.ρi[Z], i]
-            ρiui = U[index.ρiui[Z], i]
-            dU[index.ρi[Z], i] = (F[index.ρi[Z], left] - F[index.ρi[Z], right]) / Δz - ρiui * dlnA_dz
-            dU[index.ρiui[Z], i] = (F[index.ρiui[Z], left] - F[index.ρiui[Z], right]) / Δz - ρiui^2 / ρi * dlnA_dz
-        end
-    end
-end
+k_{n1} = f(t, y_n)
+y_{n1} = y_n + h * k_{n1}
+k_{n2} = f(t + h, y_{n1})
+y_{n+1} = y_n + 0.5 * h * (k_{n1} + k_{n2})
 
-# Step the heavy species forward in time using the Strong-Stability-preserving RK22 (SSPRK22) algorithm.
-# This method is better known as Heun's method (https://en.wikipedia.org/wiki/Heun%27s_method).
-# The Butcher tableau of this method is
-#
-#  0 │
-#  1 │ 1
-#  ─-╀─────────
-#    │ 1/2  1/2
-#
-# The canonical form goes as follows for an ODE dy/dt = f(t, y) and step size h:
-#
-# k_{n1} = f(t, y_n)
-# y_{n1} = y_n + h * k_{n1}
-# k_{n2} = f(t + h, y_{n1})
-# y_{n+1} = y_n + 0.5 * h * (k_{n1} + k_{n2})
-#
-# As written, this requries three intermediate storage variables: k_{n1}, k_{n2}, and y_{n1}
-# We can reduce this to two using the following rearrangement
-#
-# y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
-#         = (y_n + y_{n1} + h * k_{n2}) / 2
-#
-# With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
+As written, this requries three intermediate storage variables: k_{n1}, k_{n2}, and y_{n1}
+We can reduce this to two using the following rearrangement
+
+y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
+        = (y_n + y_{n1} + h * k_{n2}) / 2
+
+With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
+"""
 function integrate_heavy_species!(u, params, reconstruct, source, dt)
     (; k, u1) = params.cache
     # First step

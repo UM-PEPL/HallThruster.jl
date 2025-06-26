@@ -100,7 +100,7 @@ function setup_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    fluid_containers = allocate_fluids(config.propellants[1], sim.grid.num_cells + 2)
+    fluid_containers = allocate_fluids(config.propellants[1], sim.grid.num_cells)
     fluid_array = [fluid_containers.continuity..., fluid_containers.isothermal...]
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)

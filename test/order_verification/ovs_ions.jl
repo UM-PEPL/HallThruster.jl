@@ -5,6 +5,7 @@ include("ovs_funcs.jl")
 using HallThruster: HallThruster as het
 using LinearAlgebra
 using Symbolics
+using Accessors
 
 struct R <: het.Reaction end
 
@@ -89,17 +90,21 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
         source_heavy_species = source_heavy_species,
     )
 
-    # Construct grid
-    grid = het.generate_grid(het.UnevenGrid(ncells), het.SPT_100.geometry, domain)
-    z_cell = grid.cell_centers
+    simparams = het.SimParams(
+        grid = het.UnevenGrid(ncells),
+        dt = 1.0e-9,
+        duration = 1.0,
+    )
 
-    # Create fluids
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-    ionization_reactions = het.load_ionization_reactions(config.ionization_model, species)
-    index = het.configure_index(fluids, fluid_ranges)
+    U, params = het.setup_simulation(config, simparams)
+    # Need to overwrite min_Te b/c here Te can be lower than Te_L or Te_R
+    z_cell = params.grid.cell_centers
+    z_start = z_cell[1]
+    z_end = z_cell[end]
+    @reset params.min_Te = 0.01 * 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end))
+    (; index, cache, grid) = params
 
     # Allocate arrays and fill variables
-    U, cache = het.allocate_arrays(grid, config)
     ρn_exact = ρn_func.(z_cell)
     ρi_exact = ρi_func.(z_cell)
     ui_exact = ui_func.(z_cell)
@@ -109,8 +114,6 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     @. cache.channel_area = A_ch
 
     # Fill initial condition
-    z_start = z_cell[1]
-    z_end = z_cell[end]
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
     U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
     U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
@@ -119,26 +122,6 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     # Compute timestep
     amax = maximum(abs.(ui_exact) .+ sqrt.(2 / 3 * e * ϵ_func.(z_cell) / mi))
     cache.dt[] = 0.1 * minimum(grid.dz_cell) / amax
-
-    # Create params struct
-    params = (;
-        het.params_from_config(config)...,
-        grid,
-        ncells = length(z_cell),
-        index,
-        cache,
-        fluids,
-        species_range_dict,
-        is_velocity_index,
-        min_Te = 0.01 * 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end)),
-        ionization_reactions,
-        ionization_reactant_indices = [index.ρn],
-        ionization_product_indices = [index.ρi[1]],
-        background_neutral_density = 0.0,
-        background_neutral_velocity = 1.0,
-        adaptive = false,
-        simulation = (; CFL = 0.9),
-    )
 
     t = 0.0
     while t < t_end

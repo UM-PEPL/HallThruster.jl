@@ -95,12 +95,13 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         cell_cache_1 = zeros(ncells),
 
         # Plume divergence variables
-        channel_area = zeros(ncells),    # Area of channel / plume
-        dA_dz = zeros(ncells),          # derivative of area w.r.t. axial coordinate
-        channel_height = zeros(ncells),  # Height of channel / plume (outer - inner)
-        inner_radius = zeros(ncells),    # Channel/plume inner radius
-        outer_radius = zeros(ncells),    # Channel/plume outer radius
-        tanδ = zeros(ncells),            # Tangent of divergence half-angle
+        channel_area = zeros(ncells),       # Area of channel / plume
+        dA_dz = zeros(ncells),              # derivative of area w.r.t. axial coordinate
+        dlnA_dz = zeros(ncells),            # derivative of log area w.r.t. axial coordinate
+        channel_height = zeros(ncells),     # Height of channel / plume (outer - inner)
+        inner_radius = zeros(ncells),       # Channel/plume inner radius
+        outer_radius = zeros(ncells),       # Channel/plume outer radius
+        tanδ = zeros(ncells),               # Tangent of divergence half-angle
 
         # Anomalous transport variables
         anom_variables = [zeros(ncells) for _ in 1:n_anom_vars],

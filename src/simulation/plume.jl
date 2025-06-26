@@ -16,7 +16,7 @@ end
 
 function update_plume_geometry!(params)
     (; cache, grid, propellants, thruster) = params
-    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni) = cache
+    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni, dlnA_dz) = cache
 
     ncharge = propellants[1].max_charge
     mi = propellants[1].gas.m
@@ -41,6 +41,7 @@ function update_plume_geometry!(params)
         channel_height[i] = outer_radius[i] - inner_radius[i]
         channel_area[i] = π * (outer_radius[i]^2 - inner_radius[i]^2)
         dA_dz[i] = (channel_area[i] - channel_area[i - 1]) / Δz
+        dlnA_dz[i] = dA_dz[i] / channel_area[i]
     end
 
     return nothing
