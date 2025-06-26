@@ -23,8 +23,4 @@ function test_scheme_serialization()
     end
 end
 
-function test_schemes()
-    return @testset "Hyperbolic schemes" begin
-        test_scheme_serialization()
-    end
-end
+test_scheme_serialization()

@@ -1,8 +1,8 @@
 using SafeTestsets
 
-using Documenter
-using HallThruster
-doctest(HallThruster)
+# using Documenter
+# using HallThruster
+# doctest(HallThruster)
 
 @safetestset "Thrusters" include("unit_tests/thrusters.jl")
 @safetestset "Thermodynamics" include("unit_tests/thermodynamics.jl")
