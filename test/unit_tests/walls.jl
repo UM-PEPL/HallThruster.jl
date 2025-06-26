@@ -153,21 +153,24 @@ end
 
 function test_ion_losses()
     return @testset "Ion wall losses" begin
+        propellant = het.Krypton
+        Tn = 300.0
+        Ti = 1000.0
+        un = 150.0
         config = (;
-            thruster = het.SPT_100, propellants = [het.Propellant(het.Krypton, 5.0e-6; max_charge = 2)],
-            transition_length = 0.0, discharge_voltage = 300.0, domain = (0.0, 1.0),
+            thruster = het.SPT_100, propellant = propellant,
+            ncharge = 2, transition_length = 0.0, anode_mass_flow_rate = 5.0e-6,
+            discharge_voltage = 300.0, domain = (0.0, 1.0),
         )
         geom = het.SPT_100.geometry
         Δr = geom.outer_radius - geom.inner_radius
         L_ch = geom.channel_length
         h = het.edge_to_center_density_ratio()
 
-        Tn = 300.0
         Tev = 3.0
 
         α = 0.8
-        # TODO: multiple propellants + fluid containers
-        mi = config.propellants[1].gas.m
+        mi = config.propellant.m
 
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
 
@@ -176,12 +179,6 @@ function test_ion_losses()
         νew = νiw * γ / (1 - γ)
 
         grid = het.generate_grid(het.EvenGrid(2), geom, (0, 2 * L_ch))
-
-        fluids = [
-            het.Fluid(het.Xenon(0); u = 300.0, T = Tn),
-            het.Fluid(het.Xenon(1); T = Tn),
-            het.Fluid(het.Xenon(2); T = Tn),
-        ]
 
         Tev = 4.0
         ne = 1.3e18
@@ -195,34 +192,27 @@ function test_ion_losses()
             νew_momentum = [νew, νew, 0.0, 0.0],
         )
 
-        index = (ρn = 1, ρi = [2, 4], ρiui = [3, 5], nϵ = 6)
-
-        u_bohm = sqrt(het.e * Tev / mi)
-
         ρn = 10 * ne * mi
-
         ρi_1 = ni_1 * mi
         ρi_2 = ni_2 * mi
         ui_1 = 10.0
         ui_2 = sqrt(2) * 10.0
 
-        nϵ = ne * Tev * 3 / 2
+        config_no_losses = het.Config(; config..., wall_loss_model = het.NoWallLosses())
 
-        U = [
-            ρn ρn ρn ρn
-            ρi_1 ρi_1 ρi_1 ρi_1
-            ρi_1 * ui_1 ρi_1 * ui_1 ρi_1 * ui_1 ρi_1 * ui_1
-            ρi_2 ρi_2 ρi_2 ρi_2
-            ρi_2 * ui_2 ρi_2 * ui_2 ρi_2 * ui_2 ρi_2 * ui_2
-            nϵ nϵ nϵ nϵ
-        ]
-
-        dU = zeros(size(U))
+        fluid_containers = het.allocate_fluids(config_no_losses.propellants[1], 2)
+        (; continuity, isothermal) = fluid_containers
+        @test length(continuity[1].density) == 4
+        @. continuity[1].density = ρn
+        @. isothermal[1].density = ρi_1
+        @. isothermal[1].momentum = ρi_1 * ui_1
+        @. isothermal[2].density = ρi_2
+        @. isothermal[2].momentum = ρi_2 * ui_2
+        fluids = [continuity..., isothermal...]
 
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
-        base_params = (; cache, fluids, grid, index, γ_SEE_max)
+        base_params = (; cache, grid, γ_SEE_max, fluid_containers = (; continuity, isothermal))
 
-        config_no_losses = het.Config(; config..., wall_loss_model = het.NoWallLosses())
         params_no_losses = (; base_params..., het.params_from_config(config_no_losses)...)
 
         for i in 1:4
@@ -230,9 +220,11 @@ function test_ion_losses()
         end
 
         # Test 1: no wall losses
-        het.apply_ion_wall_losses!(dU, U, params_no_losses)
-
-        @test all(dU .≈ 0.0)
+        het.apply_ion_wall_losses!(fluid_containers, params_no_losses)
+        for fluid in fluids
+            @test all(fluid.dens_ddt .≈ 0.0)
+            @test all(fluid.mom_ddt .≈ 0.0)
+        end
 
         # Test 2: LANDMARK wall losses
         αin, αout = 1.0, 1.0
@@ -242,48 +234,52 @@ function test_ion_losses()
             base_params..., het.params_from_config(config_constant_sheath)...,
         )
 
-        i = 2
-        Iiw_1 = het.wall_ion_current(constant_sheath, params_constant_sheath, i, 1)
-        Iiw_2 = het.wall_ion_current(constant_sheath, params_constant_sheath, i, 2)
-        Iew = het.wall_electron_current(constant_sheath, params_constant_sheath, i)
+        in_index = 2
+        out_index = 3
+        Iiw_1 = het.wall_ion_current(constant_sheath, params_constant_sheath, in_index, 1)
+        Iiw_2 = het.wall_ion_current(constant_sheath, params_constant_sheath, in_index, 2)
+        Iew = het.wall_electron_current(constant_sheath, params_constant_sheath, in_index)
 
         # Ion and electron wall currents are equivalent inside of channel
         @test Iiw_1 + Iiw_2 == Iew
 
-        dU .= 0.0
+        for fluid in fluids
+            fluid.mom_ddt .= 0.0
+            fluid.dens_ddt .= 0.0
+        end
+
         # Check that wall losses work correctly
-        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
+        het.apply_ion_wall_losses!(fluid_containers, params_constant_sheath)
 
-        # Neutrals should recombine at walls
-        @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
-
-        # Rate of ion loss is equal to ni νiw
         u_bohm = sqrt(het.e * Tev / mi)
         νiw = u_bohm / Δr * h
 
-        @test dU[index.ρi[1], i] ≈ -U[index.ρi[1], i] * νiw
-        @test dU[index.ρi[2], i] ≈ -U[index.ρi[2], i] * νiw * sqrt(2)
+        # Neutrals should recombine at walls
+        @test continuity[1].dens_ddt[in_index] ≈ -(isothermal[1].dens_ddt[in_index] + isothermal[2].dens_ddt[in_index])
+        @test continuity[1].dens_ddt[out_index] ≈ 0.0
 
-        # ion momentum loss is equal to Iiw / e / V_cell * ui
-        @test dU[index.ρiui[1], i] ≈ -U[index.ρiui[1], i] * νiw
-        @test dU[index.ρiui[2], i] ≈ -U[index.ρiui[2], i] * νiw * sqrt(2)
+        for ion in isothermal
+            # Rate of ion loss is equal to ni νiw
+            @test ion.dens_ddt[in_index] ≈ -ion.density[in_index] * νiw * sqrt(ion.species.Z)
+            # ion momentum loss is equal to Iiw / e / V_cell * ui
+            @test ion.mom_ddt[in_index] ≈ -ion.momentum[in_index] * νiw * sqrt(ion.species.Z)
+
+            # No losses outside of channel
+            @test ion.dens_ddt[out_index] ≈ 0.0
+            @test ion.mom_ddt[out_index] ≈ 0.0
+        end
 
         # No wall current outside of channel
-        dU .= 0.0
-        i = 3
-        @test het.wall_ion_current(constant_sheath, params_constant_sheath, i, 1) ==
-            0.0
-        @test het.wall_ion_current(constant_sheath, params_constant_sheath, i, 2) ==
-            0.0
-        @test het.wall_electron_current(constant_sheath, params_constant_sheath, i) ==
-            0.0
-
-        het.apply_ion_wall_losses!(dU, U, params_constant_sheath)
-
-        @test all(dU[:, 3] .≈ 0.0)
+        @test het.wall_ion_current(constant_sheath, params_constant_sheath, out_index, 1) == 0.0
+        @test het.wall_ion_current(constant_sheath, params_constant_sheath, out_index, 2) == 0.0
+        @test het.wall_electron_current(constant_sheath, params_constant_sheath, out_index) == 0.0
 
         # Test 3: Self-consistent wall sheath
-        dU .= 0.0
+        for fluid in fluids
+            fluid.mom_ddt .= 0.0
+            fluid.dens_ddt .= 0.0
+        end
+
         material = het.BNSiO2
         wall_sheath = het.WallSheath(material, α)
         config_wall_sheath = het.Config(; config..., wall_loss_model = wall_sheath)
@@ -296,38 +292,31 @@ function test_ion_losses()
         νew = νiw * γ / (1 - γ)
 
         params_wall_sheath.cache.νew_momentum[1:2] .= νew
-        i = 2
-        params_wall_sheath.cache.γ_SEE[i] = γ
-        Iiw_1 = het.wall_ion_current(wall_sheath, params_wall_sheath, i, 1)
-        Iiw_2 = het.wall_ion_current(wall_sheath, params_wall_sheath, i, 2)
-        Iew = het.wall_electron_current(wall_sheath, params_wall_sheath, i)
+        params_wall_sheath.cache.γ_SEE[in_index] = γ
+        Iiw_1 = het.wall_ion_current(wall_sheath, params_wall_sheath, in_index, 1)
+        Iiw_2 = het.wall_ion_current(wall_sheath, params_wall_sheath, in_index, 2)
+        Iew = het.wall_electron_current(wall_sheath, params_wall_sheath, in_index)
 
         @test Iiw_1 ≈ Iew * ni_1 / ne * (1 - γ)
         @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
         @test Iew ≈ inv(1 - γ) * (Iiw_1 + Iiw_2)
 
-        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
+        het.apply_ion_wall_losses!(fluid_containers, params_wall_sheath)
 
         # Neutrals should recombine at walls
-        @test dU[index.ρn, i] ≈ -(dU[index.ρi[1], i] + dU[index.ρi[2], i])
+        @test continuity[1].dens_ddt[in_index] ≈ -(isothermal[1].dens_ddt[in_index] + isothermal[2].dens_ddt[in_index])
+        @test continuity[1].dens_ddt[out_index] ≈ 0.0
 
-        # Rate of ion loss is equal to Iiw / e / V_cell
-        @test dU[index.ρi[1], i] ≈ -νiw * U[index.ρi[1], i]
-        @test dU[index.ρi[2], i] ≈ -νiw * U[index.ρi[2], i] * sqrt(2)
+        for ion in isothermal
+            # Rate of ion loss is equal to ni νiw
+            @test ion.dens_ddt[in_index] ≈ -ion.density[in_index] * νiw * sqrt(ion.species.Z)
+            # ion momentum loss is equal to Iiw / e / V_cell * ui
+            @test ion.mom_ddt[in_index] ≈ -ion.momentum[in_index] * νiw * sqrt(ion.species.Z)
 
-        # ion momentum loss is equal to Iiw / e / V_cell * ui
-        @test dU[index.ρiui[1], i] ≈ -νiw * U[index.ρiui[1], i]
-        @test dU[index.ρiui[2], i] ≈ -νiw * U[index.ρiui[2], i] * sqrt(2)
-
-        # No wall losses in plume
-        i = 3
-        @test het.wall_ion_current(wall_sheath, params_wall_sheath, i, 1) == 0.0
-        @test het.wall_ion_current(wall_sheath, params_wall_sheath, i, 2) == 0.0
-        @test het.wall_electron_current(wall_sheath, params_wall_sheath, i) == 0.0
-
-        het.apply_ion_wall_losses!(dU, U, params_wall_sheath)
-
-        @test all(dU[:, 3] .≈ 0.0)
+            # No losses outside of channel
+            @test ion.dens_ddt[out_index] ≈ 0.0
+            @test ion.mom_ddt[out_index] ≈ 0.0
+        end
     end
 end
 

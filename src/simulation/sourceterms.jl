@@ -80,137 +80,54 @@ end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
-# function apply_reactions!(dU, U, params)
-#     (;
-#         index, ionization_reactions, index,
-#         ionization_reactant_indices, ionization_product_indices,
-#         cache, landmark, neutral_velocity, propellants,
-#     ) = params
-
-#     rxns = zip(
-#         ionization_reactions, ionization_reactant_indices, ionization_product_indices,
-#     )
-
-#     ncharge = propellants[1].max_charge
-#     mi = propellants[1].gas.m
-
-#     return apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
-# end
-
-# function apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, un, rxns)
-#     (; inelastic_losses, νiz, ϵ, ne, K) = cache
-
-#     inv_m = inv(mi)
-#     ncells = length(ne)
-
-#     νiz .= 0.0
-#     inelastic_losses .= 0.0
-#     @inbounds for i in eachindex(ne)
-#         ne[i] = 0.0
-#         for Z in 1:ncharge
-#             ne[i] += Z * U[index.ρi[Z], i]
-#         end
-#         ne[i] *= inv_m
-#     end
-#     inv_ne = cache.cell_cache_1
-#     @. inv_ne = inv(cache.ne)
-#     @. ϵ = cache.nϵ * inv_ne
-#     if !landmark
-#         @. ϵ += K
-#     end
-
-#     dt_max = Inf
-
-#     @inbounds for (rxn, reactant_index, product_index) in rxns
-#         for i in 2:(ncells - 1)
-#             r = rate_coeff(rxn, ϵ[i])
-#             ρ_reactant = U[reactant_index, i]
-#             ρdot = reaction_rate(r, ne[i], ρ_reactant)
-#             dt_max = min(dt_max, ρ_reactant / ρdot)
-#             ndot = ρdot * inv_m
-#             νiz[i] += ndot * inv_ne[i]
-
-#             inelastic_losses[i] += ndot * rxn.energy
-
-#             # Change in density due to ionization
-#             dU[reactant_index, i] -= ρdot
-#             dU[product_index, i] += ρdot
-
-#             if !landmark
-#                 # Momentum transfer due to ionization
-#                 if reactant_index == index.ρn
-#                     reactant_velocity = un
-#                 else
-#                     reactant_velocity = U[reactant_index + 1, i] / ρ_reactant
-#                     dU[reactant_index + 1, i] -= ρdot * reactant_velocity
-#                 end
-
-#                 dU[product_index + 1, i] += ρdot * reactant_velocity
-#             end
-#         end
-#     end
-
-#     return cache.dt_iz[] = dt_max
-# end
-
-# @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
-
-function apply_ion_acceleration!(dU, U, params)
-    (; index, grid, cache, propellants) = params
-    mi = propellants[1].gas.m
-    ncharge = propellants[1].max_charge
-    return apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
-end
-
-function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
-    inv_m = inv(mi)
-    inv_e = inv(e)
+function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
     dt_max = Inf
 
-    @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        E = -cache.∇ϕ[i]
-        Δz = grid.dz_cell[i]
-        inv_E = inv(abs(E))
+    @inbounds for fluid in fluids
+        Z = fluid.species.Z
+        m = fluid.species.element.m
+        qe_m = Z * e / m
 
-        @inbounds for Z in 1:(ncharge)
-            Q_accel = Z * e * U[index.ρi[Z], i] * inv_m * E
-            dt_max = min(dt_max, sqrt(mi * Δz * inv_e * inv_E / Z))
-            dU[index.ρiui[Z], i] += Q_accel
+        @simd for i in 2:(length(fluid.dens_ddt) - 1)
+            qE_m = -qe_m * cache.∇ϕ[i]
+            dz = grid.dz_cell[i]
+
+            Q_accel = qE_m * fluid.density[i]
+            dt_max = min(dt_max, abs(dz / qE_m))
+            fluid.mom_ddt[i] += Q_accel
         end
     end
 
-    return cache.dt_E[] = dt_max
+    return cache.dt_E[] = sqrt(dt_max)
 end
 
-function apply_ion_wall_losses!(dU, U, params)
-    (; index, propellants, thruster, cache, grid, transition_length, wall_loss_scale) = params
-
-    mi = propellants[1].gas.m
-    ncharge = propellants[1].max_charge
+function apply_ion_wall_losses!(fluid_containers, params)
+    (; thruster, cache, grid, transition_length, wall_loss_scale) = params
+    (; continuity, isothermal) = fluid_containers
 
     geometry = thruster.geometry
     L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
-    e_inv_m = e / mi
-
     h = wall_loss_scale * edge_to_center_density_ratio()
 
-    return @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        u_bohm = sqrt(e_inv_m * cache.Tev[i])
-        in_channel = linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
-        )
-        νiw_base = in_channel * u_bohm * inv_Δr * h
+    neutral_fluid = continuity[1]
+    return @inbounds for ion_fluid in isothermal
+        m = ion_fluid.species.element.m
+        Z = ion_fluid.species.Z
+        qe_m = Z * e / m
 
-        for Z in 1:ncharge
-            νiw = sqrt(Z) * νiw_base
-            density_loss = U[index.ρi[Z], i] * νiw
-            momentum_loss = U[index.ρiui[Z], i] * νiw
+        for i in 2:(length(ion_fluid.density) - 1)
+            u_bohm = sqrt(qe_m * cache.Tev[i])
+            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
+            νiw = in_channel * u_bohm * inv_Δr * h
+
+            density_loss = ion_fluid.density[i] * νiw
+            momentum_loss = ion_fluid.momentum[i] * νiw
 
             # Neutrals gain density due to ion recombination at the walls
-            dU[index.ρi[Z], i] -= density_loss
-            dU[index.ρn, i] += density_loss
-            dU[index.ρiui[Z], i] -= momentum_loss
+            neutral_fluid.dens_ddt[i] += density_loss
+            ion_fluid.dens_ddt[i] -= density_loss
+            ion_fluid.mom_ddt[i] -= momentum_loss
         end
     end
 end

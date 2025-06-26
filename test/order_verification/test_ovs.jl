@@ -68,4 +68,4 @@ function test_ovs_ions()
 end
 
 test_ovs_energy()
-#test_ovs_ions()
+test_ovs_ions()

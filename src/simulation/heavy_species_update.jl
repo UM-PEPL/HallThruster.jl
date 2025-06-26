@@ -8,6 +8,12 @@ function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
 
+    apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
+
+    if ion_wall_losses
+        apply_ion_wall_losses!(fluid_containers, params)
+    end
+
     _to_state_vector!(U, fluid_containers)
 
     # Update d/dt
@@ -18,12 +24,6 @@ function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species
         @. @views dU[2 * i + 1, :] = fluid.mom_ddt
     end
 
-
-    apply_ion_acceleration!(dU, U, params)
-
-    if ion_wall_losses
-        apply_ion_wall_losses!(dU, U, params)
-    end
 
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
