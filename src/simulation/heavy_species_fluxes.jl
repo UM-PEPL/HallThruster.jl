@@ -69,7 +69,7 @@ end
     return (ρu, U[2]^2 / U[1] + p, ρH * u)
 end
 
-# use fun metaprogramming create specialized flux versions for each type of fluid
+# use fun metaprogramming to create specialized flux versions for each type of fluid
 for NUM_CONSERVATIVE in 1:3
     eval(
         quote
@@ -111,7 +111,7 @@ end
     return uⱼ - Δu, uⱼ + Δu
 end
 
-function compute_edge_states!(UL, UR, U, params, do_reconstruct; apply_boundary_conditions = false)
+function compute_edge_states!(UL, UR, U, params, do_reconstruct)
     (nvars, ncells) = size(U)
 
     # compute left and right edge states
@@ -146,13 +146,8 @@ function compute_edge_states!(UL, UR, U, params, do_reconstruct; apply_boundary_
         end
     end
 
-    if apply_boundary_conditions
-        @views left_boundary_state!(UL[:, 1], U, params)
-        @views right_boundary_state!(UR[:, end], U, params)
-    else
-        @. @views UL[:, 1] = U[:, 1]
-        @. @views UR[:, end] = U[:, end]
-    end
+    @. @views UL[:, 1] = U[:, 1]
+    @. @views UR[:, end] = U[:, end]
     return
 end
 
@@ -214,14 +209,14 @@ function compute_fluxes!(F, UL, UR, λ_global, grid, fluids, index, ncharge)
     return
 end
 
-function compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions = false)
+function compute_fluxes!(F, UL, UR, U, params, reconstruct)
     (; index, fluids, grid, cache, propellants) = params
     (; λ_global, dt_u) = cache
 
     ncharge = propellants[1].max_charge
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
-    compute_edge_states!(UL, UR, U, params, reconstruct; apply_boundary_conditions)
+    compute_edge_states!(UL, UR, U, params, reconstruct)
     compute_wave_speeds!(λ_global, dt_u, UL, UR, U, grid, fluids, index, ncharge)
     compute_fluxes!(F, UL, UR, λ_global, grid, fluids, index, ncharge)
 

@@ -8,18 +8,12 @@ using PrecompileTools: @compile_workload
 using JSON3
 using OrderedCollections
 
-# Packages used for making plots
-using Measures: mm
-using RecipesBase
-
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
 const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
-
-const MIN_NUMBER_DENSITY = 1.0e6
 
 include("utilities/utility_functions.jl")
 include("utilities/interpolation.jl")

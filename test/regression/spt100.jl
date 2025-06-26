@@ -24,19 +24,19 @@ function test_spt100_regression()
 
         with_plume = (;
             file = "with_plume.json",
-            thrust = 106.748,
-            current = 5.03,
-            ion_current = 4.097,
-            max_Te = 27.287,
-            max_E = 9.641e4,
-            max_nn = 2.095e19,
-            max_ni = 1.167e18,
+            thrust = 106.033,
+            current = 5.022,
+            ion_current = 4.058,
+            max_Te = 27.418,
+            max_E = 9.824e+4,
+            max_nn = 2.095e+19,
+            max_ni = 1.162e+18,
             efficiencies = Dict(
-                "Mass" => 0.999,
-                "Current" => 0.829,
+                "Mass" => 0.992,
+                "Current" => 0.823,
                 "Divergence" => 0.963,
-                "Voltage" => 0.721,
-                "Anode" => 0.615,
+                "Voltage" => 0.722,
+                "Anode" => 0.6,
             ),
         )
         check_regression_case(with_plume)

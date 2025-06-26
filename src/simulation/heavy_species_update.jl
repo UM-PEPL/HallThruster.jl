@@ -1,11 +1,11 @@
-function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species; apply_boundary_conditions)
+function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species)
     (; index, cache, grid, simulation, propellants, ion_wall_losses) = params
     (; F, UL, UR) = cache
 
     ncharge = propellants[1].max_charge
 
     # Compute edges and apply convective update
-    compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions)
+    compute_fluxes!(F, UL, UR, U, params, reconstruct)
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
     source_heavy_species(dU, U, params)
@@ -83,17 +83,17 @@ end
 #         = (y_n + y_{n1} + h * k_{n2}) / 2
 #
 # With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
-function integrate_heavy_species!(u, params, reconstruct, source, dt, apply_boundary_conditions = true)
+function integrate_heavy_species!(u, params, reconstruct, source, dt)
     (; k, u1) = params.cache
     # First step
     # Compute slope k_{n1}
-    iterate_heavy_species!(k, u, params, reconstruct, source; apply_boundary_conditions)
+    iterate_heavy_species!(k, u, params, reconstruct, source)
 
     # Second step
     # Compute slope k_{n2}, resuing memory of k_{n1}
     @. u1 = u + dt * k
     stage_limiter!(u1, params)
-    iterate_heavy_species!(k, u1, params, reconstruct, source; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, reconstruct, source)
 
     # Final step
     @. u = 0.5 * (u + u1 + dt * k)

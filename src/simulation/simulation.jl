@@ -95,10 +95,13 @@ function setup_simulation(
         restart::AbstractString = "",
     )
 
-    #check that Landmark uses the correct thermal conductivity
+    # check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
+
+    fluid_containers = allocate_fluids(config.propellants[1], sim.grid.num_cells + 2)
+    fluid_array = [fluid_containers.continuity..., fluid_containers.isothermal...]
 
     fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
     index = configure_index(fluids, fluid_ranges)
@@ -185,6 +188,8 @@ function setup_simulation(
         # TODO: multiple props + containers
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellants[1].gas.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
+        fluid_containers,
+        fluid_array,
     )
 
     # Initialize ion and electron variables

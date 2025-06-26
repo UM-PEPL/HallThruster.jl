@@ -143,7 +143,7 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end - 1]
-        het.integrate_heavy_species!(U, params, reconstruct, source_heavy_species, cache.dt[], false)
+        het.integrate_heavy_species!(U, params, reconstruct, source_heavy_species, cache.dt[])
         t += cache.dt[]
     end
 

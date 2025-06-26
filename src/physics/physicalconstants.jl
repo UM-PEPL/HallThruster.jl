@@ -27,3 +27,9 @@ const NA = 6.02214076e26
 Universal gas constant (8314.46261815324 J / kmol K)
 """
 const R0 = kB * NA
+
+# Some default values
+const MIN_NUMBER_DENSITY = 1.0e6
+const DEFAULT_NEUTRAL_VELOCITY_M_S = 150.0
+const DEFAULT_NEUTRAL_TEMPERATURE_K = 500.0
+const DEFAULT_ION_TEMPERATURE_K = 1000.0

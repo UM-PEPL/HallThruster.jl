@@ -1,4 +1,4 @@
-@public Gas, Species
+@public Gas, Species, Propellant
 
 """
 	$(TYPEDEF)
@@ -29,7 +29,7 @@ struct Gas
     Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
     Other gas properties, including gas constant, specific heats at constant pressure/volume, and
     mass of atom/molecule in kg will are then computed.
-    
+
     ```jldoctest;setup = :(using HallThruster: Gas)
     julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
     Xenon
@@ -80,7 +80,7 @@ struct Species
     @doc"""
     	Species(element::Gas, Z::Int) -> Species
     Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
-    
+
     ```julia
     julia> Xenon(0) == Species(Xenon, 0)
     true
@@ -137,6 +137,68 @@ const Bismuth = Gas("Bismuth", "Bi"; γ = 5 / 3, M = 208.9804)
 Mercury vapor
 """
 const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
+
+
+#=============================================================================
+ Propellant
+==============================================================================#
+struct Propellant
+    """
+    A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
+    """
+    gas::Gas
+    """
+    The mass flow rate of neutral atoms through the anode, in kg/s.
+    """
+    flow_rate_kg_s::Float64
+    """
+    Neutral velocity in m/s. **Default:** `$(DEFAULT_NEUTRAL_VELOCITY_M_S)`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
+    """
+    velocity_m_s::Float64
+    """
+    Neutral temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_NEUTRAL_TEMPERATURE_K)`.
+    """
+    temperature_K::Float64
+    """
+    Ion temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_ION_TEMPERATURE_K)`
+    """
+    ion_temperature_K::Float64
+    """
+    Maximum ion charge state. **Default:** 1.
+    """
+    max_charge::Int
+
+    function Propellant(;
+            gas, flow_rate_kg_s, max_charge = 1,
+            velocity_m_s = nothing, temperature_K = nothing,
+            ion_temperature_K = 1000.0,
+        )
+
+        if isnothing(velocity_m_s) && isnothing(temperature_K)
+            # Use default values
+            velocity_m_s = DEFAULT_NEUTRAL_VELOCITY_M_S
+            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+        elseif isnothing(velocity_m_s)
+            # Determine velocity from temperature
+            temperature_K = convert_to_float64(temperature_K, units(:K))
+            velocity_m_s = 0.25 * sqrt(8 * kB * temperature_K / π / gas.m)
+        elseif isnothing(temperature_K)
+            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
+            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+        else
+            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
+            temperature_K = convert_to_float64(temperature_K, units(:K))
+        end
+
+        ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
+        flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
+
+        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, max_charge)
+    end
+end
+
+Propellant(gas; kwargs...) = Propellant(; gas, kwargs...)
+Propellant(gas, flow_rate_kg_s; kwargs...) = Propellant(; gas, flow_rate_kg_s, kwargs...)
 
 #=============================================================================
  Serialization
