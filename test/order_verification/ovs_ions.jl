@@ -52,33 +52,41 @@ source_ρn = eval(build_function(expand_derivatives(continuity_neutrals), [x]))
 source_ρi = eval(build_function(expand_derivatives(continuity_ions), [x]))
 source_ρiui = eval(build_function(expand_derivatives(momentum_ions), [x]))
 
-function solve_ions(ncells, scheme; t_end = 1.0e-4)
+function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     # Create config struct
     thruster = het.SPT_100
     A_ch = het.channel_area(thruster)
     anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un * ρi_func(0.0)) * A_ch
     domain = (0.0, 0.05)
 
+    function source_heavy_species(dU, _, params)
+        (; index, grid) = params
+        for i in 2:(length(grid.cell_centers) - 1)
+            dU[index.ρn, i] += source_ρn(grid.cell_centers[i])
+            dU[index.ρi[1], i] += source_ρi(grid.cell_centers[i])
+            dU[index.ρiui[1], i] += source_ρiui(grid.cell_centers[i])
+        end
+        return
+    end
+
     config = het.Config(;
         domain,
         discharge_voltage = 0.0,
         thruster,
-        source_neutrals = (_, p, i) -> source_ρn(p.grid.cell_centers[i]),
-        source_ion_continuity = ((_, p, i) -> source_ρi(p.grid.cell_centers[i]),),
-        source_ion_momentum = ((_, p, i) -> source_ρiui(p.grid.cell_centers[i]),),
         propellant = het.Xenon,
         ncharge = 1,
         neutral_velocity = un,
         neutral_temperature_K = 300.0,
         ion_temperature_K = Ti,
         anode_mass_flow_rate,
-        scheme,
+        reconstruct,
         ionization_model = :OVS,
         LANDMARK = true,
         conductivity_model = het.LANDMARK_conductivity(),
         ion_wall_losses = false,
         anode_boundary_condition = :dirichlet,
         anom_model = het.NoAnom(),
+        source_heavy_species = source_heavy_species,
     )
 
     # Construct grid
@@ -135,7 +143,7 @@ function solve_ions(ncells, scheme; t_end = 1.0e-4)
     t = 0.0
     while t < t_end
         @views U[:, end] = U[:, end - 1]
-        het.integrate_heavy_species!(U, params, config, cache.dt[], false)
+        het.integrate_heavy_species!(U, params, reconstruct, source_heavy_species, cache.dt[], false)
         t += cache.dt[]
     end
 

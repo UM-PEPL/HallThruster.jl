@@ -12,9 +12,7 @@ We verify that the PDEs are discretized correctly using the [Method of Manufactu
 The method of manufactured solutions requires the injection of special source terms into `HallThruster`'s solution procedure.
 These are specified in the [Configuration](@ref) stage, using the following keys.
 
-- `source_neutrals`
-- `source_ion_continuity`
-- `source_ion_momentum`
+- `source_heavy_species
 - `source_electron_energy`
 
 We use [Symbolics.jl](https://github.com/JuliaSymbolics/Symbolics.jl) to construct these source terms automatically from the governing equations of our model.

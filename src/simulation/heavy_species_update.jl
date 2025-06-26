@@ -1,16 +1,12 @@
-function iterate_heavy_species!(dU, U, params, reconstruct, sources; apply_boundary_conditions)
+function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species; apply_boundary_conditions)
     (; index, cache, grid, simulation, ncharge, ion_wall_losses) = params
-    (; source_neutrals, source_ion_continuity, source_ion_momentum) = sources
     (; F, UL, UR) = cache
 
     # Compute edges and apply convective update
     compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions)
     update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 
-    apply_user_ion_source_terms!(
-        dU, U, params, source_neutrals, source_ion_continuity, source_ion_momentum,
-    )
-
+    source_heavy_species(dU, U, params)
     apply_reactions!(dU, U, params)
 
     apply_ion_acceleration!(dU, U, params)
@@ -63,28 +59,18 @@ function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
 end
 
 # Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
-function integrate_heavy_species!(
-        U, params, config::Config, dt, apply_boundary_conditions = true,
-    )
-    (; source_neutrals, source_ion_continuity, source_ion_momentum, reconstruct) = config
-    sources = (; source_neutrals, source_ion_continuity, source_ion_momentum)
-
-    return integrate_heavy_species!(U, params, reconstruct, sources, dt, apply_boundary_conditions)
-end
-
-function integrate_heavy_species!(
-        U, params, reconstruct, sources, dt, apply_boundary_conditions = true,
-    )
+function integrate_heavy_species!(U, params, reconstruct, source, dt, apply_boundary_conditions = true)
     (; k, u1) = params.cache
     # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, reconstruct, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, U, params, reconstruct, source; apply_boundary_conditions)
     @. u1 = U + dt * k
     stage_limiter!(u1, params)
 
     # Second step of SSPRK22
-    iterate_heavy_species!(k, u1, params, reconstruct, sources; apply_boundary_conditions)
+    iterate_heavy_species!(k, u1, params, reconstruct, source; apply_boundary_conditions)
     @. U = (U + u1 + dt * k) / 2
-    return stage_limiter!(U, params)
+    stage_limiter!(U, params)
+    return
 end
 
 function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)

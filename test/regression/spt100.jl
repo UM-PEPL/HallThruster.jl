@@ -1,8 +1,6 @@
 using HallThruster: HallThruster as het
 using Test
 
-include("regression_utils.jl")
-
 function test_spt100_regression()
     return @testset "SPT-100 regression" begin
         baseline = (;
