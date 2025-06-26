@@ -112,7 +112,7 @@ function check_regression_case(case)
         @test isapprox(current, Id_mean, atol = Id_err)
         @test isapprox(ion_current, ji_mean, atol = ji_err)
 
-        efficiencies = Dict(
+        efficiency_funcs = Dict(
             "Mass" => het.mass_eff,
             "Current" => het.current_eff,
             "Voltage" => het.voltage_eff,
@@ -122,7 +122,9 @@ function check_regression_case(case)
 
         println("\nEfficiencies:")
 
-        for (eff_name, eff_func) in efficiencies
+        efficiencies = Dict{String, Float64}()
+
+        for (eff_name, eff_func) in efficiency_funcs
             eff = eff_func(sol)
             eff_mean = het.mean(eff)
             eff_err = het.std(eff) / sqrt(n_avg)
@@ -132,6 +134,7 @@ function check_regression_case(case)
                 eff_name, eff_mean * 100, eff_err * 100, eff_expected * 100
             )
             @test isapprox(eff_mean, eff_expected, rtol = 1.0e-2)
+            efficiencies[eff_name] = eff_mean
         end
 
         max_Te = maximum(avg[:Tev][])
@@ -163,5 +166,25 @@ function check_regression_case(case)
         @test isapprox(max_E, case.max_E, rtol = 1.0e-2)
         @test isapprox(max_nn, case.max_nn, rtol = 1.0e-2)
         @test isapprox(max_ni, case.max_ni, rtol = 1.0e-2)
+
+        # print output to replace what we had
+        println("-----")
+        println("Replace contents of benchmark with the following if necessary")
+        println("-----")
+        @printf("thrust = %.3f,\n", T_mean)
+        @printf("current = %.3f,\n", Id_mean)
+        @printf("ion_current = %.3f,\n", ji_mean)
+        @printf("max_Te = %.3f,\n", max_Te)
+        @printf("max_E = %.3e,\n", max_E)
+        @printf("max_nn = %.3e,\n", max_nn)
+        @printf("max_ni = %.3e,\n", max_ni)
+        @printf("efficiencies = Dict(\n")
+        @printf("   \"Mass\" => %.3f,\n", efficiencies["Mass"])
+        @printf("   \"Current\" => %.3f,\n", efficiencies["Current"])
+        @printf("   \"Divergence\" => %.3f,\n", efficiencies["Divergence"])
+        @printf("   \"Voltage\" => %.3f,\n", efficiencies["Voltage"])
+        @printf("   \"Anode\" => %.3f,\n", efficiencies["Anode"])
+        @printf("),\n")
+        println("-----")
     end
 end
