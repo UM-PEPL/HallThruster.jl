@@ -154,9 +154,8 @@ end
 function test_ion_losses()
     return @testset "Ion wall losses" begin
         config = (;
-            thruster = het.SPT_100, propellant = het.Krypton,
-            ncharge = 2, transition_length = 0.0, anode_mass_flow_rate = 5.0e-6,
-            discharge_voltage = 300.0, domain = (0.0, 1.0),
+            thruster = het.SPT_100, propellants = [het.Propellant(het.Krypton, 5.0e-6; max_charge = 2)],
+            transition_length = 0.0, discharge_voltage = 300.0, domain = (0.0, 1.0),
         )
         geom = het.SPT_100.geometry
         Δr = geom.outer_radius - geom.inner_radius
@@ -167,7 +166,8 @@ function test_ion_losses()
         Tev = 3.0
 
         α = 0.8
-        mi = config.propellant.m
+        # TODO: multiple propellants + fluid containers
+        mi = config.propellants[1].gas.m
 
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
 

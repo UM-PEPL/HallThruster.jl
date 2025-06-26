@@ -28,7 +28,8 @@ function test_sim_initialization()
             discharge_voltage = 500.0,
         )
 
-        mi = config.propellant.m
+        # TODO: mutliple props + fluid containers
+        mi = config.propellants[1].gas.m
 
         ncells = 100
         fluids, fluid_ranges, _, _, _ = het.configure_fluids(config)
@@ -54,7 +55,7 @@ function test_sim_initialization()
         max_Te = 2 / 3 * maximum(ϵ)
         @test 9 <= max_Te <= 11
 
-        ui = [U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:(config.ncharge)]
+        ui = [U[index.ρiui[Z], :] ./ U[index.ρi[Z], :] for Z in 1:(config.propellants[1].max_charge)]
 
         @test ui[1][1] ≈ -sqrt(het.e * config.anode_Tev / mi)
         @test ui[2][1] ≈ -sqrt(2 * het.e * config.anode_Tev / mi)

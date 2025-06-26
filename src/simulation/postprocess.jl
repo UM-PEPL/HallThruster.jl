@@ -88,12 +88,13 @@ end
 Compute the thrust at a specific frame of a `Solution`.
 """
 function thrust(sol::Solution, frame::Integer)
-    mi = sol.params.mi
+    mi = sol.params.propellants[1].gas.m
     f = sol.frames[frame]
     left_area = f.channel_area[begin]
     right_area = f.channel_area[end]
     thrust = 0.0
-    for Z in 1:(sol.config.ncharge)
+    #TODO: mutliple props
+    for Z in 1:sol.config.propellants[1].max_charge
         thrust += right_area * mi * f.niui[Z, end]^2 / f.ni[Z, end]
         thrust -= left_area * mi * f.niui[Z, begin]^2 / f.ni[Z, begin]
     end
@@ -132,7 +133,7 @@ function anode_eff(sol::Solution, frame::Integer)
     T = thrust(sol, frame)
     current = discharge_current(sol, frame)
     Vd = sol.config.discharge_voltage
-    mdot_a = sol.config.anode_mass_flow_rate
+    mdot_a = sol.config.propellants[1].flow_rate_kg_s
     anode_eff = 0.5 * T^2 / current / Vd / mdot_a
     return anode_eff
 end
@@ -148,8 +149,9 @@ anode_eff(sol::Solution) = [anode_eff(sol, frame) for frame in eachindex(sol.fra
 Compute the voltage/acceleration efficiency at a specific frame of a `Solution`.
 """
 function voltage_eff(sol::Solution, frame::Integer)
+    # TODO: multiple props + containers
     Vd = sol.config.discharge_voltage
-    mi = sol.config.propellant.m
+    mi = sol.config.propellants[1].gas.m
     ui = sol.frames[frame].niui[1, end] / sol.frames[frame].ni[1, end]
     voltage_eff = 0.5 * mi * ui^2 / e / Vd
     return voltage_eff
@@ -187,8 +189,7 @@ Compute the ion current at a specific frame of a `Solution`.
 function ion_current(sol::Solution, frame)
     Ii = 0.0
     f = sol.frames[frame]
-    right_area = sol.frames[frame].channel_area[end]
-    for Z in 1:(sol.config.ncharge)
+    for Z in 1:(sol.config.propellants[1].max_charge)
         Ii += Z * e * f.niui[Z, end] * f.channel_area[end]
     end
 
@@ -235,10 +236,11 @@ function mass_eff(sol::Solution, frame)
     mass_eff = 0.0
     f = sol.frames[frame]
     right_area = f.channel_area[end]
-    mi = sol.params.mi
-    mdot = sol.config.anode_mass_flow_rate
+    prop = sol.config.propellants[1]
+    mi = prop.gas.m
+    mdot = prop.flow_rate_kg_s
 
-    for Z in 1:sol.config.ncharge
+    for Z in 1:prop.max_charge
         mass_eff += mi * f.niui[Z, end] * right_area / mdot
     end
 

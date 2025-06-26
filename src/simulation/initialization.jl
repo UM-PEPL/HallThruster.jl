@@ -22,10 +22,11 @@ function initialize!(_, _, _, model::InitialCondition)
 end
 
 function initialize_heavy_species_default!(U, params, config; kwargs...)
-    (; anode_Tev, domain, discharge_voltage, anode_mass_flow_rate) = config
+    (; anode_Tev, domain, discharge_voltage) = config
 
     ρn = inlet_neutral_density(config)
-    un = config.neutral_velocity
+    un = config.propellants[1].velocity_m_s
+    anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s
     return initialize_heavy_species_default!(
         U, params, anode_Tev, domain, discharge_voltage,
         anode_mass_flow_rate, ρn, un; kwargs...,
@@ -36,7 +37,9 @@ function initialize_heavy_species_default!(
         U, params, anode_Tev, domain, discharge_voltage, anode_mass_flow_rate, ρn_0, un;
         min_ion_density = 2.0e17, max_ion_density = 1.0e18,
     )
-    (; grid, index, cache, ncharge, thruster, mi) = params
+    (; grid, index, cache, thruster, propellants) = params
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
 
@@ -126,9 +129,11 @@ end
 
 function initialize!(U, params, config, init::DefaultInitialization)
     (; max_electron_temperature, min_ion_density, max_ion_density) = init
-    (; anode_Tev, cathode_Tev, domain, discharge_voltage, anode_mass_flow_rate) = config
+    (; anode_Tev, cathode_Tev, domain, discharge_voltage) = config
+    # TODO: mutliple propellants + fluid containers
     ρn = inlet_neutral_density(config)
-    un = config.neutral_velocity
+    anode_mass_flow_rate = params.propellants[1].flow_rate_kg_s
+    un = config.propellants[1].velocity_m_s
     initialize_heavy_species_default!(
         U, params, anode_Tev, domain, discharge_voltage,
         anode_mass_flow_rate, ρn, un; max_ion_density, min_ion_density,
@@ -161,7 +166,9 @@ function initialize_from_restart!(U, params, restart_file::String)
 end
 
 function initialize_from_restart!(U, params, frame)
-    (; cache, grid, ncharge, mi) = params
+    (; cache, grid, propellants) = params
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
     ncharge_restart = length(frame.ni)
 
     # load ion properties, interpolated from restart grid to grid in params

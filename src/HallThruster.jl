@@ -93,7 +93,7 @@ julia> using HallThruster; HallThruster.PYTHON_PATH
 """
 const PYTHON_PATH = joinpath(PACKAGE_ROOT, "python")
 
-# this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
+# this is an example simulation that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)
     config_1 = Config(;
@@ -190,7 +190,7 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    #example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"

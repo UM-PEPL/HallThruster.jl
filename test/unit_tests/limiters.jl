@@ -49,18 +49,18 @@ end
 function test_stage_limiter()
     return @testset "Stage limiter" begin
         index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
-        config = (ncharge = 1, propellant = het.Xenon)
         min_ne = het.MIN_NUMBER_DENSITY
 
         p = (;
             index, cache = (; nϵ = [-1.0]),
             grid = (; cell_centers = [0.0]), min_Te = 1.0,
-            mi = het.Xenon.m, ncharge = 1,
+            propellants = [het.Propellant(het.Xenon, 5.0e-6; max_charge = 1)],
         )
         U = [-1.0, -1.0, -1.0, -1.0]
         het.stage_limiter!(U, p)
 
-        mi = config.propellant.m
+        # TODO: multiple propellants + limiters
+        mi = p.propellants[1].gas.m
 
         @test U[index.ρn] == min_ne * mi
         @test U[index.ρi[1]] == min_ne * mi

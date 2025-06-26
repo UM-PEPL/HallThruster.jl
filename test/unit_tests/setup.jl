@@ -30,7 +30,7 @@ config = het.Config(
 )
 
 @test config.domain == (0.0, 0.08)
-@test config.anode_mass_flow_rate ≈ 5.0e-6
+@test config.propellants[1].flow_rate_kg_s ≈ 5.0e-6
 @test config.discharge_voltage ≈ 300.0
 
 solution = het.run_simulation(config, simparams)

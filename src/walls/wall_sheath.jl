@@ -39,7 +39,10 @@ end
 @inline edge_to_center_density_ratio() = 0.86 / sqrt(3);
 
 function freq_electron_wall(model::WallSheath, params, i)
-    (; cache, ncharge, thruster, mi, transition_length) = params
+    (; cache, propellants, thruster, transition_length) = params
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
+
     #compute radii difference
     geometry = thruster.geometry
     Δr = geometry.outer_radius - geometry.inner_radius
@@ -64,8 +67,9 @@ function freq_electron_wall(model::WallSheath, params, i)
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
-    (; cache, grid, thruster, mi, transition_length, plume_loss_scale) = params
+    (; cache, grid, thruster, transition_length, plume_loss_scale) = params
     L_ch = thruster.geometry.channel_length
+    mi = params.propellants[1].gas.m
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
         Tev = wall_electron_temperature(params, transition_length, i)

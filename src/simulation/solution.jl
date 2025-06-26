@@ -260,9 +260,9 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
                             quantities. To access a quantity at a specific frame, call `sol[field][frame]`."))
     end
 
-    if charge <= 0 || charge > sol.config.ncharge
+    if charge <= 0 || charge > sol.config.propellants[1].max_charge
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
-                            Maximum charge state in provided solution is $(sol.config.ncharge)."))
+                            Maximum charge state in provided solution is $(sol.config.propellants[1].max_charge)."))
     end
 
     return [frame[field][charge, :] for frame in sol.frames]

@@ -77,7 +77,8 @@ Since the model is based on assuming the wave energy convects with the ions, we 
 function (model::LafleurModel)(νan, params, config)
     (;grid, cache) = params
     z = grid.cell_centers
-    mi = config.propellant.m
+    # assuming single propellant gas here
+    mi = config.propellants[1].gas.m
     K = model.K
     e = HallThruster.e
     me = HallThruster.me

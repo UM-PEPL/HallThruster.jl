@@ -7,7 +7,7 @@ using HallThruster: HallThruster as het
     grid = het.generate_grid(het.EvenGrid(ncells), thruster.geometry, domain)
 
     nvars = 1 + 2 + 2 + 2
-    config = (; ncharge = 3, anom_model = het.NoAnom())
+    config = (; propellants = [het.Propellant(het.Xenon, 5.0e-6, max_charge = 3)], anom_model = het.NoAnom())
 
     U, cache = het.allocate_arrays(grid, config)
 

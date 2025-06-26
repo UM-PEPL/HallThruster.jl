@@ -1,3 +1,65 @@
+const DEFAULT_NEUTRAL_VELOCITY_M_S = 150.0
+const DEFAULT_NEUTRAL_TEMPERATURE_K = 500.0
+const DEFAULT_ION_TEMPERATURE_K = 1000.0
+
+struct Propellant
+    """
+    A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
+    """
+    gas::Gas
+    """
+    The mass flow rate of neutral atoms through the anode, in kg/s.
+    """
+    flow_rate_kg_s::Float64
+    """
+    Neutral velocity in m/s. **Default:** `$(DEFAULT_NEUTRAL_VELOCITY_M_S)`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
+    """
+    velocity_m_s::Float64
+    """
+    Neutral temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_NEUTRAL_TEMPERATURE_K)`.
+    """
+    temperature_K::Float64
+    """
+    Ion temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_ION_TEMPERATURE_K)`
+    """
+    ion_temperature_K::Float64
+    """
+    Maximum ion charge state. **Default:** 1.
+    """
+    max_charge::Int
+
+    function Propellant(;
+            gas, flow_rate_kg_s, max_charge = 1,
+            velocity_m_s = nothing, temperature_K = nothing,
+            ion_temperature_K = 1000.0,
+        )
+
+        if isnothing(velocity_m_s) && isnothing(temperature_K)
+            # Use default values
+            velocity_m_s = DEFAULT_NEUTRAL_VELOCITY_M_S
+            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+        elseif isnothing(velocity_m_s)
+            # Determine velocity from temperature
+            temperature_K = convert_to_float64(temperature_K, units(:K))
+            velocity_m_s = 0.25 * sqrt(8 * kB * temperature_K / π / gas.m)
+        elseif isnothing(temperature_K)
+            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
+            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+        else
+            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
+            temperature_K = convert_to_float64(temperature_K, units(:K))
+        end
+
+        ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
+        flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
+
+        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, max_charge)
+    end
+end
+
+Propellant(gas; kwargs...) = Propellant(; gas, kwargs...)
+Propellant(gas, flow_rate_kg_s; kwargs...) = Propellant(; gas, flow_rate_kg_s, kwargs...)
+
 """
 $(TYPEDEF)
 Hall thruster configuration struct. Only four mandatory fields: `discharge_voltage`, `thruster`, `anode_mass_flow_rate`, and `domain`.
@@ -19,22 +81,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     discharge_voltage::Float64
     """
-    The mass flow rate of neutral atoms through the anode, in kg/s.
-
+    The propellants to be used. See [Propellants](propellants.md) for more.
+    """
+    propellants::Vector{Propellant}
+    """
     ---
     # Optional fields
     ---
-    """
-    anode_mass_flow_rate::Float64
-    """
-    Maximum ion charge state. **Default:** 1.
-    """
-    ncharge::Int
-    """
-    A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
-    """
-    propellant::Gas
-    """
     The potential at the right boundary of the simulation. **Default:** `0`
     """
     cathode_coupling_voltage::Float64
@@ -66,18 +119,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     Whether to include electron-ion collisions. See [Collisions and Reactions](@ref) for more. **Default:** `true`.
     """
     electron_ion_collisions::Bool
-    """
-    Neutral velocity in m/s. **Default:** `300.0`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
-    """
-    neutral_velocity::Float64
-    """
-    Neutral temperature in Kelvins. **Default:** `500.0`.
-    """
-    neutral_temperature_K::Float64
-    """
-    Ion temperature in Kelvins. **Default:** 1000.0
-    """
-    ion_temperature_K::Float64
     """
     Whether we model ion losses to the walls. **Default:** `false`.
     """
@@ -170,10 +211,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             thruster::Thruster,
             domain,
             discharge_voltage,
-            anode_mass_flow_rate,
+            propellants = nothing,
             # Optional arguments
-            ncharge = 1,
-            propellant = Xenon,
             cathode_coupling_voltage = 0.0,
             anode_boundary_condition = :sheath,
             cathode_Tev = 2.0,
@@ -182,9 +221,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             wall_loss_model::W = WallSheath(BNSiO2, 1.0),
             conductivity_model::TC = Mitchner(),
             electron_ion_collisions = true,
-            neutral_velocity = nothing,
-            neutral_temperature_K = nothing,
-            ion_temperature_K = 1000.0,
             ion_wall_losses = false,
             background_pressure_Torr = 0.0,
             background_temperature_K = 100.0,
@@ -203,48 +239,44 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ionization_model = :Lookup,
             excitation_model = :Lookup,
             electron_neutral_model = :Lookup,
-            source_neutrals = nothing,
             source_heavy_species = Returns(0.0),
             source_energy = Returns(0.0),
+            # Backwards-compatible arguments
+            anode_mass_flow_rate = nothing,
+            propellant = Xenon,
+            neutral_temperature_K = nothing,
+            neutral_velocity = nothing,
+            ion_temperature_K = DEFAULT_ION_TEMPERATURE_K,
+            ncharge = 1,
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
             IC <: InitialCondition,
         }
+
+        # Set up propellants
+        if isnothing(propellants)
+            if isnothing(anode_mass_flow_rate)
+                error("Must supply either a vector of propellants or an anode mass flow rate")
+            end
+            prop = Propellant(
+                propellant, anode_mass_flow_rate;
+                max_charge = ncharge, velocity_m_s = neutral_velocity,
+                temperature_K = neutral_temperature_K, ion_temperature_K
+            )
+            propellants = [prop]
+        end
+
         # Convert to Float64 if using Unitful
         discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
         cathode_coupling_voltage = convert_to_float64(cathode_coupling_voltage, units(:V))
 
         anode_Tev = convert_to_float64(anode_Tev, units(:eV))
-        cathode_Tev = convert_to_float64(cathode_Tev, units(:eV))
 
-        default_neutral_velocity = 150.0 # m/s
-        default_neutral_temp = 500.0 # K
-        if isnothing(neutral_velocity) && isnothing(neutral_temperature_K)
-            neutral_velocity = default_neutral_velocity
-            neutral_temperature_K = default_neutral_temp
-        elseif isnothing(neutral_temperature_K)
-            neutral_temperature_K = default_neutral_temp
-            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
-        elseif isnothing(neutral_velocity)
-            # compute neutral velocity from thermal speed
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
-            neutral_velocity = 0.25 *
-                sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
-        else
-            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
-        end
-
-        ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         domain = (
             convert_to_float64(domain[1], units(:m)),
             convert_to_float64(domain[2], units(:m)),
-        )
-
-        anode_mass_flow_rate = convert_to_float64(
-            anode_mass_flow_rate, units(:kg) / units(:s),
         )
 
         background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
@@ -261,10 +293,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             thruster,
             domain,
             discharge_voltage,
-            anode_mass_flow_rate,
+            propellants,
             # Optional arguments
-            ncharge,
-            propellant,
             cathode_coupling_voltage,
             anode_boundary_condition,
             anode_Tev,
@@ -273,9 +303,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             wall_loss_model,
             conductivity_model,
             electron_ion_collisions,
-            neutral_velocity,
-            neutral_temperature_K,
-            ion_temperature_K,
             ion_wall_losses,
             background_pressure_Torr,
             background_temperature_K,
@@ -309,11 +336,27 @@ function Serialization.exclude(::Type{C}) where {C <: Config}
     return (:source_heavy_species, :source_energy)
 end
 
-function ion_source_terms(ncharge, source, type)
-    if ncharge != length(source)
-        throw(ArgumentError("Number of ion $type source terms must match number of charges"))
+function Serialization.deserialize(::Type{C}, x) where {C <: Config}
+    d = copy(x)
+    # Handle configs from older versions
+    if !haskey(d, :propellants)
+        gas = get(d, :propellant, Xenon)
+        max_charge = get(d, :ncharge, 1)
+        velocity_m_s = get(d, :neutral_velocity, nothing)
+        temperature_K = get(d, :neutral_temperature_K, nothing)
+        ion_temperature_K = get(d, :ion_temperature_K, DEFAULT_ION_TEMPERATURE_K)
+        flow_rate_kg_s = d[:anode_mass_flow_rate]
+        prop = Propellant(gas, flow_rate_kg_s; max_charge, velocity_m_s, temperature_K, ion_temperature_K)
+        prop_dict = serialize(prop)
+        for key in [
+                :propellant, :ncharge, :anode_mass_flow_rate,
+                :neutral_velocity, :neutral_temperature_K, :ion_temperature_K,
+            ]
+            delete!(d, key)
+        end
+        d[:propellants] = [prop_dict]
     end
-    return source
+    return deserialize(Serialization.Struct(), C, d)
 end
 
 function make_keys(fluid_range, subscript)
@@ -337,14 +380,13 @@ function make_keys(fluid_range, subscript)
 end
 
 function configure_fluids(config)
-    propellant = config.propellant
+    # TODO make work for multiple propellants
+    propellant = config.propellants[1]
 
-    neutral_fluid = ContinuityOnly(
-        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,
-    )
+    neutral_fluid = ContinuityOnly(propellant.gas(0); u = propellant.velocity_m_s, T = propellant.temperature_K)
     ion_fluids = [
-        IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
-            for Z in 1:(config.ncharge)
+        IsothermalEuler(propellant.gas(Z); T = propellant.ion_temperature_K)
+            for Z in 1:(propellant.max_charge)
     ]
 
     fluids = [neutral_fluid; ion_fluids]
@@ -386,20 +428,20 @@ function configure_index(fluids, fluid_ranges)
 end
 
 function params_from_config(config)
+    # TODO: make work better with mutliple propellants
     return (;
         # Copied directly from config
+        propellants = config.propellants,
         thruster = config.thruster,
-        ncharge = config.ncharge,
-        mi = config.propellant.m,
         anode_bc = config.anode_boundary_condition,
         landmark = config.LANDMARK,
         transition_length = config.transition_length,
         Te_L = config.anode_Tev,
         Te_R = config.cathode_Tev,
         implicit_energy = config.implicit_energy,
-        ion_temperature_K = config.ion_temperature_K,
-        neutral_velocity = config.neutral_velocity,
-        anode_mass_flow_rate = config.anode_mass_flow_rate,
+        ion_temperature_K = config.propellants[1].ion_temperature_K,
+        neutral_velocity = config.propellants[1].velocity_m_s,
+        anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s,
         neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),

@@ -15,8 +15,11 @@ function initialize_plume_geometry(params)
 end
 
 function update_plume_geometry!(params)
-    (; cache, grid, mi, thruster, ncharge) = params
+    (; cache, grid, propellants, thruster) = params
     (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni) = cache
+
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
 
     L_ch = thruster.geometry.channel_length
     exit_plane_index = max(findfirst(>=(L_ch), grid.cell_centers), 1)

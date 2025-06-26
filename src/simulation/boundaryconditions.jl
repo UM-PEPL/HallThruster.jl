@@ -1,7 +1,8 @@
 function left_boundary_state!(bc_state, U, params)
     index = params.index
-    ncharge = params.ncharge
-    mi = params.mi
+    # TODO: mutliple propellants + fluid containers
+    ncharge = params.propellants[1].max_charge
+    mi = params.propellants[1].gas.m
     Ti = params.ion_temperature_K
     un = params.neutral_velocity
     mdot_a = params.anode_mass_flow_rate
@@ -46,7 +47,7 @@ function left_boundary_state!(
     # Add ingested mass flow rate at anode
     bc_state[index.ρn] += ingestion_density
 
-    return @inbounds for Z in 1:ncharge
+    @inbounds for Z in 1:ncharge
         interior_density = U[index.ρi[Z], 2]
         interior_flux = U[index.ρiui[Z], 2]
         interior_velocity = interior_flux / interior_density
@@ -82,16 +83,12 @@ function left_boundary_state!(
         bc_state[index.ρi[Z]] = boundary_density
         bc_state[index.ρiui[Z]] = boundary_flux
     end
+    return
 end
 
-function right_boundary_state!(bc_state, U, params)
-    (; index, ncharge) = params
-    # Use Neumann boundary conditions for all neutral fluids
-    bc_state[index.ρn] = U[index.ρn, end - 1]
-
-    return @inbounds for Z in 1:ncharge
-        boundary_density = U[index.ρi[Z], end - 1]
-        bc_state[index.ρi[Z]] = boundary_density        # Neumann BC for ion density at right boundary
-        bc_state[index.ρiui[Z]] = U[index.ρiui[Z], end - 1] # Neumann BC for ion flux at right boundary
+function right_boundary_state!(bc_state, U, _)
+    @inbounds for i in eachindex(bc_state)
+        bc_state[i] = U[i, end - 1]
     end
+    return
 end

@@ -147,7 +147,7 @@ propellant = config['propellant']
 avg = solution['output']['average']
 z_cm = np.array(avg['z']) * 100
 
-for Z in range(solution['input']['config']['ncharge']):
+for Z in range(solution['input']['config']['propellants'][0]['max_charge']):
     ui_km_s = np.array(avg['ui'][Z]) / 1000
     axes[0].plot(z_cm, ui_km_s, label = f"{propellant} {Z+1}+")
 

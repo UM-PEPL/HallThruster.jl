@@ -3,7 +3,8 @@
 function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
     nedges = length(grid.edges)
-    ncharge = config.ncharge
+    # TODO: fluid containers + multiple props
+    ncharge = config.propellants[1].max_charge
     n_anom_vars = num_anom_variables(config.anom_model)
     return allocate_arrays(ncells, nedges, ncharge, n_anom_vars)
 end

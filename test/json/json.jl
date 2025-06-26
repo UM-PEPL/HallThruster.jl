@@ -19,8 +19,8 @@ config = sol.config
 @test config.anom_model.dz ≈ 0.2
 @test config.discharge_voltage ≈ 300.0
 @test config.thruster.name == "SPT-100"
-@test config.propellant == het.Xenon
-@test config.anode_mass_flow_rate ≈ 3.0e-6
+@test config.propellants[1].gas == het.Xenon
+@test config.propellants[1].flow_rate_kg_s ≈ 3.0e-6
 @test config.ion_wall_losses == true
 @test sol.params.simulation.adaptive == true
 @test config.neutral_ingestion_multiplier == 6.0

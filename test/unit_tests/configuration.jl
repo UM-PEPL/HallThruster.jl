@@ -3,7 +3,7 @@ using HallThruster: HallThruster as het
 include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
 function test_config_serialization()
-    return @testset "Serialization" begin
+    @testset "Serialization" begin
         cfg = het.Config(;
             thruster = het.SPT_100,
             discharge_voltage = 300.0,
@@ -30,12 +30,11 @@ function test_config_serialization()
         )
         test_roundtrip(het.Config, d)
     end
+    return
 end
 
 function test_configuration()
-    test_config_serialization()
-
-    return @testset "Configuration" begin
+    @testset "Configuration" begin
         common_opts = (;
             ncharge = 3,
             discharge_voltage = 300,
@@ -61,12 +60,11 @@ function test_configuration()
             Symbol("Xe3+") => 6:7,
         )
 
-        @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature_K,
-        )
-        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
-        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
-        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
+        prop = config.propellants[1]
+        @test fluids[1] == het.ContinuityOnly(species[1], prop.velocity_m_s, prop.temperature_K)
+        @test fluids[2] == het.IsothermalEuler(species[2], prop.ion_temperature_K)
+        @test fluids[3] == het.IsothermalEuler(species[3], prop.ion_temperature_K)
+        @test fluids[4] == het.IsothermalEuler(species[4], prop.ion_temperature_K)
         @test is_velocity_index == [false, false, true, false, true, false, true]
 
         index = het.configure_index(fluids, fluid_ranges)
@@ -115,12 +113,10 @@ function test_configuration()
             Symbol("Xe3+") => 6:7,
         )
 
-        @test fluids[1] == het.ContinuityOnly(
-            species[1], config.neutral_velocity, config.neutral_temperature_K,
-        )
-        @test fluids[2] == het.IsothermalEuler(species[2], config.ion_temperature_K)
-        @test fluids[3] == het.IsothermalEuler(species[3], config.ion_temperature_K)
-        @test fluids[4] == het.IsothermalEuler(species[4], config.ion_temperature_K)
+        @test fluids[1] == het.ContinuityOnly(species[1], prop.velocity_m_s, prop.temperature_K)
+        @test fluids[2] == het.IsothermalEuler(species[2], prop.ion_temperature_K)
+        @test fluids[3] == het.IsothermalEuler(species[3], prop.ion_temperature_K)
+        @test fluids[4] == het.IsothermalEuler(species[4], prop.ion_temperature_K)
         @test is_velocity_index == [false, false, true, false, true, false, true]
 
         index = het.configure_index(fluids, fluid_ranges)
@@ -149,6 +145,7 @@ function test_configuration()
         )
         @test excitation_reactant_indices == [1]
     end
+    return
 end
 
 test_config_serialization()

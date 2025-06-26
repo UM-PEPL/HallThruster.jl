@@ -23,7 +23,8 @@ config = het.Config(
 fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
 index = het.configure_index(fluids, fluid_ranges)
 
-mi = config.propellant.m
+# TODO: multiple props + fluid containers
+mi = config.propellants[1].gas.m
 
 background_neutral_velocity = 0.25 * sqrt(
     8 * het.kB *
@@ -55,11 +56,9 @@ params = (;
     background_neutral_flux,
 )
 
-u_bohm_1 = sqrt((het.kB * config.ion_temperature_K + e * params.Te_L) / mi)
-u_bohm_2 = sqrt(
-    (het.kB * config.ion_temperature_K + 2 * e * params.Te_L) /
-        mi
-)
+prop = config.propellants[1]
+u_bohm_1 = sqrt((het.kB * prop.ion_temperature_K + e * params.Te_L) / mi)
+u_bohm_2 = sqrt((het.kB * prop.ion_temperature_K + 2 * e * params.Te_L) / mi)
 
 ni_1 = 1.0e17
 ni_2 = 1.0e16
@@ -92,14 +91,14 @@ U_b = zeros(length(U_1))
 U1 = [U_b U_1 U_1 U_b]
 U2 = [U_b U_2 U_2 U_b]
 
-un = config.neutral_velocity
+un = config.propellants[1].velocity_m_s
 
 # when ion velocity at left boundary is less than bohm speed, it should be accelerated
 # to reach bohm speed
 het.left_boundary_state!(U_b, U1, params)
 @test U_b[index.ρn] ≈
     het.inlet_neutral_density(config) -
-    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +
+    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / un +
     background_neutral_density * background_neutral_velocity / un *
     config.neutral_ingestion_multiplier
 @test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -u_bohm_1
@@ -109,7 +108,7 @@ het.left_boundary_state!(U_b, U1, params)
 het.left_boundary_state!(U_b, U2, params)
 @test U_b[index.ρn] ≈
     het.inlet_neutral_density(config) -
-    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / config.neutral_velocity +
+    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / un +
     background_neutral_density * background_neutral_velocity / un *
     config.neutral_ingestion_multiplier
 @test U_b[index.ρiui[1]] == U_2[index.ρiui[1]]

@@ -74,27 +74,8 @@ function verify_energy(ncells; niters = 20000)
     z_cell = grid.cell_centers
     ncells = length(z_cell)
 
-    # fill cache values
-    _, cache = het.allocate_arrays(
-        grid, (; ncharge = 1, anom_model = het.NoAnom()),
-    )
-    @. cache.μ = μ_func(z_cell)
-    @. cache.κ = κ_func(z_cell)
-    @. cache.ne = ne_func(z_cell)
-    @. cache.ue = ue_func(z_cell)
-    @. cache.∇ϕ = ∇ϕ_func(z_cell)
-    @. cache.nn = nn_func(z_cell)
-    @. cache.niui = niui_func(z_cell)'
-    @. cache.Tev = 2 / 3 * ϵ_func(z_cell)
-    @. cache.channel_area = 1.0
-    @. cache.ni = cache.ne'
-
-    nϵ_exact = nϵ_func.(z_cell)
-    @. cache.pe = copy(nϵ_exact)
-
-    Te_L = nϵ_exact[1] / cache.ne[1]
-    Te_R = nϵ_exact[end] / cache.ne[end]
-    @. cache.nϵ = Te_L * cache.ne
+    Te_L = nϵ_func(z_cell[1]) / ne_func(z_cell[1])
+    Te_R = nϵ_func(z_cell[end]) / ne_func(z_cell[end])
 
     config = (;
         domain = (0.0, 1.0),
@@ -114,6 +95,7 @@ function verify_energy(ncells; niters = 20000)
         conductivity_model = het.LANDMARK_conductivity(),
         electron_plume_loss_scale = 1.0,
         implicit_energy = 1.0,
+        anom_model = het.NoAnom(),
     )
 
     cfg_implicit = het.Config(; config..., implicit_energy = 1.0)
@@ -134,10 +116,24 @@ function verify_energy(ncells; niters = 20000)
     excitation_reactant_indices = het.reactant_indices(
         excitation_reactions, species_range_dict,
     )
+    # fill cache values
+    _, cache = het.allocate_arrays(grid, cfg_implicit)
+    @. cache.μ = μ_func(z_cell)
+    @. cache.κ = κ_func(z_cell)
+    @. cache.ne = ne_func(z_cell)
+    @. cache.ue = ue_func(z_cell)
+    @. cache.∇ϕ = ∇ϕ_func(z_cell)
+    @. cache.nn = nn_func(z_cell)
+    @. cache.niui = niui_func(z_cell)'
+    @. cache.Tev = 2 / 3 * ϵ_func(z_cell)
+    @. cache.channel_area = 1.0
+    @. cache.ni = cache.ne'
 
-    dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
+    nϵ_exact = nϵ_func.(z_cell)
+    @. cache.pe = copy(nϵ_exact)
+    @. cache.nϵ = copy(nϵ_exact)
+
     params_base = (;
-        dt,
         grid,
         min_Te = 0.01 * min(Te_L, Te_R),
         cache = deepcopy(cache),
@@ -150,6 +146,8 @@ function verify_energy(ncells; niters = 20000)
 
     params_implicit = (; params_base..., het.params_from_config(cfg_implicit)...)
     params_cn = (; params_base..., het.params_from_config(cfg_cn)...)
+
+    dt = 8 / maximum(abs.(cache.ue)) * (z_cell[2] - z_cell[1])
 
     # Test backward euler implicit solve
     solve_energy!(params_implicit, cfg_implicit, niters, dt)

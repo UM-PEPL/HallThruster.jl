@@ -1,29 +1,27 @@
 @inline left_edge(i) = i - 1
 @inline right_edge(i) = i
 
-@inline electron_density(U, p, i) = sum(
-    Z * U[p.index.ρi[Z], i]
-        for Z in 1:(p.ncharge)
-) / p.mi
+# TODO: multiple gases + fluid containers
+@inline function electron_density(U, p, i)
+    prop = p.propellants[1]
+    return sum(Z * U[p.index.ρi[Z], i] for Z in 1:prop.max_charge) / prop.gas.m
+end
 
-@inline inlet_neutral_density(config) = config.anode_mass_flow_rate /
-    config.neutral_velocity /
-    config.thruster.geometry.channel_area
+# TODO: mutliple gases + fluid containers
+@inline function inlet_neutral_density(config)
+    prop = config.propellants[1]
+    return prop.flow_rate_kg_s / (prop.velocity_m_s * config.thruster.geometry.channel_area)
+end
 
-@inline background_neutral_density(config) = config.propellant.m *
-    config.background_pressure_Torr / kB /
-    config.background_temperature_K
+# TODO: multiple gases + fluid containers
+@inline function background_neutral_density(config)
+    return config.propellants[1].gas.m * config.background_pressure_Torr / kB / config.background_temperature_K
+end
 
-@inline background_neutral_velocity(config) = 0.25 * sqrt(
-    8 * kB *
-        config.background_temperature_K /
-        π / config.propellant.m
-)
-
-@inline ion_current_density(U, p, i) = sum(
-    Z * e * U[p.index.ρiui[Z], i]
-        for Z in 1:(p.config.ncharge)
-) / p.config.propellant.m
+# TODO: multiple gases + fluid containers
+@inline function background_neutral_velocity(config)
+    return 0.25 * sqrt(8 * kB * config.background_temperature_K / π / config.propellants[1].gas.m)
+end
 
 # Asymptotic fast formula for error function accurate to a few percent
 function myerf(x)

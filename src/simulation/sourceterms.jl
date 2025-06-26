@@ -2,12 +2,15 @@ function apply_reactions!(dU, U, params)
     (;
         index, ionization_reactions, index,
         ionization_reactant_indices, ionization_product_indices,
-        cache, mi, landmark, ncharge, neutral_velocity,
+        cache, landmark, neutral_velocity, propellants,
     ) = params
 
     rxns = zip(
         ionization_reactions, ionization_reactant_indices, ionization_product_indices,
     )
+
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
 
     return apply_reactions!(dU, U, cache, index, ncharge, mi, landmark, neutral_velocity, rxns)
 end
@@ -71,7 +74,9 @@ end
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
 function apply_ion_acceleration!(dU, U, params)
-    (; index, grid, cache, mi, ncharge) = params
+    (; index, grid, cache, propellants) = params
+    mi = propellants[1].gas.m
+    ncharge = propellants[1].max_charge
     return apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
 end
 function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
@@ -95,7 +100,11 @@ function apply_ion_acceleration!(dU, U, grid, cache, index, mi, ncharge)
 end
 
 function apply_ion_wall_losses!(dU, U, params)
-    (; index, ncharge, mi, thruster, cache, grid, transition_length, wall_loss_scale) = params
+    (; index, propellants, thruster, cache, grid, transition_length, wall_loss_scale) = params
+
+    mi = propellants[1].gas.m
+    ncharge = propellants[1].max_charge
+
     geometry = thruster.geometry
     L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)

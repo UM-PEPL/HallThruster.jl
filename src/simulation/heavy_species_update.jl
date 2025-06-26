@@ -1,6 +1,8 @@
 function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species; apply_boundary_conditions)
-    (; index, cache, grid, simulation, ncharge, ion_wall_losses) = params
+    (; index, cache, grid, simulation, propellants, ion_wall_losses) = params
     (; F, UL, UR) = cache
+
+    ncharge = propellants[1].max_charge
 
     # Compute edges and apply convective update
     compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions)
@@ -104,11 +106,14 @@ function update_heavy_species!(U, cache, index, z_cell, ncharge, mi, landmark)
 end
 
 function update_heavy_species!(U, params)
-    (; index, grid, cache, mi, ncharge, landmark) = params
+    (; index, grid, cache, propellants, landmark) = params
 
     # Apply fluid boundary conditions
     @views left_boundary_state!(U[:, 1], U, params)
     @views right_boundary_state!(U[:, end], U, params)
+
+    mi = propellants[1].gas.m
+    ncharge = propellants[1].max_charge
 
     return update_heavy_species!(
         U, cache, index, grid.cell_centers, ncharge, mi, landmark,

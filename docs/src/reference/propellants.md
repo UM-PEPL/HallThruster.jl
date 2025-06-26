@@ -16,7 +16,7 @@ Gas(name, short_name; γ, M)
 ```
 
 Gases can become ionized to produce `Species`, which are structs containing a `Gas` and a charge state, `Z`.
-`HallThruster` uses the `ncharge` field of `Config` (see [Configuration](@ref)) to construct a list of `Species`, which it then uses to load reactions from the default directory and from any user-provided directories.
+`HallThruster` uses the `max_charge` field of each `Propellant` (see [Configuration](@ref)) to construct a list of `Species`, which it then uses to load reactions from the default directory and from any user-provided directories.
 
 ```@docs
 Species

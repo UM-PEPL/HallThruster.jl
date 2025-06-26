@@ -4,9 +4,9 @@ HallThruster.jl provides sensible defaults for simulation initialization, or all
 
 ## Default
 
-The default is `DefaultInitialization()`, which initializes the solution domain as described in the following sections. Below, ``z_0`` and ``z_N`` are `domain[1]` and `domain[2]`, as passed into the `Config` object (see [Configuration](@ref)), ``L_{ch}`` and ``A_{ch}`` are `config.thruster.geometry.channel_length` and `config.thruster.geometry.channel_area`, respectively, and ``\dot{m}`` is `config.anode_mass_flow_rate`.
+The default is `DefaultInitialization()`, which initializes the solution domain as described in the following sections. Below, ``z_0`` and ``z_N`` are `domain[1]` and `domain[2]`, as passed into the `Config` object (see [Configuration](@ref)), ``L_{ch}`` and ``A_{ch}`` are `config.thruster.geometry.channel_length` and `config.thruster.geometry.channel_area`, respectively, and ``\dot{m}`` is `propellant.flow_rate_kg_s` for each propellant, respectively.
 
-The `DefaultInitialization` has parameters `max_electron_temperature`, `min_ion_density`, and `max_ion_density`, which can be used to scale the default initialized.
+The `DefaultInitialization` has parameters `max_electron_temperature`, `min_ion_density`, and `max_ion_density`, which can be used to scale the initialized properties.
 These default to `config.discharge_voltage/10`, `2e17`, and `1e18`, respectively.
 
 ### Ion densities

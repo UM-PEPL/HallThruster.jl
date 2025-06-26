@@ -1,5 +1,9 @@
 function stage_limiter!(U, params)
-    (; grid, index, min_Te, cache, mi, ncharge) = params
+    (; grid, index, min_Te, cache, propellants) = params
+
+    # TODO: multiple propellants + fluid containers
+    ncharge = propellants[1].max_charge
+    mi = propellants[1].gas.m
     return stage_limiter!(U, grid.cell_centers, cache.nϵ, index, min_Te, ncharge, mi)
 end
 
@@ -211,8 +215,10 @@ function compute_fluxes!(F, UL, UR, λ_global, grid, fluids, index, ncharge)
 end
 
 function compute_fluxes!(F, UL, UR, U, params, reconstruct; apply_boundary_conditions = false)
-    (; index, fluids, grid, cache, ncharge) = params
+    (; index, fluids, grid, cache, propellants) = params
     (; λ_global, dt_u) = cache
+
+    ncharge = propellants[1].max_charge
 
     # Reconstruct the states at the left and right edges using MUSCL scheme
     compute_edge_states!(UL, UR, U, params, reconstruct; apply_boundary_conditions)
