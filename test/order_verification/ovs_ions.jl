@@ -60,12 +60,14 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     anode_mass_flow_rate = un * (ρn_func(0.0) + ui_func(0.0) / un * ρi_func(0.0)) * A_ch
     domain = (0.0, 0.05)
 
-    function source_heavy_species(dU, _, params)
-        (; index, grid) = params
+    function source_heavy_species(fluid_containers, params)
+        (; grid) = params
+        (; continuity, isothermal) = fluid_containers
+
         for i in 2:(length(grid.cell_centers) - 1)
-            dU[index.ρn, i] += source_ρn(grid.cell_centers[i])
-            dU[index.ρi[1], i] += source_ρi(grid.cell_centers[i])
-            dU[index.ρiui[1], i] += source_ρiui(grid.cell_centers[i])
+            continuity[1].dens_ddt[i] += source_ρn(grid.cell_centers[i])
+            isothermal[1].dens_ddt[i] += source_ρi(grid.cell_centers[i])
+            isothermal[1].mom_ddt[i] += source_ρiui(grid.cell_centers[i])
         end
         return
     end
