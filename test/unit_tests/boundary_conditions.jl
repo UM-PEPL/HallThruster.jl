@@ -1,132 +1,92 @@
 using HallThruster: HallThruster as het
 
-e = het.e
+function test_boundaries()
+    e = het.e
 
-config = het.Config(
-    ncharge = 2,
-    domain = (0, 1),
-    discharge_voltage = 300.0,
-    propellant = het.Xenon,
-    anode_mass_flow_rate = 5.0e-4,
-    neutral_velocity = 100,
-    thruster = het.SPT_100,
-    LANDMARK = true,
-    conductivity_model = het.LANDMARK_conductivity(),
-    anode_boundary_condition = :dirichlet,
-    neutral_temperature_K = 300.0,
-    ion_temperature_K = 300.0,
-    background_pressure_Torr = 6.0e-4,
-    background_temperature_K = 150.0,
-    neutral_ingestion_multiplier = 1.5,
-)
+    config = het.Config(
+        ncharge = 2,
+        domain = (0, 2),
+        discharge_voltage = 300.0,
+        propellant = het.Xenon,
+        anode_mass_flow_rate = 5.0e-4,
+        neutral_velocity = 100,
+        thruster = het.SPT_100,
+        LANDMARK = true,
+        conductivity_model = het.LANDMARK_conductivity(),
+        anode_boundary_condition = :dirichlet,
+        neutral_temperature_K = 300.0,
+        ion_temperature_K = 300.0,
+        background_pressure_Torr = 6.0e-4,
+        background_temperature_K = 150.0,
+        neutral_ingestion_multiplier = 1.5,
+    )
 
-fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
-index = het.configure_index(fluids, fluid_ranges)
+    _, params = het.setup_simulation(config, het.SimParams(duration = 1.0e-3, grid = het.EvenGrid(2)))
 
-# TODO: multiple props + fluid containers
-mi = config.propellants[1].gas.m
+    # Anode ion velocity less than bohm velocity
+    prop = config.propellants[1]
+    mi = prop.gas.m
+    Ti = prop.ion_temperature_K
+    mdot_a = prop.flow_rate_kg_s
+    un = prop.velocity_m_s
 
-background_neutral_velocity = 0.25 * sqrt(
-    8 * het.kB *
-        config.background_temperature_K / π / mi
-)
-background_neutral_density = mi * config.background_pressure_Torr / het.kB /
-    config.background_temperature_K
-background_neutral_flux = background_neutral_density * background_neutral_velocity
+    ni_1 = 1.0e17
+    ni_2 = 1.0e16
 
-params = (;
-    het.params_from_config(config)...,
-    Te_L = 3.0,
-    Te_R = 3.0,
-    A_ch = config.thruster.geometry.channel_area,
-    index,
-    z_cell = [0.0, 1.0, 2.0],
-    cache = (
-        Tev = [3.0, 3.0],
-        ϕ = [300.0, 300.0],
-        channel_area = ones(2) * config.thruster.geometry.channel_area,
-    ),
-    fluids,
-    fluid_ranges,
-    species,
-    species_range_dict,
-    is_velocity_index,
-    background_neutral_density,
-    background_neutral_velocity,
-    background_neutral_flux,
-)
+    u_bohm_1 = sqrt((het.kB * Ti + e * params.Te_L) / mi)
+    u_bohm_2 = sqrt((het.kB * Ti + 2 * e * params.Te_L) / mi)
 
-prop = config.propellants[1]
-u_bohm_1 = sqrt((het.kB * prop.ion_temperature_K + e * params.Te_L) / mi)
-u_bohm_2 = sqrt((het.kB * prop.ion_temperature_K + 2 * e * params.Te_L) / mi)
+    (; continuity, isothermal) = params.fluid_containers
+    @. continuity[1].density = ni_1 * mi * 2
+    @. isothermal[1].density = ni_1 * mi
+    @. isothermal[1].momentum = -mi * ni_1 * u_bohm_1 / 2
+    @. isothermal[2].density = ni_2 * mi
+    @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 / 2
 
-ni_1 = 1.0e17
-ni_2 = 1.0e16
-Te_1 = 5.0
+    ingestion_density = params.ingestion_density
+    anode_bc = params.anode_bc
 
-ne = ni_1 + 2 * ni_2
+    het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    het.apply_right_boundary!(params.fluid_containers)
 
-# State where anode ion velocity is less than bohm velocity
-U_1 = [
-    mi * ni_1 * 2,
-    mi * ni_1,
-    -mi * ni_1 * u_bohm_1 / 2,
-    mi * ni_2,
-    -mi * ni_2 * u_bohm_2 / 2,
-    ne * Te_1,
-]
+    # When ion velocity at left boundary is less than then bohm speed, it should be accelerated to reach the bohm speed
+    nn_B = het.background_neutral_density(config)
+    un_B = het.background_neutral_velocity(config)
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    @test continuity[1].density[1] ≈ het.inlet_neutral_density(config) -
+        sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier
+    @test boundary_ion_flux[1] / isothermal[1].density[1] ≈ -u_bohm_1
+    @test boundary_ion_flux[2] / isothermal[2].density[1] ≈ -u_bohm_2
 
-# State where anode ion velocity is greater than bohm velocity
-U_2 = [
-    mi * ni_1,
-    mi * ni_1,
-    -mi * ni_1 * u_bohm_1 * 2,
-    mi * ni_2,
-    -mi * ni_2 * u_bohm_2 * 2,
-    ne * Te_1,
-]
+    # Neumann BC for all species
+    for fluid in [continuity..., isothermal...]
+        @test fluid.density[end] == fluid.density[end - 1]
+        @test fluid.momentum[end] == fluid.momentum[end - 1]
+    end
 
-U_b = zeros(length(U_1))
+    # Anode ion velocity greater than Bohm speed
+    @. continuity[1].density = ni_1 * mi * 2
+    @. isothermal[1].density = ni_1 * mi
+    @. isothermal[1].momentum = -mi * ni_1 * u_bohm_1 * 2
+    @. isothermal[2].density = ni_2 * mi
+    @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 * 2
 
-U1 = [U_b U_1 U_1 U_b]
-U2 = [U_b U_2 U_2 U_b]
+    # when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
+    het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    het.apply_right_boundary!(params.fluid_containers)
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    @test continuity[1].density[1] ≈ het.inlet_neutral_density(config) -
+        sum(boundary_ion_flux) / un +
+        nn_B * un_B / un * config.neutral_ingestion_multiplier
+    @test boundary_ion_flux[1] / isothermal[1].density[1] ≈ -2 * u_bohm_1
+    @test boundary_ion_flux[2] / isothermal[2].density[1] ≈ -2 * u_bohm_2
 
-un = config.propellants[1].velocity_m_s
+    # Neumann BC for all species
+    for fluid in [continuity..., isothermal...]
+        @test fluid.density[end] == fluid.density[end - 1]
+        @test fluid.momentum[end] == fluid.momentum[end - 1]
+    end
+    return
+end
 
-# when ion velocity at left boundary is less than bohm speed, it should be accelerated
-# to reach bohm speed
-het.left_boundary_state!(U_b, U1, params)
-@test U_b[index.ρn] ≈
-    het.inlet_neutral_density(config) -
-    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / un +
-    background_neutral_density * background_neutral_velocity / un *
-    config.neutral_ingestion_multiplier
-@test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -u_bohm_1
-@test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -u_bohm_2
-
-# when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
-het.left_boundary_state!(U_b, U2, params)
-@test U_b[index.ρn] ≈
-    het.inlet_neutral_density(config) -
-    (U_b[index.ρiui[1]] + U_b[index.ρiui[2]]) / un +
-    background_neutral_density * background_neutral_velocity / un *
-    config.neutral_ingestion_multiplier
-@test U_b[index.ρiui[1]] == U_2[index.ρiui[1]]
-@test U_b[index.ρiui[2]] == U_2[index.ρiui[2]]
-@test U_b[index.ρiui[1]] / U_b[index.ρi[1]] == -2 * u_bohm_1
-@test U_b[index.ρiui[2]] / U_b[index.ρi[2]] == -2 * u_bohm_2
-
-# Right boundary condition should be Neumann for all species
-het.right_boundary_state!(U_b, U1, params)
-@test U_b[index.ρn] ≈ U_1[index.ρn]
-@test U_b[index.ρi[1]] ≈ U_1[index.ρi[1]]
-@test U_b[index.ρiui[1]] ≈ U_1[index.ρiui[1]]
-@test U_b[index.ρi[2]] ≈ U_1[index.ρi[2]]
-@test U_b[index.ρiui[2]] ≈ U_1[index.ρiui[2]]
-
-het.right_boundary_state!(U_b, U2, params)
-@test U_b[index.ρn] ≈ U_2[index.ρn]
-@test U_b[index.ρi[1]] ≈ U_2[index.ρi[1]]
-@test U_b[index.ρiui[1]] ≈ U_2[index.ρiui[1]]
-@test U_b[index.ρi[2]] ≈ U_2[index.ρi[2]]
-@test U_b[index.ρiui[2]] ≈ U_2[index.ρiui[2]]
+test_boundaries()

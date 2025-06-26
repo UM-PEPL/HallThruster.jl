@@ -331,7 +331,9 @@ function solve(U, params, config, tspan; saveat)
 
             # update heavy species quantities
             integrate_heavy_species!(U, params, reconstruct, source_heavy_species, params.dt[])
-            update_heavy_species!(U, params)
+            _from_state_vector!(params.fluid_containers, U)
+            update_heavy_species!(params)
+            _to_state_vector!(U, params.fluid_containers)
 
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any(!isfinite, U)

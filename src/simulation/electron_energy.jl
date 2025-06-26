@@ -20,10 +20,11 @@ function update_electron_energy!(params, wall_loss_model, source_energy, dt)
     # Solve equation system using the Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    # Make sure Tev is positive, limit if below user-configured minumum electron temperature
+    # Make sure Tev is positive, limit if below minumum electron temperature
     limit_energy!(nϵ, ne, min_Te)
     update_temperature!(Tev, nϵ, ne, min_Te)
-    return update_pressure!(pe, nϵ, landmark)
+    update_pressure!(pe, nϵ, landmark)
+    return
 end
 
 function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
@@ -32,7 +33,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     explicit = 1.0 - implicit
     Q = cache.cell_cache_1
 
-    return @inbounds for i in 2:(grid.num_cells - 1)
+    @inbounds for i in 2:(grid.num_cells - 1)
         neL = ne[i - 1]
         ne0 = ne[i]
         neR = ne[i + 1]
@@ -126,6 +127,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
         bϵ[i] = nϵ[i] + dt * (Q[i] - explicit * F_explicit)
         bϵ[i] -= dt * flux * dlnA_dz
     end
+    return
 end
 
 function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
@@ -143,23 +145,26 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
         Aϵ.du[1] = -1.0 / ne[2]
     end
 
-    return bϵ[end] = 1.5 * Te_R * ne[end]
+    bϵ[end] = 1.5 * Te_R * ne[end]
+    return
 end
 
 function limit_energy!(nϵ, ne, min_Te)
-    return @inbounds for i in eachindex(nϵ)
+    @inbounds for i in eachindex(nϵ)
         if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
             nϵ[i] = 1.5 * min_Te * ne[i]
         end
     end
+    return
 end
 
 function update_temperature!(Tev, nϵ, ne, min_Te)
     # Update plasma quantities based on new density
-    return @inbounds for i in eachindex(Tev)
+    @inbounds for i in eachindex(Tev)
         # Compute new electron temperature
         Tev[i] = 2.0 / 3.0 * max(min_Te, nϵ[i] / ne[i])
     end
+    return
 end
 
 function update_pressure!(pe, nϵ, landmark)
@@ -168,7 +173,8 @@ function update_pressure!(pe, nϵ, landmark)
     else
         pe_factor = 2.0 / 3.0
     end
-    return @inbounds for i in eachindex(pe)
+    @inbounds for i in eachindex(pe)
         pe[i] = pe_factor * nϵ[i]
     end
+    return
 end
