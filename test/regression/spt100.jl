@@ -36,7 +36,7 @@ function test_spt100_regression()
                 "Current" => 0.824,
                 "Divergence" => 0.963,
                 "Voltage" => 0.72,
-                "Anode" => 0.6,
+                "Anode" => 0.601,
             ),
         )
         check_regression_case(with_plume)

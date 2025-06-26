@@ -34,118 +34,76 @@ function test_config_serialization()
 end
 
 function test_configuration()
+    anom_model = het.NoAnom()
+    config = het.Config(;
+        ncharge = 3,
+        discharge_voltage = 300,
+        anode_mass_flow_rate = 5.0e-6,
+        thruster = het.SPT_100,
+        domain = (0.0, 5.0e-2),
+        anom_model = anom_model,
+        initial_condition = het.DefaultInitialization(;
+            max_electron_temperature = 10.0
+        )
+    )
+
+    ncells = 100
+
+    simparams = het.SimParams(
+        grid = het.EvenGrid(ncells),
+        duration = 1.0e-6,
+    )
+
+    U, params = het.setup_simulation(config, simparams)
+
     @testset "Configuration" begin
-        common_opts = (;
-            ncharge = 3,
-            discharge_voltage = 300,
-            anode_mass_flow_rate = 5.0e-6,
-            thruster = het.SPT_100,
-            domain = (0.0, 5.0e-2),
-        )
+        species = Set([f.species for f in params.fluid_array])
+        expected_species = Set([het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)])
+        @test species == expected_species
 
-        config = het.Config(;
-            background_pressure_Torr = 0.0,
-            background_temperature_K = 0.0,
-            common_opts...,
-        )
+        neutral_fluid = params.fluid_containers.continuity[1]
+        @test length(params.fluid_containers.continuity) == 1
+        @test neutral_fluid.const_velocity == config.propellants[1].velocity_m_s
+        @test het.temperature(neutral_fluid) ≈ config.propellants[1].temperature_K
 
-        fluids, fluid_ranges, species, species_range_dict, is_velocity_index = het.configure_fluids(config)
+        for ion_fluid in params.fluid_containers.isothermal
+            @test het.temperature(ion_fluid) ≈ config.propellants[1].ion_temperature_K
+        end
 
-        @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-        @test species == [het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)]
-        @test species_range_dict == Dict(
-            Symbol("Xe") => 1:1,
-            Symbol("Xe+") => 2:3,
-            Symbol("Xe2+") => 4:5,
-            Symbol("Xe3+") => 6:7,
-        )
+        # Check array sizes
+        (;
+            Aϵ, bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue,
+            ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ni, ui, niui, nn, ji,
+        ) = params.cache
 
-        prop = config.propellants[1]
-        @test fluids[1] == het.ContinuityOnly(species[1], prop.velocity_m_s, prop.temperature_K)
-        @test fluids[2] == het.IsothermalEuler(species[2], prop.ion_temperature_K)
-        @test fluids[3] == het.IsothermalEuler(species[3], prop.ion_temperature_K)
-        @test fluids[4] == het.IsothermalEuler(species[4], prop.ion_temperature_K)
-        @test is_velocity_index == [false, false, true, false, true, false, true]
+        for arr in (
+                bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen,
+                νei, radial_loss_frequency, νew_momentum, ji, nn,
+            )
+            @test size(arr) == (ncells + 2,)
+        end
 
-        index = het.configure_index(fluids, fluid_ranges)
-        @test keys(index) == (:ρn, :ρi, :ρiui)
-        @test values(index) == (1, [2, 4, 6], [3, 5, 7])
+        for arr in (ni, ui, niui)
+            @test size(arr) == (3, ncells + 2)
+        end
 
-        # load collisions and reactions
-        ionization_reactions = het.load_ionization_reactions(
-            config.ionization_model, unique(species),
-        )
-        ionization_reactant_indices = het.reactant_indices(
-            ionization_reactions, species_range_dict,
-        )
-        @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
-
-        ionization_product_indices = het.product_indices(
-            ionization_reactions, species_range_dict,
-        )
-        @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
-
-        excitation_reactions = het.load_excitation_reactions(
-            config.excitation_model, unique(species),
-        )
-        excitation_reactant_indices = het.reactant_indices(
-            excitation_reactions, species_range_dict,
-        )
-        @test excitation_reactant_indices == [1]
-
-        # Test that initialization and configuration works properly when background neutrals are included
-        pB_Torr = 5.0e-6
-        TB_K = 120.0
-
-        config_bg = het.Config(;
-            background_pressure_Torr = pB_Torr,
-            background_temperature_K = TB_K,
-            common_opts...,
-        )
-
-        fluids, fluid_ranges, species, species_range_dict = het.configure_fluids(config_bg)
-        @test fluid_ranges == [1:1, 2:3, 4:5, 6:7]
-        @test species == [het.Xenon(0), het.Xenon(1), het.Xenon(2), het.Xenon(3)]
-        @test species_range_dict == Dict(
-            Symbol("Xe") => 1:1,
-            Symbol("Xe+") => 2:3,
-            Symbol("Xe2+") => 4:5,
-            Symbol("Xe3+") => 6:7,
-        )
-
-        @test fluids[1] == het.ContinuityOnly(species[1], prop.velocity_m_s, prop.temperature_K)
-        @test fluids[2] == het.IsothermalEuler(species[2], prop.ion_temperature_K)
-        @test fluids[3] == het.IsothermalEuler(species[3], prop.ion_temperature_K)
-        @test fluids[4] == het.IsothermalEuler(species[4], prop.ion_temperature_K)
-        @test is_velocity_index == [false, false, true, false, true, false, true]
-
-        index = het.configure_index(fluids, fluid_ranges)
-        @test keys(index) == (:ρn, :ρi, :ρiui)
-        @test values(index) == (1, [2, 4, 6], [3, 5, 7])
-
-        # load collisions and reactions
-        ionization_reactions = het.load_ionization_reactions(
-            config.ionization_model, unique(species),
-        )
-        ionization_reactant_indices = het.reactant_indices(
-            ionization_reactions, species_range_dict,
-        )
-        @test ionization_reactant_indices == [1, 1, 1, 2, 2, 4]
-
-        ionization_product_indices = het.product_indices(
-            ionization_reactions, species_range_dict,
-        )
-        @test ionization_product_indices == [2, 4, 6, 4, 6, 6]
-
-        excitation_reactions = het.load_excitation_reactions(
-            config.excitation_model, unique(species),
-        )
-        excitation_reactant_indices = het.reactant_indices(
-            excitation_reactions, species_range_dict,
-        )
-        @test excitation_reactant_indices == [1]
+        @test length(Aϵ.dl) == ncells + 1
+        @test length(Aϵ.d) == ncells + 2
+        @test length(Aϵ.du) == ncells + 1
     end
-    return
+
+    return @testset "Anom initialization" begin
+        initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
+        v = anom_model(zeros(ncells + 2), params, config)
+        init = initial_model(zeros(ncells + 2), params, config)
+
+        @test all(init .== params.cache.νan)
+        @test all(v .!= params.cache.νan)
+
+        sol = het.run_from_setup(U, params, config)
+        @test all(init .!= sol.params.cache.νan)
+        @test all(v .== sol.params.cache.νan)
+    end
 end
 
 test_config_serialization()

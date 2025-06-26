@@ -11,11 +11,11 @@ mutable struct SimParams{C <: CurrentController}
     """
     grid::GridSpec
     """
-    The simulation base timestep in seconds. See [Timestepping](@ref) for more info.
+    The simulation base timestep in seconds. See [Timestepping](@ref) for more info. **Default:** 1e-9.
     """
     dt::Float64
     """
-    The simulation duration in seconds.
+    The simulation duration in seconds. **Default:** 1e-3.
     """
     duration::Float64
     # Optional parameters
@@ -58,8 +58,8 @@ mutable struct SimParams{C <: CurrentController}
 
     function SimParams(;
             grid::GridSpec,
-            dt,
-            duration,
+            duration = 1.0e-3,
+            dt = 1.0e-9,
             # Optional parameters
             num_save::Int = 1000,
             verbose::Bool = true,
@@ -111,13 +111,14 @@ function setup_simulation(
         config.ionization_model, unique(species);
         directories = config.reaction_rate_directories,
     )
-    ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
-    ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
+    ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_array)
+    ionization_product_indices = product_indices(ionization_reactions, fluid_array)
 
     excitation_reactions = load_excitation_reactions(
-        config.excitation_model, unique(species),
+        config.excitation_model, unique(species);
+        directories = config.reaction_rate_directories,
     )
-    excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
+    excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
 
     electron_neutral_collisions = load_elastic_collisions(
         config.electron_neutral_model, unique(species),

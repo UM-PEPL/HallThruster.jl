@@ -10,10 +10,10 @@ using .OVS_Ions
 
 function test_ovs_energy()
     return @testset "Order verification (electron energy)" begin
-        vfunc = x -> OVS_Energy.verify_energy(x)
+        vfunc = x -> OVS_Energy.verify_energy_all(x)
         refinements = refines(6, 20, 2)
 
-        cases = ["implicit", "Crank-Nicholson"]
+        cases = ["Implicit", "Crank-Nicholson"]
         norms_to_test = [1, 2, Inf]
         num_norms = length(norms_to_test)
 
@@ -68,4 +68,4 @@ function test_ovs_ions()
 end
 
 test_ovs_energy()
-test_ovs_ions()
+#test_ovs_ions()

@@ -6,6 +6,7 @@ function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species
 
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
     source_heavy_species(fluid_containers, params)
+    apply_reactions!(params.fluid_array, params)
 
     _to_state_vector!(U, fluid_containers)
 
@@ -17,7 +18,6 @@ function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species
         @. @views dU[2 * i + 1, :] = fluid.mom_ddt
     end
 
-    apply_reactions!(dU, U, params)
 
     apply_ion_acceleration!(dU, U, params)
 
