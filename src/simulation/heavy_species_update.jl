@@ -60,18 +60,44 @@ function update_convective_term!(dU, U, F, grid, index, cache, ncharge)
     end
 end
 
-# Perform one step of the Strong-stability-preserving RK22 algorithm with the ion fluid
-function integrate_heavy_species!(U, params, reconstruct, source, dt, apply_boundary_conditions = true)
+# Step the heavy species forward in time using the Strong-Stability-preserving RK22 (SSPRK22) algorithm.
+# This method is better known as Heun's method (https://en.wikipedia.org/wiki/Heun%27s_method).
+# The Butcher tableau of this method is
+#
+#  0 │
+#  1 │ 1
+#  ─-╀─────────
+#    │ 1/2  1/2
+#
+# The canonical form goes as follows for an ODE dy/dt = f(t, y) and step size h:
+#
+# k_{n1} = f(t, y_n)
+# y_{n1} = y_n + h * k_{n1}
+# k_{n2} = f(t + h, y_{n1})
+# y_{n+1} = y_n + 0.5 * h * (k_{n1} + k_{n2})
+#
+# As written, this requries three intermediate storage variables: k_{n1}, k_{n2}, and y_{n1}
+# We can reduce this to two using the following rearrangement
+#
+# y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
+#         = (y_n + y_{n1} + h * k_{n2}) / 2
+#
+# With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
+function integrate_heavy_species!(u, params, reconstruct, source, dt, apply_boundary_conditions = true)
     (; k, u1) = params.cache
-    # First step of SSPRK22
-    iterate_heavy_species!(k, U, params, reconstruct, source; apply_boundary_conditions)
-    @. u1 = U + dt * k
-    stage_limiter!(u1, params)
+    # First step
+    # Compute slope k_{n1}
+    iterate_heavy_species!(k, u, params, reconstruct, source; apply_boundary_conditions)
 
-    # Second step of SSPRK22
+    # Second step
+    # Compute slope k_{n2}, resuing memory of k_{n1}
+    @. u1 = u + dt * k
+    stage_limiter!(u1, params)
     iterate_heavy_species!(k, u1, params, reconstruct, source; apply_boundary_conditions)
-    @. U = (U + u1 + dt * k) / 2
-    stage_limiter!(U, params)
+
+    # Final step
+    @. u = 0.5 * (u + u1 + dt * k)
+    stage_limiter!(u, params)
     return
 end
 
