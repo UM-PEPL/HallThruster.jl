@@ -63,7 +63,11 @@ function allocate_arrays(ncells::Int, ncharge::Int, n_anom_vars::Int)
         # Effective charge number
         Z_eff = zeros(ncells),
 
+        # Effective ion mass
+        m_eff = zeros(ncells),
+
         # Ion density, velocity, and number flux
+        # TODO: remove and replce with per-species quantities (could just use fluid containers)
         ni = zeros(ncharge, ncells),
         ui = zeros(ncharge, ncells),
         niui = zeros(ncharge, ncells),

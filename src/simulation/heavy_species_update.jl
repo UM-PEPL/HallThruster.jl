@@ -135,25 +135,24 @@ function stage_limiter!(fluid_containers)
 end
 
 function update_heavy_species!(params)
-    (; cache, propellants, propellants) = params
+    (; cache, propellants, anode_bc, ingestion_density, total_flow_rate_kg_s) = params
 
-    # TODO: multiple propellants
-    prop = propellants[1]
-    mdot_a = prop.flow_rate_kg_s
-    Ti = prop.ion_temperature_K
+    # Apply left boundary conditions per-propellant
+    for (propellant, fluids) in zip(propellants, params.fluids_by_propellant)
+        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_density, total_flow_rate_kg_s)
+    end
 
-    # Apply fluid boundary conditions
-    apply_left_boundary!(params.fluid_containers, cache, Ti, mdot_a, params.ingestion_density, params.anode_bc)
+    # Apply right boundary conditions for all propellants
     apply_right_boundary!(params.fluid_containers)
 
     # Update ion variables as seen by electrons
-    update_heavy_species_cache!(params.fluid_containers, params.cache, params.landmark)
+    update_heavy_species_cache!(params.fluid_containers, cache, params.landmark)
 
     return
 end
 
 function update_heavy_species_cache!(fluids, cache, landmark)
-    (; nn, ne, ni, ui, niui, Z_eff, ji, ϵ, nϵ, K) = cache
+    (; nn, ne, ni, ui, niui, Z_eff, ji, ϵ, nϵ, K, m_eff) = cache
 
     # Compute neutral number density
     @inbounds for fluid in fluids.continuity
@@ -164,6 +163,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
     @. ne = 0
     @. Z_eff = 0
     @. ji = 0
+    @. m_eff = 0
 
     # Update plasma quantities
     @inbounds for (f, fluid) in enumerate(fluids.isothermal)
@@ -177,14 +177,18 @@ function update_heavy_species_cache!(fluids, cache, landmark)
             niui[f, i] = _niui
             ui[f, i] = _niui / _ni
             ne[i] += Z * _ni
-            Z_eff[i] += _ni
             ji[i] += Z * e * _niui
+            # First pass, store total ion number density in Z_eff
+            Z_eff[i] += _ni
+            m_eff[i] += fluid.density[i]
         end
     end
 
     @inbounds for i in eachindex(Z_eff)
         # Effective ion charge state (density-weighted average charge state)
-        Z_eff[i] = max(1.0, ne[i] / Z_eff[i])
+        inv_ion_number_density = inv(Z_eff[i])
+        Z_eff[i] = ne[i] * inv_ion_number_density
+        m_eff[i] = m_eff[i] * inv_ion_number_density
     end
 
     # Compute electron mean energy for reactions
@@ -196,8 +200,13 @@ function update_heavy_species_cache!(fluids, cache, landmark)
     return
 end
 
-function apply_left_boundary!(fluids, cache, Ti, mdot_a, ingestion_density, anode_bc)
+function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_density, total_flow_rate_kg_s)
     Te_L = cache.Tev[1]
+    Ti = propellant.ion_temperature_K
+    mdot_a = propellant.flow_rate_kg_s
+
+    # Scale ingested neutral density by ratio of the flow rate of this propellant to the total flow rate
+    ingestion_density = ingestion_density * mdot_a / total_flow_rate_kg_s
 
     bohm_factor = if anode_bc == :sheath
         Vs = cache.Vs[]
@@ -219,7 +228,7 @@ function apply_left_boundary!(fluids, cache, Ti, mdot_a, ingestion_density, anod
 
     # Add inlet neutral density
     # Add ingested mass flow rate at anode
-    un = fluids.continuity[1].const_velocity
+    un = fluids.continuity[].const_velocity
     neutral_density = mdot_a / cache.channel_area[1] / un
     neutral_density += ingestion_density
 
@@ -264,7 +273,7 @@ function apply_left_boundary!(fluids, cache, Ti, mdot_a, ingestion_density, anod
         fluid.momentum[1] = boundary_flux
     end
 
-    fluids.continuity[1].density[1] = neutral_density
+    fluids.continuity[].density[1] = neutral_density
 
     return
 end
