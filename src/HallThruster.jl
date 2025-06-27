@@ -18,17 +18,14 @@ const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 include("utilities/utility_functions.jl")
 include("utilities/interpolation.jl")
 include("utilities/smoothing.jl")
-include("utilities/statistics.jl")
 include("utilities/linearalgebra.jl")
 include("utilities/integration.jl")
-include("utilities/macros.jl")
 include("utilities/serialization.jl")
-include("utilities/units.jl")
 include("utilities/finite_differences.jl")
 
 using .Serialization: serialize, deserialize
 
-include("physics/physicalconstants.jl")
+include("physics/constants.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
