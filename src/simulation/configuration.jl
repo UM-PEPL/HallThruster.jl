@@ -266,12 +266,18 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 end
 
 function params_from_config(config)
-    # TODO: make work better with mutliple propellants
-    un_B = background_neutral_velocity(config)
-    nn_B = background_neutral_density(config)
-    un = config.propellants[1].velocity_m_s
-    ingestion_density = nn_B * un_B / un * config.neutral_ingestion_multiplier
-    total_flow_rate_kg_s = sum(p.flow_rate_kg_s for p in config.propellants)
+    # Compute neutral ingestion flow rates per species
+    fn = config.neutral_ingestion_multiplier
+    ndot_anode = sum(p.flow_rate_kg_s / p.gas.m for p in config.propellants)
+    channel_area = config.thruster.geometry.channel_area
+    ingestion_flow_rates = zeros(length(config.propellants))
+    for (i, prop) in enumerate(config.propellants)
+        # Number density fraction of a species == its number flow ratio through the anode
+        ndot_a = prop.flow_rate_kg_s / prop.gas.m
+        ρn_B = background_neutral_density(prop, config) * ndot_a / ndot_anode
+        un_B = background_neutral_velocity(prop, config)
+        ingestion_flow_rates[i] = fn * ρn_B * un_B * channel_area
+    end
 
     return (;
         # Copied directly from config
@@ -284,8 +290,7 @@ function params_from_config(config)
         Te_L = config.anode_Tev,
         Te_R = config.cathode_Tev,
         implicit_energy = config.implicit_energy,
-        ingestion_density,
-        neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
+        ingestion_flow_rates,
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
@@ -293,7 +298,6 @@ function params_from_config(config)
         discharge_voltage = config.discharge_voltage,
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
-        total_flow_rate_kg_s,
     )
 end
 

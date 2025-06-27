@@ -112,7 +112,7 @@ function setup_simulation(
     fluid_containers = (; continuity, isothermal)
 
     # Finally, a single flat array of fluid containers, which we use for reaction calculations.
-    fluid_array = [fluid_containers.continuity..., fluid_containers.isothermal...]
+    fluid_array = vcat([[fluid.continuity..., fluid.isothermal...] for fluid in fluids_by_propellant]...)
     species = [fl.species for fl in fluid_array]
 
     # load collisions and reactions
@@ -192,9 +192,6 @@ function setup_simulation(
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        # Physics stuff - concretely-typed
-        background_neutral_velocity = background_neutral_velocity(config),
-        background_neutral_density = background_neutral_density(config),
         # TODO: multiple props + containers
         γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellants[1].gas.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),

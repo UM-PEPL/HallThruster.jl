@@ -46,13 +46,13 @@ std(x) = sqrt(var(x))
 end
 
 # TODO: multiple gases + fluid containers
-@inline function background_neutral_density(config)
-    return config.propellants[1].gas.m * config.background_pressure_Torr / kB / config.background_temperature_K
+@inline function background_neutral_density(propellant, config)
+    return propellant.gas.m * config.background_pressure_Torr / kB / config.background_temperature_K
 end
 
 # TODO: multiple gases + fluid containers
-@inline function background_neutral_velocity(config)
-    return 0.25 * sqrt(8 * kB * config.background_temperature_K / π / config.propellants[1].gas.m)
+@inline function background_neutral_velocity(propellant, config)
+    return 0.25 * sqrt(8 * kB * config.background_temperature_K / π / propellant.gas.m)
 end
 
 # Asymptotic fast formula for error function accurate to a few percent

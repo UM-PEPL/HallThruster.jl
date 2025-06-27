@@ -40,15 +40,17 @@ end
 
 function freq_electron_wall(model::WallSheath, params, i)
     (; cache, propellants, thruster, transition_length) = params
+    geometry = thruster.geometry
+
     ncharge = propellants[1].max_charge
     mi = propellants[1].gas.m
 
-    #compute radii difference
-    geometry = thruster.geometry
+    # compute difference in radii
     Δr = geometry.outer_radius - geometry.inner_radius
-    #compute electron wall temperature
+    # compute electron wall temperature
     Tev = wall_electron_temperature(params, transition_length, i)
-    #calculate and store SEE coefficient
+    # calculate and store SEE coefficient
+    # TODO: multiple propellants
     γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
     cache.γ_SEE[i] = γ
 

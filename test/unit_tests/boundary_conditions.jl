@@ -27,8 +27,8 @@ function test_boundaries()
     prop = config.propellants[1]
     mi = prop.gas.m
     Ti = prop.ion_temperature_K
-    mdot_a = prop.flow_rate_kg_s
     un = prop.velocity_m_s
+    mdot_a = prop.flow_rate_kg_s
 
     ni_1 = 1.0e17
     ni_2 = 1.0e16
@@ -43,17 +43,20 @@ function test_boundaries()
     @. isothermal[2].density = ni_2 * mi
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 / 2
 
-    ingestion_density = params.ingestion_density
+    ingestion_flow_rate = params.ingestion_flow_rates[1]
+    @show ingestion_flow_rate
+    @show mdot_a
     anode_bc = params.anode_bc
+    prop = config.propellants[1]
 
-    het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
     het.apply_right_boundary!(params.fluid_containers)
 
-    inlet_density = het.inlet_neutral_density(config.propellants[1], config.thruster.geometry.channel_area)
+    inlet_density = het.inlet_neutral_density(prop, config.thruster.geometry.channel_area)
 
     # When ion velocity at left boundary is less than then bohm speed, it should be accelerated to reach the bohm speed
-    nn_B = het.background_neutral_density(config)
-    un_B = het.background_neutral_velocity(config)
+    nn_B = het.background_neutral_density(prop, config)
+    un_B = het.background_neutral_velocity(prop, config)
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
     @test continuity[1].density[1] ≈ inlet_density - sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier
     @test boundary_ion_flux[1] / isothermal[1].density[1] ≈ -u_bohm_1
@@ -73,7 +76,7 @@ function test_boundaries()
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 * 2
 
     # when ion velocity at left boundary is greater than bohm speed, ions have Neumann BC
-    het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
+    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
     het.apply_right_boundary!(params.fluid_containers)
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
     @test continuity[1].density[1] ≈ inlet_density - sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier

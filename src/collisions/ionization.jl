@@ -38,10 +38,14 @@ function load_ionization_reactions(
         species_sorted = sort(species; by = x -> x.Z)
         reactions = IonizationReaction[]
         folders = [directories; REACTION_FOLDER]
+
+        # Check to make sure we find at least one reaction involving this species
+        reactions_found = zeros(Bool, length(species))
+
         for i in 1:length(species)
+            reactant = species_sorted[i]
+
             for j in (i + 1):length(species)
-                found = false
-                reactant = species_sorted[i]
                 product = species_sorted[j]
                 for folder in folders
                     filename = rate_coeff_filename(reactant, product, "ionization", folder)
@@ -51,17 +55,24 @@ function load_ionization_reactions(
                         )
                         reaction = IonizationReaction(energy, reactant, product, rate_coeff)
                         push!(reactions, reaction)
-                        found = true
+
+                        # Record that we found a reaction for both the reactant and product
+                        reactions_found[i] = true
+                        reactions_found[j] = true
                         break
                     end
-                end
-                if !found
-                    throw(ArgumentError("No reactions including $(reactant) and $(product) in provided directories $(folders)."))
                 end
             end
         end
 
+        for i in eachindex(reactions_found)
+            if !reactions_found[i]
+                throw(ArgumentError("No reactions including $(species_sorted[i]) in provided directories $(folders)."))
+            end
+        end
+
         return reactions
+
     elseif model == :OVS
         # No ionization in OVS tests
         return [IonizationReaction(12.12, Xenon(0), Xenon(1), [0.0, 0.0, 0.0])]

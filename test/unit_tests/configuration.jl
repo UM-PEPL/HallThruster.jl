@@ -106,5 +106,61 @@ function test_configuration()
     end
 end
 
+function test_multiple_propellants()
+
+    Xe = het.Propellant(het.Xenon, flow_rate_kg_s = 4.0e-6, max_charge = 3)
+    Kr = het.Propellant(het.Krypton, flow_rate_kg_s = 1.0e-6, max_charge = 2)
+
+    config = het.Config(
+        propellants = [Xe, Kr],
+        domain = (0.0, 0.08),
+        discharge_voltage = 300.0,
+        thruster = het.SPT_100,
+        background_pressure_Torr = 1.0e-5,
+    )
+
+    simparams = het.SimParams(grid = het.UnevenGrid(100))
+    params = het.setup_simulation(config, simparams)
+
+    @test length(config.propellants) == 2
+
+    expected_species = [
+        [het.Xenon(Z) for Z in 0:Xe.max_charge];
+        [het.Krypton(Z) for Z in 0:Kr.max_charge];
+    ]
+
+    species = [f.species for f in params.fluid_array]
+    @test expected_species == species
+
+    # Should have electron-neutral collisions for both species
+    @test length(params.electron_neutral_collisions) == 2
+
+    # Should have excitation reactions for both species
+    # Excitation reactant indices should be the indices of the neutral species
+    @test length(params.excitation_reactions) == 2
+    @test params.excitation_reactant_indices == [findfirst(==(het.Xenon(0)), species), findfirst(==(het.Krypton(0)), species)]
+
+    # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
+    triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
+
+    (; ionization_reactions, ionization_reactant_indices, ionization_product_indices) = params
+
+    @test length(ionization_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
+    for (rxn, reactant_ind, prod_ind) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+        @test rxn.reactant == species[reactant_ind]
+        @test rxn.product == species[prod_ind]
+    end
+
+    # Neutral ingestion densities
+    ndot_xe_back, ndot_kr_back = params.ingestion_flow_rates ./ [Xe.gas.m, Kr.gas.m]
+    ndot_tot_back = ndot_xe_back + ndot_kr_back
+    @test ndot_xe_back / ndot_tot_back > 0.5
+    return @test ndot_kr_back / ndot_tot_back < 0.5
+
+end
+
 test_config_serialization()
 test_configuration()
+@testset "Multiple propellants" begin
+    #test_multiple_propellants()
+end
