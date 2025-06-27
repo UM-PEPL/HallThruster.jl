@@ -1,43 +1,9 @@
-function iterate_heavy_species!(dU, U, params, reconstruct, source_heavy_species)
-    (; cache, grid, ion_wall_losses, fluid_containers) = params
-
-    # Compute edges and apply convective update
-    _from_state_vector!(fluid_containers, U)
-
-    update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
-    source_heavy_species(fluid_containers, params)
-    apply_reactions!(params.fluid_array, params)
-
-    apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
-
-    if ion_wall_losses
-        apply_ion_wall_losses!(fluid_containers, params)
-    end
-
-    # Update maximum allowable timestep
-    CFL = params.simulation.CFL
-    min_dt_u = params.fluid_containers.continuity[1].max_timestep[]
-    for fluid in params.fluid_containers.isothermal
-        min_dt_u = min(min_dt_u, fluid.max_timestep[])
-    end
-
-    cache.dt[] = min(
-        CFL * cache.dt_iz[],
-        sqrt(CFL) * cache.dt_E[],
-        CFL * min_dt_u,
-    )
-
-    _to_state_vector!(U, fluid_containers)
-
-    # Update d/dt
-    @. @views dU[1, :] = fluid_containers.continuity[1].dens_ddt
-
-    for (i, fluid) in enumerate(fluid_containers.isothermal)
-        @. @views dU[2 * i, :] = fluid.dens_ddt
-        @. @views dU[2 * i + 1, :] = fluid.mom_ddt
-    end
-
-    return
+function integrate_heavy_species!(fluid_containers, params, user_source, dt)
+    # Do one timestep forward, returning `true` if we found a NaN or Inf
+    step_heavy_species!(fluid_containers, params, user_source, dt) && return true
+    # Update properties that interface with electrons
+    update_heavy_species!(params)
+    return false
 end
 
 """
@@ -67,22 +33,105 @@ y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
 
 With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
 """
-function integrate_heavy_species!(u, params, reconstruct, source, dt)
-    (; k, u1) = params.cache
+function step_heavy_species!(fluid_containers, params, source, dt)
     # First step
     # Compute slope k_{n1}
-    iterate_heavy_species!(k, u, params, reconstruct, source)
+    compute_heavy_species_derivatives!(fluid_containers, params, source)
+
+    # Copy density and momentum to dens_cache and mom_cache for all fluids
+    # and update density and momentum to y_{n1}
+    for fluid in fluid_containers.continuity
+        @. fluid.dens_cache = fluid.density
+        @. fluid.density += dt * fluid.dens_ddt
+    end
+
+    for fluid in fluid_containers.isothermal
+        @. fluid.dens_cache = fluid.density
+        @. fluid.mom_cache = fluid.momentum
+        @. fluid.density += dt * fluid.dens_ddt
+        @. fluid.momentum += dt * fluid.mom_ddt
+    end
+
+    # Apply stage limiter, returning true if a NaN or an Inf is detected
+    stage_limiter!(fluid_containers) && return true
 
     # Second step
-    # Compute slope k_{n2}, resuing memory of k_{n1}
-    @. u1 = u + dt * k
-    stage_limiter!(u1, params)
-    iterate_heavy_species!(k, u1, params, reconstruct, source)
+    # Compute slope k_{n2}, reusing memory of k_{n1}
+    compute_heavy_species_derivatives!(fluid_containers, params, source)
 
     # Final step
-    @. u = 0.5 * (u + u1 + dt * k)
-    stage_limiter!(u, params)
+    @inbounds for fluid in fluid_containers.continuity
+        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
+    end
+
+    @inbounds for fluid in fluid_containers.isothermal
+        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
+        @. fluid.momentum = 0.5 * (fluid.momentum + fluid.mom_cache + dt * fluid.mom_ddt)
+    end
+
+    # Apply stage limiter, returning true if a NaN or an Inf is detected
+    stage_limiter!(fluid_containers) && return true
+
+    return false
+end
+
+# Populate dens_ddt and mom_ddt for all fluid containers
+function compute_heavy_species_derivatives!(fluid_containers, params, source_heavy_species)
+    (; cache, grid, ion_wall_losses, reconstruct) = params
+
+    update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
+    source_heavy_species(fluid_containers, params)
+    apply_reactions!(params.fluid_array, params)
+
+    apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
+
+    if ion_wall_losses
+        apply_ion_wall_losses!(fluid_containers, params)
+    end
+
+    # Update maximum allowable timestep
+    CFL = params.simulation.CFL
+    min_dt_u = params.fluid_containers.continuity[1].max_timestep[]
+    for fluid in params.fluid_containers.isothermal
+        min_dt_u = min(min_dt_u, fluid.max_timestep[])
+    end
+
+    cache.dt[] = min(
+        CFL * cache.dt_iz[],
+        sqrt(CFL) * cache.dt_E[],
+        CFL * min_dt_u,
+    )
+
     return
+end
+
+function stage_limiter!(fluid_containers)
+    @inbounds for fluid in fluid_containers.continuity
+        if any(!isfinite, fluid.density)
+            return true
+        end
+
+        min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
+        @simd for i in eachindex(fluid.density)
+            fluid.density[i] = max(fluid.density[i], min_density)
+        end
+    end
+
+    @inbounds for fluid in fluid_containers.isothermal
+        if any(!isfinite, fluid.density) || any(!isfinite, fluid.momentum)
+            return true
+        end
+
+        m = fluid.species.element.m
+        min_density = MIN_NUMBER_DENSITY * m
+        @simd for i in eachindex(fluid.density)
+            dens = fluid.density[i]
+            vel = fluid.momentum[i] / dens
+            fluid.density[i] = max(dens, min_density)
+            fluid.momentum[i] = fluid.density[i] * vel
+        end
+    end
+    return false
 end
 
 function update_heavy_species!(params)
@@ -146,7 +195,6 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     return
 end
-
 
 function apply_left_boundary!(fluids, cache, Ti, mdot_a, ingestion_density, anode_bc)
     Te_L = cache.Tev[1]

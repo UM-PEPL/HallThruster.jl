@@ -46,28 +46,4 @@ function test_slope_limiters()
     end
 end
 
-function test_stage_limiter()
-    return @testset "Stage limiter" begin
-        index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
-        min_ne = het.MIN_NUMBER_DENSITY
-
-        p = (;
-            index, cache = (; nϵ = [-1.0]),
-            grid = (; cell_centers = [0.0]), min_Te = 1.0,
-            propellants = [het.Propellant(het.Xenon, 5.0e-6; max_charge = 1)],
-        )
-        U = [-1.0, -1.0, -1.0, -1.0]
-        het.stage_limiter!(U, p)
-
-        # TODO: multiple propellants + limiters
-        mi = p.propellants[1].gas.m
-
-        @test U[index.ρn] == min_ne * mi
-        @test U[index.ρi[1]] == min_ne * mi
-        @test U[index.ρiui[1]] == 1.0 * min_ne * mi
-        @test p.cache.nϵ[1] == 1.5 * min_ne * p.min_Te
-    end
-end
-
 test_slope_limiters()
-test_stage_limiter()

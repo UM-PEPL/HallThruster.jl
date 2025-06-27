@@ -54,7 +54,7 @@ function test_configuration()
         duration = 1.0e-6,
     )
 
-    U, params = het.setup_simulation(config, simparams)
+    params = het.setup_simulation(config, simparams)
 
     @testset "Configuration" begin
         species = Set([f.species for f in params.fluid_array])
@@ -100,7 +100,7 @@ function test_configuration()
         @test all(init .== params.cache.νan)
         @test all(v .!= params.cache.νan)
 
-        sol = het.run_from_setup(U, params, config)
+        sol = het.run_from_setup(params, config)
         @test all(init .!= sol.params.cache.νan)
         @test all(v .== sol.params.cache.νan)
     end

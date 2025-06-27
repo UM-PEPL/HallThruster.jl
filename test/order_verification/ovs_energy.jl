@@ -98,7 +98,7 @@ function verify_energy(ncells; implicit_energy = 1.0, niters = 20000)
         anom_model = het.NoAnom(),
     )
 
-    _, params = het.setup_simulation(config, simparams)
+    params = het.setup_simulation(config, simparams)
     @reset params.min_Te = 0.01 * min(Te_L, Te_R)
     z_cell = params.grid.cell_centers
 

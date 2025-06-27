@@ -98,13 +98,13 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
         duration = 1.0,
     )
 
-    U, params = het.setup_simulation(config, simparams)
+    params = het.setup_simulation(config, simparams)
     # Need to overwrite min_Te b/c here Te can be lower than Te_L or Te_R
     z_cell = params.grid.cell_centers
     z_start = z_cell[1]
     z_end = z_cell[end]
     @reset params.min_Te = 0.01 * 2 / 3 * min(ϵ_func(z_start), ϵ_func(z_end))
-    (; index, cache, grid) = params
+    (; cache, grid) = params
 
     # Allocate arrays and fill variables
     ρn_exact = ρn_func.(z_cell)
@@ -115,11 +115,15 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
     @. cache.∇ϕ = ∇ϕ_func.(z_cell)
     @. cache.channel_area = A_ch
 
-    # Fill initial condition
+    # Set up initial condition
     line(v0, v1, z) = v0 + (v1 - v0) * (z - z_start) / (z_end - z_start)
-    U[index.ρn, :] = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
-    U[index.ρi[1], :] = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
-    U[index.ρiui[1], :] = U[index.ρi[1], :] * ui_func(0.0)
+    ρn_0 = [line(ρn_func(z_start), ρn_func(z_end), z) for z in z_cell]
+    ρi_0 = [line(ρi_func(z_start), ρi_func(z_end), z) for z in z_cell]
+    ρiui_0 = ρi_0 * ui_func(0.0)
+    fluids = params.fluid_containers
+    fluids.continuity[1].density .= ρn_0
+    fluids.isothermal[1].density .= ρi_0
+    fluids.isothermal[1].momentum .= ρiui_0
 
     # Compute timestep
     amax = maximum(abs.(ui_exact) .+ sqrt.(2 / 3 * e * ϵ_func.(z_cell) / mi))
@@ -127,16 +131,17 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
 
     t = 0.0
     while t < t_end
-        @views U[:, end] = U[:, end - 1]
-        het.integrate_heavy_species!(U, params, reconstruct, source_heavy_species, cache.dt[])
+        # Neumann BC
+        fluids.continuity[1].density[end] = fluids.continuity[1].density[end - 1]
+        fluids.isothermal[1].density[end] = fluids.isothermal[1].density[end - 1]
+        fluids.isothermal[1].momentum[end] = fluids.isothermal[1].momentum[end - 1]
+        het.step_heavy_species!(fluids, params, source_heavy_species, cache.dt[])
         t += cache.dt[]
     end
 
-    sol = (; t = [t], u = [U])
-
-    ρn_sim = sol.u[end][index.ρn, :]
-    ρi_sim = sol.u[end][index.ρi[1], :]
-    ρiui_sim = sol.u[end][index.ρiui[1], :]
+    ρn_sim = fluids.continuity[1].density
+    ρi_sim = fluids.isothermal[1].density
+    ρiui_sim = fluids.isothermal[1].momentum
     ui_sim = ρiui_sim ./ ρi_sim
 
     return (

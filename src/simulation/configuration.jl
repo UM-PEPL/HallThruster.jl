@@ -376,6 +376,7 @@ function params_from_config(config)
     return (;
         # Copied directly from config
         propellants = config.propellants,
+        reconstruct = config.reconstruct,
         thruster = config.thruster,
         anode_bc = config.anode_boundary_condition,
         landmark = config.LANDMARK,

@@ -21,7 +21,7 @@ function test_boundaries()
         neutral_ingestion_multiplier = 1.5,
     )
 
-    _, params = het.setup_simulation(config, het.SimParams(duration = 1.0e-3, grid = het.EvenGrid(2)))
+    params = het.setup_simulation(config, het.SimParams(duration = 1.0e-3, grid = het.EvenGrid(2)))
 
     # Anode ion velocity less than bohm velocity
     prop = config.propellants[1]
