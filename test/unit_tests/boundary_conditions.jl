@@ -49,12 +49,13 @@ function test_boundaries()
     het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
     het.apply_right_boundary!(params.fluid_containers)
 
+    inlet_density = het.inlet_neutral_density(config.propellants[1], config.thruster.geometry.channel_area)
+
     # When ion velocity at left boundary is less than then bohm speed, it should be accelerated to reach the bohm speed
     nn_B = het.background_neutral_density(config)
     un_B = het.background_neutral_velocity(config)
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
-    @test continuity[1].density[1] ≈ het.inlet_neutral_density(config) -
-        sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier
+    @test continuity[1].density[1] ≈ inlet_density - sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier
     @test boundary_ion_flux[1] / isothermal[1].density[1] ≈ -u_bohm_1
     @test boundary_ion_flux[2] / isothermal[2].density[1] ≈ -u_bohm_2
 
@@ -75,9 +76,7 @@ function test_boundaries()
     het.apply_left_boundary!(params.fluid_containers, params.cache, Ti, mdot_a, ingestion_density, anode_bc)
     het.apply_right_boundary!(params.fluid_containers)
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
-    @test continuity[1].density[1] ≈ het.inlet_neutral_density(config) -
-        sum(boundary_ion_flux) / un +
-        nn_B * un_B / un * config.neutral_ingestion_multiplier
+    @test continuity[1].density[1] ≈ inlet_density - sum(boundary_ion_flux) / un + nn_B * un_B / un * config.neutral_ingestion_multiplier
     @test boundary_ion_flux[1] / isothermal[1].density[1] ≈ -2 * u_bohm_1
     @test boundary_ion_flux[2] / isothermal[2].density[1] ≈ -2 * u_bohm_2
 

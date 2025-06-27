@@ -71,12 +71,11 @@ function update_electrical_vars!(params)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
+    un = params.propellants[1].velocity_m_s
     V_L = params.discharge_voltage + Vs[]
     V_R = params.cathode_coupling_voltage
     apply_drag = !landmark && params.iteration[] > 5
-    Id[] = integrate_discharge_current(
-        grid, cache, V_L, V_R, params.neutral_velocity, apply_drag,
-    )
+    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
 
     # Update the anomalous collision frequency multiplier to match target current
     anom_multiplier[] = exp(
@@ -98,7 +97,7 @@ function update_electrical_vars!(params)
     compute_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     # Compute electric field
-    compute_electric_field!(∇ϕ, cache, params.neutral_velocity, apply_drag)
+    compute_electric_field!(∇ϕ, cache, un, apply_drag)
 
     # Update electrostatic potential
     return cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, params.discharge_voltage + Vs[])

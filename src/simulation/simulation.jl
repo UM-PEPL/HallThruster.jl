@@ -100,7 +100,18 @@ function setup_simulation(
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    fluid_containers = allocate_fluids(config.propellants[1], sim.grid.num_cells)
+    # We arrange the fluid containers in three different structures for convenience.
+    # First, an array of (;continuity, isothermal) for each propellant species.
+    # This is used in initialization and in computing boundary conditions.
+    fluids_by_propellant = [allocate_fluids(propellant, sim.grid.num_cells) for propellant in config.propellants]
+
+    # Second, a single NamedTuple of (;continuity, isothermal) for all propellants.
+    # This is used in the convective update.
+    continuity = vcat([x.continuity for x in fluids_by_propellant]...)
+    isothermal = vcat([x.isothermal for x in fluids_by_propellant]...)
+    fluid_containers = (; continuity, isothermal)
+
+    # Finally, a single flat array of fluid containers, which we use for reaction calculations.
     fluid_array = [fluid_containers.continuity..., fluid_containers.isothermal...]
     species = [fl.species for fl in fluid_array]
 
@@ -189,6 +200,7 @@ function setup_simulation(
         min_Te = min(config.anode_Tev, config.cathode_Tev),
         fluid_containers,
         fluid_array,
+        fluids_by_propellant,
     )
 
     # Initialize ion and electron variables

@@ -41,10 +41,8 @@ std(x) = sqrt(var(x))
 @inline left_edge(i) = i - 1
 @inline right_edge(i) = i
 
-# TODO: mutliple gases + fluid containers
-@inline function inlet_neutral_density(config)
-    prop = config.propellants[1]
-    return prop.flow_rate_kg_s / (prop.velocity_m_s * config.thruster.geometry.channel_area)
+@inline function inlet_neutral_density(propellant, channel_area)
+    return propellant.flow_rate_kg_s / (propellant.velocity_m_s * channel_area)
 end
 
 # TODO: multiple gases + fluid containers

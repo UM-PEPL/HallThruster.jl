@@ -271,6 +271,7 @@ function params_from_config(config)
     nn_B = background_neutral_density(config)
     un = config.propellants[1].velocity_m_s
     ingestion_density = nn_B * un_B / un * config.neutral_ingestion_multiplier
+    total_flow_rate_kg_s = sum(p.flow_rate_kg_s for p in config.propellants)
 
     return (;
         # Copied directly from config
@@ -284,9 +285,6 @@ function params_from_config(config)
         Te_R = config.cathode_Tev,
         implicit_energy = config.implicit_energy,
         ingestion_density,
-        ion_temperature_K = config.propellants[1].ion_temperature_K,
-        neutral_velocity = un,
-        anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s,
         neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
@@ -295,6 +293,7 @@ function params_from_config(config)
         discharge_voltage = config.discharge_voltage,
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
+        total_flow_rate_kg_s,
     )
 end
 

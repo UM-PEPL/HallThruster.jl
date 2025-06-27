@@ -6,10 +6,10 @@ function allocate_arrays(grid::Grid1D, config)
     # TODO: fluid containers + multiple props
     ncharge = config.propellants[1].max_charge
     n_anom_vars = num_anom_variables(config.anom_model)
-    return allocate_arrays(ncells, nedges, ncharge, n_anom_vars)
+    return allocate_arrays(ncells, ncharge, n_anom_vars)
 end
 
-function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::Int)
+function allocate_arrays(ncells::Int, ncharge::Int, n_anom_vars::Int)
     # made less general to handle common use cases as part of fluid refactor
     cache = (;
         # Caches for energy solve
@@ -53,7 +53,7 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
 
         # Electron axial velocity and kinetic energy
         ue = zeros(ncells),
-        K = zeros(ncells), λ_global = zeros(ncharge + 1),
+        K = zeros(ncells),
 
         # Electron source terms
         ohmic_heating = zeros(ncells),
@@ -97,7 +97,6 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         dt_iz = zeros(1),
         dt = zeros(1),
         dt_E = zeros(1),
-        dt_u = zeros(nedges),
     )
 
     return cache
