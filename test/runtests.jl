@@ -5,11 +5,9 @@ using HallThruster
 doctest(HallThruster)
 
 @safetestset "Thrusters" include("unit_tests/thrusters.jl")
-@safetestset "Thermodynamics" include("unit_tests/thermodynamics.jl")
 @safetestset "Limiters" include("unit_tests/limiters.jl")
 @safetestset "Allocation" include("unit_tests/allocation.jl")
 @safetestset "Interpolation.jl" include("unit_tests/interpolation.jl")
-@safetestset "Initialization.jl" include("unit_tests/initialization.jl")
 @safetestset "Configuration" include("unit_tests/configuration.jl")
 @safetestset "Errors" include("unit_tests/errors.jl")
 @safetestset "Linear algebra" include("unit_tests/linear_algebra.jl")

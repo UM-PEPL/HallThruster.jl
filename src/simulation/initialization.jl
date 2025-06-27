@@ -15,31 +15,32 @@ Serialization.options(::Type{T}) where {T <: InitialCondition} = (; DefaultIniti
 #=============================================================================
 Definitions
 ==============================================================================#
-initialize!(U, params, config) = initialize!(U, params, config, config.initial_condition)
+initialize!(params, config) = initialize!(params, config, config.initial_condition)
 
-function initialize!(_, _, _, model::InitialCondition)
-    throw(ArgumentError("Function HallThruster.initialize!(U, params, model::$(typeof(model)) not yet implemented. For InitialCondition types other than DefaultInitialization(), this must be defined by the user!"))
+function initialize!(_, _, model::InitialCondition)
+    throw(ArgumentError("Function HallThruster.initialize!(params, model::$(typeof(model)) not yet implemented. For InitialCondition types other than DefaultInitialization(), this must be defined by the user!"))
 end
 
-function initialize_heavy_species_default!(U, params, config; kwargs...)
-    (; anode_Tev, domain, discharge_voltage) = config
+function initialize_heavy_species_default!(params, config; kwargs...)
+    (; anode_Tev, domain, discharge_voltage, propellants) = config
 
     ρn = inlet_neutral_density(config)
-    un = config.propellants[1].velocity_m_s
-    anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s
+    un = config.neutral_velocity
     return initialize_heavy_species_default!(
-        U, params, anode_Tev, domain, discharge_voltage,
-        anode_mass_flow_rate, ρn, un; kwargs...,
+        params, anode_Tev, domain, discharge_voltage,
+        propellants[1].flow_rate_kg_s, ρn, un; kwargs...,
     )
 end
 
 function initialize_heavy_species_default!(
-        U, params, anode_Tev, domain, discharge_voltage, anode_mass_flow_rate, ρn_0, un;
+        params, anode_Tev, domain, discharge_voltage, anode_mass_flow_rate, ρn_0, un;
         min_ion_density = 2.0e17, max_ion_density = 1.0e18,
     )
-    (; grid, index, cache, thruster, propellants) = params
-    ncharge = propellants[1].max_charge
+
+    (; grid, cache, thruster, propellants) = params
     mi = propellants[1].gas.m
+    ncharge = propellants[1].max_charge
+
     L_ch = thruster.geometry.channel_length
     z0 = domain[1]
 
@@ -85,17 +86,18 @@ function initialize_heavy_species_default!(
             for Z in 1:ncharge
     )
 
-    # Fill the state vector
-    for (i, z) in enumerate(grid.cell_centers)
-        U[index.ρn, i] = neutral_function(z)
-
-        for Z in 1:(ncharge)
-            U[index.ρi[Z], i] = ion_density_function(z, Z)
-            U[index.ρiui[Z], i] = ion_density_function(z, Z) * ion_velocity_function(z, Z)
-        end
-
-        cache.ne[i] = number_density_function(z)
+    # Fill the fluid containers
+    @inbounds for fluid in params.fluid_containers.continuity
+        @. fluid.density = neutral_function(grid.cell_centers)
     end
+
+    @inbounds for fluid in params.fluid_containers.isothermal
+        Z = fluid.species.Z
+        @. fluid.density = ion_density_function(grid.cell_centers, Z)
+        @. fluid.momentum = fluid.density * ion_velocity_function(grid.cell_centers, Z)
+    end
+
+    @. cache.ne = number_density_function(grid.cell_centers)
 
     return nothing
 end
@@ -127,16 +129,14 @@ function initialize_electrons_default!(
     return nothing
 end
 
-function initialize!(U, params, config, init::DefaultInitialization)
+function initialize!(params, config, init::DefaultInitialization)
     (; max_electron_temperature, min_ion_density, max_ion_density) = init
-    (; anode_Tev, cathode_Tev, domain, discharge_voltage) = config
-    # TODO: mutliple propellants + fluid containers
+    (; anode_Tev, cathode_Tev, domain, discharge_voltage, propellants) = config
     ρn = inlet_neutral_density(config)
-    anode_mass_flow_rate = params.propellants[1].flow_rate_kg_s
-    un = config.propellants[1].velocity_m_s
+    un = propellants[1].velocity_m_s
     initialize_heavy_species_default!(
-        U, params, anode_Tev, domain, discharge_voltage,
-        anode_mass_flow_rate, ρn, un; max_ion_density, min_ion_density,
+        params, anode_Tev, domain, discharge_voltage,
+        propellants[1].flow_rate_kg_s, ρn, un; max_ion_density, min_ion_density,
     )
     return initialize_electrons_default!(
         params, anode_Tev, cathode_Tev, domain, discharge_voltage; max_electron_temperature,
@@ -145,9 +145,9 @@ end
 
 """
     $(TYPEDSIGNATURES)
-Initialize `U` and `cache` from a simulation output
+Initialize fluid containers and other plasma variables form a restart
 """
-function initialize_from_restart!(U, params, restart_file::String)
+function initialize_from_restart!(params, restart_file::String)
     restart = JSON3.read(read(restart_file))
 
     if haskey(restart, "output")
@@ -162,23 +162,25 @@ function initialize_from_restart!(U, params, restart_file::String)
         throw(ArgumentError("Restart file $(restart_file) has no key `frames` or `average`."))
     end
 
-    return initialize_from_restart!(U, params, frame)
+    return initialize_from_restart!(params, frame)
 end
 
-function initialize_from_restart!(U, params, frame)
-    (; cache, grid, propellants) = params
-    ncharge = propellants[1].max_charge
+function initialize_from_restart!(params, frame)
+    (; grid, cache, propellants) = params
     mi = propellants[1].gas.m
+    ncharge = propellants[1].max_charge
     ncharge_restart = length(frame.ni)
 
     # load ion properties, interpolated from restart grid to grid in params
     z = grid.cell_centers
 
-    U[1, :] .= LinearInterpolation(frame.z, frame.nn .* mi).(z)
+    nn = LinearInterpolation(frame.z, frame.nn .* mi).(z)
+    params.fluid_containers.continuity[1].density .= nn
 
     for Z in 1:min(ncharge, ncharge_restart)
-        U[Z + 1, :] .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
-        U[Z + 2, :] .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
+        fluid = params.fluid_containers.isothermal[Z]
+        fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
+        fluid.momentum .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
     end
 
     cache.ne .= LinearInterpolation(frame.z, frame.ne).(z)

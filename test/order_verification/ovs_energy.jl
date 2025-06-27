@@ -104,7 +104,7 @@ function verify_energy(ncells; implicit_energy = 1.0, niters = 20000)
 
     # fill cache values
     # Need to reallocate cache because setup_simulation does a bunch of initialization that messeṡ this up somehow
-    _, cache = het.allocate_arrays(params.grid, config)
+    cache = het.allocate_arrays(params.grid, config)
     @. cache.μ = μ_func(z_cell)
     @. cache.κ = κ_func(z_cell)
     @. cache.ne = ne_func(z_cell)

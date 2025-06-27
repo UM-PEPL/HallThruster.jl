@@ -265,6 +265,39 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     end
 end
 
+function params_from_config(config)
+    # TODO: make work better with mutliple propellants
+    un_B = background_neutral_velocity(config)
+    nn_B = background_neutral_density(config)
+    un = config.propellants[1].velocity_m_s
+    ingestion_density = nn_B * un_B / un * config.neutral_ingestion_multiplier
+
+    return (;
+        # Copied directly from config
+        propellants = config.propellants,
+        reconstruct = config.reconstruct,
+        thruster = config.thruster,
+        anode_bc = config.anode_boundary_condition,
+        landmark = config.LANDMARK,
+        transition_length = config.transition_length,
+        Te_L = config.anode_Tev,
+        Te_R = config.cathode_Tev,
+        implicit_energy = config.implicit_energy,
+        ingestion_density,
+        ion_temperature_K = config.propellants[1].ion_temperature_K,
+        neutral_velocity = un,
+        anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s,
+        neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
+        ion_wall_losses = config.ion_wall_losses,
+        wall_loss_scale = wall_loss_scale(config.wall_loss_model),
+        plume_loss_scale = config.electron_plume_loss_scale,
+        anom_smoothing_iters = config.anom_smoothing_iters,
+        discharge_voltage = config.discharge_voltage,
+        cathode_coupling_voltage = config.cathode_coupling_voltage,
+        electron_ion_collisions = config.electron_ion_collisions,
+    )
+end
+
 #=============================================================================
  Serialization of Config to JSON
 ==============================================================================#
@@ -295,106 +328,4 @@ function Serialization.deserialize(::Type{C}, x) where {C <: Config}
         d[:propellants] = [prop_dict]
     end
     return deserialize(Serialization.Struct(), C, d)
-end
-
-function make_keys(fluid_range, subscript)
-    len = length(fluid_range)
-    if len == 1
-        return (Symbol("ρ$(subscript)"))
-    elseif len == 2
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-        )
-    elseif len == 3
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-            Symbol("ρ$(subscript)E$(subscript)"),
-        )
-    else
-        throw(ArgumentError("Too many equations on fluid (this should be unreachable)"))
-    end
-end
-
-function configure_fluids(config)
-    # TODO make work for multiple propellants
-    propellant = config.propellants[1]
-
-    neutral_fluid = ContinuityOnly(propellant.gas(0); u = propellant.velocity_m_s, T = propellant.temperature_K)
-    ion_fluids = [
-        IsothermalEuler(propellant.gas(Z); T = propellant.ion_temperature_K)
-            for Z in 1:(propellant.max_charge)
-    ]
-
-    fluids = [neutral_fluid; ion_fluids]
-
-    species = [f.species for f in fluids]
-
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => 0:0 for fluid in fluids)
-
-    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-        species_range_dict[Symbol(fluid.species)] = fluid_range
-    end
-
-    last_fluid_index = fluid_ranges[end][end]
-    is_velocity_index = fill(false, last_fluid_index)
-    for i in 3:2:last_fluid_index
-        is_velocity_index[i] = true
-    end
-
-    return fluids, fluid_ranges, species, species_range_dict, is_velocity_index
-end
-
-function configure_index(fluids, fluid_ranges)
-    first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
-
-    keys_neutrals = (:ρn,)
-    values_neutrals = (1,)
-
-    keys_ions = (:ρi, :ρiui)
-    values_ions = (
-        [f[1] for f in fluid_ranges[first_ion_fluid_index:end]],
-        [f[2] for f in fluid_ranges[first_ion_fluid_index:end]],
-    )
-
-    keys_fluids = (keys_neutrals..., keys_ions...)
-    values_fluids = (values_neutrals..., values_ions...)
-    index = NamedTuple{keys_fluids}(values_fluids)
-    return index
-end
-
-function params_from_config(config)
-    # TODO: make work better with mutliple propellants
-
-    un_B = background_neutral_velocity(config)
-    nn_B = background_neutral_density(config)
-    un = config.propellants[1].velocity_m_s
-    ingestion_density = nn_B * un_B / un * config.neutral_ingestion_multiplier
-
-    return (;
-        # Copied directly from config
-        propellants = config.propellants,
-        reconstruct = config.reconstruct,
-        thruster = config.thruster,
-        anode_bc = config.anode_boundary_condition,
-        landmark = config.LANDMARK,
-        transition_length = config.transition_length,
-        Te_L = config.anode_Tev,
-        Te_R = config.cathode_Tev,
-        implicit_energy = config.implicit_energy,
-        ingestion_density,
-        ion_temperature_K = config.propellants[1].ion_temperature_K,
-        neutral_velocity = un,
-        anode_mass_flow_rate = config.propellants[1].flow_rate_kg_s,
-        neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
-        ion_wall_losses = config.ion_wall_losses,
-        wall_loss_scale = wall_loss_scale(config.wall_loss_model),
-        plume_loss_scale = config.electron_plume_loss_scale,
-        anom_smoothing_iters = config.anom_smoothing_iters,
-        discharge_voltage = config.discharge_voltage,
-        cathode_coupling_voltage = config.cathode_coupling_voltage,
-        electron_ion_collisions = config.electron_ion_collisions,
-    )
 end

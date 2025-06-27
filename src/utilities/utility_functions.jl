@@ -1,12 +1,6 @@
 @inline left_edge(i) = i - 1
 @inline right_edge(i) = i
 
-# TODO: multiple gases + fluid containers
-@inline function electron_density(U, p, i)
-    prop = p.propellants[1]
-    return sum(Z * U[p.index.ρi[Z], i] for Z in 1:prop.max_charge) / prop.gas.m
-end
-
 # TODO: mutliple gases + fluid containers
 @inline function inlet_neutral_density(config)
     prop = config.propellants[1]
