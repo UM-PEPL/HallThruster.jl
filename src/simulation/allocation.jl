@@ -2,14 +2,12 @@
 # reduce precompilation/recompilation time
 function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
-    nedges = length(grid.edges)
-    # TODO: fluid containers + multiple props
-    ncharge = config.propellants[1].max_charge
+    num_species = sum((prop.max_charge) for prop in config.propellants)
     n_anom_vars = num_anom_variables(config.anom_model)
-    return allocate_arrays(ncells, ncharge, n_anom_vars)
+    return allocate_arrays(ncells, num_species, n_anom_vars)
 end
 
-function allocate_arrays(ncells::Int, ncharge::Int, n_anom_vars::Int)
+function allocate_arrays(ncells::Int, num_species::Int, n_anom_vars::Int)
     # made less general to handle common use cases as part of fluid refactor
     cache = (;
         # Caches for energy solve
@@ -68,9 +66,12 @@ function allocate_arrays(ncells::Int, ncharge::Int, n_anom_vars::Int)
 
         # Ion density, velocity, and number flux
         # TODO: remove and replce with per-species quantities (could just use fluid containers)
-        ni = zeros(ncharge, ncells),
-        ui = zeros(ncharge, ncells),
-        niui = zeros(ncharge, ncells),
+        ni = zeros(num_species, ncells),
+        ui = zeros(num_species, ncells),
+        niui = zeros(num_species, ncells),
+
+        avg_ion_vel = zeros(ncells),
+        avg_neutral_vel = zeros(ncells),
 
         # ion current
         ji = zeros(ncells),

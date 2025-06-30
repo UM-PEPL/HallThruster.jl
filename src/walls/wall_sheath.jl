@@ -38,28 +38,30 @@ end
 # this is approximate, but deviations only become noticable when the knudsen number becomes small, which is not true in our case
 @inline edge_to_center_density_ratio() = 0.86 / sqrt(3);
 
+# TODO: reorganize this into something that operates on arrays
 function freq_electron_wall(model::WallSheath, params, i)
-    (; cache, propellants, thruster, transition_length) = params
+    (; cache, thruster, transition_length) = params
     geometry = thruster.geometry
-
-    ncharge = propellants[1].max_charge
-    mi = propellants[1].gas.m
 
     # compute difference in radii
     Δr = geometry.outer_radius - geometry.inner_radius
     # compute electron wall temperature
     Tev = wall_electron_temperature(params, transition_length, i)
+
     # calculate and store SEE coefficient
-    # TODO: multiple propellants
-    γ = SEE_yield(model.material, Tev, params.γ_SEE_max)
+    # use number-averaged mass here
+    γ_SEE_max = 1 - 8.3 * sqrt(me / cache.m_eff[i])
+    γ = SEE_yield(model.material, Tev, γ_SEE_max)
     cache.γ_SEE[i] = γ
 
     # compute the ion current to the walls
     h = edge_to_center_density_ratio()
     j_iw = 0.0
-    for Z in 1:ncharge
-        niw = h * cache.ni[Z, i]
-        j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev / mi)
+    for fluid in params.fluid_containers.isothermal
+        Z = fluid.species.Z
+        inv_mi = inv(fluid.species.element.m)
+        niw = h * fluid.density[i] * inv_mi
+        j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
     end
 
     # compute electron wall collision frequency
@@ -71,7 +73,6 @@ end
 function wall_power_loss!(Q, ::WallSheath, params)
     (; cache, grid, thruster, transition_length, plume_loss_scale) = params
     L_ch = thruster.geometry.channel_length
-    mi = params.propellants[1].gas.m
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
         Tev = wall_electron_temperature(params, transition_length, i)
@@ -80,7 +81,7 @@ function wall_power_loss!(Q, ::WallSheath, params)
         γ = params.cache.γ_SEE[i]
 
         # Space charge-limited sheath potential
-        ϕ_s = sheath_potential(Tev, γ, mi)
+        ϕ_s = sheath_potential(Tev, γ, cache.m_eff[i])
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
         νew = cache.radial_loss_frequency[i] * linear_transition(
@@ -94,6 +95,6 @@ function wall_power_loss!(Q, ::WallSheath, params)
     return nothing
 end
 
-function wall_loss_scale(m::WallSheath)
+@inline function wall_loss_scale(m::WallSheath)
     return m.loss_scale
 end

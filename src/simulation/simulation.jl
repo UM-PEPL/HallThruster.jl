@@ -175,6 +175,7 @@ function setup_simulation(
     # values from `config` and reinserts them into params.
     params = (;
         # non-concretely-typed, changes based on run, requires recompilation
+        # TODO: is this true anymore?
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
         simulation = sim,
@@ -192,8 +193,6 @@ function setup_simulation(
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        # TODO: multiple props + containers
-        γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellants[1].gas.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
         fluid_containers,
         fluid_array,

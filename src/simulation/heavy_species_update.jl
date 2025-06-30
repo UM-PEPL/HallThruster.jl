@@ -152,18 +152,24 @@ function update_heavy_species!(params)
 end
 
 function update_heavy_species_cache!(fluids, cache, landmark)
-    (; nn, ne, ni, ui, niui, Z_eff, ji, ϵ, nϵ, K, m_eff) = cache
-
-    # Compute neutral number density
-    @inbounds for fluid in fluids.continuity
-        inv_m = inv(fluid.species.element.m)
-        @. nn = fluid.density * inv_m
-    end
+    (; nn, ne, ni, ui, niui, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
     @. ne = 0
-    @. Z_eff = 0
     @. ji = 0
     @. m_eff = 0
+    @. Z_eff = 0
+    @. nn = 0
+    @. avg_ion_vel = 0
+    @. avg_neutral_vel = 0
+
+    # Compute neutral number density
+    # TODO: this computes total neutral number density, not per species
+    @inbounds for fluid in fluids.continuity
+        _nn = fluid.density / fluid.species.element.m
+        @. nn += _nn
+        @. avg_neutral_vel += _nn * fluid.const_velocity
+    end
+
 
     # Update plasma quantities
     @inbounds for (f, fluid) in enumerate(fluids.isothermal)
@@ -178,18 +184,20 @@ function update_heavy_species_cache!(fluids, cache, landmark)
             ui[f, i] = _niui / _ni
             ne[i] += Z * _ni
             ji[i] += Z * e * _niui
-            # First pass, store total ion number density in Z_eff
+            avg_ion_vel[i] += _niui
+            # First pass, store total ion mass density in m_eff and ion number density in Z_eff
             Z_eff[i] += _ni
             m_eff[i] += fluid.density[i]
         end
     end
 
-    @inbounds for i in eachindex(Z_eff)
-        # Effective ion charge state (density-weighted average charge state)
-        inv_ion_number_density = inv(Z_eff[i])
-        Z_eff[i] = ne[i] * inv_ion_number_density
-        m_eff[i] = m_eff[i] * inv_ion_number_density
-    end
+    @. avg_neutral_vel /= nn
+
+    # Inverse ion density
+    @. Z_eff = inv(Z_eff)
+    @. avg_ion_vel *= Z_eff
+    @. m_eff *= Z_eff
+    @. Z_eff = ne * Z_eff
 
     # Compute electron mean energy for reactions
     @. ϵ = nϵ / ne

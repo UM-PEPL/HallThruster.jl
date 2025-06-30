@@ -15,25 +15,20 @@ function initialize_plume_geometry(params)
 end
 
 function update_plume_geometry!(params)
-    (; cache, grid, propellants, thruster) = params
-    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, niui, ni, dlnA_dz) = cache
-
-    ncharge = propellants[1].max_charge
-    mi = propellants[1].gas.m
+    (; cache, grid, thruster) = params
+    (; channel_area, inner_radius, outer_radius, channel_height, dA_dz, tanδ, Tev, m_eff, dlnA_dz) = cache
 
     L_ch = thruster.geometry.channel_length
     exit_plane_index = max(findfirst(>=(L_ch), grid.cell_centers), 1)
     Tev_exit = Tev[exit_plane_index]
-    inv_mi = 1 / mi
 
-    for i in (exit_plane_index + 1):(grid.num_cells)
-        ui = sum(niui[Z, i] for Z in 1:ncharge) /
-            sum(ni[Z, i] for Z in 1:ncharge)
+    @inbounds for i in (exit_plane_index + 1):(grid.num_cells)
+        # Number-averaged ion velocity
+        thermal_speed = sqrt((5 / 3) * e * Tev_exit / m_eff[i])
+        ui = max(cache.avg_ion_vel[i], thermal_speed)
 
-        thermal_speed = sqrt((5 / 3) * e * Tev_exit * inv_mi)
-        ui = max(ui, thermal_speed)
+        # Tangent of divergence angle
         tanδ[i] = clamp(thermal_speed / ui, 0.0, 1.0)
-
         avg_tan_δ = 0.5 * (tanδ[i] + tanδ[i - 1])
         Δz = grid.cell_centers[i] - grid.cell_centers[i - 1]
         inner_radius[i] = max(0.0, inner_radius[i - 1] - avg_tan_δ * Δz)

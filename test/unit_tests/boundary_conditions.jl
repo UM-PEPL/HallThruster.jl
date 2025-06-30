@@ -44,8 +44,6 @@ function test_boundaries()
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 / 2
 
     ingestion_flow_rate = params.ingestion_flow_rates[1]
-    @show ingestion_flow_rate
-    @show mdot_a
     anode_bc = params.anode_bc
     prop = config.propellants[1]
 

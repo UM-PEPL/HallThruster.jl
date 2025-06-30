@@ -41,41 +41,33 @@ function test_electron_losses()
         Tev = 4.0
         ne = 1.0e18
         nϵ = 3 / 2 * ne * Tev
-        cache = (;
-            ne = [ne, ne, ne, ne],
-            ni = [ne ne ne ne],
-            Tev = [Tev, Tev, Tev, Tev],
-            ϵ = 1.5 .* [Tev, Tev, Tev, Tev],
-            nϵ = [nϵ, nϵ, nϵ, nϵ],
-            Z_eff = [1.0, 1.0, 1.0, 1.0],
-            γ_SEE = [0.0, 0.0, 0.0, 0.0],
-            radial_loss_frequency = [0.0, 0.0, 0.0, 0.0],
-            νew_momentum = [0.0, 0.0, 0.0, 0.0],
-        )
+        ncells = 2
+
         transition_length = 0.2 * L_ch
         config = het.Config(;
             thruster = het.SPT_100,
             anode_mass_flow_rate = 5.0e-6,
-            domain = (0.0, 1.0),
+            domain = (0.0, 2 * L_ch),
             discharge_voltage = 300.0,
             transition_length,
-            propellant = het.Xenon, ncharge = 1,
+            propellant = het.Xenon,
+            ncharge = 1,
             electron_plume_loss_scale = 0.0,
         )
-        index = (; ρi = [1], nϵ = 2)
+        simparams = het.SimParams(grid = het.EvenGrid(ncells))
+        params = het.setup_simulation(config, simparams)
+        (; cache, grid) = params
 
-        ncells = 2
-        grid = het.generate_grid(het.EvenGrid(2), geom, (0, 2 * L_ch))
+        # Initialize plasma state
+        @. cache.ne = [ne, ne, ne, ne]
+        @. cache.ni = [ne ne ne ne]
+        @. cache.Tev = [Tev, Tev, Tev, Tev]
+        @. cache.ϵ = 1.5 .* [Tev, Tev, Tev, Tev]
+        @. cache.nϵ = [nϵ, nϵ, nϵ, nϵ]
 
         mi_kr = het.Krypton.m
         γmax = 1 - 8.3 * sqrt(me / mi)
         γmax_kr = 1 - 8.3 * sqrt(me / mi_kr)
-
-        params = (;
-            het.params_from_config(config)...,
-            cache, index, grid,
-            γ_SEE_max = γmax,
-        )
 
         arr = zeros(ncells + 2)
         het.wall_power_loss!(arr, no_losses, params)

@@ -1,29 +1,27 @@
 """
-    freq_electron_neutral(model::ElectronNeutralModel, nn, Tev)
+    freq_electron_neutral(coll::ElasticCollision, nn, Tev)
 Effective frequency of electron scattering caused by collisions with neutrals
 """
-@inline function freq_electron_neutral(
-        collisions::Vector{ElasticCollision}, nn::Number, Tev::Number,
-    )
-    νen = 0.0
-    @inbounds for c in collisions
-        νen += rate_coeff(c, 3 / 2 * Tev) * nn
+@inline function freq_electron_neutral(coll::ElasticCollision, nn::Number, Tev::Number)
+    return rate_coeff(coll, 3 / 2 * Tev) * nn
+end
+
+
+"""
+    freq_electron_neutral!(νen, coll::ElasticCollision, neutral::Fluid, Tev)
+Effective frequency of electron scattering caused by collisions with neutrals of a specific species
+"""
+function freq_electron_neutral!(νen::Vector{T}, coll::ElasticCollision, fluid::FluidContainer, Tev::Vector{T}) where {T <: Number}
+    inv_m = inv(fluid.species.element.m)
+    @inbounds for i in eachindex(νen)
+        νen[i] += freq_electron_neutral(coll, fluid.density[i] * inv_m, Tev[i])
     end
     return νen
 end
 
-function freq_electron_neutral!(
-        νen::Vector{T}, collisions::Vector{ElasticCollision},
-        nn::Vector{T}, Tev::Vector{T},
-    ) where {T <: Number}
-    return @inbounds for i in eachindex(νen)
-        νen[i] = freq_electron_neutral(collisions, nn[i], Tev[i])
-    end
-end
-
 """
     freq_electron_ion(ne, Tev, Z)
-Effective frequency at which electrons are scattered due to collisions with ions
+Effective frequency at which electrons are scattered due to collisions with ions with average charge state Z
 """
 @inline function freq_electron_ion(ne::Number, Tev::Number, Z::Number)
     return 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)

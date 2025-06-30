@@ -1,9 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (;
-        nn, Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency,
-        Z_eff, νiz, νex, νew_momentum, κ,
-    ) = params.cache
+    (; Tev, pe, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νew_momentum, κ) = params.cache
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature and pressure given new density
@@ -14,7 +11,13 @@ function update_electrons!(params, config, t = 0)
     if (params.electron_ion_collisions)
         freq_electron_ion!(νei, ne, Tev, Z_eff)
     end
-    freq_electron_neutral!(νen, params.electron_neutral_collisions, nn, Tev)
+
+    # Add electron-neutral MEX collisions
+    νen .= 0
+    for (coll, neutral) in zip(params.electron_neutral_collisions, params.fluid_containers.continuity)
+        freq_electron_neutral!(νen, coll, neutral, Tev)
+    end
+
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
     freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
@@ -71,11 +74,10 @@ function update_electrical_vars!(params)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    un = params.propellants[1].velocity_m_s
     V_L = params.discharge_voltage + Vs[]
     V_R = params.cathode_coupling_voltage
     apply_drag = !landmark && params.iteration[] > 5
-    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
+    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
 
     # Update the anomalous collision frequency multiplier to match target current
     anom_multiplier[] = exp(
@@ -97,24 +99,20 @@ function update_electrical_vars!(params)
     compute_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     # Compute electric field
-    compute_electric_field!(∇ϕ, cache, un, apply_drag)
+    compute_electric_field!(∇ϕ, cache, apply_drag)
 
     # Update electrostatic potential
     return cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, params.discharge_voltage + Vs[])
 end
 
 # Compute the axially-constant discharge current using Ohm's law
-function integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
-    (; ∇pe, μ, ne, ji, channel_area) = cache
+function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
+    (; ∇pe, μ, ne, ji, channel_area, avg_neutral_vel, avg_ion_vel, νei, νen, νan) = cache
 
     ncells = length(grid.cell_centers)
 
     int1 = 0.0
     int2 = 0.0
-
-    if (apply_drag)
-        (; νei, νen, νan, ui) = cache
-    end
 
     @inbounds for i in 1:(ncells - 1)
         Δz = grid.dz_edge[i]
@@ -123,10 +121,10 @@ function integrate_discharge_current(grid, cache, V_L, V_R, un, apply_drag)
         int1_2 = (ji[i + 1] / e / μ[i + 1] + ∇pe[i + 1]) / ne[i + 1]
 
         if (apply_drag)
-            ion_drag_1 = ui[1, i] * (νei[i] + νan[i]) * me / e
-            ion_drag_2 = ui[1, i + 1] * (νei[i + 1] + νan[i + 1]) * me / e
-            neutral_drag_1 = un * νen[i] * me / e
-            neutral_drag_2 = un * νen[i + 1] * me / e
+            ion_drag_1 = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
+            ion_drag_2 = avg_ion_vel[i + 1] * (νei[i + 1] + νan[i + 1]) * me / e
+            neutral_drag_1 = avg_neutral_vel[i] * νen[i] * me / e
+            neutral_drag_2 = avg_ion_vel[i + 1] * νen[i + 1] * me / e
             int1_1 -= ion_drag_1 + neutral_drag_1
             int1_2 -= ion_drag_2 + neutral_drag_2
         end

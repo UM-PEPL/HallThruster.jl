@@ -53,6 +53,7 @@ Convert one frame of a `Solution` to an `OrderedDict`
 """
 function frame_dict(sol::Solution, frame::Integer)
     (; grid) = sol.params
+    # TODO: multiple propellants
     ncharge = sol.config.propellants[1].max_charge
     f = sol.frames[frame]
     d = OrderedDict{String, Any}()

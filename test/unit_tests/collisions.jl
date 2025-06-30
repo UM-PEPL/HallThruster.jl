@@ -71,11 +71,7 @@ params_none = (;
     L_ch = thruster.geometry.channel_length, electron_neutral_collisions = en_none,
 )
 
-@test het.freq_electron_neutral(
-    params_landmark.electron_neutral_collisions, nn, Tev,
-) ≈ 2.5e-13 * nn
-@test het.freq_electron_neutral(params_none.electron_neutral_collisions, nn, Tev) ==
-    0.0
+@test het.freq_electron_neutral(params_landmark.electron_neutral_collisions[1], nn, Tev) ≈ 2.5e-13 * nn
 
 Z = 1
 @test het.freq_electron_ion(ne, Tev, Z) ==
