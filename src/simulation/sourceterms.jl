@@ -134,15 +134,17 @@ function apply_ion_wall_losses!(fluid_containers, params)
     return
 end
 
-function excitation_losses!(Q, cache, landmark, grid, excitation_reactions)
-    (; νex, ϵ, nn, ne, K) = cache
+function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indices, fluids)
+    (; νex, ϵ, ne, K) = cache
     ncells = length(grid.cell_centers)
 
     @. νex = 0.0
-    @inbounds for rxn in excitation_reactions
+    for (ind, rxn) in zip(reactant_indices, reactions)
+        dens = fluids[ind].density
+        inv_m = 1 / fluids[ind].species.element.m
         for i in 2:(ncells - 1)
             r = rate_coeff(rxn, ϵ[i])
-            ndot = reaction_rate(r, ne[i], nn[i])
+            ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
             νex[i] += ndot / ne[i]
             Q[i] += ndot * (rxn.energy - !landmark * K[i])
         end
@@ -176,7 +178,9 @@ function source_electron_energy!(Q, params, wall_loss_model)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, landmark, grid, excitation_reactions,
+        inelastic_losses, cache, landmark, grid,
+        excitation_reactions, params.excitation_reactant_indices,
+        params.fluid_array
     )
 
     # compute wall losses

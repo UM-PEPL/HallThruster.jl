@@ -10,17 +10,13 @@ using HallThruster: HallThruster as het
 
     cache = het.allocate_arrays(grid, config)
 
-    (; Aϵ, bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ni, ui, niui, nn, ji) = cache
+    (; Aϵ, bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen, νei, radial_loss_frequency, νew_momentum, nn, ji) = cache
 
     for arr in (
             bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue, ∇pe, νen,
             νei, radial_loss_frequency, νew_momentum, ji, nn,
         )
         @test size(arr) == (ncells + 2,)
-    end
-
-    for arr in (ni, ui, niui)
-        @test size(arr) == (3, ncells + 2)
     end
 
     @test Aϵ isa het.Tridiagonal

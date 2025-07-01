@@ -153,7 +153,7 @@ function update_heavy_species!(params)
 end
 
 function update_heavy_species_cache!(fluids, cache, landmark)
-    (; nn, ne, ni, ui, niui, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
+    (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
     @. ne = 0
     @. ji = 0
@@ -165,7 +165,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     # Compute neutral number density
     # TODO: this computes total neutral number density, not per species
-    @inbounds for (i, fluid) in enumerate(fluids.continuity)
+    @inbounds for fluid in fluids.continuity
         _nn = fluid.density / fluid.species.element.m
         @. nn += _nn
         @. avg_neutral_vel += _nn * fluid.const_velocity
@@ -173,16 +173,13 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
 
     # Update plasma quantities
-    @inbounds for (f, fluid) in enumerate(fluids.isothermal)
+    @inbounds for fluid in fluids.isothermal
         inv_m = inv(fluid.species.element.m)
         Z = fluid.species.Z
 
         for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
             _niui = fluid.momentum[i] * inv_m
-            ni[f, i] = _ni
-            niui[f, i] = _niui
-            ui[f, i] = _niui / _ni
             ne[i] += Z * _ni
             ji[i] += Z * e * _niui
             avg_ion_vel[i] += _niui
@@ -214,6 +211,11 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
     Ti = propellant.ion_temperature_K
     mdot_a = propellant.flow_rate_kg_s
 
+    # Add inlet neutral density
+    # Add ingested mass flow rate at anode
+    un = fluids.continuity[].const_velocity
+    neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
+
     bohm_factor = if anode_bc == :sheath
         Vs = cache.Vs[]
         # Compute sheath potential
@@ -231,11 +233,6 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
     else
         1.0
     end
-
-    # Add inlet neutral density
-    # Add ingested mass flow rate at anode
-    un = fluids.continuity[].const_velocity
-    neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
 
     @inbounds for fluid in fluids.isothermal
 

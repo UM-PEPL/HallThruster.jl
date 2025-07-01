@@ -22,7 +22,6 @@ ui = sin_wave(x / L, amplitude = 13000, phase = π / 4, nwaves = 0.75, offset = 
 μ = sin_wave(x / L, amplitude = 1.0e4, phase = π / 2, nwaves = 1.2, offset = 1.1e4)
 ϵ = sin_wave(x / L, amplitude = 20, phase = 1.3 * π / 2, nwaves = 1.1, offset = 30)
 ∇ϕ = Dx(ϕ)
-niui = ne * ui
 nϵ = ne * ϵ
 ue = μ * (∇ϕ - Dx(nϵ) / ne)
 κ = 10 / 9 * μ * nϵ
@@ -30,7 +29,6 @@ ue = μ * (∇ϕ - Dx(nϵ) / ne)
 ϕ_func = eval(build_function(ϕ, [x]))
 ne_func = eval(build_function(ne, [x]))
 μ_func = eval(build_function(μ, [x]))
-niui_func = eval(build_function(niui, [x]))
 nϵ_func = eval(build_function(nϵ, [x]))
 κ_func = eval(build_function(κ, [x]))
 ue_func = eval(build_function(expand_derivatives(ue), [x]))
@@ -111,10 +109,8 @@ function verify_energy(ncells; implicit_energy = 1.0, niters = 20000)
     @. cache.ue = ue_func(z_cell)
     @. cache.∇ϕ = ∇ϕ_func(z_cell)
     @. cache.nn = nn_func(z_cell)
-    @. cache.niui = niui_func(z_cell)'
     @. cache.Tev = 2 / 3 * ϵ_func(z_cell)
     @. cache.channel_area = 1.0
-    @. cache.ni = cache.ne'
 
     nϵ_exact = nϵ_func.(z_cell)
     @. cache.pe = copy(nϵ_exact)

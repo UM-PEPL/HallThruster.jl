@@ -74,6 +74,7 @@ Now, we define the behavior of the model in a function, just as we did for `Bohm
 Since the model is based on assuming the wave energy convects with the ions, we will use upwind differencing for the gradient.
 
 ```julia
+# TODO: fix ui[] reference to use fluid containers
 function (model::LafleurModel)(νan, params, config)
     (;grid, cache) = params
     z = grid.cell_centers

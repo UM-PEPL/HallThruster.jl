@@ -17,9 +17,6 @@ Users implementing their own `WallLossModel` will need to implement at least thr
 
 A third method, `wall_electron_current(model, params, i)`, will compute the electron current to the walls in cell `i`. If left unimplemented,
 it defaults to Ie,w = e ne νew V_cell where V_cell is the cell volume.
-
-A fourth method, `wall_ion_current(model, params, i, Z)`, for computing the current of ions of charge Z to the walls in cell `i`, may also be implemented.
-If left unimplemented, it will default to computing the current assuming Ie,w = Ii,w.
 """
 abstract type WallLossModel end
 
@@ -53,11 +50,4 @@ function wall_electron_current(::WallLossModel, params, i)
     A_ch = thruster.geometry.channel_area
     V_cell = A_ch * grid.dz_cell[i]
     return e * νew_momentum[i] * V_cell * ne[i]
-end
-
-function wall_ion_current(model::WallLossModel, params, i, Z)
-    (; ne, ni) = params.cache
-
-    Iew = wall_electron_current(model, params, i)
-    return Z * ni[Z, i] / ne[i] * Iew * (1 - params.cache.γ_SEE[i])
 end

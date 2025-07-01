@@ -163,6 +163,7 @@ function initialize_from_restart!(params, frame)
     nn = LinearInterpolation(frame.z, frame.nn .* mi).(z)
     params.fluid_containers.continuity[1].density .= nn
 
+    # TODO: use use fluid containers
     for Z in 1:min(ncharge, ncharge_restart)
         fluid = params.fluid_containers.isothermal[Z]
         fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)

@@ -60,7 +60,7 @@ function test_electron_losses()
 
         # Initialize plasma state
         @. cache.ne = [ne, ne, ne, ne]
-        @. cache.ni = [ne ne ne ne]
+        # @. cache.ni = [ne ne ne ne]
         @. cache.Tev = [Tev, Tev, Tev, Tev]
         @. cache.ϵ = 1.5 .* [Tev, Tev, Tev, Tev]
         @. cache.nϵ = [nϵ, nϵ, nϵ, nϵ]
@@ -122,10 +122,7 @@ function test_electron_losses()
         params.cache.νew_momentum[4] = 0.0
         params.cache.radial_loss_frequency[1:4] .= νew
 
-        Iiw = het.wall_ion_current(sheath_model, params, 2, 1)
         Iew = het.wall_electron_current(sheath_model, params, 2)
-        @test Iew ≈ Iiw / (1 - γ)
-        @test Iiw ≈ νiw * het.e * V_cell * ne
         @test Iew ≈ νew * het.e * V_cell * ne
 
         @test het.freq_electron_wall(sheath_model, params, 2) *
@@ -228,12 +225,6 @@ function test_ion_losses()
 
         in_index = 2
         out_index = 3
-        Iiw_1 = het.wall_ion_current(constant_sheath, params_constant_sheath, in_index, 1)
-        Iiw_2 = het.wall_ion_current(constant_sheath, params_constant_sheath, in_index, 2)
-        Iew = het.wall_electron_current(constant_sheath, params_constant_sheath, in_index)
-
-        # Ion and electron wall currents are equivalent inside of channel
-        @test Iiw_1 + Iiw_2 == Iew
 
         for fluid in fluids
             fluid.mom_ddt .= 0.0
@@ -262,8 +253,6 @@ function test_ion_losses()
         end
 
         # No wall current outside of channel
-        @test het.wall_ion_current(constant_sheath, params_constant_sheath, out_index, 1) == 0.0
-        @test het.wall_ion_current(constant_sheath, params_constant_sheath, out_index, 2) == 0.0
         @test het.wall_electron_current(constant_sheath, params_constant_sheath, out_index) == 0.0
 
         # Test 3: Self-consistent wall sheath
@@ -285,14 +274,6 @@ function test_ion_losses()
 
         params_wall_sheath.cache.νew_momentum[1:2] .= νew
         params_wall_sheath.cache.γ_SEE[in_index] = γ
-        Iiw_1 = het.wall_ion_current(wall_sheath, params_wall_sheath, in_index, 1)
-        Iiw_2 = het.wall_ion_current(wall_sheath, params_wall_sheath, in_index, 2)
-        Iew = het.wall_electron_current(wall_sheath, params_wall_sheath, in_index)
-
-        @test Iiw_1 ≈ Iew * ni_1 / ne * (1 - γ)
-        @test Iiw_2 ≈ 2 * Iew * ni_2 / ne * (1 - γ)
-        @test Iew ≈ inv(1 - γ) * (Iiw_1 + Iiw_2)
-
         het.apply_ion_wall_losses!(fluid_containers, params_wall_sheath)
 
         # Neutrals should recombine at walls

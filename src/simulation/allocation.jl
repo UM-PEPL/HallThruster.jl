@@ -65,10 +65,6 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         m_eff = zeros(ncells),
 
         # Ion density, velocity, and number flux
-        # TODO: remove and replce with per-species quantities (could just use fluid containers)
-        ni = zeros(num_species, ncells),
-        ui = zeros(num_species, ncells),
-        niui = zeros(num_species, ncells),
         avg_ion_vel = zeros(ncells),
         nn = zeros(ncells),
         avg_neutral_vel = zeros(ncells),

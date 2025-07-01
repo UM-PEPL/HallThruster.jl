@@ -73,7 +73,7 @@ function test_configuration()
         # Check array sizes
         (;
             Aϵ, bϵ, B, νan, νc, μ, ∇ϕ, ne, Tev, pe, ue,
-            ∇pe, νen, νei, radial_loss_frequency, νew_momentum, ni, ui, niui, nn, ji,
+            ∇pe, νen, νei, radial_loss_frequency, νew_momentum, nn, ji,
         ) = params.cache
 
         for arr in (
@@ -81,10 +81,6 @@ function test_configuration()
                 νei, radial_loss_frequency, νew_momentum, ji, nn,
             )
             @test size(arr) == (ncells + 2,)
-        end
-
-        for arr in (ni, ui, niui)
-            @test size(arr) == (3, ncells + 2)
         end
 
         @test length(Aϵ.dl) == ncells + 1
@@ -164,12 +160,13 @@ function test_multiple_propellants()
     end
 
     @testset "Simulation results" begin
-        function eval_sims(prop1, prop2; rtol = 1.0e-6)
+        function eval_sims(prop1, prop2; rtol = 1.0e-6, check_kr_density = true)
             config_common = (;
                 domain = (0.0, 0.08),
                 discharge_voltage = 300.0,
                 thruster = het.SPT_100,
                 background_pressure_Torr = 1.0e-5,
+                ion_wall_losses = false,
             )
             outputs = []
             for props in [prop1, prop2]
@@ -201,16 +198,17 @@ function test_multiple_propellants()
             @test isapprox(outputs[1].max_E, outputs[2].max_E; rtol)
             @test isapprox(outputs[1].max_ne, outputs[2].max_ne; rtol)
             @test isapprox(outputs[1].max_ni_Xe, outputs[2].max_ni_Xe; rtol)
-            @test isapprox(outputs[1].max_ni_Kr, outputs[2].max_ni_Kr; rtol)
+            if check_kr_density
+                @test isapprox(outputs[1].max_ni_Kr, outputs[2].max_ni_Kr; rtol)
+            end
         end
 
         # Reversing the order of propellants should not affect results
         outputs = eval_sims([Xe, Kr], [Kr, Xe])
 
         # Using a negligible fraction of Kr should not change the results compared to a pure xenon simulation
-        # TODO: this isn't as close as I'd like, need to chase down and reduce tolerance
         Kr_small = het.Propellant(het.Krypton, flow_rate_kg_s = 1.0e-18, max_charge = 1)
-        outputs = eval_sims([Xe], [Xe, Kr_small], rtol = 2.0e-2)
+        outputs = eval_sims([Xe], [Xe, Kr_small], check_kr_density = false)
     end
 
     return

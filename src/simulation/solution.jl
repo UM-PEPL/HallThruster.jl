@@ -247,19 +247,6 @@ function Base.getindex(sol::Solution, frames::AbstractVector)
     )
 end
 
-@inline _saved_fields_vector() = (
-    :μ, :Tev, :ϕ, :∇ϕ, :ne, :pe, :ue, :∇pe, :νan, :νc, :νen,
-    :νei, :radial_loss_frequency, :νew_momentum, :νiz, :νex,
-    :νe, :Id, :ji, :nn,
-    :anom_multiplier, :ohmic_heating, :wall_losses,
-    :inelastic_losses, :Vs,
-    :channel_area, :inner_radius, :outer_radius, :dA_dz,
-    :tanδ, :anom_variables,
-    :dt,
-)
-
-@inline _saved_fields_matrix() = (:ni, :ui, :niui)
-
 """
 $(SIGNATURES)
 Returns a `Tuple` of symbols containing fields saved per frame.
@@ -273,7 +260,7 @@ julia> HallThruster.saved_fields()
 $(saved_fields())
 ```
 """
-@inline saved_fields() = (_saved_fields_vector()..., _saved_fields_matrix()...)
+@inline saved_fields() = fieldnames(Frame)
 
 
 """
@@ -423,10 +410,6 @@ function solve(params, config, tspan; saveat)
 
     # Frame saving setup
     save_ind = 2
-    fields_to_save = saved_fields()
-    first_saveval = NamedTuple{fields_to_save}(params.cache)
-    frames = [deepcopy(first_saveval) for _ in saveat]
-
     frames = [Frame(params.fluids_by_propellant, params.cache)]
 
     # Parameters for adaptive timestep escape hatch
