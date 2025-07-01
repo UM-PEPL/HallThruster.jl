@@ -111,7 +111,7 @@ function apply_ion_wall_losses!(fluid_containers, params)
     h = wall_loss_scale * edge_to_center_density_ratio()
 
     neutral_fluid = continuity[1]
-    return @inbounds for ion_fluid in isothermal
+    @inbounds for ion_fluid in isothermal
         m = ion_fluid.species.element.m
         Z = ion_fluid.species.Z
         qe_m = Z * e / m
@@ -130,6 +130,8 @@ function apply_ion_wall_losses!(fluid_containers, params)
             ion_fluid.mom_ddt[i] -= momentum_loss
         end
     end
+
+    return
 end
 
 function excitation_losses!(Q, cache, landmark, grid, excitation_reactions)

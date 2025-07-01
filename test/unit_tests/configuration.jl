@@ -92,7 +92,7 @@ function test_configuration()
         @test length(Aϵ.du) == ncells + 1
     end
 
-    return @testset "Anom initialization" begin
+    @testset "Anom initialization" begin
         initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
         v = anom_model(zeros(ncells + 2), params, config)
         init = initial_model(zeros(ncells + 2), params, config)
@@ -101,66 +101,123 @@ function test_configuration()
         @test all(v .!= params.cache.νan)
 
         sol = het.run_from_setup(params, config)
-        @test all(init .!= sol.params.cache.νan)
-        @test all(v .== sol.params.cache.νan)
+        @test all(init .!= sol.frames[end].nu_an)
+        @test all(v .== sol.frames[end].nu_an)
     end
+
+    return
 end
 
 function test_multiple_propellants()
 
     Xe = het.Propellant(het.Xenon, flow_rate_kg_s = 4.0e-6, max_charge = 3)
     Kr = het.Propellant(het.Krypton, flow_rate_kg_s = 1.0e-6, max_charge = 2)
+    ncells = 50
+    simparams = het.SimParams(grid = het.UnevenGrid(ncells), duration = 1.0e-3, num_save = 1000, verbose = false)
 
-    config = het.Config(
-        propellants = [Xe, Kr],
-        domain = (0.0, 0.08),
-        discharge_voltage = 300.0,
-        thruster = het.SPT_100,
-        background_pressure_Torr = 1.0e-5,
-    )
+    @testset "Setup" begin
 
-    simparams = het.SimParams(grid = het.UnevenGrid(100))
-    params = het.setup_simulation(config, simparams)
+        config = het.Config(
+            propellants = [Xe, Kr],
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            thruster = het.SPT_100,
+            background_pressure_Torr = 1.0e-5,
+        )
 
-    @test length(config.propellants) == 2
+        params = het.setup_simulation(config, simparams)
 
-    expected_species = [
-        [het.Xenon(Z) for Z in 0:Xe.max_charge];
-        [het.Krypton(Z) for Z in 0:Kr.max_charge];
-    ]
+        @test length(config.propellants) == 2
 
-    species = [f.species for f in params.fluid_array]
-    @test expected_species == species
+        expected_species = [
+            [het.Xenon(Z) for Z in 0:Xe.max_charge];
+            [het.Krypton(Z) for Z in 0:Kr.max_charge];
+        ]
 
-    # Should have electron-neutral collisions for both species
-    @test length(params.electron_neutral_collisions) == 2
+        species = [f.species for f in params.fluid_array]
+        @test expected_species == species
 
-    # Should have excitation reactions for both species
-    # Excitation reactant indices should be the indices of the neutral species
-    @test length(params.excitation_reactions) == 2
-    @test params.excitation_reactant_indices == [findfirst(==(het.Xenon(0)), species), findfirst(==(het.Krypton(0)), species)]
+        # Should have electron-neutral collisions for both species
+        @test length(params.electron_neutral_collisions) == 2
 
-    # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
-    triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
+        # Should have excitation reactions for both species
+        # Excitation reactant indices should be the indices of the neutral species
+        @test length(params.excitation_reactions) == 2
+        @test params.excitation_reactant_indices == [findfirst(==(het.Xenon(0)), species), findfirst(==(het.Krypton(0)), species)]
 
-    (; ionization_reactions, ionization_reactant_indices, ionization_product_indices) = params
+        # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
+        triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
 
-    @test length(ionization_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
-    for (rxn, reactant_ind, prod_ind) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
-        @test rxn.reactant == species[reactant_ind]
-        @test rxn.product == species[prod_ind]
+        (; ionization_reactions, ionization_reactant_indices, ionization_product_indices) = params
+
+        @test length(ionization_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
+        for (rxn, reactant_ind, prod_ind) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+            @test rxn.reactant == species[reactant_ind]
+            @test rxn.product == species[prod_ind]
+        end
+
+        # Neutral ingestion densities
+        ndot_xe_back, ndot_kr_back = params.ingestion_flow_rates ./ [Xe.gas.m, Kr.gas.m]
+        ndot_tot_back = ndot_xe_back + ndot_kr_back
+        @test ndot_xe_back / ndot_tot_back > 0.5
+        @test ndot_kr_back / ndot_tot_back < 0.5
     end
 
-    # Neutral ingestion densities
-    ndot_xe_back, ndot_kr_back = params.ingestion_flow_rates ./ [Xe.gas.m, Kr.gas.m]
-    ndot_tot_back = ndot_xe_back + ndot_kr_back
-    @test ndot_xe_back / ndot_tot_back > 0.5
-    return @test ndot_kr_back / ndot_tot_back < 0.5
+    @testset "Simulation results" begin
+        function eval_sims(prop1, prop2; rtol = 1.0e-6)
+            config_common = (;
+                domain = (0.0, 0.08),
+                discharge_voltage = 300.0,
+                thruster = het.SPT_100,
+                background_pressure_Torr = 1.0e-5,
+            )
+            outputs = []
+            for props in [prop1, prop2]
+                config = het.Config(; propellants = props, config_common...)
+                sim = het.run_simulation(config, simparams)
+                avg = het.time_average(sim)
+                push!(
+                    outputs, (;
+                        thrust = het.thrust(avg)[],
+                        current = het.discharge_current(avg)[],
+                        ion_current = het.ion_current(avg)[],
+                        max_Te = maximum(avg.frames[].Tev),
+                        max_E = maximum(avg.frames[].E),
+                        max_ne = maximum(avg.frames[].ne),
+                        max_ni_Xe = maximum(avg.frames[].ions[:Xe][1].n),
+                        max_ni_Kr = if haskey(avg.frames[].ions, :Kr)
+                            maximum(avg.frames[].ions[:Kr][1].n)
+                        else
+                            het.MIN_NUMBER_DENSITY
+                        end,
+                    )
+                )
+            end
 
+            @test isapprox(outputs[1].thrust, outputs[2].thrust; rtol)
+            @test isapprox(outputs[1].current, outputs[2].current; rtol)
+            @test isapprox(outputs[1].ion_current, outputs[2].ion_current; rtol)
+            @test isapprox(outputs[1].max_Te, outputs[2].max_Te; rtol)
+            @test isapprox(outputs[1].max_E, outputs[2].max_E; rtol)
+            @test isapprox(outputs[1].max_ne, outputs[2].max_ne; rtol)
+            @test isapprox(outputs[1].max_ni_Xe, outputs[2].max_ni_Xe; rtol)
+            @test isapprox(outputs[1].max_ni_Kr, outputs[2].max_ni_Kr; rtol)
+        end
+
+        # Reversing the order of propellants should not affect results
+        outputs = eval_sims([Xe, Kr], [Kr, Xe])
+
+        # Using a negligible fraction of Kr should not change the results compared to a pure xenon simulation
+        # TODO: this isn't as close as I'd like, need to chase down and reduce tolerance
+        Kr_small = het.Propellant(het.Krypton, flow_rate_kg_s = 1.0e-18, max_charge = 1)
+        outputs = eval_sims([Xe], [Xe, Kr_small], rtol = 2.0e-2)
+    end
+
+    return
 end
 
 test_config_serialization()
 test_configuration()
 @testset "Multiple propellants" begin
-    #test_multiple_propellants()
+    test_multiple_propellants()
 end

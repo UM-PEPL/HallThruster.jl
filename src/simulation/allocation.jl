@@ -2,13 +2,13 @@
 # reduce precompilation/recompilation time
 function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
-    num_species = sum((prop.max_charge) for prop in config.propellants)
     n_anom_vars = num_anom_variables(config.anom_model)
-    return allocate_arrays(ncells, num_species, n_anom_vars)
+    return allocate_arrays(ncells, config.propellants, n_anom_vars)
 end
 
-function allocate_arrays(ncells::Int, num_species::Int, n_anom_vars::Int)
-    # made less general to handle common use cases as part of fluid refactor
+function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
+    num_species = sum((prop.max_charge) for prop in propellants)
+
     cache = (;
         # Caches for energy solve
         Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
@@ -69,15 +69,14 @@ function allocate_arrays(ncells::Int, num_species::Int, n_anom_vars::Int)
         ni = zeros(num_species, ncells),
         ui = zeros(num_species, ncells),
         niui = zeros(num_species, ncells),
-
         avg_ion_vel = zeros(ncells),
+        nn = zeros(ncells),
         avg_neutral_vel = zeros(ncells),
 
         # ion current
         ji = zeros(ncells),
 
         # Neutral density
-        nn = zeros(ncells),
         γ_SEE = zeros(ncells),
         Id = [0.0],
         Vs = [0.0],

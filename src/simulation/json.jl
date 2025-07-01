@@ -52,9 +52,7 @@ end
 Convert one frame of a `Solution` to an `OrderedDict`
 """
 function frame_dict(sol::Solution, frame::Integer)
-    (; grid) = sol.params
     # TODO: multiple propellants
-    ncharge = sol.config.propellants[1].max_charge
     f = sol.frames[frame]
     d = OrderedDict{String, Any}()
     d["thrust"] = thrust(sol, frame)
@@ -66,25 +64,51 @@ function frame_dict(sol::Solution, frame::Integer)
     d["divergence_eff"] = divergence_eff(sol, frame)
     d["anode_eff"] = anode_eff(sol, frame)
     d["t"] = sol.t[frame]
-    d["z"] = grid.cell_centers
-    d["nn"] = f.nn
-    d["ni"] = [f.ni[Z, :] for Z in 1:ncharge]
-    d["ui"] = [f.ui[Z, :] for Z in 1:ncharge]
-    d["niui"] = [f.niui[Z, :] for Z in 1:ncharge]
-    d["B"] = sol.params.cache.B
+    d["z"] = sol.grid.cell_centers
+    d["B"] = f.B
     d["ne"] = f.ne
     d["ue"] = f.ue
-    d["potential"] = f.ϕ
-    d["E"] = -f.∇ϕ
+    d["potential"] = f.potential
+    d["E"] = f.E
     d["Tev"] = f.Tev
     d["pe"] = f.pe
-    d["grad_pe"] = f.∇pe
-    d["nu_en"] = f.νen
-    d["nu_ei"] = f.νei
-    d["nu_anom"] = f.νan
-    d["nu_class"] = f.νc
-    d["mobility"] = f.μ
+    d["grad_pe"] = f.grad_pe
+    d["nu_en"] = f.nu_en
+    d["nu_ei"] = f.nu_ei
+    d["nu_anom"] = f.nu_an
+    d["nu_class"] = f.nu_class
+    d["mobility"] = f.mobility
     d["channel_area"] = f.channel_area
+
+    if length(sol.config.propellants) == 1
+        symbol = sol.config.propellants[1].gas.short_name
+        d["nn"] = f.neutrals[symbol].n
+        d["ni"] = [ion.n for ion in f.ions[symbol]]
+        d["ui"] = [ion.u for ion in f.ions[symbol]]
+        d["niui"] = [ion.nu for ion in f.ions[symbol]]
+    end
+
+    d["neutrals"] = OrderedDict(
+        symbol => OrderedDict(
+                "n" => neutral.n,
+                "u" => neutral.u,
+                "nu" => neutral.nu,
+            ) for (symbol, neutral) in pairs(f.neutrals)
+    )
+
+    d["ions"] = OrderedDict(
+        symbol => [
+                OrderedDict(
+                    "n" => ion.n,
+                    "u" => ion.u,
+                    "nu" => ion.nu,
+                    "Z" => ion.Z,
+                )
+                for ion in ions
+            ]
+            for (symbol, ions) in pairs(f.ions)
+    )
+
     return d
 end
 
@@ -117,8 +141,8 @@ function serialize_sol(
     return OrderedDict(
         "input" => OrderedDict(
             "config" => serialize(sol.config),
-            "simulation" => serialize(sol.params.simulation),
-            "postprocess" => serialize(sol.params.postprocess),
+            "simulation" => serialize(sol.simulation),
+            "postprocess" => serialize(sol.postprocess),
         ),
         "output" => output,
     )

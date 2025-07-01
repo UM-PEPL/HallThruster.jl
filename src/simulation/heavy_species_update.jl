@@ -86,13 +86,15 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
 
     if ion_wall_losses
-        apply_ion_wall_losses!(fluid_containers, params)
+        for (_, fluids) in zip(propellants, params.fluids_by_propellant)
+            apply_ion_wall_losses!(fluids, params)
+        end
     end
 
     # Update maximum allowable timestep
     CFL = params.simulation.CFL
-    min_dt_u = params.fluid_containers.continuity[1].max_timestep[]
-    for fluid in params.fluid_containers.isothermal
+    min_dt_u = Inf
+    for fluid in params.fluid_array
         min_dt_u = min(min_dt_u, fluid.max_timestep[])
     end
 
@@ -122,8 +124,7 @@ function stage_limiter!(fluid_containers)
             return true
         end
 
-        m = fluid.species.element.m
-        min_density = MIN_NUMBER_DENSITY * m
+        min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             dens = fluid.density[i]
             vel = fluid.momentum[i] / dens
@@ -164,7 +165,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     # Compute neutral number density
     # TODO: this computes total neutral number density, not per species
-    @inbounds for fluid in fluids.continuity
+    @inbounds for (i, fluid) in enumerate(fluids.continuity)
         _nn = fluid.density / fluid.species.element.m
         @. nn += _nn
         @. avg_neutral_vel += _nn * fluid.const_velocity

@@ -62,9 +62,10 @@ include("simulation/electron_energy.jl")
 include("simulation/electron_update.jl")
 include("simulation/sourceterms.jl")
 include("simulation/plume.jl")
+include("simulation/types.jl")
 include("simulation/solution.jl")
-include("simulation/postprocess.jl")
 include("simulation/simulation.jl")
+include("simulation/postprocess.jl")
 include("simulation/json.jl")
 
 @public PYTHON_PATH

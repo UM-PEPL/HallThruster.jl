@@ -11,7 +11,7 @@ struct Gas
     """Full name of gas (i.e. Xenon)"""
     name::String
     """Short name/symbol (i.e. Xe for Xenon)"""
-    short_name::String
+    short_name::Symbol
     """Specific heat ratio / adiabatic index"""
     γ::Float64
     """Molar mass (grams/mol) or atomic mass units"""
@@ -41,7 +41,7 @@ struct Gas
         cp = γ / (γ - 1) * R
         cv = cp - R
 
-        return new(name, short_name, γ, M, m, cp, cv, R)
+        return new(name, Symbol(short_name), γ, M, m, cp, cv, R)
     end
 end
 
@@ -97,7 +97,7 @@ Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 function species_string(element::Gas, Z::Int)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
-    return element.short_name * sign_str
+    return string(element.short_name) * sign_str
 end
 
 Base.string(s::Species) = string(s.symbol)

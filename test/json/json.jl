@@ -22,7 +22,7 @@ config = sol.config
 @test config.propellants[1].gas == het.Xenon
 @test config.propellants[1].flow_rate_kg_s ≈ 3.0e-6
 @test config.ion_wall_losses == true
-@test sol.params.simulation.adaptive == true
+@test sol.simulation.adaptive == true
 @test config.neutral_ingestion_multiplier == 6.0
 @test config.apply_thrust_divergence_correction == false
 
@@ -50,13 +50,13 @@ out = JSON3.read(outfile)
 # Test that reading the output file produces the same inputs we originally ran the simulation with
 new_sol = het.run_simulation(outfile)
 @test struct_eq(new_sol.config, sol.config)
-@test struct_eq(new_sol.params.simulation, sol.params.simulation)
-@test struct_eq(new_sol.params.postprocess, sol.params.postprocess)
+@test struct_eq(new_sol.simulation, sol.simulation)
+@test struct_eq(new_sol.postprocess, sol.postprocess)
 
 # Test restarting simulation from a json file
 # restart should be a different solution than the original,
 # since it runs for an additional `duration`
 restart = het.run_simulation(outfile, restart = outfile)
-@test !isapprox(new_sol.frames[end].Id[], restart.frames[end].Id[])
+@test !isapprox(new_sol.frames[end].discharge_current[], restart.frames[end].discharge_current[])
 
 rm(outfile, force = true)
