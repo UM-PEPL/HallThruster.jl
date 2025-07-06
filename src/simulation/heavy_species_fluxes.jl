@@ -12,7 +12,7 @@ function compute_edge_states_continuity!(fluid, do_reconstruct)
     N = length(fluid.density)
 
     if do_reconstruct
-        @inbounds @simd for i in 2:(N - 1)
+        @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
             # Reconstruct density
             u₋ = density[i - 1]
@@ -21,7 +21,7 @@ function compute_edge_states_continuity!(fluid, do_reconstruct)
             dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊)
         end
     else
-        @inbounds @simd for i in 2:(N - 1)
+        @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
             dens_L[iR] = density[i]
             dens_R[iL] = density[i]
@@ -37,7 +37,7 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
     N = length(fluid.density)
 
     if do_reconstruct
-        @inbounds @simd for i in 2:(N - 1)
+        @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
 
             # Reconstruct density
@@ -55,7 +55,7 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
             mom_R[iL] = uR * dens_R[iL]
         end
     else
-        @inbounds @simd for i in 2:(N - 1)
+        @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
             dens_L[iR] = density[i]
             dens_R[iL] = density[i]
@@ -75,12 +75,11 @@ function compute_fluxes_continuity!(fluid, grid)
     smax = wave_speed[]
     fluid.max_timestep[] = Inf
 
-    @inbounds @simd for i in eachindex(fluid.dens_L)
+    return @inbounds for i in eachindex(fluid.dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
         flux_dens[i] = 0.5 * (const_velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
         fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
     end
-    return
 end
 
 function compute_fluxes_isothermal!(fluid, grid)
@@ -91,7 +90,7 @@ function compute_fluxes_isothermal!(fluid, grid)
     max_wave_speed = 0.0
     fluid.max_timestep[] = Inf
 
-    @inbounds @simd for i in eachindex(dens_L)
+    @inbounds for i in eachindex(dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
         ρu_L, ρu_R = mom_L[i], mom_R[i]
 
@@ -108,13 +107,12 @@ function compute_fluxes_isothermal!(fluid, grid)
         flux_mom[i] = 0.5 * ((flux_mom_L + flux_mom_R) - smax * (ρu_R - ρu_L))
     end
 
-    wave_speed[] = max_wave_speed
-    return
+    return wave_speed[] = max_wave_speed
 end
 
 function update_convective_terms_continuity!(fluid, grid)
     ncells = length(grid.cell_centers)
-    @inbounds @simd for i in 2:(ncells - 1)
+    @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
         fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz
@@ -125,15 +123,15 @@ end
 function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
     ncells = length(grid.cell_centers)
 
-    @inbounds @simd for i in 2:(ncells - 1)
+    @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
-        inv_dz = 1 / grid.dz_cell[i]
+        Δz = grid.dz_cell[i]
 
         # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
         ρi = fluid.density[i]
         ρiui = fluid.momentum[i]
-        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) * inv_dz - ρiui * dlnA_dz[i]
-        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) * inv_dz - ρiui^2 / ρi * dlnA_dz[i]
+        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
+        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui^2 / ρi * dlnA_dz[i]
     end
 
     return

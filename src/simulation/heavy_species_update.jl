@@ -155,27 +155,20 @@ end
 function update_heavy_species_cache!(fluids, cache, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
-    @inbounds @simd for i in eachindex(ne)
-        ne[i] = 0.0
-        ji[i] = 0.0
-        nn[i] = 0.0
-    end
-
-    @inbounds @simd for i in eachindex(m_eff)
-        m_eff[i] = 0.0
-        avg_ion_vel[i] = 0.0
-        avg_neutral_vel[i] = 0.0
-    end
+    @. ne = 0
+    @. ji = 0
+    @. m_eff = 0
+    @. Z_eff = 0
+    @. nn = 0
+    @. avg_ion_vel = 0
+    @. avg_neutral_vel = 0
 
     # Compute neutral number density
     # TODO: this computes total neutral number density, not per species
     @inbounds for fluid in fluids.continuity
-        inv_m = fluid.species.element.m
-        @simd for i in eachindex(fluid.density)
-            _nn = fluid.density[i] * inv_m
-            nn[i] += _nn
-            avg_neutral_vel[i] += _nn * fluid.const_velocity
-        end
+        _nn = fluid.density / fluid.species.element.m
+        @. nn += _nn
+        @. avg_neutral_vel += _nn * fluid.const_velocity
     end
 
 
@@ -184,7 +177,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
         inv_m = inv(fluid.species.element.m)
         Z = fluid.species.Z
 
-        @simd for i in eachindex(fluid.density)
+        for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
             _niui = fluid.momentum[i] * inv_m
             ne[i] += Z * _ni
@@ -196,29 +189,18 @@ function update_heavy_species_cache!(fluids, cache, landmark)
         end
     end
 
-    # Average neutral velocity
-    @inbounds @simd for i in eachindex(nn)
-        avg_neutral_vel[i] /= nn[i]
-    end
+    @. avg_neutral_vel /= nn
 
     # Inverse ion density
-    @inbounds @simd for i in eachindex(Z_eff)
-        inv_ni = 1/Z_eff[i]
-        Z_eff[i] = inv_ni
-        avg_ion_vel[i] *= inv_ni
-        m_eff[i] *= inv_ni
-        Z_eff[i] = ne[i] * inv_ni
-    end
+    @. Z_eff = inv(Z_eff)
+    @. avg_ion_vel *= Z_eff
+    @. m_eff *= Z_eff
+    @. Z_eff = ne * Z_eff
 
     # Compute electron mean energy for reactions
-    @inbounds @simd for i in eachindex(ϵ)
-        ϵ[i] = nϵ[i] / ne[i]
-    end
-    
+    @. ϵ = nϵ / ne
     if !landmark
-        @inbounds @simd for i in eachindex(ϵ)
-            ϵ[i] += K[i]
-        end
+        @. ϵ += K
     end
 
     return
