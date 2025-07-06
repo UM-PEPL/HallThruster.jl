@@ -17,19 +17,28 @@ function apply_reactions!(fluids, rxns, cache, landmark)
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
     # Zero ionization frequency and inelastic losses and compute electron density
-    @inbounds begin
-        # Update electron density (TODO check if this is optimal)
-        ne .= 0.0
-        for fluid in fluids
-            for i in eachindex(ne)
-                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
-            end
+    @inbounds @simd for i in eachindex(ne)
+        ne[i] = 0.0
+    end
+    @inbounds for fluid in fluids
+        inv_m = 1 / fluid.species.element.m
+        Z = fluid.species.Z
+        Z == 0 && continue
+        @simd for i in eachindex(ne)
+            ne[i] += Z * inv_m * fluid.density[i]
         end
-        νiz .= 0.0
-        inelastic_losses .= 0.0
-        @. ϵ = cache.nϵ / cache.ne
-        if !landmark
-            @. ϵ += K
+    end
+    @inbounds @simd for i in eachindex(νiz)
+        νiz[i] = 0.0
+        inelastic_losses[i] = 0.0
+    end
+    @inbounds @simd for i in eachindex(ϵ)
+        ϵ[i] = cache.nϵ[i] / cache.ne[i]
+    end
+
+    if !landmark
+        @inbounds @simd for i in eachindex(ϵ)
+            ϵ[i] += K[i]
         end
     end
 
@@ -50,7 +59,7 @@ function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses,
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
 
-    @inbounds @simd for i in 2:(length(reactant.density) - 1)
+    @inbounds for i in 2:(length(reactant.density) - 1)
         r = rate_coeff(rxn, ϵ[i])
         ρ_reactant = reactant.density[i]
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
@@ -64,15 +73,11 @@ function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses,
         reactant.dens_ddt[i] -= ρdot
         product.dens_ddt[i] += ρdot
 
-        if !landmark
-            # Momentum transfer due to ionization
-            if reactant.type != _ContinuityOnly
-                reactant_velocity = reactant.momentum[i] / ρ_reactant
-                reactant.mom_ddt[i] -= ρdot * reactant_velocity
-            end
+        # Momentum transfer due to ionization
+        reactant_velocity = landmark * reactant.momentum[i] / ρ_reactant
+        reactant.mom_ddt[i] -= ρdot * reactant_velocity
+        product.mom_ddt[i] += ρdot * reactant_velocity
 
-            product.mom_ddt[i] += ρdot * reactant_velocity
-        end
     end
 
     return dt_max
@@ -98,7 +103,8 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
         end
     end
 
-    return cache.dt_E[] = sqrt(dt_max)
+    cache.dt_E[] = sqrt(dt_max)
+    return
 end
 
 function apply_ion_wall_losses!(fluid_containers, params)
