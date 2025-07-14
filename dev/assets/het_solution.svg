@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="153.83855mm"
+   height="78.866997mm"
+   viewBox="0 0 153.83853 78.866999"
+   version="1.1"
+   id="svg570"
+   inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
+   sodipodi:docname="het solution.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview572"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="3.659624"
+     inkscape:cx="243.74089"
+     inkscape:cy="144.687"
+     inkscape:window-width="2560"
+     inkscape:window-height="1351"
+     inkscape:window-x="2551"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     showguides="true">
+    <sodipodi:guide
+       position="23.34556,31.908492"
+       orientation="0,-1"
+       id="guide15405"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="21.19842,16.133787"
+       orientation="0,-1"
+       id="guide15407"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="30.765523,30.319558"
+       orientation="0,-1"
+       id="guide15409"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="19.204646,14.296219"
+       orientation="0,-1"
+       id="guide15411"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="3.7424762,24.260828"
+       orientation="1,0"
+       id="guide15415"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="21.556277,37.863539"
+       orientation="0,-1"
+       id="guide15417"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="92.846426,42.466681"
+       orientation="1,0"
+       id="guide15419"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="111.73613,44.577662"
+       orientation="0,-1"
+       id="guide15628"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="100.82223,26.96653"
+       orientation="0,-1"
+       id="guide15777"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="99.810062,11.478309"
+       orientation="0,-1"
+       id="guide15779"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="150.02433,51.428649"
+       orientation="1,0"
+       id="guide15781"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs567">
+    <marker
+       style="overflow:visible"
+       id="TriangleStart"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="2"
+       markerHeight="2.3121388"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="TriangleStart-5"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="2"
+       markerHeight="2.3121388"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135-6" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-37.412564,-39.29618)">
+    <rect
+       style="fill:#d7f4d7;fill-opacity:1;stroke:#265029;stroke-width:0.238039;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="rect5179"
+       width="55.884342"
+       height="22.522274"
+       x="88.248909"
+       y="39.415199"
+       rx="5.9999995"
+       ry="6.0000005" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#7137c8;stroke-width:2.5;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#TriangleStart)"
+       d="m 146.16683,75.693641 c 0.0258,-11.30148 -25.89707,0.79756 -25.89707,-13.34554"
+       id="path10221"
+       sodipodi:nodetypes="cc" />
+    <rect
+       style="fill:#cab5ff;fill-opacity:1;stroke:#330080;stroke-width:0.358767;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="rect47488"
+       width="64.439064"
+       height="44.369213"
+       x="126.63266"
+       y="73.590729"
+       rx="6"
+       ry="6" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#bc5fd3;stroke-width:2.6;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#TriangleStart-5)"
+       d="m 114.97637,98.516077 11.76505,0.002"
+       id="path12655"
+       sodipodi:nodetypes="cc" />
+    <rect
+       style="fill:#ffaaee;fill-opacity:1;stroke:#501644;stroke-width:0.39691;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="rect46026"
+       width="78.851402"
+       height="44.378773"
+       x="37.611019"
+       y="73.585945"
+       rx="6"
+       ry="6" />
+    <path
+       style="fill:none;fill-opacity:1;stroke:#2ca02c;stroke-width:2.5;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#TriangleStart)"
+       d="m 86.738657,72.360359 c -0.0258,-11.30148 25.897073,0.79756 25.897073,-13.34554"
+       id="path4850"
+       sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-size:7.05556px;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;text-anchor:start;fill:#501644;fill-opacity:1;stroke:#f9f9f9;stroke-width:0.25;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="40.624496"
+       y="80.299637"
+       id="text8291"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05556px;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';text-align:start;text-anchor:start;fill:#501644;fill-opacity:1;stroke:none;stroke-width:0.25"
+         x="40.624496"
+         y="80.299637"
+         id="tspan8289">Heavy species</tspan></text>
+    <rect
+       style="fill:#bc5fd3;fill-opacity:1;stroke-width:0.13059;stroke-linejoin:round"
+       id="rect2214"
+       width="35.88168"
+       height="7.0095453"
+       x="40.614365"
+       y="103.86696"
+       rx="2"
+       ry="2" />
+    <rect
+       style="fill:#bc5fd3;fill-opacity:1;stroke-width:0.164444;stroke-linejoin:round"
+       id="rect2074"
+       width="35.88168"
+       height="11.114859"
+       x="41.155041"
+       y="87.84362"
+       rx="2"
+       ry="1.9999999" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#501644;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="41.240902"
+       y="86.254684"
+       id="text1019"><tspan
+         sodipodi:role="line"
+         id="tspan1017"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#501644;fill-opacity:1;stroke-width:0.25"
+         x="41.240902"
+         y="86.254684">For each species</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#501644;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="41.119633"
+       y="102.02939"
+       id="text2006"><tspan
+         sodipodi:role="line"
+         id="tspan2004"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#501644;fill-opacity:1;stroke-width:0.25"
+         x="41.119633"
+         y="102.02939">Across species</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="42.583179"
+       y="106.67712"
+       id="text2230"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="42.583179"
+         y="106.67712"
+         id="tspan2408">- Compute reactions</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="42.583179"
+         y="109.49934"
+         id="tspan2419">- Calculate wall losses</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#501644;stroke-width:0.212813;stroke-linejoin:round;stroke-opacity:1"
+       id="rect2423"
+       width="42.165653"
+       height="30.257668"
+       x="39.086555"
+       y="82.442268"
+       rx="2"
+       ry="1.9999999" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="42.557617"
+       y="91.196648"
+       id="text2701"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="42.557617"
+         y="91.196648"
+         id="tspan2691">- Reconstruct edge states</tspan><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         sodipodi:role="line"
+         x="42.557617"
+         y="94.018875"
+         id="tspan2695">- Update convective terms</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="42.557617"
+         y="96.84111"
+         id="tspan2697">- Apply electrical acceleration</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="42.557617"
+         y="98.392036"
+         id="tspan2699" /></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#501644;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="40.27655"
+       y="115.90274"
+       id="text2705"><tspan
+         sodipodi:role="line"
+         id="tspan2703"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#501644;fill-opacity:1;stroke-width:0.25"
+         x="40.27655"
+         y="115.90274">Do twice for 2nd-order update</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#501644;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="84.632599"
+       y="86.254684"
+       id="text2811"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#501644;fill-opacity:1;stroke-width:0.25"
+         x="84.632599"
+         y="86.254684"
+         id="tspan2813">Calculate properties</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#501644;fill-opacity:1;stroke-width:0.25"
+         x="84.632599"
+         y="89.216728"
+         id="tspan2963">for rest of solver </tspan></text>
+    <rect
+       style="fill:#bc5fd3;fill-opacity:1;stroke-width:0.169294;stroke-linejoin:round"
+       id="rect2817"
+       width="25.217371"
+       height="16.76207"
+       x="84.504074"
+       y="90.136749"
+       rx="2"
+       ry="1.9999999" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="85.275421"
+       y="93.51136"
+       id="text2831"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="93.51136"
+         id="tspan2827">- Electron density</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="96.333588"
+         id="tspan2847">- Ion current</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="99.155823"
+         id="tspan2849">- Ion wall loss rates</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="101.97805"
+         id="tspan2851">- Average charge/</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="104.80028"
+         id="tspan2853">  mass per cell</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="85.275421"
+         y="106.3512"
+         id="tspan2829" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:7.05556px;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;text-anchor:start;fill:#002b00;fill-opacity:1;stroke:#f9f9f9;stroke-width:0.25;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="90.382568"
+       y="47.987072"
+       id="text1000"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05556px;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';text-align:start;text-anchor:start;fill:#002b00;fill-opacity:1;stroke:none;stroke-width:0.25"
+         x="90.382568"
+         y="47.987072"
+         id="tspan998">Electron energy</tspan></text>
+    <rect
+       style="fill:#2ca02c;fill-opacity:1;stroke-width:0.172787;stroke-linejoin:round"
+       id="rect4532"
+       width="45.754917"
+       height="9.623291"
+       x="90.378838"
+       y="49.602821"
+       rx="2"
+       ry="1.9999999" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="92.293892"
+       y="52.472019"
+       id="text4540"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="92.293892"
+         y="52.472019"
+         id="tspan4536">- Electron temperature</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="92.293892"
+         y="55.29425"
+         id="tspan4544">- Excitation losses</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="92.293892"
+         y="58.116478"
+         id="tspan4546">- Electron pressure</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="92.293892"
+         y="59.667408"
+         id="tspan4538" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:6.99367px;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;text-anchor:start;fill:#330080;fill-opacity:1;stroke:#f9f9f9;stroke-width:0.247807;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="131.07025"
+       y="79.595253"
+       id="text996"
+       transform="scale(0.99122802,1.0088496)"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.99367px;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';text-align:start;text-anchor:start;fill:#330080;fill-opacity:1;stroke:none;stroke-width:0.247807"
+         x="131.07025"
+         y="79.595253"
+         id="tspan994">Current + potential</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#330080;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="130.07722"
+       y="102.02939"
+       id="text3137"><tspan
+         sodipodi:role="line"
+         id="tspan3135"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#330080;fill-opacity:1;stroke-width:0.25"
+         x="130.07722"
+         y="102.02939">Current continuity + Ohm's Law</tspan></text>
+    <rect
+       style="fill:#7137c8;fill-opacity:1;stroke-width:0.178095;stroke-linejoin:round"
+       id="rect3247"
+       width="48.609356"
+       height="9.623291"
+       x="130.20952"
+       y="103.86696"
+       rx="1.9999999"
+       ry="1.9999999" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="131.45518"
+       y="106.68487"
+       id="text3476"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.45518"
+         y="106.68487"
+         id="tspan3472">- Discharge current</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.45518"
+         y="109.5071"
+         id="tspan3873">- Electron current</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.45518"
+         y="111.05802"
+         id="tspan3474" /></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82223px;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.25;stroke-linejoin:round;stroke-opacity:1"
+       x="158.58885"
+       y="106.68625"
+       id="text3884"><tspan
+         sodipodi:role="line"
+         id="tspan3882"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.58885"
+         y="106.68625">- Potential</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.58885"
+         y="109.50848"
+         id="tspan3886">- Electric field</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.58885"
+         y="112.33071"
+         id="tspan3888" /></text>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:1em;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#330080;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="130.03851"
+       y="86.254684"
+       id="text3253"><tspan
+         sodipodi:role="line"
+         id="tspan3251"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#330080;fill-opacity:1;stroke-width:0.25"
+         x="130.03851"
+         y="86.254684">Electron collision frequencies</tspan></text>
+    <rect
+       style="fill:#7137c8;fill-opacity:1;stroke-width:0.180385;stroke-linejoin:round"
+       id="rect3255"
+       width="48.454967"
+       height="9.9040051"
+       x="130.259"
+       y="87.84362"
+       rx="2"
+       ry="1.9999998" />
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-weight:bold;font-size:2.82223px;line-height:0;font-family:'CMU Serif';-inkscape-font-specification:'CMU Serif Bold Italic';fill:#ffffff;fill-opacity:1;stroke-width:0.25;stroke-linejoin:round"
+       x="131.50465"
+       y="91.196648"
+       id="text3896"><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.50465"
+         y="91.196648"
+         id="tspan3890">- Electron-neutral</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.50465"
+         y="94.018875"
+         id="tspan4008">- Electron-ion</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT Bold';fill:#ffffff;fill-opacity:1;stroke-width:0.25"
+         x="131.50465"
+         y="95.569801"
+         id="tspan3894" /></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82223px;line-height:1em;font-family:'Gill Sans MT';-inkscape-font-specification:'Gill Sans MT';fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.25;stroke-linejoin:round;stroke-opacity:1"
+       x="158.63832"
+       y="91.196648"
+       id="text3904"><tspan
+         sodipodi:role="line"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.63832"
+         y="91.196648"
+         id="tspan3900">- Electron-wall</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.63832"
+         y="94.018875"
+         id="tspan4014">- Anomalous</tspan><tspan
+         sodipodi:role="line"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25"
+         x="158.63832"
+         y="96.84111"
+         id="tspan3902" /></text>
+    <g
+       id="g45945"
+       transform="translate(78.325241,-110.10114)" />
+  </g>
+</svg>
