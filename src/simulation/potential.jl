@@ -1,16 +1,13 @@
-function compute_electric_field!(∇ϕ, cache, un, apply_drag)
-    (; ji, Id, ne, μ, ∇pe, channel_area, ui, νei, νen, νan) = cache
+function compute_electric_field!(∇ϕ, cache, apply_drag)
+    (; ji, Id, ne, μ, ∇pe, channel_area, νei, νen, νan, avg_ion_vel, avg_neutral_vel) = cache
 
-    if (apply_drag)
-        (; νei, νen, νan, ui) = cache
-    end
 
     @inbounds for i in eachindex(∇ϕ)
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
 
         if (apply_drag)
-            ion_drag = ui[1, i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = un * νen[i] * me / e
+            ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
+            neutral_drag = avg_neutral_vel[i] * νen[i] * me / e
             E += ion_drag + neutral_drag
         end
 

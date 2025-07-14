@@ -1,6 +1,77 @@
 using HallThruster: HallThruster as het
 using Printf
 using Test
+using CairoMakie: Makie as mk
+using DelimitedFiles
+
+function load_landmark_data(case)
+    codes = ["fluid_1", "fluid_2", "hybrid"]
+    fields = ["electric_field", "energy", "ionization", "neutral_density", "plasma_density", "potential"]
+
+    field_type = Dict{String, @NamedTuple{x::Vector{Float64}, y::Vector{Float64}}}
+    output = Dict{String, field_type}()
+
+    for field in fields
+        f = field_type()
+        for code in codes
+            x = readdlm(joinpath(het.LANDMARK_FOLDER, "case_$(case)", "$(field)_$(code).csv"), ',')
+            f[code] = (; x = x[:, 1], y = x[:, 2])
+        end
+        output[field] = f
+    end
+    return output
+end
+
+function plot_landmark(sol, case)
+
+    avg = het.time_average(sol, 5.0e-4)
+    data = load_landmark_data(case)
+
+    fig = mk.Figure()
+    xlabel = "z [cm]"
+    ax_nn = mk.Axis(fig[1, 1]; xlabel, ylabel = "Density [10¹⁹ m³/s]")
+    ax_ne = mk.Axis(fig[1, 2]; xlabel, ylabel = "Density [10¹⁸ m³/s]")
+    ax_E = mk.Axis(fig[2, 1]; xlabel, ylabel = "Electric field [kV/m]")
+    ax_Te = mk.Axis(fig[2, 2]; xlabel, ylabel = "Electron temperature [eV]")
+
+    function to_title(label)
+        return titlecase(replace(label, "_" => " "))
+    end
+
+    lines = []
+    labels = String[]
+
+    colors = [:red, :green, :blue]
+    style = (; linewidth = 2, color = :black)
+
+    for (i, (k, v)) in enumerate(pairs(data["neutral_density"]))
+        l = mk.lines!(ax_nn, v.x, v.y ./ 1.0e19; color = colors[i], linestyle = :dash)
+        push!(lines, l)
+        push!(labels, to_title(k))
+    end
+    l = mk.lines!(ax_nn, avg[:z], avg[:nn][] ./ 1.0e19; style...)
+    push!(lines, l)
+    push!(labels, "HallThruster.jl")
+
+    for (i, (k, v)) in enumerate(pairs(data["plasma_density"]))
+        mk.lines!(ax_ne, v.x, v.y ./ 1.0e18; color = colors[i], linestyle = :dash)
+    end
+    mk.lines!(ax_ne, avg[:z], avg[:ne][] ./ 1.0e18; style...)
+
+    for (i, (k, v)) in enumerate(pairs(data["electric_field"]))
+        mk.lines!(ax_E, v.x, v.y ./ 1000; color = colors[i], linestyle = :dash)
+    end
+    mk.lines!(ax_E, avg[:z], avg[:E][] ./ 1000; style...)
+
+    for (i, (k, v)) in enumerate(pairs(data["energy"]))
+        mk.lines!(ax_Te, v.x, v.y / 1.5; color = colors[i], linestyle = :dash)
+    end
+    mk.lines!(ax_Te, avg[:z], avg[:Tev][]; style...)
+
+    mk.Legend(fig[0, :], lines, labels, orientation = :horizontal)
+
+    return mk.save("landmark_$(case).png", fig)
+end
 
 function run_landmark(
         duration = 1.0e-3; ncells = 200, nsave = 2, dt = 0.7e-8, CFL = 0.799, case = 1,
@@ -16,22 +87,13 @@ function run_landmark(
         (0.4, 1.0)
     end
 
-    scheme = het.HyperbolicScheme(
-        # We use global_lax_friedrichs here to better handle case 1, as it is very oscillatory and this
-        # scheme is the most diffusive
-        # In general, prefer rusanov or HLLE
-        flux_function = het.global_lax_friedrichs,
-        limiter = het.minmod,
-        reconstruct = true,
-    )
-
     ϵ_anode = 3.0
     ϵ_cathode = 3.0
 
     config = het.Config(;
         ncharge = 1,
-        scheme,
         domain,
+        reconstruct = case > 1,
         anode_Tev = 2 / 3 * ϵ_anode,
         cathode_Tev = 2 / 3 * ϵ_cathode,
         discharge_voltage = 300.0,
@@ -53,9 +115,12 @@ function run_landmark(
     )
 
     @time sol = het.run_simulation(
-        config; duration, grid = het.EvenGrid(ncells), nsave,
+        config; duration, grid = het.UnevenGrid(ncells), nsave,
         dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,
     )
+
+    plot_landmark(sol, case)
+
     return sol
 end
 
@@ -69,8 +134,9 @@ function check_regression_case(case)
 
         if haskey(case, :landmark_case)
             nsave = 1000
+            ncells = case.landmark_case == 1 ? 250 : 150
             sol_info = @timed run_landmark(
-                1.0e-3; ncells = 150, nsave = nsave, case = case.landmark_case, CFL = case.CFL,
+                1.0e-3; ncells, nsave = nsave, case = case.landmark_case, CFL = case.CFL,
             )
         else
             file = "$(het.TEST_DIR)/regression/$(file)"
@@ -112,7 +178,7 @@ function check_regression_case(case)
         @test isapprox(current, Id_mean, atol = Id_err)
         @test isapprox(ion_current, ji_mean, atol = ji_err)
 
-        efficiencies = Dict(
+        efficiency_funcs = Dict(
             "Mass" => het.mass_eff,
             "Current" => het.current_eff,
             "Voltage" => het.voltage_eff,
@@ -122,7 +188,9 @@ function check_regression_case(case)
 
         println("\nEfficiencies:")
 
-        for (eff_name, eff_func) in efficiencies
+        efficiencies = Dict{String, Float64}()
+
+        for (eff_name, eff_func) in efficiency_funcs
             eff = eff_func(sol)
             eff_mean = het.mean(eff)
             eff_err = het.std(eff) / sqrt(n_avg)
@@ -132,6 +200,7 @@ function check_regression_case(case)
                 eff_name, eff_mean * 100, eff_err * 100, eff_expected * 100
             )
             @test isapprox(eff_mean, eff_expected, rtol = 1.0e-2)
+            efficiencies[eff_name] = eff_mean
         end
 
         max_Te = maximum(avg[:Tev][])
@@ -163,5 +232,25 @@ function check_regression_case(case)
         @test isapprox(max_E, case.max_E, rtol = 1.0e-2)
         @test isapprox(max_nn, case.max_nn, rtol = 1.0e-2)
         @test isapprox(max_ni, case.max_ni, rtol = 1.0e-2)
+
+        # print output to replace what we had
+        println("-----")
+        println("Replace contents of benchmark with the following if necessary")
+        println("-----")
+        @printf("thrust = %.3f,\n", T_mean)
+        @printf("current = %.3f,\n", Id_mean)
+        @printf("ion_current = %.3f,\n", ji_mean)
+        @printf("max_Te = %.3f,\n", max_Te)
+        @printf("max_E = %.3e,\n", max_E)
+        @printf("max_nn = %.3e,\n", max_nn)
+        @printf("max_ni = %.3e,\n", max_ni)
+        @printf("efficiencies = Dict(\n")
+        @printf("   \"Mass\" => %.3f,\n", efficiencies["Mass"])
+        @printf("   \"Current\" => %.3f,\n", efficiencies["Current"])
+        @printf("   \"Divergence\" => %.3f,\n", efficiencies["Divergence"])
+        @printf("   \"Voltage\" => %.3f,\n", efficiencies["Voltage"])
+        @printf("   \"Anode\" => %.3f,\n", efficiencies["Anode"])
+        @printf("),\n")
+        println("-----")
     end
 end

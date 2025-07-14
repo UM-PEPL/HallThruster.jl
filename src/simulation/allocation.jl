@@ -2,17 +2,12 @@
 # reduce precompilation/recompilation time
 function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
-    nedges = length(grid.edges)
-    ncharge = config.ncharge
     n_anom_vars = num_anom_variables(config.anom_model)
-    return allocate_arrays(ncells, nedges, ncharge, n_anom_vars)
+    return allocate_arrays(ncells, config.propellants, n_anom_vars)
 end
 
-function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::Int)
-    # made less general to handle common use cases as part of fluid refactor
-    nvariables = 1 + 2 * ncharge    # 1 variable for neutrals and 2 for each ion fluid
-
-    U = zeros(nvariables, ncells)
+function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
+    num_species = sum((prop.max_charge) for prop in propellants)
 
     cache = (;
         # Caches for energy solve
@@ -56,7 +51,7 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
 
         # Electron axial velocity and kinetic energy
         ue = zeros(ncells),
-        K = zeros(ncells), λ_global = zeros(ncharge + 1),
+        K = zeros(ncells),
 
         # Electron source terms
         ohmic_heating = zeros(ncells),
@@ -66,40 +61,34 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         # Effective charge number
         Z_eff = zeros(ncells),
 
+        # Effective ion mass
+        m_eff = zeros(ncells),
+
         # Ion density, velocity, and number flux
-        ni = zeros(ncharge, ncells),
-        ui = zeros(ncharge, ncells),
-        niui = zeros(ncharge, ncells),
+        avg_ion_vel = zeros(ncells),
+        nn = zeros(ncells),
+        avg_neutral_vel = zeros(ncells),
 
         # ion current
         ji = zeros(ncells),
 
         # Neutral density
-        nn = zeros(ncells),
         γ_SEE = zeros(ncells),
         Id = [0.0],
         Vs = [0.0],
         anom_multiplier = [1.0],
 
-        # Edge state caches
-        F = zeros(nvariables, nedges),
-        UL = zeros(nvariables, nedges),
-        UR = zeros(nvariables, nedges),
-
-        # timestepping caches
-        k = copy(U),
-        u1 = copy(U),
-
         # other caches
         cell_cache_1 = zeros(ncells),
 
         # Plume divergence variables
-        channel_area = zeros(ncells),    # Area of channel / plume
-        dA_dz = zeros(ncells),          # derivative of area w.r.t. axial coordinate
-        channel_height = zeros(ncells),  # Height of channel / plume (outer - inner)
-        inner_radius = zeros(ncells),    # Channel/plume inner radius
-        outer_radius = zeros(ncells),    # Channel/plume outer radius
-        tanδ = zeros(ncells),            # Tangent of divergence half-angle
+        channel_area = zeros(ncells),       # Area of channel / plume
+        dA_dz = zeros(ncells),              # derivative of area w.r.t. axial coordinate
+        dlnA_dz = zeros(ncells),            # derivative of log area w.r.t. axial coordinate
+        channel_height = zeros(ncells),     # Height of channel / plume (outer - inner)
+        inner_radius = zeros(ncells),       # Channel/plume inner radius
+        outer_radius = zeros(ncells),       # Channel/plume outer radius
+        tanδ = zeros(ncells),               # Tangent of divergence half-angle
 
         # Anomalous transport variables
         anom_variables = [zeros(ncells) for _ in 1:n_anom_vars],
@@ -108,8 +97,7 @@ function allocate_arrays(ncells::Int, nedges::Int, ncharge::Int, n_anom_vars::In
         dt_iz = zeros(1),
         dt = zeros(1),
         dt_E = zeros(1),
-        dt_u = zeros(nedges),
     )
 
-    return U, cache
+    return cache
 end

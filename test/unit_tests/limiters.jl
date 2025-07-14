@@ -1,15 +1,10 @@
 using HallThruster: HallThruster as het
 
-include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
-
 function test_slope_limiters()
     return @testset "Slope limiters" begin
         # List of slope limiters
         slope_limiters = [
-            het.koren,
-            het.minmod,
-            het.van_albada,
-            het.van_leer,
+            het.van_leer_limiter,
         ]
 
         # convert to flux limiters to test that they lie in 2nd order TVD region of sweby diagram
@@ -51,35 +46,4 @@ function test_slope_limiters()
     end
 end
 
-function test_stage_limiter()
-    return @testset "Stage limiter" begin
-        index = (ρn = 1, ρi = [2], ρiui = [3], nϵ = 4)
-        config = (ncharge = 1, propellant = het.Xenon)
-        min_ne = het.MIN_NUMBER_DENSITY
-
-        p = (;
-            index, cache = (; nϵ = [-1.0]),
-            grid = (; cell_centers = [0.0]), min_Te = 1.0,
-            mi = het.Xenon.m, ncharge = 1,
-        )
-        U = [-1.0, -1.0, -1.0, -1.0]
-        het.stage_limiter!(U, p)
-
-        mi = config.propellant.m
-
-        @test U[index.ρn] == min_ne * mi
-        @test U[index.ρi[1]] == min_ne * mi
-        @test U[index.ρiui[1]] == 1.0 * min_ne * mi
-        @test p.cache.nϵ[1] == 1.5 * min_ne * p.min_Te
-    end
-end
-
-function test_limiter_serialization()
-    return @testset "Serialization" begin
-        test_instances(het.SlopeLimiter, het.slope_limiters)
-    end
-end
-
 test_slope_limiters()
-test_stage_limiter()
-test_limiter_serialization()

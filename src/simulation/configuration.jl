@@ -5,7 +5,7 @@ Hall thruster configuration struct. Only four mandatory fields: `discharge_volta
 ## Mandatory Fields
 $(TYPEDFIELDS)
 """
-struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, HS <: HyperbolicScheme, IC <: InitialCondition, S_N, S_IC, S_IM, S_E}
+struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <: WallLossModel, IC <: InitialCondition, S_HS, S_E}
     """
     The thruster to simulate. See [Thrusters](@ref) for more information
     """
@@ -19,21 +19,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     discharge_voltage::Float64
     """
-    The mass flow rate of neutral atoms through the anode, in kg/s.
-    
+    The propellants to be used. See [Propellants](propellants.md) for more.
+
     ---
     # Optional fields
     ---
     """
-    anode_mass_flow_rate::Float64
-    """
-    Maximum ion charge state. **Default:** 1.
-    """
-    ncharge::Int
-    """
-    A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.
-    """
-    propellant::Gas
+    propellants::Vector{Propellant}
     """
     The potential at the right boundary of the simulation. **Default:** `0`
     """
@@ -66,18 +58,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     Whether to include electron-ion collisions. See [Collisions and Reactions](@ref) for more. **Default:** `true`.
     """
     electron_ion_collisions::Bool
-    """
-    Neutral velocity in m/s. **Default:** `300.0`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
-    """
-    neutral_velocity::Float64
-    """
-    Neutral temperature in Kelvins. **Default:** `500.0`.
-    """
-    neutral_temperature_K::Float64
-    """
-    Ion temperature in Kelvins. **Default:** 1000.0
-    """
-    ion_temperature_K::Float64
     """
     Whether we model ion losses to the walls. **Default:** `false`.
     """
@@ -115,9 +95,9 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     transition_length::Float64
     """
-    Numerical scheme to employ for integrating the ion equations. This is a `HyperbolicScheme` struct with fields `flux_function`, `limiter`, and `reconstruct`. See [Schemes](../reference/schemes.md) for more info. **Default:** `HyperbolicScheme(flux_function = rusanov, limiter = van_leer, reconstruct = true)`.
+    Whether to employ gradient reconstruction
     """
-    scheme::HS
+    reconstruct::Bool
     """
     An `InitialCondition`; see [Initialization](../explanation/initialization.md) for more information. **Default:** `DefaultInitialization()`.
     """
@@ -132,7 +112,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     reaction_rate_directories::Vector{String}
     """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
-    
+
     ---
     # Verification and validation options
     ---
@@ -157,17 +137,9 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     electron_neutral_model::Symbol
     """
-    Extra user-provided neutral source term. **Default:** `nothing` 
+    Extra source term for heavy species. **Default:** `nothing`
     """
-    source_neutrals::S_N
-    """
-    Vector of extra source terms for ion continuity, one for each charge state. **Default:** `nothing`.
-    """
-    source_ion_continuity::S_IC
-    """
-    Vector of extra source terms for ion momentum, one for each charge state. **Default:** `nothing`.
-    """
-    source_ion_momentum::S_IM
+    source_heavy_species::S_HS
     """
     Extra source term for electron energy equation. **Default:** `nothing`. 
     """
@@ -178,10 +150,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             thruster::Thruster,
             domain,
             discharge_voltage,
-            anode_mass_flow_rate,
+            propellants = nothing,
             # Optional arguments
-            ncharge = 1,
-            propellant = Xenon,
             cathode_coupling_voltage = 0.0,
             anode_boundary_condition = :sheath,
             cathode_Tev = 2.0,
@@ -190,9 +160,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             wall_loss_model::W = WallSheath(BNSiO2, 1.0),
             conductivity_model::TC = Mitchner(),
             electron_ion_collisions = true,
-            neutral_velocity = nothing,
-            neutral_temperature_K = nothing,
-            ion_temperature_K = 1000.0,
             ion_wall_losses = false,
             background_pressure_Torr = 0.0,
             background_temperature_K = 100.0,
@@ -202,7 +169,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale = 1.0,
             magnetic_field_scale::Float64 = 1.0,
             transition_length = 0.1 * thruster.geometry.channel_length,
-            scheme::HS = HyperbolicScheme(),
+            reconstruct::Bool = true,
             initial_condition::IC = DefaultInitialization(),
             implicit_energy = 1.0,
             reaction_rate_directories = String[],
@@ -211,28 +178,33 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ionization_model = :Lookup,
             excitation_model = :Lookup,
             electron_neutral_model = :Lookup,
-            source_neutrals = nothing,
-            source_ion_continuity = nothing,
-            source_ion_momentum = nothing,
+            source_heavy_species = Returns(0.0),
             source_energy = Returns(0.0),
+            # Backwards-compatible arguments
+            anode_mass_flow_rate = nothing,
+            propellant = Xenon,
+            neutral_temperature_K = nothing,
+            neutral_velocity = nothing,
+            ion_temperature_K = DEFAULT_ION_TEMPERATURE_K,
+            ncharge = 1,
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
             W <: WallLossModel,
-            HS <: HyperbolicScheme,
             IC <: InitialCondition,
         }
-        # check that number of ion source terms matches number of charges for both
-        # continuity and momentum
-        #
-        source_ion_continuity = ion_source_terms(
-            ncharge, source_ion_continuity, "continuity",
-        )
-        source_ion_momentum = ion_source_terms(ncharge, source_ion_momentum, "momentum")
 
-        # Neutral source terms
-        if isnothing(source_neutrals)
-            source_neutrals = Returns(0.0)
+        # Set up propellants
+        if isnothing(propellants)
+            if isnothing(anode_mass_flow_rate)
+                error("Must supply either a vector of propellants or an anode mass flow rate")
+            end
+            prop = Propellant(
+                propellant, anode_mass_flow_rate;
+                max_charge = ncharge, velocity_m_s = neutral_velocity,
+                temperature_K = neutral_temperature_K, ion_temperature_K
+            )
+            propellants = [prop]
         end
 
         # Convert to Float64 if using Unitful
@@ -240,34 +212,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         cathode_coupling_voltage = convert_to_float64(cathode_coupling_voltage, units(:V))
 
         anode_Tev = convert_to_float64(anode_Tev, units(:eV))
-        cathode_Tev = convert_to_float64(cathode_Tev, units(:eV))
 
-        default_neutral_velocity = 150.0 # m/s
-        default_neutral_temp = 500.0 # K
-        if isnothing(neutral_velocity) && isnothing(neutral_temperature_K)
-            neutral_velocity = default_neutral_velocity
-            neutral_temperature_K = default_neutral_temp
-        elseif isnothing(neutral_temperature_K)
-            neutral_temperature_K = default_neutral_temp
-            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
-        elseif isnothing(neutral_velocity)
-            # compute neutral velocity from thermal speed
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
-            neutral_velocity = 0.25 *
-                sqrt(8 * kB * neutral_temperature_K / π / propellant.m)
-        else
-            neutral_velocity = convert_to_float64(neutral_velocity, units(:m) / units(:s))
-            neutral_temperature_K = convert_to_float64(neutral_temperature_K, units(:K))
-        end
-
-        ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         domain = (
             convert_to_float64(domain[1], units(:m)),
             convert_to_float64(domain[2], units(:m)),
-        )
-
-        anode_mass_flow_rate = convert_to_float64(
-            anode_mass_flow_rate, units(:kg) / units(:s),
         )
 
         background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
@@ -279,19 +227,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
         end
 
-        return new{
-            A, TC, W, HS, IC,
-            typeof(source_neutrals), typeof(source_ion_continuity),
-            typeof(source_ion_momentum), typeof(source_energy),
-        }(
+        return new{A, TC, W, IC, typeof(source_heavy_species), typeof(source_energy)}(
             # Mandatory arguments
             thruster,
             domain,
             discharge_voltage,
-            anode_mass_flow_rate,
+            propellants,
             # Optional arguments
-            ncharge,
-            propellant,
             cathode_coupling_voltage,
             anode_boundary_condition,
             anode_Tev,
@@ -300,9 +242,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             wall_loss_model,
             conductivity_model,
             electron_ion_collisions,
-            neutral_velocity,
-            neutral_temperature_K,
-            ion_temperature_K,
             ion_wall_losses,
             background_pressure_Torr,
             background_temperature_K,
@@ -312,7 +251,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_plume_loss_scale,
             magnetic_field_scale,
             transition_length,
-            scheme,
+            reconstruct,
             initial_condition,
             implicit_energy,
             reaction_rate_directories,
@@ -321,120 +260,38 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ionization_model,
             excitation_model,
             electron_neutral_model,
-            source_neutrals,
-            source_ion_continuity,
-            source_ion_momentum,
+            source_heavy_species,
             source_energy,
         )
     end
 end
 
-#=============================================================================
- Serialization of Config to JSON
-==============================================================================#
-
-# Don't write source terms to output or read them from input
-function Serialization.exclude(::Type{C}) where {C <: Config}
-    return (
-        :source_neutrals, :source_ion_continuity,
-        :source_ion_momentum, :source_potential, :source_energy,
-    )
-end
-
-function ion_source_terms(ncharge, source, type)
-    if ncharge != length(source)
-        throw(ArgumentError("Number of ion $type source terms must match number of charges"))
-    end
-    return source
-end
-
-ion_source_terms(ncharge, ::Nothing, args...) = fill(Returns(0.0), ncharge)
-
-function make_keys(fluid_range, subscript)
-    len = length(fluid_range)
-    if len == 1
-        return (Symbol("ρ$(subscript)"))
-    elseif len == 2
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-        )
-    elseif len == 3
-        return (
-            Symbol("ρ$(subscript)"),
-            Symbol("ρ$(subscript)u$(subscript)"),
-            Symbol("ρ$(subscript)E$(subscript)"),
-        )
-    else
-        throw(ArgumentError("Too many equations on fluid (this should be unreachable)"))
-    end
-end
-
-function configure_fluids(config)
-    propellant = config.propellant
-
-    neutral_fluid = ContinuityOnly(
-        propellant(0); u = config.neutral_velocity, T = config.neutral_temperature_K,
-    )
-    ion_fluids = [
-        IsothermalEuler(propellant(Z); T = config.ion_temperature_K)
-            for Z in 1:(config.ncharge)
-    ]
-
-    fluids = [neutral_fluid; ion_fluids]
-
-    species = [f.species for f in fluids]
-
-    fluid_ranges = ranges(fluids)
-    species_range_dict = Dict(Symbol(fluid.species) => 0:0 for fluid in fluids)
-
-    for (fluid, fluid_range) in zip(fluids, fluid_ranges)
-        species_range_dict[Symbol(fluid.species)] = fluid_range
-    end
-
-    last_fluid_index = fluid_ranges[end][end]
-    is_velocity_index = fill(false, last_fluid_index)
-    for i in 3:2:last_fluid_index
-        is_velocity_index[i] = true
-    end
-
-    return fluids, fluid_ranges, species, species_range_dict, is_velocity_index
-end
-
-function configure_index(fluids, fluid_ranges)
-    first_ion_fluid_index = findfirst(x -> x.species.Z > 0, fluids)
-
-    keys_neutrals = (:ρn,)
-    values_neutrals = (1,)
-
-    keys_ions = (:ρi, :ρiui)
-    values_ions = (
-        [f[1] for f in fluid_ranges[first_ion_fluid_index:end]],
-        [f[2] for f in fluid_ranges[first_ion_fluid_index:end]],
-    )
-
-    keys_fluids = (keys_neutrals..., keys_ions...)
-    values_fluids = (values_neutrals..., values_ions...)
-    index = NamedTuple{keys_fluids}(values_fluids)
-    return index
-end
-
 function params_from_config(config)
+    # Compute neutral ingestion flow rates per species
+    fn = config.neutral_ingestion_multiplier
+    ndot_anode = sum(p.flow_rate_kg_s / p.gas.m for p in config.propellants)
+    channel_area = config.thruster.geometry.channel_area
+    ingestion_flow_rates = zeros(length(config.propellants))
+    for (i, prop) in enumerate(config.propellants)
+        # Number density fraction of a species == its number flow ratio through the anode
+        ndot_a = prop.flow_rate_kg_s / prop.gas.m
+        ρn_B = background_neutral_density(prop, config) * ndot_a / ndot_anode
+        un_B = background_neutral_velocity(prop, config)
+        ingestion_flow_rates[i] = fn * ρn_B * un_B * channel_area
+    end
+
     return (;
         # Copied directly from config
+        propellants = config.propellants,
+        reconstruct = config.reconstruct,
         thruster = config.thruster,
-        ncharge = config.ncharge,
-        mi = config.propellant.m,
         anode_bc = config.anode_boundary_condition,
         landmark = config.LANDMARK,
         transition_length = config.transition_length,
         Te_L = config.anode_Tev,
         Te_R = config.cathode_Tev,
         implicit_energy = config.implicit_energy,
-        ion_temperature_K = config.ion_temperature_K,
-        neutral_velocity = config.neutral_velocity,
-        anode_mass_flow_rate = config.anode_mass_flow_rate,
-        neutral_ingestion_multiplier = config.neutral_ingestion_multiplier,
+        ingestion_flow_rates,
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
@@ -443,4 +300,36 @@ function params_from_config(config)
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
     )
+end
+
+#=============================================================================
+ Serialization of Config to JSON
+==============================================================================#
+
+# Don't write source terms to output or read them from input
+function Serialization.exclude(::Type{C}) where {C <: Config}
+    return (:source_heavy_species, :source_energy)
+end
+
+function Serialization.deserialize(::Type{C}, x) where {C <: Config}
+    d = copy(x)
+    # Handle configs from older versions
+    if !haskey(d, :propellants)
+        gas = get(d, :propellant, Xenon)
+        max_charge = get(d, :ncharge, 1)
+        velocity_m_s = get(d, :neutral_velocity, nothing)
+        temperature_K = get(d, :neutral_temperature_K, nothing)
+        ion_temperature_K = get(d, :ion_temperature_K, DEFAULT_ION_TEMPERATURE_K)
+        flow_rate_kg_s = d[:anode_mass_flow_rate]
+        prop = Propellant(gas, flow_rate_kg_s; max_charge, velocity_m_s, temperature_K, ion_temperature_K)
+        prop_dict = serialize(prop)
+        for key in [
+                :propellant, :ncharge, :anode_mass_flow_rate,
+                :neutral_velocity, :neutral_temperature_K, :ion_temperature_K,
+            ]
+            delete!(d, key)
+        end
+        d[:propellants] = [prop_dict]
+    end
+    return deserialize(Serialization.Struct(), C, d)
 end

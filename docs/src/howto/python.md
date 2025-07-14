@@ -15,11 +15,12 @@ PYTHON_PATH
 ```
 
 Next, open a python script and import the path returned by `python_script_path()`.
+The exact path will differ depending on where you install HallThruster.jl and what operating system you're using.
 
 ```python
 import sys
 
-sys.path.append("/Users/archermarks/src/HallThruster/python")
+sys.path.append("<YOUR PATH>/HallThruster/python")
 
 import hallthruster as het
 ```
@@ -43,15 +44,20 @@ config = {
             "file": "bfield_spt100.csv"
         }
     },
+    "propellants": [
+        {
+            "gas": "Xenon",
+            "flow_rate_kg_s": 5e-6,
+            "max_charge": 3,
+        }
+    ],
     "discharge_voltage": 300.0,
-    "anode_mass_flow_rate": 5e-6,
     "domain": (0.0, 0.08),
     "anom_model": {
         "type": "TwoZoneBohm",
         "c1": 0.00625,
         "c2": 0.0625,
     },
-    "ncharge": 3
 }
 ```
 
@@ -125,7 +131,7 @@ The simulation outputs can be examined and plotted similarly to the julia interf
 The fields of each frame are as follows:
 ```python
 >>> output['average'].keys()
-dict_keys(['thrust', 'discharge_current', 'ion_current', 'mass_eff', 'voltage_eff', 'current_eff', 'divergence_eff', 'anode_eff', 't', 'z', 'nn', 'ni', 'ui', 'niui', 'B', 'ne', 'ue', 'potential', 'E', 'Tev', 'pe', 'grad_pe', 'nu_en', 'nu_ei', 'nu_anom', 'nu_class', 'mobility', 'channel_area'])
+dict_keys(['thrust', 'discharge_current', 'ion_current', 'mass_eff', 'voltage_eff', 'current_eff', 'divergence_eff', 'anode_eff', 't', 'z', 'nn', 'ni', 'ui', 'niui', 'B', 'ne', 'ue', 'potential', 'E', 'Tev', 'pe', 'grad_pe', 'nu_en', 'nu_ei', 'nu_anom', 'nu_class', 'mobility', 'channel_area', "ions", "neutrals"])
 ```
 Here's an example showing how to analyze both ion and electron quantities.
 
@@ -143,13 +149,13 @@ axes[0].set_title('Ion velocity')
 axes[1].set_title('Electron temperature')
 
 config = solution['input']['config']
-propellant = config['propellant']
+propellant = config['propellants'][0]
 avg = solution['output']['average']
 z_cm = np.array(avg['z']) * 100
 
-for Z in range(solution['input']['config']['ncharge']):
-    ui_km_s = np.array(avg['ui'][Z]) / 1000
-    axes[0].plot(z_cm, ui_km_s, label = f"{propellant} {Z+1}+")
+for j in range(propellant["max_charge"]):
+    ui_km_s = np.array(avg["ions"]["Xe"][j]["u"]) / 1000
+    axes[0].plot(z_cm, ui_km_s, label = f"{propellant['gas']} {j+1}+")
 
 axes[1].plot(z_cm, avg['Tev'])
 axes[0].legend()
@@ -160,3 +166,5 @@ plt.show()
 
 This produces the following plot:
 ![](../assets/python_output.svg)
+
+This example can is also availabled as a complete python script in the [`python`](https://github.com/UM-PEPL/HallThruster.jl/tree/main/python) folder of the root directory.

@@ -8,10 +8,6 @@ using PrecompileTools: @compile_workload
 using JSON3
 using OrderedCollections
 
-# Packages used for making plots
-using Measures: mm
-using RecipesBase
-
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")
@@ -19,38 +15,26 @@ const LANDMARK_FOLDER = joinpath(PACKAGE_ROOT, "landmark")
 const LANDMARK_RATES_FILE = joinpath(LANDMARK_FOLDER, "landmark_rates.csv")
 const TEST_DIR = joinpath(PACKAGE_ROOT, "test")
 
-const MIN_NUMBER_DENSITY = 1.0e6
-
 include("utilities/utility_functions.jl")
 include("utilities/interpolation.jl")
 include("utilities/smoothing.jl")
-include("utilities/statistics.jl")
 include("utilities/linearalgebra.jl")
 include("utilities/integration.jl")
-include("utilities/macros.jl")
 include("utilities/serialization.jl")
-include("utilities/keywords.jl")
-include("utilities/units.jl")
+include("utilities/finite_differences.jl")
 
 using .Serialization: serialize, deserialize
 
-include("physics/physicalconstants.jl")
+include("physics/constants.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
-include("physics/thermodynamics.jl")
 
 include("walls/materials.jl")
 include("walls/wall_losses.jl")
 include("walls/no_wall_losses.jl")
 include("walls/constant_sheath_potential.jl")
 include("walls/wall_sheath.jl")
-
-include("numerics/finite_differences.jl")
-include("numerics/limiters.jl")
-include("numerics/flux_functions.jl")
-include("numerics/schemes.jl")
-include("numerics/edge_fluxes.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
@@ -71,16 +55,16 @@ include("simulation/current_control.jl")
 include("simulation/initialization.jl")
 include("simulation/configuration.jl")
 include("simulation/allocation.jl")
-include("simulation/boundaryconditions.jl")
 include("simulation/potential.jl")
-include("simulation/update_heavy_species.jl")
-include("simulation/electronenergy.jl")
-include("simulation/sourceterms.jl")
+include("simulation/heavy_species_fluxes.jl")
+include("simulation/heavy_species_update.jl")
+include("simulation/electron_energy.jl")
+include("simulation/electron_update.jl")
 include("simulation/plume.jl")
-include("simulation/update_electrons.jl")
+include("simulation/types.jl")
 include("simulation/solution.jl")
-include("simulation/postprocess.jl")
 include("simulation/simulation.jl")
+include("simulation/postprocess.jl")
 include("simulation/json.jl")
 
 @public PYTHON_PATH
@@ -97,7 +81,7 @@ julia> using HallThruster; HallThruster.PYTHON_PATH
 """
 const PYTHON_PATH = joinpath(PACKAGE_ROOT, "python")
 
-# this is an example simulatin that we can run to exercise all parts of the code. this helps to make sure most relevant
+# this is an example simulation that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)
     config_1 = Config(;
@@ -107,10 +91,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         anode_mass_flow_rate = 5.0e-6,
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
-        scheme = HyperbolicScheme(
-            flux_function = global_lax_friedrichs,
-            limiter = van_albada,
-        ),
     )
     sol_1 = run_simulation(
         config_1; ncells, duration, dt, nsave, verbose = false,
@@ -132,10 +112,6 @@ function example_simulation(; ncells, duration, dt, nsave)
         neutral_temperature_K = 500,
         ion_wall_losses = true,
         solve_plume = true,
-        scheme = HyperbolicScheme(
-            flux_function = HLLE,
-            limiter = minmod,
-        ),
     )
 
     sol_2 = run_simulation(
@@ -202,7 +178,7 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    #example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"

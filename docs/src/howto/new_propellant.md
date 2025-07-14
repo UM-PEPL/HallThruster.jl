@@ -26,7 +26,7 @@ Then, you must place the resulting table of electron energy versus rate coeffici
 The expected formats for these filenames and files can be seen by examining the tables for the [built-in propellants](https://github.com/UM-PEPL/HallThruster.jl/tree/main/reactions).
 
 If you want to run a simulation with `Z` as the maximum charge state, `HallThruster` requires at least one reaction containing each species, including the mandatory first ionization reaction (i.e. neutral -> singly-charged ion).
-For example, for Neon with `ncharge = 3`, the following ionization reaction sets would suffice.
+For example, for Neon with `max_charge = 3`, the following ionization reaction sets would suffice.
 - [`ionization_Ne_Ne+.dat`, `ionization_Ne_Ne2+.dat`, `ionization_Ne_Ne3+.dat`]
 - [`ionization_Ne_Ne+.dat`, `ionization_Ne+_Ne2+.dat`, `ionization_Ne2+_Ne3+.dat`]
 

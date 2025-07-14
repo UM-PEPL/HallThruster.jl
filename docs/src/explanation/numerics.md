@@ -1,10 +1,15 @@
 # Numerics
 
-As described in [Configuration](@ref) and [Initialization](@ref) different flux options are available in `HyperbolicScheme`. Timemarching for the heavy species is handled using a second order strong-stability preserving Runge-Kutta scheme (SSPRK22). The left hand side of the electron energy equation is integrated implicitly using a Crank Nicolson Adams Bashforth (CNAB) scheme. This enables larger timessteps due to the severe restrictions due to the electron heat flux.
+HallThruster.jl uses the finite volume method and the Rusanov flux for calculating ion and neutral fluid fluxes.
+Second-order gradient reconstruction is available using the van Leer limiter.
+Time-marching for the heavy species is handled using a second order strong-stability preserving Runge-Kutta scheme (SSPRK22).
+The left hand side of the electron energy equation is integrated implicitly using a Crank Nicolson Adams Bashforth (CNAB) scheme.
+This enables larger timesteps due to the severe restrictions due to the electron heat flux.
 
 ## Spatial discretization for heavy species
 
-Neutrals and ions are considered heavy species (compared to electrons). HallThruster.jl uses the finite volume method (FVM). FVM has the advantage that it is by definition conservative, which is a useful property when solving hyperbolic conservation laws such as the Euler equations. Currently, only the continuity equation is solved for the neutrals and the isothermal Euler equations for the ion species. Possibly, the full Euler equations will be added in the future, its implementation has been verified using the Sod Shock tube. The following provides and example of the control volume approach applied to the continuity equation.
+Neutrals and ions are considered heavy species (compared to the much lighther electrons). HallThruster.jl uses the finite volume method (FVM). FVM has the advantage that it is by definition conservative, which is a useful property when solving hyperbolic conservation laws such as the Euler equations.
+Currently, only the continuity equation is solved for the neutrals and the isothermal Euler equations for the ion species.
 
 ```math
 \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \frac{\partial n_n}{\partial t} \,dz + \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \frac{\partial n_n u_n}{\partial z} \,dz = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \dot{n}_n \, dz
@@ -15,7 +20,6 @@ The ``n_n u_n`` can be replaced by a generic flux term ``F(z)`` and generalized 
 ```math
 h\frac{\partial n_n}{\partial t} + \left(F_{_{i+\frac{1}{2}}} - F_{_{i-\frac{1}{2}}}\right) = h \dot{n}_n
 ```
-See [Fluxes](@ref) for the implemented fluxes, and possible limiters to be used in reconstruction to ensure a total variation diminishing scheme (TVD).
 
 ## Time discretization of heavy species
 

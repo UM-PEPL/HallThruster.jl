@@ -22,7 +22,13 @@ Below, we show an example of this type of JSON input.
             "geometry": { "inner_radius": 0.0345, "outer_radius": 0.05, "channel_length": 0.025 },
             "magnetic_field": { file = "bfield_spt100.csv" }
         },
-        "propellant": "Krypton",
+        "propellants": [
+            {
+                "gas": "Krypton",
+                "flow_rate_kg_s": 5e-6,
+                "max_charge": 1,
+            }
+        ],
         "discharge_voltage": 300.0,
         "anode_mass_flow_rate": 5e-6,
         "domain": [0.0, 0.08],
@@ -88,17 +94,16 @@ The `output` field has at most four fields: `retcode`, `error`, `fields`, and `a
 }
 ```
 
-The `output_field` somewhat mirrors the [`Solution`](@ref) object.
+The `output_field` mirrors the [`Solution`](@ref) object, and stores an array of `Frames`.
 The `retcode` gives the simulation status (one of `"success"`, `"error"`, or `"failure"`).
 If `retcode` is `error`, the `error` will contain a string with the error that occurred.
 If `postprocess.average_start_time` is greater than or equal to zero, the `average` field contains the output of `HallThruster.time_average(sol, average_start_time)`.
 Finally, if `postprocess.save_time_resolved` is `true`, then `output.frames` contains `simulation.num_save` frames.
-
 You can also manually write a `Solution` to a JSON file using the [`write_to_json`](@ref) function.
 
 ### Frame format
 
-The frames in the output JSON file are laid out similarly to those in the `Solution` struct, with some additions.
+The frames in the output JSON file are laid out similarly to those in the `Frame` struct, with some additions.
 In addition to plasma properties, each frame also stores its time, as well as thrust, discharge current, and component efficiencies.
 
 ## Restarts

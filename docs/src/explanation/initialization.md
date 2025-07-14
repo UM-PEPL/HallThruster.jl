@@ -66,7 +66,7 @@ For  a simulation of the SPT-100 with ``V_d``= 500V, three ion charge states, a 
 
 ## Custom initial conditions
 
-You may define your own initial condition by creating subtypes of `HallThruster.InitialCondition`. Let's say for some reason we wanted to initialize every state variable in every cell to the z-location of its cell center. We might define our initialization as follows:
+You may define your own initial condition by creating subtypes of `HallThruster.InitialCondition`. Let's say for some reason we wanted to initialize every fluid's density and momentum in every cell to the z-location of its cell center. We might define our initialization as follows:
 
 ```jldoctest initialization; output=false
 using HallThruster
@@ -82,37 +82,50 @@ We would then add a method to the `initialize!(U, params, model)` function as fo
 ```jldoctest initialization; output=false
 import HallThruster.initialize!
 
-function HallThruster.initialize!(U, params, config, model::MyInitialCondition)
-	(;z_cell) = params # Pull cell centers locations out of params
-    nvars = size(U, 1)
-    for (i, z) in enumerate(z_cell)
-       	for j in 1:nvars
-           	U[j, i] = z_cell[i]
-        end
+function HallThruster.initialize!(params, config, model::MyInitialCondition)
+	(;grid, fluid_containers) = params # Pull cell centers locations out of params
+
+    for fluid in fluid_containers.continuity
+        fluid.density .= grid.cell_centers
     end
-    return U # optional. Since U is modified. the return value is never used, but by Julia convention we also return the mutated object.
+
+    for fluid in fluid_containers.isothermal
+        fluid.density .= grid.cell_centers
+        fluid.momentum .= grid.cell_centers
+    end
+
+    return nothing
 end;
 
 # output
 
 ```
 
-We can check the behavior of our new function:
+We can then test out our initialization function
 
 ```jldoctest initialization
-# Dummy config and params
-ncells = 100
-nvars = 4
-config = (;initial_condition = MyInitialCondition())
-z_cell = range(0, 0.05, length = ncells)
-U = zeros(nvars, ncells)
-params = (; z_cell)
 
-# Method of initialize! which dispatches to initialize!(U, params, config.initial_condition)
-# This is what HallThruster.jl calls when initializing a simulation
-HallThruster.initialize!(U, params, config)
+config = HallThruster.Config(
+    ncharge = 1,
+    thruster = HallThruster.SPT_100,
+    domain = (0, 0.08),
+    anode_mass_flow_rate = 5e-6,
+    discharge_voltage = 300.0,
+    initial_condition = MyInitialCondition(),
+)
 
-U[1, :] == U[2, :] == U[3, :] == U[4, :] == collect(z_cell)
+simparams = HallThruster.SimParams(
+    duration = 1e-3,
+    grid = HallThruster.EvenGrid(100)
+)
+
+params = HallThruster.setup_simulation(config, simparams)
+
+
+# the boundary nodes will differ from what we specified due to the enforcement of boundary conditions
+params.fluid_containers.continuity[1].density[2:end-1] == params.grid.cell_centers[2:end-1] &&
+params.fluid_containers.isothermal[1].density[2:end-1] == params.grid.cell_centers[2:end-1] &&
+params.fluid_containers.isothermal[1].momentum[2:end-1] == params.grid.cell_centers[2:end-1]
 
 # output
 

@@ -1,93 +1,4 @@
-@public SimParams, run_simulation
-
-"""
-	$TYPEDEF
-
-$(TYPEDFIELDS)
-"""
-mutable struct SimParams{C <: CurrentController}
-    """
-    A grid specifier, either `HallThruster.EvenGrid(n)` or `HallThruster.UnevenGrid(n)`, where n is the desired number of cells. See [Grid generation](@ref) for more information.
-    """
-    grid::GridSpec
-    """
-    The simulation base timestep in seconds. See [Timestepping](@ref) for more info.
-    """
-    dt::Float64
-    """
-    The simulation duration in seconds.
-    """
-    duration::Float64
-    # Optional parameters
-    """
-    How many simulation frames to save in the `Solution` struct. **Default:** 1000
-    """
-    num_save::Int
-    """
-    Whether information such as the simulation run-time is printed to console. **Default:** `true`
-    """
-    verbose::Bool
-    """
-    Whether errors are printed to console in addition to being captured in the `Solution` struct. **Default:** `true`
-    """
-    print_errors::Bool
-    """
-    Whether to use adaptive timestepping. See [Timestepping](@ref) for more info. **Default:** `true`
-    """
-    adaptive::Bool
-    """
-    The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
-    """
-    CFL::Float64
-    """
-    The minimum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-10
-    """
-    min_dt::Float64
-    """
-    The maximum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-7
-    """
-    max_dt::Float64
-    """
-    The maximum number of minimally-sized timesteps permitted in adaptive timestepping. **Default:** 100
-    """
-    max_small_steps::Int
-    """
-    Discharge current controller. **Default:** `HallThruster.NoController()`
-    """
-    current_control::C
-
-    function SimParams(;
-            grid::GridSpec,
-            dt,
-            duration,
-            # Optional parameters
-            num_save::Int = 1000,
-            verbose::Bool = true,
-            print_errors::Bool = true,
-            adaptive::Bool = true,
-            CFL::Float64 = 0.799,
-            min_dt = 1.0e-10,
-            max_dt = 1.0e-7,
-            max_small_steps::Int = 100,
-            current_control::C = NoController(),
-        ) where {C <: CurrentController}
-        return new{C}(
-            grid,
-            convert_to_float64(dt, units(:s)),
-            convert_to_float64(duration, units(:s)),
-            num_save,
-            verbose,
-            print_errors,
-            adaptive,
-            CFL,
-            convert_to_float64(min_dt, units(:s)),
-            convert_to_float64(max_dt, units(:s)),
-            max_small_steps,
-            current_control,
-        )
-    end
-end
-
+@public run_simulation
 
 function setup_simulation(
         config::Config, sim::SimParams;
@@ -95,26 +6,39 @@ function setup_simulation(
         restart::AbstractString = "",
     )
 
-    #check that Landmark uses the correct thermal conductivity
+    # check that Landmark uses the correct thermal conductivity
     if config.LANDMARK && !(config.conductivity_model isa LANDMARK_conductivity)
         error("LANDMARK configuration needs to use the LANDMARK thermal conductivity model.")
     end
 
-    fluids, fluid_ranges, species, species_range_dict, is_velocity_index = configure_fluids(config)
-    index = configure_index(fluids, fluid_ranges)
+    # We arrange the fluid containers in three different structures for convenience.
+    # First, an array of (;continuity, isothermal) for each propellant species.
+    # This is used in initialization and in computing boundary conditions.
+    fluids_by_propellant = [allocate_fluids(propellant, sim.grid.num_cells) for propellant in config.propellants]
+
+    # Second, a single NamedTuple of (;continuity, isothermal) for all propellants.
+    # This is used in the convective update.
+    continuity = vcat([x.continuity for x in fluids_by_propellant]...)
+    isothermal = vcat([x.isothermal for x in fluids_by_propellant]...)
+    fluid_containers = (; continuity, isothermal)
+
+    # Finally, a single flat array of fluid containers, which we use for reaction calculations.
+    fluid_array = vcat([[fluid.continuity..., fluid.isothermal...] for fluid in fluids_by_propellant]...)
+    species = [fl.species for fl in fluid_array]
 
     # load collisions and reactions
     ionization_reactions = load_ionization_reactions(
         config.ionization_model, unique(species);
         directories = config.reaction_rate_directories,
     )
-    ionization_reactant_indices = reactant_indices(ionization_reactions, species_range_dict)
-    ionization_product_indices = product_indices(ionization_reactions, species_range_dict)
+    ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_array)
+    ionization_product_indices = product_indices(ionization_reactions, fluid_array)
 
     excitation_reactions = load_excitation_reactions(
-        config.excitation_model, unique(species),
+        config.excitation_model, unique(species);
+        directories = config.reaction_rate_directories,
     )
-    excitation_reactant_indices = reactant_indices(excitation_reactions, species_range_dict)
+    excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
 
     electron_neutral_collisions = load_elastic_collisions(
         config.electron_neutral_model, unique(species),
@@ -122,7 +46,7 @@ function setup_simulation(
 
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
-    U, cache = allocate_arrays(grid, config)
+    cache = allocate_arrays(grid, config)
 
     # Load magnetic field
     thruster = config.thruster
@@ -162,6 +86,7 @@ function setup_simulation(
     # values from `config` and reinserts them into params.
     params = (;
         # non-concretely-typed, changes based on run, requires recompilation
+        # TODO: is this true anymore?
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
         simulation = sim,
@@ -169,9 +94,13 @@ function setup_simulation(
         iteration = [-1],
         dt = [dt],
         grid,
-        postprocess,
+        postprocess = if isnothing(postprocess)
+            Postprocess()
+        else
+            postprocess
+        end,
         # fluid bookkeeping - concretely-typed
-        index, cache, fluids, fluid_ranges, species_range_dict, is_velocity_index,
+        cache,
         # reactions - concretely-typed
         ionization_reactions,
         ionization_reactant_indices,
@@ -179,15 +108,14 @@ function setup_simulation(
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
-        # Physics stuff - concretely-typed
-        background_neutral_velocity = background_neutral_velocity(config),
-        background_neutral_density = background_neutral_density(config),
-        γ_SEE_max = 1 - 8.3 * sqrt(me / config.propellant.m),
         min_Te = min(config.anode_Tev, config.cathode_Tev),
+        fluid_containers,
+        fluid_array,
+        fluids_by_propellant,
     )
 
     # Initialize ion and electron variables
-    initialize!(U, params, config)
+    initialize!(params, config)
 
     # Initialize the anomalous collision frequency using a
     # two-zone Bohm approximation for the first iteration
@@ -195,15 +123,15 @@ function setup_simulation(
 
     if !isempty(restart)
         # Initialize the solution from a restart JSON file
-        initialize_from_restart!(U, params, restart)
+        initialize_from_restart!(params, restart)
     end
 
     # make values in params available for first timestep
     initialize_plume_geometry(params)
-    update_heavy_species!(U, params)
+    update_heavy_species!(params)
     update_electrons!(params, config)
 
-    return U, params
+    return params
 end
 
 function setup_simulation(
@@ -261,13 +189,13 @@ end
 
 """
     $(SIGNATURES)
-Given a state vector `U` and params struct generated by `setup_simulation`, run for provided `duration`, saving `nsave` snapshots.
+Given a params struct generated by `setup_simulation`, run for provided `duration`, saving `nsave` snapshots.
 """
-function run_from_setup(U, params, config)
+function run_from_setup(params, config)
     tspan = (0.0, params.simulation.duration)
     saveat = range(tspan[1], tspan[2], length = params.simulation.num_save)
 
-    sol_info = @timed solve(U, params, config, tspan; saveat)
+    sol_info = @timed solve(params, config, tspan; saveat)
     sol = sol_info.value
 
     # Print some diagnostic information
@@ -290,8 +218,8 @@ Returns a `Solution` object.
 - `restart`::String:An optional path to a JSON file containing plasma data. If non-empty, the solution will be restarted from that file.
 """
 function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
-    U, params = setup_simulation(config, sim; postprocess, restart, kwargs...)
-    return run_from_setup(U, params, config)
+    params = setup_simulation(config, sim; postprocess, restart, kwargs...)
+    return run_from_setup(params, config)
 end
 
 """
@@ -308,6 +236,6 @@ Run a Hall thruster simulation using the provided Config object.
 - `nsave`: How many frames to save.
 """
 function run_simulation(config::Config; kwargs...)
-    U, params = setup_simulation(config; kwargs...)
-    return run_from_setup(U, params, config)
+    params = setup_simulation(config; kwargs...)
+    return run_from_setup(params, config)
 end

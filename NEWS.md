@@ -4,6 +4,30 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.19.0
+
+### Internals
+- Refactor ion and neutral internals to use a new `FluidContainer` struct. This means that plasmas containing multiple neutral species are now supported. This work lays the groundwork for molecular propellants.
+- With the above changes, the performance of the code has been increased by 25-35% on average.
+
+### Propellant struct
+- There is a new [`Propellant`](@ref) struct used to specify neutral gas properties at the anode.
+
+### Configuration changes
+- `propellant` is now `propellants` and can by an array of `Propellant` objects.
+- Anode mass flow rates as well as neutral properties at anode (temperature, velocity, etc) are now specified inside of `Propellant` objects. When using a single propellant, we provide a backwards-compatible interface.
+
+### Postprocessing changes
+We have made several changes to stabilize the public interface and better isolate it from internal implementation details.
+- Added `Frame` and `SpeciesState` structs. See [Outputs](@ref) for more information.
+- No longer return the internal `params` struct in the `Solution` object.
+- Deprecating the old method of indexing by symbols. Instead, users should directly access fields of the `Frame` struct. A backwards-compatible interface is provided.
+
+## v0.18.7
+
+### Bug fixes
+- Make `config.magnetic_field_scale` work properly (it had previously done nothing, silently.)
+
 ## v0.18.6
 
 ### New features

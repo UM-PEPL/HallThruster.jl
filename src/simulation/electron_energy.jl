@@ -20,10 +20,11 @@ function update_electron_energy!(params, wall_loss_model, source_energy, dt)
     # Solve equation system using the Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    # Make sure Tev is positive, limit if below user-configured minumum electron temperature
+    # Make sure Tev is positive, limit if below minumum electron temperature
     limit_energy!(nϵ, ne, min_Te)
     update_temperature!(Tev, nϵ, ne, min_Te)
-    return update_pressure!(pe, nϵ, landmark)
+    update_pressure!(pe, nϵ, landmark)
+    return
 end
 
 function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
@@ -32,7 +33,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     explicit = 1.0 - implicit
     Q = cache.cell_cache_1
 
-    return @inbounds for i in 2:(grid.num_cells - 1)
+    @inbounds for i in 2:(grid.num_cells - 1)
         neL = ne[i - 1]
         ne0 = ne[i]
         neR = ne[i + 1]
@@ -126,6 +127,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
         bϵ[i] = nϵ[i] + dt * (Q[i] - explicit * F_explicit)
         bϵ[i] -= dt * flux * dlnA_dz
     end
+    return
 end
 
 function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
@@ -143,23 +145,26 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
         Aϵ.du[1] = -1.0 / ne[2]
     end
 
-    return bϵ[end] = 1.5 * Te_R * ne[end]
+    bϵ[end] = 1.5 * Te_R * ne[end]
+    return
 end
 
 function limit_energy!(nϵ, ne, min_Te)
-    return @inbounds for i in eachindex(nϵ)
+    @inbounds for i in eachindex(nϵ)
         if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
             nϵ[i] = 1.5 * min_Te * ne[i]
         end
     end
+    return
 end
 
 function update_temperature!(Tev, nϵ, ne, min_Te)
     # Update plasma quantities based on new density
-    return @inbounds for i in eachindex(Tev)
+    @inbounds for i in eachindex(Tev)
         # Compute new electron temperature
         Tev[i] = 2.0 / 3.0 * max(min_Te, nϵ[i] / ne[i])
     end
+    return
 end
 
 function update_pressure!(pe, nϵ, landmark)
@@ -168,7 +173,70 @@ function update_pressure!(pe, nϵ, landmark)
     else
         pe_factor = 2.0 / 3.0
     end
-    return @inbounds for i in eachindex(pe)
+    @inbounds for i in eachindex(pe)
         pe[i] = pe_factor * nϵ[i]
     end
+    return
+end
+
+#===============================================================================
+Electron energy source terms
+===============================================================================#
+
+function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indices, fluids)
+    (; νex, ϵ, ne, K) = cache
+    ncells = length(grid.cell_centers)
+
+    @. νex = 0.0
+    for (ind, rxn) in zip(reactant_indices, reactions)
+        dens = fluids[ind].density
+        inv_m = 1 / fluids[ind].species.element.m
+        for i in 2:(ncells - 1)
+            r = rate_coeff(rxn, ϵ[i])
+            ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
+            νex[i] += ndot / ne[i]
+            Q[i] += ndot * (rxn.energy - !landmark * K[i])
+        end
+    end
+
+    return nothing
+end
+
+function ohmic_heating!(Q, cache, landmark)
+    (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
+    # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
+    # drift (kinetic energy) into thermal energy
+    if (landmark)
+        # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
+        # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
+        @. Q = ne * ue * ∇ϕ
+    else
+        # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
+        # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
+        @. Q = 2 * ne * K * νe + ue * ∇pe
+    end
+    return nothing
+end
+
+function source_electron_energy!(Q, params, wall_loss_model)
+    (; cache, landmark, grid, excitation_reactions) = params
+    (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
+
+    # compute ohmic heating
+    ohmic_heating!(ohmic_heating, cache, landmark)
+
+    # add excitation losses to total inelastic losses
+    excitation_losses!(
+        inelastic_losses, cache, landmark, grid,
+        excitation_reactions, params.excitation_reactant_indices,
+        params.fluid_array
+    )
+
+    # compute wall losses
+    wall_power_loss!(wall_losses, wall_loss_model, params)
+
+    # Compute net energy source, i.e heating minus losses
+    @. Q = ohmic_heating - ne * wall_losses - inelastic_losses
+
+    return Q
 end
