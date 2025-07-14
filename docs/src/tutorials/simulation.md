@@ -135,8 +135,7 @@ DocTestSetup = quote
         thruster = thruster,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
-        anode_mass_flow_rate = 5e-6,
-        propellant = het.Xenon,
+        propellants = [het.Propellant(het.Xenon, flow_rate_kg_s=5e-6)],
     )
 
     simparams = het.SimParams(
@@ -199,34 +198,44 @@ thruster = het.Thruster(
 # output
 
 HallThruster.Thruster("SPT-100", HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233), HallThruster.MagneticField("bfield_spt100.csv", [0.00023880597014925425, 0.0009552238805970153, 0.002746268656716417, 0.00453731343283582, 0.006208955223880597, 0.007641791044776119, 0.008716417910447763, 0.009791044776119404, 0.010985074626865671, 0.011820895522388061  …  0.06435820895522387, 0.06698507462686568, 0.06985074626865673, 0.07271641791044776, 0.07582089552238806, 0.07976119402985075, 0.08429850746268656, 0.08811940298507463, 0.09170149253731344, 0.09504477611940298], [0.0006769662921348278, 0.0007050561797752805, 0.001014044943820229, 0.001519662921348315, 0.0021376404494382016, 0.002867977528089892, 0.0036264044943820246, 0.00441292134831461, 0.005480337078651688, 0.006266853932584273  …  0.004693820224719109, 0.0043005617977528166, 0.003879213483146078, 0.003514044943820238, 0.003148876404494391, 0.0027837078651685512, 0.0023904494382022586, 0.002109550561797763, 0.0019129213483146217, 0.0017443820224719263]), false)
+
 ```
 
 Now, we can set the rest of the options in `Config`.
 We'll use a discharge voltage of 300 V, a mass flow rate of 5 milligrams per second, and a domain length of 8 cm.
-We will also explicitly specify that the propellant is xenon.
+We will also explicitly specify that the propellant is xenon and specify the mass flow rate and a maximum charge state of one.
+Note that multiple propellants can be provided, so we can run the thruster on propellant mixtures.
 
-```julia
+```jldoctest; output=false
 config = het.Config(
     thruster = thruster,
     domain = (0.0, 0.08),
     discharge_voltage = 300.0,
-    anode_mass_flow_rate = 5e-6,
-    propellant = het.Xenon,
+    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6, max_charge=1)],
 )
+
+# output
+
+HallThruster.Config{HallThruster.TwoZoneBohm, HallThruster.Mitchner, HallThruster.WallSheath, HallThruster.DefaultInitialization, Returns{Float64}, Returns{Float64}}(HallThruster.Thruster("SPT-100", HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233), HallThruster.MagneticField("bfield_spt100.csv", [0.00023880597014925425, 0.0009552238805970153, 0.002746268656716417, 0.00453731343283582, 0.006208955223880597, 0.007641791044776119, 0.008716417910447763, 0.009791044776119404, 0.010985074626865671, 0.011820895522388061  …  0.06435820895522387, 0.06698507462686568, 0.06985074626865673, 0.07271641791044776, 0.07582089552238806, 0.07976119402985075, 0.08429850746268656, 0.08811940298507463, 0.09170149253731344, 0.09504477611940298], [0.0006769662921348278, 0.0007050561797752805, 0.001014044943820229, 0.001519662921348315, 0.0021376404494382016, 0.002867977528089892, 0.0036264044943820246, 0.00441292134831461, 0.005480337078651688, 0.006266853932584273  …  0.004693820224719109, 0.0043005617977528166, 0.003879213483146078, 0.003514044943820238, 0.003148876404494391, 0.0027837078651685512, 0.0023904494382022586, 0.002109550561797763, 0.0019129213483146217, 0.0017443820224719263]), false), (0.0, 0.08), 300.0, HallThruster.Propellant[HallThruster.Propellant(Xenon, 5.0e-6, 150.0, 500.0, 1000.0, 1)], 0.0, :sheath, 2.0, 2.0, HallThruster.TwoZoneBohm(0.00625, 0.0625), HallThruster.WallSheath(HallThruster.WallMaterial("Boron Nitride Silicon Dioxide", 40.0, 0.54), 1.0), HallThruster.Mitchner(), true, false, 0.0, 100.0, 1.0, false, false, 1.0, 1.0, 0.0025000000000000005, true, HallThruster.DefaultInitialization(-1.0, 2.0e17, 1.0e18), 1.0, String[], 0, false, :Lookup, :Lookup, :Lookup, Returns{Float64}(0.0), Returns{Float64}(0.0))
+
 ```
 
 As with `Geometry1D`, units may be provided here using `Unitful` or `DynamicQuantities`, e.g
 
-```julia
+```jldoctest; output=false
 using Unitful
 
 config = het.Config(
     thruster = thruster,
     domain = (0.0u"cm", 8.0u"cm"),
     discharge_voltage = 300.0u"V",
-    anode_mass_flow_rate = 5.0u"mg/s",
-    propellant = het.Xenon,
+    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5u"mg/s", max_charge=1)],
 )
+
+# output
+
+HallThruster.Config{HallThruster.TwoZoneBohm, HallThruster.Mitchner, HallThruster.WallSheath, HallThruster.DefaultInitialization, Returns{Float64}, Returns{Float64}}(HallThruster.Thruster("SPT-100", HallThruster.Geometry1D(0.025, 0.0345, 0.05, 0.004114700978039233), HallThruster.MagneticField("bfield_spt100.csv", [0.00023880597014925425, 0.0009552238805970153, 0.002746268656716417, 0.00453731343283582, 0.006208955223880597, 0.007641791044776119, 0.008716417910447763, 0.009791044776119404, 0.010985074626865671, 0.011820895522388061  …  0.06435820895522387, 0.06698507462686568, 0.06985074626865673, 0.07271641791044776, 0.07582089552238806, 0.07976119402985075, 0.08429850746268656, 0.08811940298507463, 0.09170149253731344, 0.09504477611940298], [0.0006769662921348278, 0.0007050561797752805, 0.001014044943820229, 0.001519662921348315, 0.0021376404494382016, 0.002867977528089892, 0.0036264044943820246, 0.00441292134831461, 0.005480337078651688, 0.006266853932584273  …  0.004693820224719109, 0.0043005617977528166, 0.003879213483146078, 0.003514044943820238, 0.003148876404494391, 0.0027837078651685512, 0.0023904494382022586, 0.002109550561797763, 0.0019129213483146217, 0.0017443820224719263]), false), (0.0, 0.08), 300.0, HallThruster.Propellant[HallThruster.Propellant(Xenon, 5.0e-6, 150.0, 500.0, 1000.0, 1)], 0.0, :sheath, 2.0, 2.0, HallThruster.TwoZoneBohm(0.00625, 0.0625), HallThruster.WallSheath(HallThruster.WallMaterial("Boron Nitride Silicon Dioxide", 40.0, 0.54), 1.0), HallThruster.Mitchner(), true, false, 0.0, 100.0, 1.0, false, false, 1.0, 1.0, 0.0025000000000000005, true, HallThruster.DefaultInitialization(-1.0, 2.0e17, 1.0e18), 1.0, String[], 0, false, :Lookup, :Lookup, :Lookup, Returns{Float64}(0.0), Returns{Float64}(0.0))
+
 ```
 
 ## Run
@@ -297,8 +306,10 @@ These are
 - `retcode`: The return code, described above.
 - `t`: A `Vector` of times at which the simulation state is saved. The length of the vector is `SimParams.num_save`
 - `frames`: A `Vector` of `NamedTuple`s containing plasma properties at each of the times in `t`. The length of the vector is `SimParams.num_save`
-- `params`: A NamedTuple containing simulation parameters, the computational grid, and more.
+- `grid`: A `Grid` object containing the cell and edge locations for the simulation
 - `config`: the `Config` we ran the simulation with
+- `simulation`: the `SimParams` we ran the simulation with
+- `postprocessing`: the `Postprocessing` object we used, if we used one.
 - `error`: A string containing any errors that occurred, along with traceback information. This is empty if `retcode` is not `:error`
 
 We can extract some useful global metrics from a solution, like thrust, discharge_current, and anode_efficiency.
@@ -308,6 +319,7 @@ thrust = het.thrust(solution)
 discharge_current = het.discharge_current(solution)
 anode_eff = het.anode_eff(solution)
 ```
+
 These functions return a vector of thrusts or discharge currents at each of the times in `solution.t`.
 There are serveral other functions that act analogously, computing efficiencies or other global metrics.
 A full listing of these can be found on the [Postprocessing](../reference/postprocessing.md) page.
@@ -371,13 +383,18 @@ For instance, if we want to extract the time-averaged ion velocity of singly-cha
 
 ```julia
 avg = het.time_average(solution, 0.5u"ms")
-
-ui_1 = avg[:ui, 1][]
+ui_1 = avg.frames[].ions[:Xe][1].u
 ```
 
-Here, `:ui` is a symbol telling `HallThruster` what field quantitity we want and `1` indicates that we want singly-charged ions.
+Here, we use `:Xe` to specify which ion type we want and `1` indicates that we want singly-charged ions.
+Electron properties can be obtained directly from the frame, as shown below.
 
-We can plot the extracted velocity using a plotting package like [Makie](https://docs.makie.org/stable/).
+```julia
+Te = avg.frames[].Tev   # electron temp in eV
+E = avg.frames[].E      # electric field in V/m
+```
+
+We can plot the extracted properties using a plotting package like [Makie](https://docs.makie.org/stable/).
 
 ```julia
 using CairoMakie: Makie as mk
@@ -385,10 +402,10 @@ using CairoMakie: Makie as mk
 avg = het.time_average(solution, 0.5u"ms")
 
 # extract the cell centers in meters, and multiply to convert to cm
-z_cm = avg[:z] .* 100
+z_cm = avg.grid.cell_centers .* 100
 
 # extract the ion velocity and convert to km/s
-ui_km_s = avg[:ui, 1][] ./ 1000
+ui_km_s = avg.frames[].ions[:Xe][1].u ./ 1000
 
 f, ax, ln = mk.lines(
     z_cm, ui_km_s,
@@ -401,15 +418,9 @@ display(f)
 ```
 ![](../assets/tutorial_ui.svg)
 
-In the above, you can see that we used the same syntax to extract the cell centers of the grid using `avg[:z]`.
 
-Many other parameters can be extracted this way, including
-- the magnetic field (`:B`)
-- the electron temperature (`:Tev`)
-- the plasma density (`:ne`)
-- the anomalous collision frequency (`:nu_anom`)
-
-...and more! See [Solutions](@ref) for a full list.
+Many other parameters can be extracted this way, including neutral and electron properties.
+See [Outputs](@ref) for a full list.
 
 ## Conclusion
 

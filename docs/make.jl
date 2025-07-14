@@ -54,6 +54,7 @@ makedocs(
                 "Wall loss models" => "wall_loss_models.md",
                 "Thermal conductivity models" => "electron_thermal_conductivity.md",
                 "Collisions and reactions" => "collisions.md",
+                "Internals" => "internals.md",
             ]
         ),
     ],

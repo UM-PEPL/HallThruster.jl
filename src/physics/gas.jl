@@ -142,6 +142,14 @@ const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
 #=============================================================================
  Propellant
 ==============================================================================#
+"""
+    $(TYPEDEF)
+Defines a propellant flowing through the thruster anode.
+In addition to the neutral gas being used, the user specifies the anode mass flow rate and (optionally) the maximum charge state and temperature/velocity of the gas.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct Propellant
     """
     A `Gas`. See [Propellants](propellants.md) for more. **Default:** `Xenon`.

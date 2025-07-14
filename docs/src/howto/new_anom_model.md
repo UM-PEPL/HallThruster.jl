@@ -74,7 +74,6 @@ Now, we define the behavior of the model in a function, just as we did for `Bohm
 Since the model is based on assuming the wave energy convects with the ions, we will use upwind differencing for the gradient.
 
 ```julia
-# TODO: fix ui[] reference to use fluid containers
 function (model::LafleurModel)(νan, params, config)
     (;grid, cache) = params
     z = grid.cell_centers
@@ -243,7 +242,7 @@ duration = nsteps * dt
 simparams = SimParams(
     adaptive = false,
     nsave = nsteps,
-    grid = HallThruster.EvenGrid(200)
+    grid = HallThruster.EvenGrid(200),
     dt = dt, duration = duration,
 )
 ncells = 200
@@ -252,7 +251,7 @@ ncells = 200
 solution = HallThruster.run_simulation(config, simparams)
 
 # Extract variables from solution
-z = solution[:z]
+z = solution.grid.cell_centers
 u = [frame.anom_variables[1] for frame in solution.frames]
 ```
 

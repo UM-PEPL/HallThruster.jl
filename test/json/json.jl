@@ -46,6 +46,12 @@ out = JSON3.read(outfile)
 @test haskey(out.output, "retcode")
 @test haskey(out.output, "average")
 @test haskey(out.output, "frames")
+@test haskey(out.output.average, "ni")
+@test haskey(out.output.average, "niui")
+@test haskey(out.output.average, "ui")
+@test haskey(out.output.average, "nn")
+@test haskey(out.output.average, "ions")
+@test haskey(out.output.average, "neutrals")
 
 # Test that reading the output file produces the same inputs we originally ran the simulation with
 new_sol = het.run_simulation(outfile)
@@ -58,5 +64,35 @@ new_sol = het.run_simulation(outfile)
 # since it runs for an additional `duration`
 restart = het.run_simulation(outfile, restart = outfile)
 @test !isapprox(new_sol.frames[end].discharge_current[], restart.frames[end].discharge_current[])
+
+#==============================================================================
+    Multiple propellants
+==============================================================================#
+json_path = joinpath(test_path, "input_multiprop.json")
+sol = het.run_simulation(json_path)
+config = sol.config
+@test length(config.propellants) == 2
+prop1 = config.propellants[1]
+prop2 = config.propellants[2]
+@test prop1.gas == het.Xenon
+@test prop2.gas == het.Krypton
+
+outfile = "output.json"
+@test ispath(outfile)
+
+out = JSON3.read(outfile);
+output = out.output
+@test haskey(output.average, "ions")
+@test haskey(output.average, "neutrals")
+@test !haskey(output.average, "nn")
+@test !haskey(output.average, "ni")
+@test !haskey(output.average, "niui")
+@test !haskey(output.average, "ui")
+for prop in config.propellants
+    prop_str = string(prop.gas.short_name)
+    @test haskey(output.average.ions, prop_str)
+    @test haskey(output.average.neutrals, prop_str)
+    @test length(output.average.ions[prop_str]) == prop.max_charge
+end
 
 rm(outfile, force = true)

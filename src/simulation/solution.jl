@@ -1,15 +1,23 @@
 @public Solution, SpeciesState, alternate_field_names, field_names
 
+"""
+$(TYPEDEF)
+
+The properties of a heavy species (neutrals or ions).
+
+# Fields
+$(TYPEDFIELDS)
+"""
 struct SpeciesState
-    # Number density
+    """Number density (1/m^3)"""
     n::Vector{Float64}
-    # Number flux
+    """Number flux (1/m^2 s)"""
     nu::Vector{Float64}
-    # Avg velocity
+    """Average velocity (m/s)"""
     u::Vector{Float64}
-    # Mass
+    """Molecular weight (kg)"""
     m::Float64
-    # Charge number
+    """Charge number"""
     Z::Int
     function SpeciesState(n::Int, m::Float64, Z::Int)
         return new(zeros(n), zeros(n), zeros(n), m, Z)
@@ -46,33 +54,71 @@ function _get_species_states(fluids_by_propellant)
     return neutrals, ions
 end
 
+"""
+$(TYPEDEF)
+
+A snapshot of the simulation state at a single time, obtained by indexing the `frames` field of a `Solution` object.
+Both neutral and ion species properties are stored as [`SpeciesState`](@ref) objects in a dictionary.
+To access one of these objects, index by the symbol of that propellant and (if an ion species) the charge state.
+For example, the number density of doubly-charged Xenon would be accessed as `frame.ions[:Xe][1].n`.
+
+# Fields
+$(TYPEDFIELDS)
+"""
 @kwdef struct Frame
+    """Dictionary containing neutral species. Indexed by that species' symbol."""
     neutrals::OrderedDict{Symbol, SpeciesState}
+    """Dictionary containing ion species. Indexed by the species' symbol, followed by charge state."""
     ions::OrderedDict{Symbol, Vector{SpeciesState}}
+    """Magnetic field strength (T)"""
     B::Vector{Float64}
+    """Plasma density (1/m^3)"""
     ne::Vector{Float64}
+    """Electron velocity (m/s)"""
     ue::Vector{Float64}
+    """Ion current (A/m^2)"""
     ji::Vector{Float64}
+    """Electric field (V/m)"""
     E::Vector{Float64}
+    """Electron temperature (eV)"""
     Tev::Vector{Float64}
+    """Electron pressure (eV/m^3)"""
     pe::Vector{Float64}
+    """Electron pressure gradient (eV/m^4)"""
     grad_pe::Vector{Float64}
+    """Electrostatic potential (V)"""
     potential::Vector{Float64}
+    """Electron mobility"""
     mobility::Vector{Float64}
+    """Anomalous collision frequency (1/s)"""
     nu_an::Vector{Float64}
+    """Electron-neutral collision frequency (1/s)"""
     nu_en::Vector{Float64}
+    """Electron-ion collision frequency (1/s)"""
     nu_ei::Vector{Float64}
+    """Electron-wall collision frequency (1/s)"""
     nu_wall::Vector{Float64}
+    """Total electron classical collision frequency (1/s)"""
     nu_class::Vector{Float64}
+    """Total electron ionization collision frequency (1/s)"""
     nu_iz::Vector{Float64}
+    """Total electron excitation collision frequency (1/s)"""
     nu_ex::Vector{Float64}
+    """Total electron momentum transfer collision frequency (1/s)"""
     nu_e::Vector{Float64}
+    """Cross-sectional area of discharge (m^2)"""
     channel_area::Vector{Float64}
+    """Cross sectional area gradient (m^2 / m)"""
     dA_dz::Vector{Float64}
+    """Tangent of plume divergence angle"""
     tan_div_angle::Vector{Float64}
+    """Auxilliary anomalous transport variable caches"""
     anom_variables::Vector{Vector{Float64}}
+    """Anomalous transport multiplier from PID controller"""
     anom_multiplier::Array{Float64, 0}
+    """Discharge current (A)"""
     discharge_current::Array{Float64, 0}
+    """SImulation timestep (s)"""
     dt::Array{Float64, 0}
 end
 
@@ -118,7 +164,7 @@ or indexed to extract specific values.
 
 # Indexing
 There are a few ways to index a solution.
-First, you can extract a solution containing a single frame by indexing the `Solution` by an integer.
+First, you can extract a solution containing a single `Frame` by indexing the `Solution` by an integer.
 
 ```jldoctest; setup = :(using HallThruster: HallThruster as het; config = het.Config(discharge_voltage = 300, thruster = het.SPT_100, anode_mass_flow_rate=5e-6, domain = (0.0, 0.08)); simparams = het.SimParams(dt = 5e-9, grid = het.EvenGrid(50), duration = 1e-3, num_save = 101, verbose=false); solution = het.run_simulation(config, simparams))
 julia> solution = het.run_simulation(config, simparams)
@@ -139,20 +185,18 @@ Hall thruster solution with 51 saved frames (retcode: success, end time: 0.001 s
 julia> solution[[1, 51, 101]] # get only frames 1, 51, 101
 Hall thruster solution with 3 saved frames (retcode: success, end time: 0.001 seconds)
 ```
-Lastly, you can index by a symbol or [Symbol, Integer] to get plasma data for all frames in that solution
-```julia
-solution[:ni, 1] 	# get ion density of first charge state for all frames
-solution[:ui] 		# get ion velocity for all charge states and frames
 
-# These return the same thing
-solution[:∇pe]
-solution[:grad_pe]
+Lastly, you can obtain plasma properties by indexing into the frames contained in the solution
+
+```jldoctest; setup = :(using HallThruster: HallThruster as het; config = het.Config(discharge_voltage = 300, thruster = het.SPT_100, anode_mass_flow_rate=5e-6, domain = (0.0, 0.08)); simparams = het.SimParams(dt = 5e-9, grid = het.EvenGrid(50), duration = 1e-3, num_save = 101, verbose=false); solution = het.run_simulation(config, simparams))
+julia> solution.frames[4].Tev;                   # Electron temperature at fourth frame
+
+julia> solution.frames[end].ions[:Xe][1].u;      # Ion velocity of Xenon+ at last frame
+
+julia> solution.frames[end].neutrals[:Xe].n;     # Number density of neutral Xenon
 ```
 
-For a list of valid fields to index by, call `HallThruster.valid_fields()`
-For a list of alternate names for fields containing special characters, call `HallThruster.alternate_field_names()`
-
-See the documentation for `Base.getindex(sol::Solution, field::Symbol)` and `Base.getindex(sol::Solution, field::Symbol, charge::Integer)` for more information.
+For a list of valid fields in a `Frame`, call `fieldnames(HallThruster.Frame)`
 
 # Fields
 $(TYPEDFIELDS)
@@ -164,7 +208,7 @@ struct Solution{T, C <: Config, CC <: CurrentController}
     """
     t::T
     """
-    A vector of frames, or snapshots of the simulation state, at the times specified in `t`
+    A vector of `Frame` objects representing snapshots of the simulation state, at the times specified in `t`
     """
     frames::Vector{Frame}
     """

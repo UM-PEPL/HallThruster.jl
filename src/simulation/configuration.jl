@@ -20,12 +20,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     discharge_voltage::Float64
     """
     The propellants to be used. See [Propellants](propellants.md) for more.
-    """
-    propellants::Vector{Propellant}
-    """
+
     ---
     # Optional fields
     ---
+    """
+    propellants::Vector{Propellant}
+    """
     The potential at the right boundary of the simulation. **Default:** `0`
     """
     cathode_coupling_voltage::Float64

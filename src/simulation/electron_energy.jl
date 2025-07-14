@@ -178,3 +178,65 @@ function update_pressure!(pe, nϵ, landmark)
     end
     return
 end
+
+#===============================================================================
+Electron energy source terms
+===============================================================================#
+
+function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indices, fluids)
+    (; νex, ϵ, ne, K) = cache
+    ncells = length(grid.cell_centers)
+
+    @. νex = 0.0
+    for (ind, rxn) in zip(reactant_indices, reactions)
+        dens = fluids[ind].density
+        inv_m = 1 / fluids[ind].species.element.m
+        for i in 2:(ncells - 1)
+            r = rate_coeff(rxn, ϵ[i])
+            ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
+            νex[i] += ndot / ne[i]
+            Q[i] += ndot * (rxn.energy - !landmark * K[i])
+        end
+    end
+
+    return nothing
+end
+
+function ohmic_heating!(Q, cache, landmark)
+    (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
+    # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
+    # drift (kinetic energy) into thermal energy
+    if (landmark)
+        # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
+        # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
+        @. Q = ne * ue * ∇ϕ
+    else
+        # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
+        # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
+        @. Q = 2 * ne * K * νe + ue * ∇pe
+    end
+    return nothing
+end
+
+function source_electron_energy!(Q, params, wall_loss_model)
+    (; cache, landmark, grid, excitation_reactions) = params
+    (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
+
+    # compute ohmic heating
+    ohmic_heating!(ohmic_heating, cache, landmark)
+
+    # add excitation losses to total inelastic losses
+    excitation_losses!(
+        inelastic_losses, cache, landmark, grid,
+        excitation_reactions, params.excitation_reactant_indices,
+        params.fluid_array
+    )
+
+    # compute wall losses
+    wall_power_loss!(wall_losses, wall_loss_model, params)
+
+    # Compute net energy source, i.e heating minus losses
+    @. Q = ohmic_heating - ne * wall_losses - inelastic_losses
+
+    return Q
+end

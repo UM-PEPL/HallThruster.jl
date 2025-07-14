@@ -4,35 +4,40 @@
     _EulerEquations
 end
 
-struct FluidContainer
-    # Conservative variables
-    density::Vector{Float64}
-    momentum::Vector{Float64}
+"""
+$(TYPEDEF)
 
-    # Time derivatives
+Struct containing necessary internal states and caches for solving the heavy species fluid equations and for interfacing with the electron solver.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct FluidContainer
+    """Mass density in kg/m^3"""
+    density::Vector{Float64}
+    """Momentum density in kg/m^2 s"""
+    momentum::Vector{Float64}
     dens_ddt::Vector{Float64}
     mom_ddt::Vector{Float64}
-
-    # Timestepping caches
     dens_cache::Vector{Float64}
     mom_cache::Vector{Float64}
-
-    # Edge states
     dens_L::Vector{Float64}
     dens_R::Vector{Float64}
     mom_L::Vector{Float64}
     mom_R::Vector{Float64}
-
-    # Fluxes
     flux_dens::Vector{Float64}
     flux_mom::Vector{Float64}
-
-    # Data
+    """Maximum wave speed for this species"""
     wave_speed::Array{Float64, 0}
+    """Maximum permissable timestep for this species"""
     max_timestep::Array{Float64, 0}
+    """The `Species` whose properties are stored in this struct"""
     species::Species
+    """The sound speed for this species"""
     sound_speed::Float64
+    """For neutral species, the constant advection speed of this species"""
     const_velocity::Float64
+    """The type of species (_ContinuityOnly or _IsothermalEuler)"""
     type::ConservationLawType
 
     function FluidContainer(type, species, num_cells; temp, vel = 0.0)
