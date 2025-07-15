@@ -18,11 +18,11 @@ const src_cpp = "$(@__DIR__)/anom.cpp"
 const obj_cpp = "$(@__DIR__)/anom_cpp.so"
 
 # Compile the source code for each case and load the necessary symbols
-compile(src_f90, obj_f90; compiler="gfortran")
+compile(src_f90, obj_f90; compiler = "gfortran")
 lib_f90 = Libdl.dlopen(obj_f90)
 two_zone_bohm_f90 = Libdl.dlsym(lib_f90, :two_zone_bohm)
 
-compile(src_cpp, obj_cpp; compiler="gcc")
+compile(src_cpp, obj_cpp; compiler = "gcc")
 lib_cpp = Libdl.dlopen(obj_cpp)
 two_zone_bohm_cpp = Libdl.dlsym(lib_cpp, :two_zone_bohm)
 
@@ -58,7 +58,7 @@ num_cells_ref = Ref(num_cells)
 
 expected = [
     (_z < channel_length ? c[1] : c[2]) * (q_e * _B / m_e)
-    for (_z, _B) in zip(z, B)
+        for (_z, _B) in zip(z, B)
 ]
 @test all(nu_an .≈ expected)
 
@@ -86,7 +86,7 @@ struct TwoZoneBohm_F90 <: het.AnomalousTransportModel
 end
 
 function (model::TwoZoneBohm_F90)(nu_an, params, _)
-    (;thruster, grid, cache) = params
+    (; thruster, grid, cache) = params
     channel_length = thruster.geometry.channel_length
     num_cells = length(grid.cell_centers)
 
@@ -106,7 +106,7 @@ model = TwoZoneBohm_F90((0.05, 0.5))
 
 config = het.Config(
     thruster = het.SPT_100,
-    propellants = [het.Propellant(het.Xenon, 5e-6)],
+    propellants = [het.Propellant(het.Xenon, 5.0e-6)],
     domain = (0.0, 0.08),
     discharge_voltage = 300.0,
     anom_model = model
@@ -120,7 +120,7 @@ model(params.cache.νan, params, nothing)
 nu_an_sim = params.cache.νan
 expected = [
     (_z < channel_length ? model.c[1] : model.c[2]) * (q_e * _B / m_e)
-    for (_z, _B) in zip(params.grid.cell_centers, params.cache.B)
+        for (_z, _B) in zip(params.grid.cell_centers, params.cache.B)
 ]
 
 @test all(expected .≈ nu_an_sim)
