@@ -20,3 +20,6 @@ test/*.png
 !docs/*.png
 run
 landmark_*.png
+
+*.mod
+*.so

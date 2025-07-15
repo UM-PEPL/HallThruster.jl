@@ -6,7 +6,7 @@ EditURL = "NEWS.md"
 
 ## v0.19.0
 
-### Internals
+### Internal changes
 - Refactor ion and neutral internals to use a new `FluidContainer` struct. This means that plasmas containing multiple neutral species are now supported. This work lays the groundwork for molecular propellants.
 - With the above changes, the performance of the code has been increased by 25-35% on average.
 

@@ -29,6 +29,7 @@ makedocs(
                 "Run a simulation from python" => "python.md",
                 "Add a new propellant" => "new_propellant.md",
                 "Implement an anomalous transport model" => "new_anom_model.md",
+                "Couple HallThruster.jl to C or Fortran" => "coupling.md",
             ]
         ),
         "Explanations" => section(

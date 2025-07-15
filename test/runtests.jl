@@ -1,7 +1,7 @@
 using SafeTestsets
-
 using Documenter
 using HallThruster
+
 
 doctest(HallThruster)
 
@@ -24,3 +24,4 @@ doctest(HallThruster)
 @safetestset "JSON" include("json/json.jl")
 @safetestset "Output regression" include("regression/test_regression.jl")
 @safetestset "Order verification" include("order_verification/test_ovs.jl")
+@safetestset "External coupling" include("external_coupling/anom.jl")
