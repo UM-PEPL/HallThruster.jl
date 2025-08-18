@@ -61,13 +61,13 @@ function reactant_indices(reactions, fluids)
 end
 
 function product_indices(reactions, fluids)
-    indices = zeros(Int, length(reactions))
+    indices = [Int[] for _ in eachindex(reactions)]
     for (i, reaction) in enumerate(reactions)
-        species = reaction.products[].symbol
-        for (j, fluid) in enumerate(fluids)
-            if fluid.species.symbol == species
-                indices[i] = j
-                break
+        for species in reaction.products
+            for (j, fluid) in enumerate(fluids)
+                if fluid.species.symbol == species.symbol
+                    push!(indices[i], j)
+                end
             end
         end
     end

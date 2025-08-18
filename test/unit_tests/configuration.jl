@@ -144,7 +144,9 @@ function test_multiple_propellants()
         @test length(ei_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
         for (rxn, reactant_ind, prod_ind) in zip(ei_reactions, ei_reactant_indices, ei_product_indices)
             @test rxn.reactant == species[reactant_ind]
-            @test rxn.products[] == species[prod_ind]
+            for (i, _prod_ind) in enumerate(prod_ind)
+                @test rxn.products[i] == species[_prod_ind]
+            end
         end
 
         # Neutral ingestion densities
