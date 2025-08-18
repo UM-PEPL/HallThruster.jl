@@ -1,7 +1,10 @@
-Base.@kwdef struct ExcitationReaction <: Reaction
-    energy::Float64
+struct ExcitationReaction <: Reaction
     reactant::Species
     rate_coeffs::Vector{Float64}
+    energy::Float64
+    function ExcitationReaction(energy::Float64, reactant::Species, rate_coeffs::Vector{Float64})
+        return new(reactant, rate_coeffs, energy)
+    end
 end
 
 LandmarkExcitationLookup() = :Landmark

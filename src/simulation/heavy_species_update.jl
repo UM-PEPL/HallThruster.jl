@@ -303,14 +303,14 @@ Heavy species source terms
 
 function apply_reactions!(fluid_arr, params)
     (;
-        ionization_reactions,
-        ionization_reactant_indices,
-        ionization_product_indices,
+        ei_reactions,
+        ei_reactant_indices,
+        ei_product_indices,
         cache, landmark,
     ) = params
 
     rxns = zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices,
+        ei_reactions, ei_reactant_indices, ei_product_indices,
     )
 
     return apply_reactions!(fluid_arr, rxns, cache, landmark)

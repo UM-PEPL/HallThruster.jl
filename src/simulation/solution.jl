@@ -18,9 +18,9 @@ struct SpeciesState
     """Molecular weight (kg)"""
     m::Float64
     """Charge number"""
-    Z::Int
-    function SpeciesState(n::Int, m::Float64, Z::Int)
-        return new(zeros(n), zeros(n), zeros(n), m, Z)
+    Z::Int8
+    function SpeciesState(n::Int, m::Float64, Z::Integer)
+        return new(zeros(n), zeros(n), zeros(n), m, Int8(Z))
     end
 end
 

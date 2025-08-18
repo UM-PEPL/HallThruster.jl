@@ -46,11 +46,10 @@ function rate_coeff(rxn::Reaction, energy)
     return lerp(r1, r2, energy - ind)
 end
 
-function _indices(symbol, reactions, fluids)
+function reactant_indices(reactions, fluids)
     indices = zeros(Int, length(reactions))
-
     for (i, reaction) in enumerate(reactions)
-        species::Symbol = getfield(reaction, symbol).symbol
+        species = reaction.reactant.symbol
         for (j, fluid) in enumerate(fluids)
             if fluid.species.symbol == species
                 indices[i] = j
@@ -61,10 +60,16 @@ function _indices(symbol, reactions, fluids)
     return indices
 end
 
-function reactant_indices(reactions, fluids)
-    return _indices(:reactant, reactions, fluids)
-end
-
 function product_indices(reactions, fluids)
-    return _indices(:product, reactions, fluids)
+    indices = zeros(Int, length(reactions))
+    for (i, reaction) in enumerate(reactions)
+        species = reaction.products[].symbol
+        for (j, fluid) in enumerate(fluids)
+            if fluid.species.symbol == species
+                indices[i] = j
+                break
+            end
+        end
+    end
+    return indices
 end

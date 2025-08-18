@@ -41,7 +41,7 @@ struct FluidContainer
     type::ConservationLawType
 
     function FluidContainer(type, species, num_cells; temp, vel = 0.0)
-        R = species.element.R
+        R = R0 / species.element.M
         γ = species.element.γ
         a = sqrt(γ * R * temp)
 
@@ -62,12 +62,6 @@ struct FluidContainer
             fill(max(abs(vel + a), abs(vel - a))), fill(0.0), species, a, vel, type
         )
     end
-end
-
-function temperature(f::FluidContainer)
-    R = f.species.element.R
-    γ = f.species.element.γ
-    return f.sound_speed^2 / (γ * R)
 end
 
 function allocate_fluids(p::Propellant, ncells)

@@ -1,24 +1,33 @@
-Base.@kwdef struct IonizationReaction <: Reaction
-    energy::Float64
+struct ElectronImpactReaction <: Reaction
     reactant::Species
-    product::Species
+    products::Vector{Species}
+    product_coeffs::Vector{UInt8}
     rate_coeffs::Vector{Float64}
+    energy::Float64
+end
+
+function ElectronImpactReaction(energy, reactant::Species, products::Vector{Species}, rate_coeffs)
+    return ElectronImpactReaction(reactant, products, ones(UInt8, length(products)), rate_coeffs, energy)
 end
 
 LandmarkIonizationLookup() = :Landmark
 IonizationLookup() = :Lookup
 
-function Base.show(io::IO, i::IonizationReaction)
+function Base.show(io::IO, i::ElectronImpactReaction)
     electron_input = "e-"
-    electron_output = string(i.product.Z - i.reactant.Z + 1) * "e-"
+    net_charge = sum(prod.Z for prod in i.products) - i.reactant.Z
+    electron_output = "$(net_charge == 0 ? "" : net_charge + 1)e-"
     reactant_str = string(i.reactant)
-    product_str = string(i.product)
     rxn_str = electron_input * " + " * reactant_str * " -> "
-    rxn_str *= electron_output * " + " * product_str
+    rxn_str *= electron_output
+    for prod in i.products
+        product_str = string(prod)
+        rxn_str *= " + $(product_str)"
+    end
     return print(io, rxn_str)
 end
 
-function load_ionization_reactions(
+function load_electron_impact_reactions(
         model::Symbol, species; directories = String[], kwargs...,
     )
     if model == :Landmark
@@ -33,10 +42,10 @@ function load_ionization_reactions(
         itp = LinearInterpolation(ϵ, k)
         xs = 0:1.0:255
         rate_coeffs = itp.(xs)
-        return [IonizationReaction(12.12, Xenon(0), Xenon(1), rate_coeffs)]
+        return [ElectronImpactReaction(12.12, Xenon(0), [Xenon(1)], rate_coeffs)]
     elseif model == :Lookup
         species_sorted = sort(species; by = x -> x.Z)
-        reactions = IonizationReaction[]
+        reactions = ElectronImpactReaction[]
         folders = [directories; REACTION_FOLDER]
 
         # Check to make sure we find at least one reaction involving this species
@@ -53,7 +62,7 @@ function load_ionization_reactions(
                         energy, rate_coeff = load_rate_coeffs(
                             reactant, product, "ionization", folder,
                         )
-                        reaction = IonizationReaction(energy, reactant, product, rate_coeff)
+                        reaction = ElectronImpactReaction(energy, reactant, [product], rate_coeff)
                         push!(reactions, reaction)
 
                         # Record that we found a reaction for both the reactant and product
@@ -75,7 +84,7 @@ function load_ionization_reactions(
 
     elseif model == :OVS
         # No ionization in OVS tests
-        return [IonizationReaction(12.12, Xenon(0), Xenon(1), [0.0, 0.0, 0.0])]
+        return [ElectronImpactReaction(12.12, Xenon(0), [Xenon(1)], [0.0, 0.0, 0.0])]
     else
         throw(ArgumentError("Invalid ionization model $(model). Select :Landmark or :Lookup"))
     end

@@ -18,17 +18,9 @@ struct Gas
     M::Float64
     """Mass of atom in kg"""
     m::Float64
-    """Specific heat at constant pressure"""
-    cp::Float64
-    """Specific heat at constant volume"""
-    cv::Float64
-    """Gas constant"""
-    R::Float64
     @doc"""
     	Gas(name, short_name; γ, M) -> Gas
     Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
-    Other gas properties, including gas constant, specific heats at constant pressure/volume, and
-    mass of atom/molecule in kg will are then computed.
 
     ```jldoctest;setup = :(using HallThruster: Gas)
     julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
@@ -36,12 +28,7 @@ struct Gas
     ```
     """ ->
     function Gas(name, short_name; γ, M)::Gas
-        R = R0 / M
-        m = M / NA
-        cp = γ / (γ - 1) * R
-        cv = cp - R
-
-        return new(name, Symbol(short_name), γ, M, m, cp, cv, R)
+        return new(name, Symbol(short_name), γ, M, M / NA)
     end
 end
 
@@ -73,10 +60,10 @@ Xe3+
 struct Species
     """The gas that forms the base of the species"""
     element::Gas
-    """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
-    Z::Int
     """The symbol of the species, i.e. `Symbol(Xe+)` for `Species(Xenon, 1)`"""
     symbol::Symbol
+    """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
+    Z::Int8
     @doc"""
     	Species(element::Gas, Z::Int) -> Species
     Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
@@ -86,15 +73,15 @@ struct Species
     true
     ```
     """ ->
-    function Species(element::Gas, Z::Int)::Species
-        return new(element, Z, Symbol(species_string(element, Z)))
+    function Species(element::Gas, Z::Integer)::Species
+        return new(element, Symbol(species_string(element, Z)), Int8(Z))
     end
 end
 
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 
-function species_string(element::Gas, Z::Int)
+function species_string(element::Gas, Z::Integer)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
     return string(element.short_name) * sign_str
@@ -121,10 +108,16 @@ Xenon gas
 const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
 
 """
+    Nitrogen::Gas
+Atomic nitrogen gas
+"""
+const Nitrogen = Gas("Nitrogen", "N"; γ = 5 / 3, M = 14.007)
+
+"""
 	MolecularNitrogen::Gas
 Molecular nitrogen gas
 """
-const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7 / 5, M = 28.0134)
+const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7 / 5, M = 28.014)
 
 """
     Bismuth::Gas

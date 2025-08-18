@@ -64,11 +64,6 @@ function test_configuration()
         neutral_fluid = params.fluid_containers.continuity[1]
         @test length(params.fluid_containers.continuity) == 1
         @test neutral_fluid.const_velocity == config.propellants[1].velocity_m_s
-        @test het.temperature(neutral_fluid) ≈ config.propellants[1].temperature_K
-
-        for ion_fluid in params.fluid_containers.isothermal
-            @test het.temperature(ion_fluid) ≈ config.propellants[1].ion_temperature_K
-        end
 
         # Check array sizes
         (;
@@ -144,12 +139,12 @@ function test_multiple_propellants()
         # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
         triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
 
-        (; ionization_reactions, ionization_reactant_indices, ionization_product_indices) = params
+        (; ei_reactions, ei_reactant_indices, ei_product_indices) = params
 
-        @test length(ionization_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
-        for (rxn, reactant_ind, prod_ind) in zip(ionization_reactions, ionization_reactant_indices, ionization_product_indices)
+        @test length(ei_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
+        for (rxn, reactant_ind, prod_ind) in zip(ei_reactions, ei_reactant_indices, ei_product_indices)
             @test rxn.reactant == species[reactant_ind]
-            @test rxn.product == species[prod_ind]
+            @test rxn.products[] == species[prod_ind]
         end
 
         # Neutral ingestion densities

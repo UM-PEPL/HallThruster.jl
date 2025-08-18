@@ -27,12 +27,12 @@ function setup_simulation(
     species = [fl.species for fl in fluid_array]
 
     # load collisions and reactions
-    ionization_reactions = load_ionization_reactions(
+    ei_reactions = load_electron_impact_reactions(
         config.ionization_model, unique(species);
         directories = config.reaction_rate_directories,
     )
-    ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_array)
-    ionization_product_indices = product_indices(ionization_reactions, fluid_array)
+    ei_reactant_indices = reactant_indices(ei_reactions, fluid_array)
+    ei_product_indices = product_indices(ei_reactions, fluid_array)
 
     excitation_reactions = load_excitation_reactions(
         config.excitation_model, unique(species);
@@ -102,9 +102,9 @@ function setup_simulation(
         # fluid bookkeeping - concretely-typed
         cache,
         # reactions - concretely-typed
-        ionization_reactions,
-        ionization_reactant_indices,
-        ionization_product_indices,
+        ei_reactions,
+        ei_reactant_indices,
+        ei_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,

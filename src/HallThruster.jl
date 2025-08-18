@@ -38,7 +38,7 @@ include("walls/wall_sheath.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
-include("collisions/ionization.jl")
+include("collisions/electronimpact.jl")
 include("collisions/excitation.jl")
 include("collisions/elastic.jl")
 include("collisions/collision_frequencies.jl")
