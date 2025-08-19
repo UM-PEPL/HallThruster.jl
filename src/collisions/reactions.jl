@@ -9,27 +9,33 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
     return fname
 end
 
-function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FOLDER)
-    rates_file = rate_coeff_filename(reactant, product, reaction_type, folder)
-    if ispath(rates_file)
-        energy, rates = open(rates_file) do io
-            if reaction_type == "ionization" || reaction_type == "excitation"
-                energy = parse(Float64, strip(split(readline(io), ':')[2]))
-            else
-                energy = 0.0
-            end
-            rates = readdlm(io, skipstart = 1)
-            energy, rates
-        end
-    else
-        throw(ArgumentError("$rates_file not found. This should normally be unreachable."))
+function read_rate_coeff_file(path, reaction_type)
+    if !ispath(path)
+        throw(ArgumentError("Rate coefficient file $path not found."))
     end
+
+    energy, rates = open(path) do io
+        if reaction_type != "elastic"
+            energy = parse(Float64, strip(split(readline(io), ':')[2]))
+        else
+            energy = 0.0
+        end
+        rates = readdlm(io, skipstart = 1)
+        energy, rates
+    end
+
+    # Interpolate on grid from 0 to 255 eV of mean electron energy
     ϵ = rates[:, 1]
     k = rates[:, 2]
     itp = LinearInterpolation(ϵ, k)
     xs = 0:1.0:255
     rate_coeffs = itp.(xs)
     return energy, rate_coeffs
+end
+
+function load_rate_coeffs(reactant, product, reaction_type, folder = REACTION_FOLDER)
+    rates_file = rate_coeff_filename(reactant, product, reaction_type, folder)
+    return read_rate_coeff_file(rates_file, reaction_type)
 end
 
 @inline lerp(a, b, t) = (1.0 - t) * a + t * b

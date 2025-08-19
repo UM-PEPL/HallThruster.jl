@@ -2,7 +2,7 @@ using SafeTestsets
 using Documenter
 using HallThruster
 
-#doctest(HallThruster)
+doctest(HallThruster)
 
 @safetestset "Thrusters" include("unit_tests/thrusters.jl")
 @safetestset "Limiters" include("unit_tests/limiters.jl")
