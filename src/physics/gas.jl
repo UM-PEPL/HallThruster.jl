@@ -111,13 +111,13 @@ const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
     Nitrogen::Gas
 Atomic nitrogen gas
 """
-const Nitrogen = Gas("Nitrogen", "N"; γ = 5 / 3, M = 14.007)
+const Nitrogen = Gas("Nitrogen", "N"; γ = 5 / 3, M = 14.0067)
 
 """
 	MolecularNitrogen::Gas
 Molecular nitrogen gas
 """
-const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7 / 5, M = 28.014)
+const MolecularNitrogen = Gas("Molecular Nitrogen", "N2"; γ = 7 / 5, M = 28.0134)
 
 """
     Bismuth::Gas
