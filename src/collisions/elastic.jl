@@ -1,5 +1,5 @@
 Base.@kwdef struct ElasticCollision <: Reaction
-    species::Species
+    reactant::Species
     rate_coeffs::Vector{Float64}
 end
 
@@ -18,24 +18,23 @@ function load_elastic_collisions(model::Symbol, species; directories = String[],
         folders = [directories; REACTION_FOLDER]
         product = nothing
         collision_type = "elastic"
+
         for i in 1:length(species)
             reactant = species_sorted[i]
             if reactant.Z > 0
                 break
             end
-            found = false
-            for folder in folders
-                filename = rate_coeff_filename(reactant, product, collision_type, folder)
-                if ispath(filename)
-                    _, rate_coeff = load_rate_coeffs(
-                        reactant, product, collision_type, folder,
-                    )
-                    reaction = HallThruster.ElasticCollision(reactant, rate_coeff)
-                    push!(reactions, reaction)
-                    found = true
-                    break
-                end
+
+            filename = rate_coeff_filename(reactant, product, collision_type, nothing)
+            filepath = find_file_in_dirs(filename, folders, cwd=false)
+
+            if isnothing(filepath)
+                continue
             end
+
+            _, rate_coeff = load_rate_coeff_file(filepath, collision_type)
+            reaction = HallThruster.ElasticCollision(reactant, rate_coeff)
+            push!(reactions, reaction)
         end
         return reactions
     else

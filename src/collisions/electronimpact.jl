@@ -13,16 +13,17 @@ end
 LandmarkIonizationLookup() = :Landmark
 IonizationLookup() = :Lookup
 
-function Base.show(io::IO, i::ElectronImpactReaction)
+function Base.show(io::IO, rxn::ElectronImpactReaction)
     electron_input = "e-"
-    net_charge = sum(prod.Z for prod in i.products) - i.reactant.Z
+    net_charge = sum(prod.Z for prod in rxn.products) - rxn.reactant.Z
     electron_output = "$(net_charge == 0 ? "" : net_charge + 1)e-"
-    reactant_str = string(i.reactant)
+    reactant_str = string(rxn.reactant)
     rxn_str = electron_input * " + " * reactant_str * " -> "
     rxn_str *= electron_output
-    for prod in i.products
+    for (prod, coeff) in zip(rxn.products, rxn.product_coeffs)
         product_str = string(prod)
-        rxn_str *= " + $(product_str)"
+        coeff_str = coeff == 1 ? "" : string(coeff)
+        rxn_str *= " + $(coeff_str)$(product_str)"
     end
     return print(io, rxn_str)
 end
@@ -50,27 +51,29 @@ function load_electron_impact_reactions(
 
         # Check to make sure we find at least one reaction involving this species
         reactions_found = zeros(Bool, length(species))
+        collision_type = "ionization"
 
         for i in 1:length(species)
             reactant = species_sorted[i]
 
             for j in (i + 1):length(species)
                 product = species_sorted[j]
-                for folder in folders
-                    filename = rate_coeff_filename(reactant, product, "ionization", folder)
-                    if ispath(filename)
-                        energy, rate_coeff = load_rate_coeffs(
-                            reactant, product, "ionization", folder,
-                        )
-                        reaction = ElectronImpactReaction(energy, reactant, [product], rate_coeff)
-                        push!(reactions, reaction)
 
-                        # Record that we found a reaction for both the reactant and product
-                        reactions_found[i] = true
-                        reactions_found[j] = true
-                        break
-                    end
+                filename = rate_coeff_filename(reactant, product, collision_type, nothing)
+                filepath = find_file_in_dirs(filename, folders, cwd=false)
+
+                if isnothing(filepath)
+                    continue
                 end
+
+                energy, rate_coeff = load_rate_coeff_file(filepath, collision_type)
+                reaction = ElectronImpactReaction(energy, reactant, [product], rate_coeff)
+
+                push!(reactions, reaction)
+
+                # Record that we found a reaction for both the reactant and product
+                reactions_found[i] = true
+                reactions_found[j] = true
             end
         end
 

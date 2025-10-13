@@ -81,11 +81,14 @@ end
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 
-function species_string(element::Gas, Z::Integer)
+function _species_string(short_name::String, Z::Integer)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
-    return string(element.short_name) * sign_str
+    sign_str = Z > 0 ? "($(sign_str))" : "" 
+    return short_name * sign_str
 end
+
+species_string(element::Gas, Z::Integer) = _species_string(string(element.short_name), Z)
 
 Base.string(s::Species) = string(s.symbol)
 
@@ -131,6 +134,13 @@ Mercury vapor
 """
 const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
 
+"""
+    GASES
+List of all built-in Gases. Users can of course provide their own if they want.
+"""
+const GASES = [
+    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury
+]
 
 #=============================================================================
  Propellant
@@ -172,7 +182,7 @@ struct Propellant
     function Propellant(;
             gas, flow_rate_kg_s, max_charge = 1,
             velocity_m_s = nothing, temperature_K = nothing,
-            ion_temperature_K = 1000.0,
+            ion_temperature_K = nothing,
         )
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
@@ -191,6 +201,10 @@ struct Propellant
             temperature_K = convert_to_float64(temperature_K, units(:K))
         end
 
+        if isnothing(ion_temperature_K)
+            ion_temperature_K = DEFAULT_ION_TEMPERATURE_K
+        end
+
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
@@ -200,6 +214,7 @@ end
 
 Propellant(gas; kwargs...) = Propellant(; gas, kwargs...)
 Propellant(gas, flow_rate_kg_s; kwargs...) = Propellant(; gas, flow_rate_kg_s, kwargs...)
+
 
 #=============================================================================
  Serialization

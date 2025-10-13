@@ -22,6 +22,25 @@ Convert a number to Float64, first converting it to the appropriate unit, if req
 """
 convert_to_float64(number::Number, @nospecialize unit::Any) = Float64(number)
 
+"""
+Look for a file in the provided directories, returning the full path to that file if found and nothing if not found.
+Set `cwd` to false to omit the current working directory.
+"""
+function find_file_in_dirs(file, directories = String[]; cwd = true)
+    if cwd && isfile(file)
+        return file
+    end
+
+    for dir in directories
+        full_path = joinpath(dir, file)
+        if isfile(full_path)
+            return full_path
+        end
+    end
+
+    return nothing
+end
+
 #============================================
     Basic statistics functions
 ============================================#

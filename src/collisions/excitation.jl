@@ -42,30 +42,32 @@ function load_excitation_reactions(
         xs = 0:1.0:255
         rate_coeffs = itp.(xs)
         return [ExcitationReaction(excitation_energy, Xenon(0), rate_coeffs)]
-    elseif model == :Lookup
-        species_sorted = sort(species; by = x -> x.Z)
-        reactions = ExcitationReaction[]
-        folders = [directories; REACTION_FOLDER]
-        product = nothing
-        for i in 1:length(species)
-            reactant = species_sorted[i]
-            for folder in folders
-                filename = rate_coeff_filename(reactant, product, "excitation", folder)
-                if ispath(filename)
-                    energy, rate_coeff = load_rate_coeffs(
-                        reactant, product, "excitation", folder,
-                    )
-                    reaction = HallThruster.ExcitationReaction(energy, reactant, rate_coeff)
-                    push!(reactions, reaction)
-                    break
-                end
-            end
-        end
     elseif model == :OVS
         # Rate coefficient for order verification studies
         Es = 0:1.0:255
         ks = ovs_rate_coeff_ex.(Es)
         return [ExcitationReaction(8.32, Xenon(0), ks)]
+    elseif model == :Lookup
+        species_sorted = sort(species; by = x -> x.Z)
+        reactions = ExcitationReaction[]
+        folders = [directories; REACTION_FOLDER]
+        product = nothing
+        collision_type = "excitation"
+
+        for i in 1:length(species)
+            reactant = species_sorted[i]
+
+            filename = rate_coeff_filename(reactant, product, collision_type, nothing)
+            filepath = find_file_in_dirs(filename, folders, cwd=false)
+
+            if isnothing(filepath)
+                continue
+            end
+
+            energy, rate_coeff = load_rate_coeff_file(filepath, collision_type)
+            reaction = HallThruster.ExcitationReaction(energy, reactant, rate_coeff)
+            push!(reactions, reaction)
+        end
     else
         throw(ArgumentError("Invalid excitation model $(model). Choose :None, :Landmark, or :Lookup."))
     end

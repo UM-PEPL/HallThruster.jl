@@ -24,12 +24,6 @@ rxn_I_III = het.ElectronImpactReaction(0.0, Xe_I, [Xe_III], r)
 @test het.rate_coeff_filename(Xe_0, nothing, "excitation") ==
     joinpath(het.REACTION_FOLDER, "excitation_Xe.dat")
 
-@test_throws(
-    ArgumentError,
-    het.load_rate_coeffs(Xe_II, Xe_0, "ionization")
-)
-@test !isnothing(het.load_rate_coeffs(Xe_0, Xe_II, "ionization"))
-
 Bi_0 = het.Bismuth(0)
 Bi_I = het.Bismuth(1)
 
