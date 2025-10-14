@@ -26,7 +26,7 @@ function load_elastic_collisions(model::Symbol, species; directories = String[],
             end
 
             filename = rate_coeff_filename(reactant, product, collision_type, nothing)
-            filepath = find_file_in_dirs(filename, folders, cwd=false)
+            filepath = find_file_in_dirs(filename, folders, cwd = false)
 
             if isnothing(filepath)
                 continue

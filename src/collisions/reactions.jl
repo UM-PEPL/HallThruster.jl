@@ -100,7 +100,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
 
                 type = reaction["type"]
                 rate_coeff_file = reaction["rate_coeff_file"]
-                rate_coeff_path = find_file_in_dirs(rate_coeff_file, directories, cwd=true)
+                rate_coeff_path = find_file_in_dirs(rate_coeff_file, directories, cwd = true)
 
                 if isnothing(rate_coeff_path)
                     error("Reaction rate coefficient file $(rate_coeff_file) not found in provided directories $(directories)!")
@@ -132,9 +132,9 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
 
                             push!(species_arr, target_species)
                             push!(coeff_arr, v)
-                        end 
+                        end
                     end
-                    
+
                     # Do some validation
                     if length(reactants) > 1
                         error("More than one reactant (excepting electrons) found for reaction $(reaction). Only single-reactant reactions are supported at present.")
@@ -151,7 +151,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     target_species_str = reaction["target_species"]
                     target_species_symbol = Symbol(target_species_str)
                     target_species = get(species_map, target_species_symbol, nothing)
-                    
+
                     if isnothing(target_species)
                         error("Species '$(target_species_str)' not found for reaction $(reaction).")
                     end
@@ -169,7 +169,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
             return ei_reactions, ex_reactions, en_reactions
         end
     end
-    
+
     # If we're here, a file was not specified or there are no reactions in the file.
     ei_reactions = load_electron_impact_reactions(iz_model, species; directories)
     ex_reactions = load_excitation_reactions(ex_model, species; directories)

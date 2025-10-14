@@ -84,7 +84,7 @@ Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 function _species_string(short_name::String, Z::Integer)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
-    sign_str = Z > 0 ? "($(sign_str))" : "" 
+    sign_str = Z > 0 ? "($(sign_str))" : ""
     return short_name * sign_str
 end
 
@@ -139,7 +139,7 @@ const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
 List of all built-in Gases. Users can of course provide their own if they want.
 """
 const GASES = [
-    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury
+    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury,
 ]
 
 #=============================================================================
