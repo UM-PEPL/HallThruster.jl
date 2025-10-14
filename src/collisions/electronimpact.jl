@@ -14,9 +14,9 @@ LandmarkIonizationLookup() = :Landmark
 IonizationLookup() = :Lookup
 
 function Base.show(io::IO, rxn::ElectronImpactReaction)
-    electron_input = "e-"
+    electron_input = "e(-)"
     net_charge = sum(prod.Z for prod in rxn.products) - rxn.reactant.Z
-    electron_output = "$(net_charge == 0 ? "" : net_charge + 1)e-"
+    electron_output = "$(net_charge == 0 ? "" : net_charge + 1)e(-)"
     reactant_str = string(rxn.reactant)
     rxn_str = electron_input * " + " * reactant_str * " -> "
     rxn_str *= electron_output

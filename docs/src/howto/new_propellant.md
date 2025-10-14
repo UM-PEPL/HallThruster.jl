@@ -1,10 +1,11 @@
 # Adding a new propellant
 
-!!! note
-    HallThruster only supports monatomic propellants at this time. Support for molecular propellants, such as iodine or carbon dioxide, may come in a future release.
-
 `HallThruster` allows users to add new propellants beyond those provided by the code.
-For instance, if you wanted to implement `Neon`, you first create an appropriate `Gas`, like so:
+
+## Monatomic propellants
+
+Traditionally, Hall thrusters have used monatomic propellants, especially noble gases (xenon and krypton).
+If you wanted to run a thruster simulation on neon, you would first create an appropriate `Gas`, like so:
 
 ```jldoctest; output=false
 using HallThruster: HallThruster as het
@@ -40,7 +41,7 @@ using HallThruster: HallThruster as het
 Neon = het.Gas("Neon", "Ne"; γ = 5/3, M = 20.1797)
 
 config = het.Config(
-    propellant = Neon,
+    propellants = het.Propellant(Neon, flow_rate_kg_s = 5e-6),
     reaction_rate_directories = ["~/reactions/neon_reaction_dir"]
     ... # other arguments
 )
@@ -54,4 +55,83 @@ These directories will be checked, in order, before the HallThruster.jl director
 For example, if we passed `reaction_rate_directories = ["reactions", "more_reactions"]`, the code will first look in `"reactions"`, then in `"more_reactions"`, before finally checking `"HallThruster.jl/reactions"`.
 An error will be emitted if the reaction rate files cannot be found.
 
-Note that you may need to tweak other settings in the `Config` and `SimParams` struct to get simulations using non-built-in propellants working well, as thrusters running on these propellants may exhibt very different stability and physical characteristics than the default parameters were designed to handle.
+Note that you may need to tweak other settings in the `Config` and `SimParams` struct to get simulations using non-built-in propellants working well, as thrusters running on these propellants may exhibt very different stability and physical characteristics than the default parameters were designed to handle. 
+ee [Configuration](@ref) for more details about these options.
+
+## Molecular propellants
+
+Hallthruster.jl also supports molecular propellants as well. These are handled through a `propellant_config` file passed to the `Config`.
+This replaces the `propellants` argument and will disable the automatic reaction network construction described above for monatomic propellants.
+The `propellant_config` is expected to be a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
+We suport three types of reactions: elastic/momentum transfer collisions, excitation reactions, and electron-impact reactions.
+These latter include disocciation, ionization, dissociative ionization, and the like.
+
+We do not provide any cross sections out of the box in HallThruster.jl for molecular species, but we show an example simple configuration file for nitrogen below.
+Note that if your provided species match any of HallThruster.jl's built-in species, the code will use the built-in species.
+For this, we check the provided symbol and mass, ignoring the specific heat ratio and full name.
+This means that these fields can be omitted if you are using built-in gases.
+Check `HallThruster.GASES` for a list of these
+Just as for normal propellants, you can specify the temperature, flow rate, and velocity of each neutral fluid.
+
+The reaction file paths are assumed to be relative to the current working directory, but other directories can be passed in using the `reaction_rate_directories` configuration argument.
+The file format is identical to that normally used for monatomic propellants.
+
+```toml
+[[species]]
+symbol = "N"
+name = "Nitrogen"
+max_charge = 1
+gamma = 1.666667
+mass = 14.0067
+flow_rate_kg_s = 1e-7
+temperature_K = 500.0
+
+[[species]]
+symbol = "N2"
+name = "Molecular Nitrogen"
+max_charge = 1
+gamma = 1.4
+mass = 28.0134
+flow_rate_kg_s = 5e-6
+temperature_K = 500.0
+
+#====================================
+# N reactions
+#====================================
+
+[[reactions]]
+type = "elastic"
+target_species = "N"
+rate_coeff_file = "elastic_N.csv"
+
+[[reactions]]
+type = "electron_impact"
+equation = "N + e -> N(+) + 2e"
+rate_coeff_file = "ionization_N.csv"
+
+#====================================
+# N2 reactions
+#====================================
+
+[[reactions]]
+type = "elastic"
+target_species = "N2"
+rate_coeff_file = "elastic_N2.csv"
+
+[[reactions]]
+type = "excitation"
+energy_eV = 9.37
+target_species = "N2"
+rate_coeff_file = "excitation_N2.csv"
+
+[[reactions]]
+type = "electron_impact"
+equation = "N2 + e -> N + N + e"
+rate_coeff_file = "dissociation_N2.csv"
+
+[[reactions]]
+type = "electron_impact"
+equation = "N2 + e -> N2(+) + 2e"
+rate_coeff_file = "ionization_N2.csv"
+
+```

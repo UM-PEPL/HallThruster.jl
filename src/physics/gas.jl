@@ -51,16 +51,16 @@ julia> Species(Xenon, 0)
 Xe
 
 julia> Species(Xenon, 1)
-Xe+
+Xe(+)
 
 julia> Species(Xenon, 3)
-Xe3+
+Xe(3+)
 ```
 """
 struct Species
     """The gas that forms the base of the species"""
     element::Gas
-    """The symbol of the species, i.e. `Symbol(Xe+)` for `Species(Xenon, 1)`"""
+    """The symbol of the species, i.e. `Symbol(Xe(+))` for `Species(Xenon, 1)`"""
     symbol::Symbol
     """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
     Z::Int8

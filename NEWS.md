@@ -4,6 +4,14 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.20.0
+
+### New features
+- Support for molecular propellants and more general electron impact reactions. See [`Adding a new propellant`](@ref) for more information
+
+### Internal changes
+- Charges species are now printed with the charge in parentheses (i.e. Xe(2+) instead of Xe2+). This is to make the reaction format print exactly as it is parsed, and to disambiguate charged molecular propellants.
+
 ## v0.19.0
 
 ### Internal changes

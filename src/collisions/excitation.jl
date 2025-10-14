@@ -11,10 +11,10 @@ LandmarkExcitationLookup() = :Landmark
 ExcitationLookup() = :Lookup
 
 function Base.show(io::IO, i::ExcitationReaction)
-    electron_input = "e-"
-    electron_output = "e-"
+    electron_input = "e(-)"
+    electron_output = "e(-)"
     reactant_str = string(i.reactant)
-    product_str = string(i.reactant) * "*"
+    product_str = string(i.reactant) * "(*)"
     rxn_str = electron_input * " + " * reactant_str * " -> "
     rxn_str *= electron_output * " + " * product_str
     return print(io, rxn_str)

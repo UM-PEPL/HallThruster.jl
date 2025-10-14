@@ -111,7 +111,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     reaction_rate_directories::Vector{String}
     """
-    Propellant/reaction config file, if specified
+    Propellant/reaction config file. Useful for specifying molecular propellant reaction networks. See [`Adding a new propellant`](@ref) for more information.
     """
     propellant_config::String
     """

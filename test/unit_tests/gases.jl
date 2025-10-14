@@ -7,10 +7,10 @@ include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 end
 @testset "Gas and species" begin
     @test repr(het.Krypton) == "Krypton"
-    @test repr(het.Species(het.Xenon, 1)) == "Xe+"
-    @test repr(het.Species(het.Xenon, 3)) == "Xe3+"
+    @test repr(het.Species(het.Xenon, 1)) == "Xe(+)"
+    @test repr(het.Species(het.Xenon, 3)) == "Xe(3+)"
     @test repr(het.Species(het.Xenon, 0)) == "Xe"
-    @test repr(het.Species(het.MolecularNitrogen, 1)) == "N2+"
+    @test repr(het.Species(het.MolecularNitrogen, 1)) == "N2(+)"
     @test repr(het.Species(het.MolecularNitrogen, 0)) == "N2"
 
     M = 5.0

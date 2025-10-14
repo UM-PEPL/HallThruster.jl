@@ -12,10 +12,10 @@ rxn_0_I = het.ElectronImpactReaction(0.0, Xe_0, [Xe_I], r)
 rxn_0_II = het.ElectronImpactReaction(0.0, Xe_0, [Xe_II], r)
 rxn_0_III = het.ElectronImpactReaction(0.0, Xe_0, [Xe_III], r)
 rxn_I_III = het.ElectronImpactReaction(0.0, Xe_I, [Xe_III], r)
-@test repr(rxn_0_I) == "e- + Xe -> 2e- + Xe+"
-@test repr(rxn_0_II) == "e- + Xe -> 3e- + Xe2+"
-@test repr(rxn_0_III) == "e- + Xe -> 4e- + Xe3+"
-@test repr(rxn_I_III) == "e- + Xe+ -> 3e- + Xe3+"
+@test repr(rxn_0_I) == "e(-) + Xe -> 2e(-) + Xe(+)"
+@test repr(rxn_0_II) == "e(-) + Xe -> 3e(-) + Xe(2+)"
+@test repr(rxn_0_III) == "e(-) + Xe -> 4e(-) + Xe(3+)"
+@test repr(rxn_I_III) == "e(-) + Xe(+) -> 3e(-) + Xe(3+)"
 
 @test het.rate_coeff_filename(Xe_0, Xe_II, "ionization") ==
     joinpath(het.REACTION_FOLDER, "ionization_Xe_Xe2+.dat")
@@ -80,7 +80,7 @@ lookup_2_rxns_Xe = het.load_electron_impact_reactions(
 
 # Excitation reactions
 ex_1 = het.ExcitationReaction(0.0, Xe_0, r)
-@test repr(ex_1) == "e- + Xe -> e- + Xe*"
+@test repr(ex_1) == "e(-) + Xe -> e(-) + Xe(*)"
 
 @test isempty(het.load_excitation_reactions(:Lookup, [Bi_0]))
 ex_rxns = het.load_excitation_reactions(:Lookup, [Xe_0])
@@ -109,4 +109,4 @@ iz_landmark_rxn = landmark_rxns[1]
 
 # More complex reactions
 rxn_test = het.ElectronImpactReaction(0.0, het.MolecularNitrogen(0), [het.Nitrogen(0), het.Nitrogen(0)], r)
-@test repr(rxn_test) == "e- + N2 -> e- + N + N"
+@test repr(rxn_test) == "e(-) + N2 -> e(-) + N + N"
