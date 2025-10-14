@@ -60,7 +60,7 @@ jobs:
         run: |
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.instantiate()'
+            Pkg.instantiate()
       - name: Run doctests
         run: |
           julia --color=yes --project=docs -e '
