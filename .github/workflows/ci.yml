@@ -54,17 +54,21 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
-      - run: |
-          julia --project=docs -e '
+      - uses: julia-actions/cache@v2
+      - name: Install dependencies
+        shell: julia --color=yes --project=docs {0}
+        run: |
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.instantiate()'
-      - run: |
-          julia --project=docs -e '
+            Pkg.instantiate()
+      - name: Run doctests
+        run: |
+          julia --color=yes --project=docs -e '
             using Documenter: doctest
             using HallThruster
             doctest(HallThruster)'
-      - run: julia --project=docs docs/make.jl
+      - name: Build and deploy
+        run: julia --color=yes --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

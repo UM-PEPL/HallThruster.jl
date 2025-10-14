@@ -303,14 +303,14 @@ Heavy species source terms
 
 function apply_reactions!(fluid_arr, params)
     (;
-        ionization_reactions,
-        ionization_reactant_indices,
-        ionization_product_indices,
+        ei_reactions,
+        ei_reactant_indices,
+        ei_product_indices,
         cache, landmark,
     ) = params
 
     rxns = zip(
-        ionization_reactions, ionization_reactant_indices, ionization_product_indices,
+        ei_reactions, ei_reactant_indices, ei_product_indices,
     )
 
     return apply_reactions!(fluid_arr, rxns, cache, landmark)
@@ -338,9 +338,11 @@ function apply_reactions!(fluids, rxns, cache, landmark)
 
     dt_max = Inf
     for (rxn, reactant_index, product_index) in rxns
-        reactant = fluids[reactant_index]
-        product = fluids[product_index]
-        _dt = apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+        # Temp storage for reaction calculations
+        rxn_cache = (cache.cell_cache_1, cache.cell_cache_2)
+
+        # Apply single reaction
+        _dt = apply_reaction!(fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
         dt_max = min(_dt, dt_max)
     end
 
@@ -348,33 +350,54 @@ function apply_reactions!(fluids, rxns, cache, landmark)
     return
 end
 
-function apply_reaction!(reactant, product, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
     dt_max = Inf
+    reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
 
-    @inbounds @simd for i in 2:(length(reactant.density) - 1)
+    # Extract temp caches
+    dens_cache, mom_cache = rxn_cache
+    ncells = length(dens_cache)
+
+    # Compute reaction rate and adjust reactant properties
+    @inbounds @simd for i in 2:(ncells - 1)
         r = rate_coeff(rxn, ϵ[i])
         ρ_reactant = reactant.density[i]
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
         dt_max = min(dt_max, ρ_reactant / ρdot)
         ndot = ρdot * inv_m
         νiz[i] += ndot / ne[i]
-
         inelastic_losses[i] += ndot * rxn.energy
 
         # Change in density due to ionization
         reactant.dens_ddt[i] -= ρdot
-        product.dens_ddt[i] += ρdot
+
+        # Store density changes in cache
+        dens_cache[i] = ndot
 
         if !landmark
-            # Momentum transfer due to ionization
             if reactant.type != _ContinuityOnly
+                # Momentum transfer due to ionization
                 reactant_velocity = reactant.momentum[i] / ρ_reactant
                 reactant.mom_ddt[i] -= ρdot * reactant_velocity
             end
 
-            product.mom_ddt[i] += ρdot * reactant_velocity
+            # Store momentum change in cache
+            mom_cache[i] = ndot * reactant_velocity
+        else
+            mom_cache[i] = 0.0
+        end
+    end
+
+    # Iterate products and add mass/momentum as needed
+    @inbounds for (prod_ind, prod_coeff) in zip(product_index, product_coeffs)
+        product = fluids[prod_ind]
+        prod_mass = product.species.element.m
+
+        @simd for i in 2:(ncells - 1)
+            product.dens_ddt[i] += prod_mass * prod_coeff * dens_cache[i]
+            product.mom_ddt[i] += prod_mass * prod_coeff * mom_cache[i]
         end
     end
 

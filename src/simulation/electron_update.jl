@@ -14,7 +14,8 @@ function update_electrons!(params, config, t = 0)
 
     # Add electron-neutral MEX collisions
     νen .= 0
-    for (coll, neutral) in zip(params.electron_neutral_collisions, params.fluid_containers.continuity)
+    for (i, coll) in zip(params.electron_neutral_indices, params.electron_neutral_collisions)
+        neutral = params.fluid_array[i]
         freq_electron_neutral!(νen, coll, neutral, Tev)
     end
 

@@ -111,6 +111,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     reaction_rate_directories::Vector{String}
     """
+    Propellant/reaction config file. Useful for specifying molecular propellant reaction networks. See [Adding a new propellant](@ref) for more information.
+    """
+    propellant_config::String
+    """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
@@ -187,6 +191,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             neutral_velocity = nothing,
             ion_temperature_K = DEFAULT_ION_TEMPERATURE_K,
             ncharge = 1,
+            # Alternate propellant specification through a file
+            propellant_config::String = "",
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
@@ -196,15 +202,19 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 
         # Set up propellants
         if isnothing(propellants)
-            if isnothing(anode_mass_flow_rate)
-                error("Must supply either a vector of propellants or an anode mass flow rate")
+            if isnothing(anode_mass_flow_rate) && length(propellant_config) == 0
+                error("Must supply one of:\n- A vector of propellants\n- A single `propellant` an `anode_mass_flow_rate`\nA `propellant_config` file.")
             end
-            prop = Propellant(
-                propellant, anode_mass_flow_rate;
-                max_charge = ncharge, velocity_m_s = neutral_velocity,
-                temperature_K = neutral_temperature_K, ion_temperature_K
-            )
-            propellants = [prop]
+            if length(propellant_config) > 0
+                propellants = load_propellant_config(propellant_config; directories = reaction_rate_directories)
+            else
+                prop = Propellant(
+                    propellant, anode_mass_flow_rate;
+                    max_charge = ncharge, velocity_m_s = neutral_velocity,
+                    temperature_K = neutral_temperature_K, ion_temperature_K
+                )
+                propellants = [prop]
+            end
         end
 
         # Convert to Float64 if using Unitful
@@ -255,6 +265,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             initial_condition,
             implicit_energy,
             reaction_rate_directories,
+            propellant_config,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -264,6 +275,49 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             source_energy,
         )
     end
+end
+
+function load_propellant_config(propellant_config; directories = String[], verbose = false)
+    propellant_config_path = find_file_in_dirs(propellant_config, directories)
+    if isnothing(propellant_config_path)
+        error("Propellant config file $(propellant_config) not found in current directory or any of the provided directories ($(directories))")
+    end
+
+    verbose && println("Loading propellant config $(propellant_config_path)")
+    file_contents = TOML.parsefile(propellant_config_path)
+
+    species = file_contents["species"]
+
+    props = Propellant[]
+
+    for gas_dict in species
+        name = gas_dict["name"]
+        symbol = gas_dict["symbol"]
+        mass = get(gas_dict, "mass", nothing)
+
+        gas = nothing
+        for builtin in GASES
+            if builtin.short_name == Symbol(symbol) && (isnothing(mass) || mass ≈ builtin.M)
+                gas = builtin
+                verbose && println("Found gas $(builtin) ($(symbol)) in built-in gases.")
+                break
+            end
+        end
+
+        if isnothing(gas)
+            gas = Gas(name, symbol, γ = gas_dict["gamma"], M = gas_dict["mass"])
+        end
+
+        velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
+        temperature_K = get(gas_dict, "temperature_K", nothing)
+        ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)
+        max_charge = get(gas_dict, "max_charge", 1)
+        flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
+
+        push!(props, Propellant(; gas, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+    end
+
+    return props
 end
 
 function params_from_config(config)

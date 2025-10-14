@@ -6,6 +6,7 @@ using DelimitedFiles: readdlm, writedlm
 using PrecompileTools: @compile_workload
 
 using JSON3
+using TOML
 using OrderedCollections
 
 # path to the HallThruster directory
@@ -38,7 +39,7 @@ include("walls/wall_sheath.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
-include("collisions/ionization.jl")
+include("collisions/electronimpact.jl")
 include("collisions/excitation.jl")
 include("collisions/elastic.jl")
 include("collisions/collision_frequencies.jl")

@@ -24,25 +24,21 @@ function setup_simulation(
 
     # Finally, a single flat array of fluid containers, which we use for reaction calculations.
     fluid_array = vcat([[fluid.continuity..., fluid.isothermal...] for fluid in fluids_by_propellant]...)
-    species = [fl.species for fl in fluid_array]
+    species = unique([fl.species for fl in fluid_array])
 
-    # load collisions and reactions
-    ionization_reactions = load_ionization_reactions(
-        config.ionization_model, unique(species);
-        directories = config.reaction_rate_directories,
-    )
-    ionization_reactant_indices = reactant_indices(ionization_reactions, fluid_array)
-    ionization_product_indices = product_indices(ionization_reactions, fluid_array)
 
-    excitation_reactions = load_excitation_reactions(
-        config.excitation_model, unique(species);
-        directories = config.reaction_rate_directories,
+    # Load reactions and collisions either from file or generate from species list
+    ei_reactions, excitation_reactions, electron_neutral_collisions = load_reactions(
+        config.propellant_config, species,
+        config.ionization_model, config.excitation_model, config.electron_neutral_model;
+        directories = config.reaction_rate_directories
     )
+
+    # Get reactant and product indices
+    ei_reactant_indices = reactant_indices(ei_reactions, fluid_array)
+    ei_product_indices = product_indices(ei_reactions, fluid_array)
     excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
-
-    electron_neutral_collisions = load_elastic_collisions(
-        config.electron_neutral_model, unique(species),
-    )
+    electron_neutral_indices = reactant_indices(electron_neutral_collisions, fluid_array)
 
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
@@ -77,7 +73,7 @@ function setup_simulation(
     # Simulation parameters
     # IMPORTANT: for effective precompilation, we do not include any types
     # in here that are non-concrete or likely to change between runs.
-    # For instance, any method that accepts a Config{...} will need to be recompiled for
+    # For instance, any method that accepts a Config{...} will be recompiled for
     # all definitions of {...}, regardless of whether it actually needs to be
     # Therefore, we do not include `config` in the `params` struct, instead
     # passing it around sparingly to the methods that really need it.
@@ -102,12 +98,13 @@ function setup_simulation(
         # fluid bookkeeping - concretely-typed
         cache,
         # reactions - concretely-typed
-        ionization_reactions,
-        ionization_reactant_indices,
-        ionization_product_indices,
+        ei_reactions,
+        ei_reactant_indices,
+        ei_product_indices,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
+        electron_neutral_indices,
         min_Te = min(config.anode_Tev, config.cathode_Tev),
         fluid_containers,
         fluid_array,

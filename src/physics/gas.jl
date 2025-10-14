@@ -18,17 +18,9 @@ struct Gas
     M::Float64
     """Mass of atom in kg"""
     m::Float64
-    """Specific heat at constant pressure"""
-    cp::Float64
-    """Specific heat at constant volume"""
-    cv::Float64
-    """Gas constant"""
-    R::Float64
     @doc"""
     	Gas(name, short_name; γ, M) -> Gas
     Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
-    Other gas properties, including gas constant, specific heats at constant pressure/volume, and
-    mass of atom/molecule in kg will are then computed.
 
     ```jldoctest;setup = :(using HallThruster: Gas)
     julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
@@ -36,12 +28,7 @@ struct Gas
     ```
     """ ->
     function Gas(name, short_name; γ, M)::Gas
-        R = R0 / M
-        m = M / NA
-        cp = γ / (γ - 1) * R
-        cv = cp - R
-
-        return new(name, Symbol(short_name), γ, M, m, cp, cv, R)
+        return new(name, Symbol(short_name), γ, M, M / NA)
     end
 end
 
@@ -64,19 +51,19 @@ julia> Species(Xenon, 0)
 Xe
 
 julia> Species(Xenon, 1)
-Xe+
+Xe(+)
 
 julia> Species(Xenon, 3)
-Xe3+
+Xe(3+)
 ```
 """
 struct Species
     """The gas that forms the base of the species"""
     element::Gas
-    """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
-    Z::Int
-    """The symbol of the species, i.e. `Symbol(Xe+)` for `Species(Xenon, 1)`"""
+    """The symbol of the species, i.e. `Symbol(Xe(+))` for `Species(Xenon, 1)`"""
     symbol::Symbol
+    """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
+    Z::Int8
     @doc"""
     	Species(element::Gas, Z::Int) -> Species
     Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
@@ -86,19 +73,22 @@ struct Species
     true
     ```
     """ ->
-    function Species(element::Gas, Z::Int)::Species
-        return new(element, Z, Symbol(species_string(element, Z)))
+    function Species(element::Gas, Z::Integer)::Species
+        return new(element, Symbol(species_string(element, Z)), Int8(Z))
     end
 end
 
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 
-function species_string(element::Gas, Z::Int)
+function _species_string(short_name::String, Z::Integer)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
-    return string(element.short_name) * sign_str
+    sign_str = Z > 0 ? "($(sign_str))" : ""
+    return short_name * sign_str
 end
+
+species_string(element::Gas, Z::Integer) = _species_string(string(element.short_name), Z)
 
 Base.string(s::Species) = string(s.symbol)
 
@@ -121,6 +111,12 @@ Xenon gas
 const Xenon = Gas("Xenon", "Xe"; γ = 5 / 3, M = 131.293)
 
 """
+    Nitrogen::Gas
+Atomic nitrogen gas
+"""
+const Nitrogen = Gas("Nitrogen", "N"; γ = 5 / 3, M = 14.0067)
+
+"""
 	MolecularNitrogen::Gas
 Molecular nitrogen gas
 """
@@ -138,6 +134,13 @@ Mercury vapor
 """
 const Mercury = Gas("Mercury", "Hg"; γ = 5 / 3, M = 200.59)
 
+"""
+    GASES
+List of all built-in Gases. Users can of course provide their own if they want.
+"""
+const GASES = [
+    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury,
+]
 
 #=============================================================================
  Propellant
@@ -179,7 +182,7 @@ struct Propellant
     function Propellant(;
             gas, flow_rate_kg_s, max_charge = 1,
             velocity_m_s = nothing, temperature_K = nothing,
-            ion_temperature_K = 1000.0,
+            ion_temperature_K = nothing,
         )
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
@@ -198,6 +201,10 @@ struct Propellant
             temperature_K = convert_to_float64(temperature_K, units(:K))
         end
 
+        if isnothing(ion_temperature_K)
+            ion_temperature_K = DEFAULT_ION_TEMPERATURE_K
+        end
+
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
@@ -207,6 +214,7 @@ end
 
 Propellant(gas; kwargs...) = Propellant(; gas, kwargs...)
 Propellant(gas, flow_rate_kg_s; kwargs...) = Propellant(; gas, flow_rate_kg_s, kwargs...)
+
 
 #=============================================================================
  Serialization
