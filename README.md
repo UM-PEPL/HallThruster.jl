@@ -24,9 +24,9 @@ This will install HallThruster.jl using Julia's package manager. For details on 
 > [!WARNING]
 > v0.18.0 is a breaking release, made as part of our effort to move toward v1.0.0 in the next few months.
 > Users may need to update their code to avoid errors.
-> Check out the [list of changes and removals](NEWS.md) to see how to migrate your code.
+> Check out the [list of changes and removals](https://um-pepl.github.io/HallThruster.jl/dev/NEWS/) to see how to migrate your code.
 
-A log of changes to the code from v0.18.0 onward can be found [here](NEWS.md).
+A log of changes to the code from v0.18.0 onward can be found [here](https://um-pepl.github.io/HallThruster.jl/dev/NEWS/).
 
 ## Contribution
 
