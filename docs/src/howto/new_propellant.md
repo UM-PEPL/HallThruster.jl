@@ -56,25 +56,26 @@ For example, if we passed `reaction_rate_directories = ["reactions", "more_react
 An error will be emitted if the reaction rate files cannot be found.
 
 Note that you may need to tweak other settings in the `Config` and `SimParams` struct to get simulations using non-built-in propellants working well, as thrusters running on these propellants may exhibt very different stability and physical characteristics than the default parameters were designed to handle. 
-ee [Configuration](@ref) for more details about these options.
+See [Configuration](@ref) for more details about these options.
 
 ## Molecular propellants
 
-Hallthruster.jl also supports molecular propellants as well. These are handled through a `propellant_config` file passed to the `Config`.
+Hallthruster.jl also supports molecular propellants.
+These are handled through a `propellant_config` file passed to the `Config`.
 This replaces the `propellants` argument and will disable the automatic reaction network construction described above for monatomic propellants.
 The `propellant_config` is expected to be a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
 We suport three types of reactions: elastic/momentum transfer collisions, excitation reactions, and electron-impact reactions.
-These latter include disocciation, ionization, dissociative ionization, and the like.
+These latter include disocciation, ionization, and dissociative ionization.
 
-We do not provide any cross sections out of the box in HallThruster.jl for molecular species, but we show an example simple configuration file for nitrogen below.
+We do not provide complete cross sections out-of-the box in HallThruster.jl for any molecular species, but we show an example configuration file for nitrogen below.
 Note that if your provided species match any of HallThruster.jl's built-in species, the code will use the built-in species.
-For this, we check the provided symbol and mass, ignoring the specific heat ratio and full name.
+To check this, we look at the provided symbol and mass, ignoring the specific heat ratio and full name.
 This means that these fields can be omitted if you are using built-in gases.
-Check `HallThruster.GASES` for a list of these
-Just as for normal propellants, you can specify the temperature, flow rate, and velocity of each neutral fluid.
+Check `HallThruster.GASES` for a list of the built-in gases.
+Just as for normal propellants, you can also specify the temperature, flow rate, and velocity of each neutral fluid.
 
 The reaction file paths are assumed to be relative to the current working directory, but other directories can be passed in using the `reaction_rate_directories` configuration argument.
-The file format is identical to that normally used for monatomic propellants.
+The format for rate coefficient files is identical to that normally used for monatomic propellants.
 
 ```toml
 [[species]]
