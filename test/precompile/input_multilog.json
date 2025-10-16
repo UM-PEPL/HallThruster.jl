@@ -333,7 +333,7 @@
             "dt": 5.0e-9,
             "duration": 1e-7,
             "num_save": 100,
-            "verbose": true,
+            "verbose": false,
             "print_errors": false,
             "adaptive": true,
             "CFL": 0.799,
