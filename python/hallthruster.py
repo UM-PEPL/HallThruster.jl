@@ -4,10 +4,13 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+DEFAULT_DAEMON = "using DaemonMode; runargs()"
+
 def run_simulation(
         input: dict | str | Path,
         jl_env: str | Path | None = None,
         jl_script: str | Path | None = None,
+        jl_daemon: str | None = None,
         **kwargs) -> dict:
     """Python wrapper for `HallThruster.run_simulation(json_input)` in Julia.
 
@@ -16,6 +19,10 @@ def run_simulation(
     :param jl_env: The julia environment containing HallThruster.jl. Defaults to global Julia environment.
     :param jl_script: path to a custom Julia script to run. The script should accept the input json file path as
                       a command line argument. Defaults to just calling `HallThruster.run_simulation(input_file)`.
+    :param jl_daemon: Allows you to use DaemonMode.jl (https://github.com/dmolina/DaemonMode.jl) by passing "using DaemonMode; runargs()" or similar.
+                      Requires DaeomonMode.jl be installed in an accessible environment and that `jl_script` is not None.
+                      Example: `run_simulation(input, jl_script = 'run.jl', jl_daemon = 'using DaemonMode; runargs()').
+                      You can also pass hallthruster.DEFAULT_DAEMON, which is equivalent to 'using DaemonMode; runargs()').
     :param kwargs: additional keyword arguments to pass to `subprocess.run` when calling the Julia script.
 
     :returns: `dict` of `Hallthruster.jl` outputs. The specific outputs depend on the settings
@@ -60,6 +67,9 @@ def run_simulation(
     if jl_script is None:
         cmd = ['julia', '--startup-file=no', '-e',
                f'using HallThruster; HallThruster.run_simulation(raw"{input_file}")']
+    elif jl_daemon is not None:
+        cmd = ['julia', '--startup-file=no', '-e', jl_daemon,
+               str(Path(jl_script).resolve()), input_file]
     else:
         cmd = ['julia', '--startup-file=no', '--',
                str(Path(jl_script).resolve()), input_file]

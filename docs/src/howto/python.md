@@ -168,3 +168,42 @@ This produces the following plot:
 ![](../assets/python_output.svg)
 
 This example can is also availabled as a complete python script in the [`python`](https://github.com/UM-PEPL/HallThruster.jl/tree/main/python) folder of the root directory.
+
+## Reducing compilation and startup time overhead with `DaemonMode.jl`
+
+> [!WARNING]
+> Running multiple simulations in parallel while using DaemonMode is untested and may have unexpected results.
+
+Despite our efforts to mitigate this issue, launching a HallThruster.jl simulation still involves a decent amount of startup overhead.
+This includes both the time to launch julia and load the package, as well as 
+In some cases, this overhead may be as low as a second, but in other cases it can exceed five seconds or more.
+While work is ongoing to reduce this cost, you can use [DaemonMode.jl](https://github.com/dmolina/DaemonMode.jl) to keep a julia session running in the background that can be reused.
+That way, the cost is paid once, during the first simulation, and then eliminated for successive runs as long as Julia is running in the background.
+To use DaemonMode, you first need to install the package, then launch a server in a julia terminal using
+
+```
+julia --startup-file=no -e 'using DaemonMode; serve()'
+```
+
+Then, you need a basic running script. The following will work (put it into a julia file called `run.jl`, for example).
+
+```julia
+using HallThruster
+HallThruster.run_simulation(ARGS[1])
+```
+
+Finally, invoke `hallthruster.run_simulation` from python using an input dictionary as follows:
+
+```python
+import hallthruster as het
+
+het.run_simulation(input, jl_script="run.jl", jl_daemon="using DaemonMode; DaemonMode.runargs()")
+```
+
+Advanced users of DaemonMode can modify the call to `runargs()` as needed.
+For the default case, though, we provide the constant `het.DEFAULT_DAEMON`.
+This allows the following to work.
+
+```python
+het.run_simulation(input, jl_script="run.jl", jl_daemon=het.DEFAULT_DAEMON)
+```
