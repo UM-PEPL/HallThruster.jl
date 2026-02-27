@@ -245,6 +245,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         mi = fluid.species.element.m
         Z = fluid.species.Z
 
+        if Z > 0
         interior_density = fluid.density[2]
         interior_flux = fluid.momentum[2]
         interior_velocity = interior_flux / interior_density
@@ -285,6 +286,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
 
         fluid.density[1] = ghost_cell_density
         fluid.momentum[1] = ghost_cell_momentum
+        end
     end
 
     # Extrapolate neutral density from edge and interior to ghost cell
