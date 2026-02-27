@@ -440,18 +440,17 @@ function Base.getindex(sol::Solution, field::Symbol)
         throw(ArgumentError("Cannot index by :nn, :ni, :niui, or :ui when more than one propellant species present. Instead, please index by the specific propellant species."))
     end
     symbol = sol.config.propellants[1].gas.short_name
-    ncharge = sol.config.propellants[1].max_charge
 
     ncells = length(sol.grid)
 
     if field == :nn
         return [frame.neutrals[symbol].n for frame in sol.frames]
     elseif field == :ni
-        return [[frame.ions[symbol][Z].n[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][ind].n[i] for ind in eachindex(frame.ions[symbol]), i in 1:ncells] for frame in sol.frames]
     elseif field == :niui
-        return [[frame.ions[symbol][Z].nu[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][ind].nu[i] for ind in eachindex(frame.ions[symbol]), i in 1:ncells] for frame in sol.frames]
     elseif field == :ui
-        return [[frame.ions[symbol][Z].u[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][ind].u[i] for ind in eachindex(frame.ions[symbol]), i in 1:ncells] for frame in sol.frames]
     end
 
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
@@ -466,18 +465,21 @@ For non-ion quantities, passing an integer as a second index causes an error.
 """
 function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
     is_ion_quantity = field in (:ni, :ui, :niui)
+    allowed = sol.config.propellants[1].allowed_charges
+    ind = findfirst(==(charge), allowed)
+
 
     if !is_ion_quantity
         throw(ArgumentError("Indexing a `solution` by `[field::Symbol, ::Integer]` is only supported for ion \
                             quantities. To access a quantity at a specific frame, call `sol.frames[frame].field`."))
     end
 
-    if charge <= 0 || charge > sol.config.propellants[1].max_charge
+    if !(charge in allowed)
         throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
                             Maximum charge state in provided solution is $(sol.config.propellants[1].max_charge)."))
     end
 
-    return [frame[field][charge, :] for frame in sol.frames]
+    return [frame[field][ind, :] for frame in sol.frames]
 end
 
 
