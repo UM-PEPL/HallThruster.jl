@@ -5,7 +5,9 @@ function update_electric_field!(∇ϕ, cache, apply_drag)
         E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
 
         if (apply_drag)
-            ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
+            for s in ion_species
+                ion_drag += u_s[i] * νei_s[i] * me / e
+            end
             neutral_drag = avg_neutral_vel[i] * νen[i] * me / e
             E += ion_drag + neutral_drag
         end
