@@ -21,7 +21,7 @@ function initialize!(_, _, model::InitialCondition)
     throw(ArgumentError("Function HallThruster.initialize!(params, model::$(typeof(model)) not yet implemented. For InitialCondition types other than DefaultInitialization(), this must be defined by the user!"))
 end
 
-function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_density, anode_Tev, discharge_voltage)
+function initialize_gas!(propellant, fluids, params; ϕ, max_ion_density, min_ion_density, anode_Tev, discharge_voltage)
     (; grid, thruster) = params
     mi = propellant.gas.m
     ncharge = propellant.max_charge
@@ -38,14 +38,20 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     ni_max = max_ion_density
 
     # Scale density up for high flow rates and down for high voltages
-    scaling_factor = sqrt(discharge_voltage / 300) * (flow_rate / 5.0e-6)
+    scaling_factor = sqrt((0.5*(ϕ[2] + ϕ[end])) / 300) * (flow_rate / 5.0e-6)
     ion_density_function(z, Z) = mi * scaling_factor * (
         ni_min + (ni_max - ni_min) * exp(-(((z - z0) - ni_center) / ni_width)^2)
     ) / Z^2
 
     # The ion velocity curve combines a quadratic part upstream and a linear part downstream
+    if Z > 0
     bohm_velocity = Z -> -sqrt(Z * e * anode_Tev / mi)
-    final_velocity = Z -> sqrt(2 * Z * e * discharge_voltage / mi)
+    final_velocity = Z -> sqrt(2 * Z * e * (0.5*(ϕ[2] + ϕ[end])) / mi)
+    elseif Z < 0
+    bohm_velocity = Z -> sqrt(Z * e * anode_Tev / mi)
+    final_velocity = Z -> -sqrt(2 * Z * e * (0.5*(ϕ[2] + ϕ[end])) / mi)
+    end
+
     scale(Z) = 2 / 3 * (final_velocity(Z) - bohm_velocity(Z))
     ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * ((z - z0) / L_ch)^2
     ion_velocity_f2(z, Z) = lerp(z, z0 + L_ch, z1, ion_velocity_f1(L_ch, Z), final_velocity(Z))
@@ -85,7 +91,7 @@ end
 function initialize_heavy_species_default!(params; kwargs...)
     # Initialize each propellant species
     for (propellant, fluids) in zip(params.propellants, params.fluids_by_propellant)
-        initialize_gas!(propellant, fluids, params; kwargs...)
+        initialize_gas!(propellant, fluids, params; params.cache.ϕ, kwargs...)
     end
 
     # Compute the electron number density
@@ -116,6 +122,13 @@ function initialize_electrons_default!(params, anode_Tev, cathode_Tev, discharge
         cache.nϵ[i] = cache.ne[i] * energy_function(z)
         cache.Tev[i] = energy_function(z) / 1.5
     end
+
+    update_pressure!(cache.pe, cache.nϵ, params.landmark)
+    update_pressure_gradient!(cache.∇pe, cache.pe, grid.cell_centers)
+
+    update_electric_field!(cache.∇ϕ, cache, false)   
+    V_L = anode_sheath_potential(params) 
+    integrate_potential!(cache.ϕ, cache.∇ϕ, grid, V_L)
 
     return
 end
@@ -167,8 +180,9 @@ function initialize_from_restart!(params, frame)
 
     nn = LinearInterpolation(frame.z, frame.nn .* mi).(z)
     params.fluid_containers.continuity[1].density .= nn
+    allowed = propellants[1].allowed_charges
 
-    for Z in 1:min(ncharge, ncharge_restart)
+    for Z in allowed
         fluid = params.fluid_containers.isothermal[Z]
         fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
         fluid.momentum .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
