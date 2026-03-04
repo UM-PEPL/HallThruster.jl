@@ -1,6 +1,6 @@
 name = "HallThruster"
 uuid = "2311f341-5e6d-4941-9e3e-3ce0ae0d9ed6"
-version = "0.21.1"
+version = "0.21.2"
 authors = ["Thomas Marks <marksta@umich.edu>"]
 
 [deps]
