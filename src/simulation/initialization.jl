@@ -24,7 +24,7 @@ end
 function initialize_gas!(propellant, fluids, params; ϕ, max_ion_density, min_ion_density, anode_Tev, discharge_voltage)
     (; grid, thruster) = params
     mi = propellant.gas.m
-    ncharge = propellant.max_charge
+    allowed_charges = propellant.allowed_charges
     flow_rate = propellant.flow_rate_kg_s
     un = propellant.velocity_m_s
 
@@ -38,19 +38,19 @@ function initialize_gas!(propellant, fluids, params; ϕ, max_ion_density, min_io
     ni_max = max_ion_density
 
     # Scale density up for high flow rates and down for high voltages
-    scaling_factor = sqrt((0.5*(ϕ[2] + ϕ[end])) / 300) * (flow_rate / 5.0e-6)
+    scaling_factor = sqrt((0.5 * (ϕ[2] + ϕ[end])) / 300) * (flow_rate / 5.0e-6)
     ion_density_function(z, Z) = mi * scaling_factor * (
         ni_min + (ni_max - ni_min) * exp(-(((z - z0) - ni_center) / ni_width)^2)
     ) / Z^2
 
     # The ion velocity curve combines a quadratic part upstream and a linear part downstream
-    if Z > 0
-    bohm_velocity = Z -> -sqrt(Z * e * anode_Tev / mi)
-    final_velocity = Z -> sqrt(2 * Z * e * (0.5*(ϕ[2] + ϕ[end])) / mi)
-    elseif Z < 0
-    bohm_velocity = Z -> sqrt(Z * e * anode_Tev / mi)
-    final_velocity = Z -> -sqrt(2 * Z * e * (0.5*(ϕ[2] + ϕ[end])) / mi)
-    end
+    bohm_velocity(Z) = Z > 0 ?
+        -sqrt(Z * e * anode_Tev / mi) :
+        sqrt(abs(Z) * e * anode_Tev / mi)
+
+    final_velocity(Z) = Z > 0 ?
+        sqrt(2 * Z * e * (0.5 * (ϕ[2] + ϕ[end])) / mi) :
+        -sqrt(2 * abs(Z) * e * (0.5 * (ϕ[2] + ϕ[end])) / mi)
 
     scale(Z) = 2 / 3 * (final_velocity(Z) - bohm_velocity(Z))
     ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * ((z - z0) / L_ch)^2
@@ -65,7 +65,7 @@ function initialize_gas!(propellant, fluids, params; ϕ, max_ion_density, min_io
     # Neutral density at inlet
     ρn_0 = inlet_neutral_density(propellant, thruster.geometry.channel_area)
     # add recombined neutrals
-    for Z in 1:ncharge
+    for Z in allowed_charges
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / un
     end
 
@@ -126,8 +126,8 @@ function initialize_electrons_default!(params, anode_Tev, cathode_Tev, discharge
     update_pressure!(cache.pe, cache.nϵ, params.landmark)
     update_pressure_gradient!(cache.∇pe, cache.pe, grid.cell_centers)
 
-    update_electric_field!(cache.∇ϕ, cache, false)   
-    V_L = anode_sheath_potential(params) 
+    update_electric_field!(cache.∇ϕ, cache, false)
+    V_L = anode_sheath_potential(params)
     integrate_potential!(cache.ϕ, cache.∇ϕ, grid, V_L)
 
     return
