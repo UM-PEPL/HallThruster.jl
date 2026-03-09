@@ -21,7 +21,7 @@ struct Gas
     @doc"""
     	Gas(name, short_name; γ, M) -> Gas
     Instantiate a new Gas, providing a name, short name, the adiabatic index, and the molar mass.
-    
+
     ```jldoctest;setup = :(using HallThruster: Gas)
     julia> Gas("Xenon", "Xe", γ = 5/3, M = 83.798)
     Xenon
@@ -67,7 +67,7 @@ struct Species
     @doc"""
     	Species(element::Gas, Z::Int) -> Species
     Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
-    
+
     ```julia
     julia> Xenon(0) == Species(Xenon, 0)
     true
