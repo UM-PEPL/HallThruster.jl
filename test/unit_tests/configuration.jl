@@ -128,8 +128,10 @@ function test_multiple_propellants()
         @test length(config.propellants) == 2
 
         expected_species = [
-            [het.Xenon(Z) for Z in 0:Xe.max_charge];
-            [het.Krypton(Z) for Z in 0:Kr.max_charge];
+            het.Xenon(0);
+            [het.Xenon(Z) for Z in Xe.allowed_charges]...;
+            het.Krypton(0);
+            [het.Krypton(Z) for Z in Kr.allowed_charges]...;
         ]
 
         species = [f.species for f in params.fluid_array]
@@ -148,7 +150,7 @@ function test_multiple_propellants()
 
         (; ei_reactions, ei_reactant_indices, ei_product_indices) = params
 
-        @test length(ei_reactions) == triangular(Kr.max_charge) + triangular(Xe.max_charge)
+        @test length(ei_reactions) == triangular(length(Kr.allowed_charges)) + triangular(length(Xe.allowed_charges))
         for (rxn, reactant_ind, prod_ind) in zip(ei_reactions, ei_reactant_indices, ei_product_indices)
             @test rxn.reactant == species[reactant_ind]
             for (i, _prod_ind) in enumerate(prod_ind)

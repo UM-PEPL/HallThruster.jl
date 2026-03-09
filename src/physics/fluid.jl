@@ -70,7 +70,7 @@ function allocate_fluids(p::Propellant, ncells)
     ]
 
     isothermal = [
-        FluidContainer(_IsothermalEuler, p.gas(Z), ncells; temp = p.ion_temperature_K) for Z in 1:p.max_charge
+        FluidContainer(_IsothermalEuler, p.gas(Z), ncells; temp = p.ion_temperature_K) for Z in p.allowed_charges
     ]
     return (; continuity, isothermal)
 end
