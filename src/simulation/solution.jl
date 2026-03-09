@@ -440,18 +440,18 @@ function Base.getindex(sol::Solution, field::Symbol)
         throw(ArgumentError("Cannot index by :nn, :ni, :niui, or :ui when more than one propellant species present. Instead, please index by the specific propellant species."))
     end
     symbol = sol.config.propellants[1].gas.short_name
-    ncharge = sol.config.propellants[1].max_charge
+    allowed = sol.config.propellants[1].allowed_charges
 
     ncells = length(sol.grid)
 
     if field == :nn
         return [frame.neutrals[symbol].n for frame in sol.frames]
     elseif field == :ni
-        return [[frame.ions[symbol][Z].n[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].n[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
     elseif field == :niui
-        return [[frame.ions[symbol][Z].nu[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].nu[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
     elseif field == :ui
-        return [[frame.ions[symbol][Z].u[i] for Z in 1:ncharge, i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].u[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
     end
 
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
@@ -472,9 +472,12 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
                             quantities. To access a quantity at a specific frame, call `sol.frames[frame].field`."))
     end
 
-    if charge <= 0 || charge > sol.config.propellants[1].max_charge
-        throw(ArgumentError("No ions of charge state $charge in Hall thruster solution. \
-                            Maximum charge state in provided solution is $(sol.config.propellants[1].max_charge)."))
+    if !in(charge, allowed)
+        throw(
+            ArgumentError(
+                "Invalid charge state $charge. Allowed charge states: $allowed."
+            )
+        )
     end
 
     return [frame[field][charge, :] for frame in sol.frames]

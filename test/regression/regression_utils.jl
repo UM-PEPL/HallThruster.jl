@@ -91,7 +91,6 @@ function run_landmark(
     ϵ_cathode = 3.0
 
     config = het.Config(;
-        ncharge = 1,
         domain,
         reconstruct = case > 1,
         anode_Tev = 2 / 3 * ϵ_anode,
@@ -103,15 +102,21 @@ function run_landmark(
         electron_ion_collisions = false,
         wall_loss_model = het.ConstantSheathPotential(20, αϵ_in, αϵ_out),
         LANDMARK = true,
-        neutral_velocity = 150.0,
-        ion_temperature_K = 0.0,
         thruster = het.SPT_100,
-        anode_mass_flow_rate = 5.0e-6,
         transition_length = 1.0e-3,
         ion_wall_losses = false,
         anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
         anode_boundary_condition = :dirichlet,
         conductivity_model = het.LANDMARK_conductivity(),
+        propellants = [
+            het.Propellant(
+                het.Xenon,
+                flow_rate_kg_s = 5.0e-6,
+                allowed_charges = [1],
+                velocity_m_s = 150.0,
+                ion_temperature_K = 0.0,
+            ),
+        ],
     )
 
     @time sol = het.run_simulation(
