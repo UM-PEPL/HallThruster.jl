@@ -175,10 +175,6 @@ struct Propellant
     """
     ion_temperature_K::Float64
     """
-    Maximum ion charge state. **Default:** 1.
-    """
-    max_charge::Int
-    """
     Allowed charges of ion states. **Default:** `[1, 2, ..., max_charge]`.
     """
     allowed_charges::Vector{Int}
@@ -228,7 +224,7 @@ struct Propellant
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
-        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, max_charge, final_allowed_charges)
+        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, final_allowed_charges)
     end
 end
 

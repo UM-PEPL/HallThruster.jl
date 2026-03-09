@@ -80,12 +80,23 @@ function serialize(::Struct, x::T) where {T}
 end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
-    args = NamedTuple(
+    valid_fields = Set(fieldnames(T))
+
+    typed_pairs = (
         let key = Symbol(field)
-                key => deserialize(fieldtype(T, key), dict[field])
+            key => deserialize(fieldtype(T, key), dict[field])
         end
-            for field in keys(dict)
+        for field in keys(dict) if Symbol(field) in valid_fields
     )
+
+    extra_pairs = (
+        let key = Symbol(field)
+            key => dict[field]
+        end
+        for field in keys(dict) if !(Symbol(field) in valid_fields)
+    )
+
+    args = merge((;), NamedTuple(typed_pairs), NamedTuple(extra_pairs))
     return T(; args...)
 end
 
