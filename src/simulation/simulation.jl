@@ -106,6 +106,7 @@ function setup_simulation(
         # concretely-typed except for PID controller, not too bad
         simulation = sim,
         # Remainder is concretely-typed
+        time = [0.0],
         iteration = [-1],
         dt = [dt],
         grid,

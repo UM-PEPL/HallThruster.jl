@@ -484,7 +484,7 @@ end
 function solve(params, config, tspan; saveat)
     # Initialize starting time and iterations
     iteration = params.iteration
-    t = tspan[1]
+    params.time[] = tspan[1]
     iteration[] = 1
 
     # Yield to signals only every few iterations
@@ -508,7 +508,7 @@ function solve(params, config, tspan; saveat)
     (; source_heavy_species) = config
 
     try
-        while t < tspan[2]
+        while params.time[] < tspan[2]
             # compute new timestep
             if sim.adaptive
                 if uniform_steps
@@ -519,7 +519,7 @@ function solve(params, config, tspan; saveat)
                 end
             end
 
-            t += params.dt[]
+            params.time[] += params.dt[]
 
             #====
             Count how many times we've taken the minimum allowable timestep.
@@ -544,14 +544,14 @@ function solve(params, config, tspan; saveat)
             # Check for NaNs or Infs in heavy species solve and terminate if necessary
             if any_nan
                 if sim.print_errors
-                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
+                    @warn("NaN or Inf detected in heavy species solver at time $(params.time[])")
                 end
                 retcode = :failure
                 break
             end
 
             # Update electron quantities
-            update_electrons!(params, config, t)
+            update_electrons!(params, config, params.time[])
 
             # Update plume geometry
             if config.solve_plume
@@ -568,7 +568,7 @@ function solve(params, config, tspan; saveat)
 
             # # Save values at designated intervals
             # # TODO interpolate these to exact times
-            if t > saveat[save_ind]
+            if params.time[] > saveat[save_ind]
                 push!(frames, Frame(params.fluids_by_propellant, params.cache))
                 save_ind += 1
             end
