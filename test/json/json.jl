@@ -92,7 +92,7 @@ for prop in config.propellants
     prop_str = string(prop.gas.short_name)
     @test haskey(output.average.ions, prop_str)
     @test haskey(output.average.neutrals, prop_str)
-    @test length(output.average.ions[prop_str]) == prop.max_charge
+    @test length(output.average.ions[prop_str]) == length(prop.allowed_charges)
 end
 
 rm(outfile, force = true)

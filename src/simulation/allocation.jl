@@ -7,7 +7,7 @@ function allocate_arrays(grid::Grid1D, config)
 end
 
 function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
-    num_species = sum((prop.max_charge) for prop in propellants)
+    num_species = sum(length(prop.allowed_charges) for prop in propellants)
 
     cache = (;
         # Caches for energy solve

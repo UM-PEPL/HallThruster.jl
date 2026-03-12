@@ -114,6 +114,7 @@ function run_landmark(
         conductivity_model = het.LANDMARK_conductivity(),
     )
 
+
     @time sol = het.run_simulation(
         config; duration, grid = het.UnevenGrid(ncells), nsave,
         dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,

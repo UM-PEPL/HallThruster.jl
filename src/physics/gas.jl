@@ -175,14 +175,14 @@ struct Propellant
     """
     ion_temperature_K::Float64
     """
-    Maximum ion charge state. **Default:** 1.
+    Allowed charges of ion states. **Default:** `[1, 2, ..., max_charge]`.
     """
-    max_charge::Int
+    allowed_charges::Vector{Int}
 
     function Propellant(;
-            gas, flow_rate_kg_s, max_charge = 1,
-            velocity_m_s = nothing, temperature_K = nothing,
-            ion_temperature_K = nothing,
+            gas, flow_rate_kg_s, max_charge = nothing,
+            allowed_charges = nothing, velocity_m_s = nothing,
+            temperature_K = nothing, ion_temperature_K = nothing,
         )
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
@@ -205,10 +205,26 @@ struct Propellant
             ion_temperature_K = DEFAULT_ION_TEMPERATURE_K
         end
 
+        final_allowed_charges =
+        if !isnothing(max_charge) && !isnothing(allowed_charges)
+            error("Provide either `max_charge` or `allowed_charges`, not both.")
+        elseif !isnothing(allowed_charges)
+            collect(allowed_charges)
+        elseif !isnothing(max_charge)
+            collect(1:max_charge)
+        else
+            [1]
+        end
+
+        length(unique(final_allowed_charges)) != length(final_allowed_charges) &&
+            error("`allowed_charges` must not contain duplicates.")
+
+        sort!(final_allowed_charges)
+
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
-        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, max_charge)
+        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, final_allowed_charges)
     end
 end
 

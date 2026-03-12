@@ -24,7 +24,7 @@ end
 function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_density, anode_Tev, discharge_voltage)
     (; grid, thruster) = params
     mi = propellant.gas.m
-    ncharge = propellant.max_charge
+    allowed_charges = propellant.allowed_charges
     flow_rate = propellant.flow_rate_kg_s
     un = propellant.velocity_m_s
 
@@ -59,7 +59,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     # Neutral density at inlet
     ρn_0 = inlet_neutral_density(propellant, thruster.geometry.channel_area)
     # add recombined neutrals
-    for Z in 1:ncharge
+    for Z in allowed_charges
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / un
     end
 
@@ -159,7 +159,7 @@ function initialize_from_restart!(params, frame)
     # TODO: multiple propellants
     (; grid, cache, propellants) = params
     mi = propellants[1].gas.m
-    ncharge = propellants[1].max_charge
+    allowed = propellants[1].allowed_charges
     ncharge_restart = length(frame.ni)
 
     # load ion properties, interpolated from restart grid to grid in params
@@ -168,10 +168,12 @@ function initialize_from_restart!(params, frame)
     nn = LinearInterpolation(frame.z, frame.nn .* mi).(z)
     params.fluid_containers.continuity[1].density .= nn
 
-    for Z in 1:min(ncharge, ncharge_restart)
-        fluid = params.fluid_containers.isothermal[Z]
-        fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
-        fluid.momentum .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
+    for Z in allowed
+        if Z <= ncharge_restart
+            fluid = params.fluid_containers.isothermal[Z]
+            fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
+            fluid.momentum .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
+        end
     end
 
     cache.ne .= LinearInterpolation(frame.z, frame.ne).(z)
