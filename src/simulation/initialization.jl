@@ -39,16 +39,36 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
 
     # Scale density up for high flow rates and down for high voltages
     scaling_factor = sqrt(discharge_voltage / 300) * (flow_rate / 5.0e-6)
-    ion_density_function(z, Z) = mi * scaling_factor * (
-        ni_min + (ni_max - ni_min) * exp(-(((z - z0) - ni_center) / ni_width)^2)
-    ) / Z^2
 
+    ion_density_function(z, Z) = begin
+        base = mi * scaling_factor * (
+            ni_min + (ni_max - ni_min) * exp(-(((z - z0) - ni_center) / ni_width)^2)
+        )
+
+        #negative ions are assumed to have a much lower initial density
+        if Z > 0
+            base / Z^2
+        elseif Z < 0
+            1.0e-3 * base / abs(Z)^2
+        end
+    end
     # The ion velocity curve combines a quadratic part upstream and a linear part downstream
-    bohm_velocity = Z -> -sqrt(Z * e * anode_Tev / mi)
-    final_velocity = Z -> sqrt(2 * Z * e * discharge_voltage / mi)
-    scale(Z) = 2 / 3 * (final_velocity(Z) - bohm_velocity(Z))
-    ion_velocity_f1(z, Z) = bohm_velocity(Z) + scale(Z) * ((z - z0) / L_ch)^2
-    ion_velocity_f2(z, Z) = lerp(z, z0 + L_ch, z1, ion_velocity_f1(L_ch, Z), final_velocity(Z))
+    # Negative Ions are assumed to initially have 0 average velocity to avoid initial instability
+    anode_velocity(Z) = if Z > 0
+        sqrt(Z * e * anode_Tev / mi)
+    elseif Z < 0
+        0.0
+    end
+
+    cathode_velocity(Z) = if Z > 0
+        sqrt(2 * Z * e * (discharge_voltage) / mi) + anode_velocity(Z)
+    elseif Z < 0
+        0.0
+    end
+
+    scale(Z) = 2 / 3 * (cathode_velocity(Z) - anode_velocity(Z))
+    ion_velocity_f1(z, Z) = anode_velocity(Z) + scale(Z) * ((z - z0) / L_ch)^2
+    ion_velocity_f2(z, Z) = lerp(z, z0 + L_ch, z1, ion_velocity_f1(z0 + L_ch, Z), cathode_velocity(Z))
 
     ion_velocity_function(z, Z) = if (z - z0) < L_ch
         ion_velocity_f1(z, Z)
