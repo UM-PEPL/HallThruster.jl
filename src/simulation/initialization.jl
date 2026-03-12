@@ -55,7 +55,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     # The ion velocity curve combines a quadratic part upstream and a linear part downstream
     # Negative Ions are assumed to initially have 0 average velocity to avoid initial instability
     anode_velocity(Z) = if Z > 0
-        sqrt(Z * e * anode_Tev / mi)
+        -sqrt(Z * e * anode_Tev / mi)
     elseif Z < 0
         0.0
     end
