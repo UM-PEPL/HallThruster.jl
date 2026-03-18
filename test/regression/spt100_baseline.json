@@ -1,6 +1,5 @@
 {
   "config": {
-    "ncharge": 3,
     "thruster": {
       "name": "SPT-100",
       "geometry": {

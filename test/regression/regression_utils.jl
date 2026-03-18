@@ -32,17 +32,18 @@ end
 
 to_title(label) = uppercasefirst(replace(label, "_" => " "))
 
-function plot_sim(avg, ref, filename, landmark_case=nothing)
-    fig = mk.Figure(size=(1200, 800))
+function plot_sim(avg, ref, filename, landmark_case = nothing)
+    fig = mk.Figure(size = (1200, 600))
     xlabel = "z [cm]"
     ax_nn = mk.Axis(fig[1, 1]; xlabel, ylabel = "Neutral density (10¹⁹ m³/s)")
-    ax_ne = mk.Axis(fig[1, 2]; xlabel, ylabel = "Plasma density [10¹⁸ m³/s)")
-    ax_E = mk.Axis(fig[2, 1]; xlabel, ylabel = "Electric field (kV/m)")
+    ax_ne = mk.Axis(fig[2, 1]; xlabel, ylabel = "Plasma density [10¹⁸ m³/s)")
+    ax_E = mk.Axis(fig[1, 2]; xlabel, ylabel = "Electric field (kV/m)")
     ax_Te = mk.Axis(fig[2, 2]; xlabel, ylabel = "Electron temperature (eV)")
     ax_ui = mk.Axis(fig[1, 3]; xlabel, ylabel = "Ion velocity (km/s)")
     ax_ue = mk.Axis(fig[2, 3]; xlabel, ylabel = "Electron velocity (km/s)")
+    ax_phi = mk.Axis(fig[1, 4]; xlabel, ylabel = "Electric potential (V)")
 
-    function plot_sim_fields!(lines, labels, sim; style, label="")
+    function plot_sim_fields!(lines, labels, sim; style, label = "")
         frame = sim.frames[]
         z = sim.grid
 
@@ -50,11 +51,12 @@ function plot_sim(avg, ref, filename, landmark_case=nothing)
         push!(lines, l)
         push!(labels, label)
 
-        mk.lines!(ax_ne, z, frame.ne ./ 1e18; style...)
+        mk.lines!(ax_ne, z, frame.ne ./ 1.0e18; style...)
         mk.lines!(ax_E, z, frame.E ./ 1000; style...)
         mk.lines!(ax_Te, z, frame.Tev; style...)
         mk.lines!(ax_ui, z, frame.ions[:Xe][1].u ./ 1000; style...)
         mk.lines!(ax_ue, z, frame.ue ./ 1000; style...)
+        mk.lines!(ax_phi, z, frame.potential; style...)
         return lines, labels
     end
 
@@ -62,10 +64,10 @@ function plot_sim(avg, ref, filename, landmark_case=nothing)
     labels = String[]
 
     if ref !== nothing
-        plot_sim_fields!(lines, labels, ref; style = (;linewidth = 2, color = :red), label = "Reference")
+        plot_sim_fields!(lines, labels, ref; style = (; linewidth = 2, color = :red), label = "Reference")
     end
 
-    plot_sim_fields!(lines, labels, avg; style = (;linewidth = 2, color = :black), label = "HallThruster.jl")
+    plot_sim_fields!(lines, labels, avg; style = (; linewidth = 2, color = :black), label = "HallThruster.jl")
 
     if landmark_case !== nothing
         landmark_colors = [:red, :green, :blue]
@@ -84,21 +86,24 @@ function plot_sim(avg, ref, filename, landmark_case=nothing)
         for (i, (_, v)) in enumerate(pairs(data["energy"]))
             mk.lines!(ax_Te, v.x, v.y / 1.5; color = landmark_colors[i], linestyle = :dash)
         end
+        for (i, (_, v)) in enumerate(pairs(data["potential"]))
+            mk.lines!(ax_phi, v.x, v.y; color = landmark_colors[i], linestyle = :dash)
+        end
     end
 
-    mk.Legend(fig[0, :], lines, labels, orientation = :horizontal)
+    mk.Legend(fig[2, 4], lines, labels, tellwidth = false)
     mk.save(filename, fig)
     return
 end
 
 function plot_oscillations(osc::Oscillations, ref::Oscillations, filename::String)
-    fig = mk.Figure(size=(1000, 800))
-    ax_T = mk.Axis(fig[1,1], xlabel = "Time (s)", ylabel = "Thrust (N)")
-    ax_T_zoom = mk.Axis(fig[1,2], xlabel = "Time (s)", ylabel = "Thrust (N)")
-    ax_I = mk.Axis(fig[2,1], xlabel = "Time (s)", ylabel = "Discharge current (A)")
-    ax_I_zoom = mk.Axis(fig[2,2], xlabel = "Time (s)", ylabel = "Discharge current (A)")
-    ax_J = mk.Axis(fig[3,1], xlabel = "Time (s)", ylabel = "Ion current (A)")
-    ax_J_zoom = mk.Axis(fig[3,2], xlabel = "Time (s)", ylabel = "Ion current (A)")
+    fig = mk.Figure(size = (1000, 800))
+    ax_T = mk.Axis(fig[1, 1], xlabel = "Time (s)", ylabel = "Thrust (N)")
+    ax_T_zoom = mk.Axis(fig[1, 2], xlabel = "Time (s)", ylabel = "Thrust (N)")
+    ax_I = mk.Axis(fig[2, 1], xlabel = "Time (s)", ylabel = "Discharge current (A)")
+    ax_I_zoom = mk.Axis(fig[2, 2], xlabel = "Time (s)", ylabel = "Discharge current (A)")
+    ax_J = mk.Axis(fig[3, 1], xlabel = "Time (s)", ylabel = "Ion current (A)")
+    ax_J_zoom = mk.Axis(fig[3, 2], xlabel = "Time (s)", ylabel = "Ion current (A)")
 
     lines = []
     labels = []
@@ -106,7 +111,7 @@ function plot_oscillations(osc::Oscillations, ref::Oscillations, filename::Strin
     start_ind = length(osc.time) * 3 ÷ 4
 
     for (sim, name, linestyle, color) in zip([osc, ref], ["Current", "Reference"], [:solid, :dash], [:black, :red])
-        kwargs = (;linestyle, color)
+        kwargs = (; linestyle, color)
         t = sim.time
         t_zoom = t[start_ind:end]
 
@@ -176,7 +181,7 @@ function run_landmark(
 
 
     @time sol = het.run_simulation(
-        config; duration, grid = het.UnevenGrid(ncells), nsave,
+        config; duration, grid = het.EvenGrid(ncells), nsave,
         dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,
     )
 
@@ -188,10 +193,10 @@ function p2p(x)
     return _max - _min
 end
 
-function check_and_print(description, reduction, x::Vector{T}, y::Vector{T}; atol = zero(T), rtol = (atol > 0 ? zero(T) : sqrt(eps(T))), exponential=false) where {T<:Real}
+function check_and_print(description, reduction, x::Vector{T}, y::Vector{T}; atol = zero(T), rtol = (atol > 0 ? zero(T) : sqrt(eps(T))), exponential = false) where {T <: Real}
     rx, ry = reduction(x), reduction(y)
     @test isapprox(rx, ry; rtol, atol)
-    if exponential
+    return if exponential
         @printf("%s: %.4g (expected %.4g)\n", description, rx, ry)
     else
         @printf("%s: %.3f (expected %.3f)\n", description, rx, ry)
@@ -200,21 +205,21 @@ end
 
 HEADER_WIDTH = 40
 
-print_divider(c = '=', w = HEADER_WIDTH) =  println(c^w)
+print_divider(c = '=', w = HEADER_WIDTH) = println(c^w)
 
 function print_centered(s, w = HEADER_WIDTH)
     num_left = max(0, floor(Int, (w - length(s)) / 2))
     num_right = max(0, w - length(s) - num_left)
-    println(" "^num_left * s * " "^num_right)
+    return println(" "^num_left * s * " "^num_right)
 end
 
-function print_header(s, c = '='; w = HEADER_WIDTH, top=true, bottom=true)
+function print_header(s, c = '='; w = HEADER_WIDTH, top = true, bottom = true)
     top && print_divider(c, w)
     print_centered(s, w)
-    bottom && print_divider(c, w)
+    return bottom && print_divider(c, w)
 end
 
-function check_regression_case(case; fix=false)
+function check_regression_case(case; fix = false)
     (; file) = case
 
     @testset "$(file)" begin
@@ -224,15 +229,15 @@ function check_regression_case(case; fix=false)
 
         print_header(file; w = 60)
 
-        casename, landmark_case = if haskey(case, :landmark_case)
+        casename, landmark_case, sol_info = if haskey(case, :landmark_case)
             nsave = 1000
-            ncells = 250 
-            sol_info = @timed run_landmark(2.0e-3; ncells, nsave = nsave, case = case.landmark_case, CFL = case.CFL)
-            "landmark_$(case.landmark_case)", case.landmark_case
+            ncells = 200
+            sol_info = @timed run_landmark(2.0e-3; ncells, nsave = nsave, case = case.landmark_case, CFL = 0.5)
+            "landmark_$(case.landmark_case)", case.landmark_case, sol_info
         else
             casename = splitext(basename(file))[1]
             sol_info = @timed het.run_simulation(joinpath(REGRESSION_DIR, file))
-            splitext(basename(file))[1], nothing
+            splitext(basename(file))[1], nothing, sol_info
         end
 
         sol = sol_info.value
@@ -270,12 +275,17 @@ function check_regression_case(case; fix=false)
         end
 
         # Load comparison files
-        ref_sim_dict = JSON.parse(read(COMPARISON_FILE); allownan=true)
+        ref_sim_dict = JSON.parse(read(COMPARISON_FILE); allownan = true)
         ref_sim = het.deserialize(het.Solution, ref_sim_dict)
-        ref_oscillations = JSON.parse(read(OSCILLATIONS_FILE), Oscillations; allownan=true)
+        ref_oscillations = JSON.parse(read(OSCILLATIONS_FILE), Oscillations; allownan = true)
 
         # Plot comparison of time-averaged properties
         plot_sim(avg, ref_sim, joinpath(OUTPUT_DIR, "ref_$(casename).png"), landmark_case)
+
+        # Replace landmark case plots if requested
+        if fix && landmark_case !== nothing
+            plot_sim(avg, nothing, joinpath(het.PACKAGE_ROOT, "docs/src/assets/$(casename).svg"), landmark_case)
+        end
 
         # Plot comparison of oscillatory properties
         plot_oscillations(oscillations, ref_oscillations, joinpath(OUTPUT_DIR, "oscillations_$(casename).png"))
@@ -337,10 +347,10 @@ function check_regression_case(case; fix=false)
                 exponential = field_name != "Tev" && field_name != "E" && reduction_name != "L2"
                 name = "$(field_name) $(reduction_name)"
                 if reduction_name == "L2"
-                    L2 = sqrt(sum((sim_qty .- ref_qty).^2) / sum(ref_qty.^2))
-                    check_and_print(name, reduction, [L2], [0.0]; atol=0.01, exponential)
+                    L2 = sqrt(sum((sim_qty .- ref_qty) .^ 2) / sum(ref_qty .^ 2))
+                    check_and_print(name, reduction, [L2], [0.0]; atol = 0.01, exponential)
                 else
-                    check_and_print(name, reduction, sim_qty, ref_qty; rtol=1e-2, exponential)
+                    check_and_print(name, reduction, sim_qty, ref_qty; rtol = 1.0e-2, exponential)
                 end
             end
             println()

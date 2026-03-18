@@ -47,15 +47,16 @@ In the above, ``L_{ch}`` refers to thruster channel length and ``z_0`` is `domai
 
 Case 1
 ``\; \; \alpha_1 = 1.0, \alpha_2 = 1.0``
-![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case1_rusanov_160cells.jpg)
+![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_1.svg)
 
 Case 2
 ``\; \; \alpha_1 = 0.5, \alpha_2 = 1.0``
-![Landmark2](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case2_rusanov_160cells.jpg)
+![Landmark2](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_2.svg)
 
 Case 3
 ``\; \; \alpha_1 = 0.4, \alpha_2 = 1.0``
-![Landmark3](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case3_rusanov_160cells.jpg)
+![Landmark3](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_3.svg)
+
 ## Regression tests
 We automatically check all three landmark cases, as well as a few SPT-100 simulations, to ensure that the code performs as expected between releases.
 Any unforseen changes in the physics or numerics causes these tests to fail.
