@@ -179,7 +179,7 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    #example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"
@@ -187,6 +187,8 @@ end
         end
         sol = run_simulation(file)
     end
+    # Remove output files
+    rm("_output.json", force = true)
     rm("__output.json", force = true)
 end
 

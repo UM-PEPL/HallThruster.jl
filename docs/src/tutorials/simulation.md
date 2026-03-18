@@ -141,7 +141,7 @@ DocTestSetup = quote
     simparams = het.SimParams(
         grid = het.EvenGrid(100),   # an evenly-spaced grid with 100 cells
         dt = 5u"ns",                  # a base timestep of 5 nanoseconds
-        duration = 1u"ms",            # run the simulation for one millisecond of simulated time
+        duration = 2u"ms",            # run the simulation for one millisecond of simulated time
         num_save = 1000,            # save 1000 frames of output
     )
 end
@@ -248,13 +248,13 @@ To do this, we make use of the [`SimParams`](@ref) struct.
 simparams = het.SimParams(
     grid = het.EvenGrid(100),   # an evenly-spaced grid with 100 cells
     dt = 5e-9,                  # a base timestep of 5 nanoseconds
-    duration = 1e-3,            # run the simulation for one millisecond of simulated time
+    duration = 2e-3,            # run the simulation for two milliseconds of simulated time
     num_save = 1000,            # save 1000 frames of output
 )
 
 # output
 
-HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
+HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.002, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
 ```
 
 Here, we specified only four parameters, but `SimParams` has many more options that can be configured.
@@ -271,13 +271,13 @@ As always, units may be specified.
 simparams = het.SimParams(
     grid = het.EvenGrid(100),   # an evenly-spaced grid with 100 cells
     dt = 5u"ns",                # a base timestep of 5 nanoseconds
-    duration = 1u"ms",          # run the simulation for one millisecond of simulated time
+    duration = 2u"ms",          # run the simulation for one millisecond of simulated time
     num_save = 1000,            # save 1000 frames of output
 )
 
 # output
 
-HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.001, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
+HallThruster.SimParams{HallThruster.NoController}(HallThruster.GridSpec(:EvenGrid, 100), 5.0e-9, 0.002, 1000, true, true, true, 0.799, 1.0e-10, 1.0e-7, 100, HallThruster.NoController())
 ```
 
 Finally, we can pass these to the [`run_simulation`](@ref) function, which runs the simulation and returns a [`Solution`](@ref) object.
@@ -287,8 +287,8 @@ solution = het.run_simulation(config, simparams)
 
 # output
 
-[ Info: Simulation exited at t = 0.001 with retcode :success in 0.396639375 seconds.
-Hall thruster solution with 1000 saved frames (retcode: success, end time: 0.001 seconds)
+[ Info: Simulation exited at t = 0.002 with retcode :success in 3.370924708 seconds.
+Hall thruster solution with 1000 saved frames (retcode: success, end time: 0.002 seconds)
 ```
 
 The first line is printed when a simulation is completed (unless `simparams.verbose = false`) and tells us the run-time of our simulation.

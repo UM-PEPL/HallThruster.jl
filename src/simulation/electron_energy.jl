@@ -141,7 +141,7 @@ end
 
 function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
     if anode_bc == :dirichlet || ue[2] > 0
-        # 0.5 (nϵ[1]/ne[1] + nϵ[2]/ne[2]) = Te_L
+        # 0.5 (nϵ[1]/ne[1] + nϵ[2]/ne[2]) = 3/2 Te_L
         Aϵ.d[1] = 0.5 / ne[1]
         Aϵ.du[1] = 0.5 / ne[2]
         bϵ[1] = 1.5 * Te_L
@@ -152,7 +152,7 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
         Aϵ.du[1] = -1.0 / ne[2]
     end
 
-    # 0.5 (nϵ[end-1]/ne[end-1] + nϵ[end]/ne[end]) = Te_R
+    # 0.5 (nϵ[end-1]/ne[end-1] + nϵ[end]/ne[end]) = 3/2 Te_R
     Aϵ.d[end] = 0.5 / ne[end]
     Aϵ.dl[end] = 0.5 / ne[end - 1]
     bϵ[end] = 1.5 * Te_R
