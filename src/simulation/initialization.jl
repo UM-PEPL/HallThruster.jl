@@ -61,7 +61,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     end
 
     cathode_velocity(Z) = if Z > 0
-        sqrt(2 * Z * e * (discharge_voltage) / mi) + anode_velocity(Z)
+        sqrt(2 * Z * e * (discharge_voltage) / mi)
     elseif Z < 0
         0.0
     end
