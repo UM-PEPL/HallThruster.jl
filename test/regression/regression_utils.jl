@@ -3,6 +3,14 @@ using Printf
 using Test
 using CairoMakie: Makie as mk
 using DelimitedFiles
+using JSON: JSON as JSON
+
+struct Oscillations
+    time::Vector{Float64}
+    thrust::Vector{Float64}
+    discharge_current::Vector{Float64}
+    ion_current::Vector{Float64}
+end
 
 function load_landmark_data(case)
     codes = ["fluid_1", "fluid_2", "hybrid"]
@@ -22,55 +30,107 @@ function load_landmark_data(case)
     return output
 end
 
-function plot_landmark(sol, case)
+to_title(label) = uppercasefirst(replace(label, "_" => " "))
 
-    avg = het.time_average(sol, 5.0e-4)
-    data = load_landmark_data(case)
-
-    fig = mk.Figure()
+function plot_sim(avg, ref, filename, landmark_case=nothing)
+    fig = mk.Figure(size=(1200, 800))
     xlabel = "z [cm]"
-    ax_nn = mk.Axis(fig[1, 1]; xlabel, ylabel = "Density [10¹⁹ m³/s]")
-    ax_ne = mk.Axis(fig[1, 2]; xlabel, ylabel = "Density [10¹⁸ m³/s]")
-    ax_E = mk.Axis(fig[2, 1]; xlabel, ylabel = "Electric field [kV/m]")
-    ax_Te = mk.Axis(fig[2, 2]; xlabel, ylabel = "Electron temperature [eV]")
+    ax_nn = mk.Axis(fig[1, 1]; xlabel, ylabel = "Neutral density (10¹⁹ m³/s)")
+    ax_ne = mk.Axis(fig[1, 2]; xlabel, ylabel = "Plasma density [10¹⁸ m³/s)")
+    ax_E = mk.Axis(fig[2, 1]; xlabel, ylabel = "Electric field (kV/m)")
+    ax_Te = mk.Axis(fig[2, 2]; xlabel, ylabel = "Electron temperature (eV)")
+    ax_ui = mk.Axis(fig[1, 3]; xlabel, ylabel = "Ion velocity (km/s)")
+    ax_ue = mk.Axis(fig[2, 3]; xlabel, ylabel = "Electron velocity (km/s)")
 
-    function to_title(label)
-        return titlecase(replace(label, "_" => " "))
+    function plot_sim_fields!(lines, labels, sim; style, label="")
+        frame = sim.frames[]
+        z = sim.grid
+
+        l = mk.lines!(ax_nn, z, frame.neutrals[:Xe].n ./ 1.0e19; style...)
+        push!(lines, l)
+        push!(labels, label)
+
+        mk.lines!(ax_ne, z, frame.ne ./ 1e18; style...)
+        mk.lines!(ax_E, z, frame.E ./ 1000; style...)
+        mk.lines!(ax_Te, z, frame.Tev; style...)
+        mk.lines!(ax_ui, z, frame.ions[:Xe][1].u ./ 1000; style...)
+        mk.lines!(ax_ue, z, frame.ue ./ 1000; style...)
+        return lines, labels
     end
 
     lines = []
     labels = String[]
 
-    colors = [:red, :green, :blue]
-    style = (; linewidth = 2, color = :black)
-
-    for (i, (k, v)) in enumerate(pairs(data["neutral_density"]))
-        l = mk.lines!(ax_nn, v.x, v.y ./ 1.0e19; color = colors[i], linestyle = :dash)
-        push!(lines, l)
-        push!(labels, to_title(k))
+    if ref !== nothing
+        plot_sim_fields!(lines, labels, ref; style = (;linewidth = 2, color = :red), label = "Reference")
     end
-    l = mk.lines!(ax_nn, avg[:z], avg[:nn][] ./ 1.0e19; style...)
-    push!(lines, l)
-    push!(labels, "HallThruster.jl")
 
-    for (i, (k, v)) in enumerate(pairs(data["plasma_density"]))
-        mk.lines!(ax_ne, v.x, v.y ./ 1.0e18; color = colors[i], linestyle = :dash)
-    end
-    mk.lines!(ax_ne, avg[:z], avg[:ne][] ./ 1.0e18; style...)
+    plot_sim_fields!(lines, labels, avg; style = (;linewidth = 2, color = :black), label = "HallThruster.jl")
 
-    for (i, (k, v)) in enumerate(pairs(data["electric_field"]))
-        mk.lines!(ax_E, v.x, v.y ./ 1000; color = colors[i], linestyle = :dash)
+    if landmark_case !== nothing
+        landmark_colors = [:red, :green, :blue]
+        data = load_landmark_data(landmark_case)
+        for (i, (k, v)) in enumerate(pairs(data["neutral_density"]))
+            l = mk.lines!(ax_nn, v.x, v.y ./ 1.0e19; color = landmark_colors[i], linestyle = :dash)
+            push!(lines, l)
+            push!(labels, to_title(k))
+        end
+        for (i, (_, v)) in enumerate(pairs(data["plasma_density"]))
+            mk.lines!(ax_ne, v.x, v.y ./ 1.0e18; color = landmark_colors[i], linestyle = :dash)
+        end
+        for (i, (_, v)) in enumerate(pairs(data["electric_field"]))
+            mk.lines!(ax_E, v.x, v.y ./ 1000; color = landmark_colors[i], linestyle = :dash)
+        end
+        for (i, (_, v)) in enumerate(pairs(data["energy"]))
+            mk.lines!(ax_Te, v.x, v.y / 1.5; color = landmark_colors[i], linestyle = :dash)
+        end
     end
-    mk.lines!(ax_E, avg[:z], avg[:E][] ./ 1000; style...)
-
-    for (i, (k, v)) in enumerate(pairs(data["energy"]))
-        mk.lines!(ax_Te, v.x, v.y / 1.5; color = colors[i], linestyle = :dash)
-    end
-    mk.lines!(ax_Te, avg[:z], avg[:Tev][]; style...)
 
     mk.Legend(fig[0, :], lines, labels, orientation = :horizontal)
+    mk.save(filename, fig)
+    return
+end
 
-    return mk.save("landmark_$(case).png", fig)
+function plot_oscillations(osc::Oscillations, ref::Oscillations, filename::String)
+    fig = mk.Figure(size=(1000, 800))
+    ax_T = mk.Axis(fig[1,1], xlabel = "Time (s)", ylabel = "Thrust (N)")
+    ax_T_zoom = mk.Axis(fig[1,2], xlabel = "Time (s)", ylabel = "Thrust (N)")
+    ax_I = mk.Axis(fig[2,1], xlabel = "Time (s)", ylabel = "Discharge current (A)")
+    ax_I_zoom = mk.Axis(fig[2,2], xlabel = "Time (s)", ylabel = "Discharge current (A)")
+    ax_J = mk.Axis(fig[3,1], xlabel = "Time (s)", ylabel = "Ion current (A)")
+    ax_J_zoom = mk.Axis(fig[3,2], xlabel = "Time (s)", ylabel = "Ion current (A)")
+
+    lines = []
+    labels = []
+
+    start_ind = length(osc.time) * 3 ÷ 4
+
+    for (sim, name, linestyle, color) in zip([osc, ref], ["Current", "Reference"], [:solid, :dash], [:black, :red])
+        kwargs = (;linestyle, color)
+        t = sim.time
+        t_zoom = t[start_ind:end]
+
+        l = mk.lines!(ax_T, t, sim.thrust; kwargs...)
+        push!(lines, l)
+        push!(labels, name)
+        mk.lines!(ax_T_zoom, t_zoom, sim.thrust[start_ind:end]; kwargs...)
+
+        mk.lines!(ax_I, t, sim.discharge_current; kwargs...)
+        mk.lines!(ax_I_zoom, t_zoom, sim.discharge_current[start_ind:end]; kwargs...)
+
+        mk.lines!(ax_J, t, sim.ion_current; kwargs...)
+        mk.lines!(ax_J_zoom, t_zoom, sim.ion_current[start_ind:end]; kwargs...)
+    end
+
+    for (full, zoom) in zip([ax_T, ax_I, ax_J], [ax_T_zoom, ax_I_zoom, ax_J_zoom])
+        mk.reset_limits!(zoom)
+        zoom_lims = zoom.finallimits[]
+        mk.poly!(full, zoom_lims, color = (:white, 0), strokecolor = :orange, strokewidth = 2)
+    end
+
+    mk.Legend(fig[0, :], lines, labels, orientation = :horizontal)
+    mk.save(filename, fig)
+    return
 end
 
 function run_landmark(
@@ -120,39 +180,73 @@ function run_landmark(
         dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,
     )
 
-    plot_landmark(sol, case)
-
     return sol
 end
 
-function check_regression_case(case)
-    (; file, thrust, current, ion_current) = case
+function p2p(x)
+    _min, _max = extrema(x)
+    return _max - _min
+end
+
+function check_and_print(description, reduction, x::Vector{T}, y::Vector{T}; atol = zero(T), rtol = (atol > 0 ? zero(T) : sqrt(eps(T))), exponential=false) where {T<:Real}
+    rx, ry = reduction(x), reduction(y)
+    @test isapprox(rx, ry; rtol, atol)
+    if exponential
+        @printf("%s: %.4g (expected %.4g)\n", description, rx, ry)
+    else
+        @printf("%s: %.3f (expected %.3f)\n", description, rx, ry)
+    end
+end
+
+HEADER_WIDTH = 40
+
+print_divider(c = '=', w = HEADER_WIDTH) =  println(c^w)
+
+function print_centered(s, w = HEADER_WIDTH)
+    num_left = max(0, floor(Int, (w - length(s)) / 2))
+    num_right = max(0, w - length(s) - num_left)
+    println(" "^num_left * s * " "^num_right)
+end
+
+function print_header(s, c = '='; w = HEADER_WIDTH, top=true, bottom=true)
+    top && print_divider(c, w)
+    print_centered(s, w)
+    bottom && print_divider(c, w)
+end
+
+function check_regression_case(case; fix=false)
+    (; file) = case
 
     @testset "$(file)" begin
-        println("======================================")
-        println("        \"$(file)\"                   ")
-        println("======================================")
+        REGRESSION_DIR = joinpath(het.TEST_DIR, "regression")
+        OUTPUT_DIR = joinpath(REGRESSION_DIR, "output")
+        mkpath(OUTPUT_DIR)
 
-        if haskey(case, :landmark_case)
+        print_header(file; w = 60)
+
+        casename, landmark_case = if haskey(case, :landmark_case)
             nsave = 1000
-            ncells = case.landmark_case == 1 ? 250 : 150
-            sol_info = @timed run_landmark(
-                1.0e-3; ncells, nsave = nsave, case = case.landmark_case, CFL = case.CFL,
-            )
+            ncells = 250 
+            sol_info = @timed run_landmark(2.0e-3; ncells, nsave = nsave, case = case.landmark_case, CFL = case.CFL)
+            "landmark_$(case.landmark_case)", case.landmark_case
         else
-            file = "$(het.TEST_DIR)/regression/$(file)"
-            sol_info = @timed het.run_simulation(file)
+            casename = splitext(basename(file))[1]
+            sol_info = @timed het.run_simulation(joinpath(REGRESSION_DIR, file))
+            splitext(basename(file))[1], nothing
         end
 
         sol = sol_info.value
-
-        nsave = length(sol.frames)
-        avg_start = nsave ÷ 3
-        n_avg = nsave - avg_start
-        avg = het.time_average(sol, avg_start)
+        avg_start_time = 1.5e-3
+        nsave = sol.simulation.num_save
+        avg_start_ind = floor(Int, nsave * avg_start_time / sol.t[end])
+        n_avg = nsave - avg_start_ind
+        avg = het.time_average(sol, avg_start_ind)
 
         ϕ = avg[:ϕ][]
         Tev = avg[:Tev][]
+
+        # Check for sim success
+        @test sol.retcode == :success
 
         # Check potential boundary condition
         @test ϕ[end] ≈ avg.config.cathode_coupling_voltage atol = 0.01
@@ -161,34 +255,51 @@ function check_regression_case(case)
         diff = abs(Tev[end] - Tev[end - 1])
         @test Tev[end] ≈ avg.config.cathode_Tev atol = 0.2 * diff
 
-        T = het.thrust(sol) .* 1000
-        T = [het.thrust(sol, i) for i in avg_start:nsave] .* 1000
-        T_mean = het.mean(T)
-        T_err = het.std(T) / sqrt(n_avg)
-        Id = [het.discharge_current(sol, i) for i in avg_start:nsave]
-        Id_mean = het.mean(Id)
-        Id_err = het.std(Id) / sqrt(n_avg)
-        ji = [het.ion_current(sol, i) for i in avg_start:nsave]
-        ji_mean = het.mean(ji)
-        ji_err = het.std(ji) / sqrt(n_avg)
+        thrust = het.thrust(sol)
+        discharge_current = het.discharge_current(sol)
+        ion_current = het.ion_current(sol)
 
-        println("Performance:")
-        @printf(
-            "Thrust: %.3f ± %.3f mN (expected %.3f mN)\n",
-            T_mean, T_err, thrust
-        )
-        @printf(
-            "Discharge current: %.3f ± %.3f A (expected %.3f A)\n",
-            Id_mean, Id_err, current
-        )
-        @printf(
-            "Ion current: %.3f ± %.3f A (expected %.3f A)\n",
-            ji_mean, ji_err, ion_current
-        )
-        @test isapprox(thrust, T_mean, atol = T_err)
-        @test isapprox(current, Id_mean, atol = Id_err)
-        @test isapprox(ion_current, ji_mean, atol = ji_err)
+        oscillations = Oscillations(sol.t, thrust, discharge_current, ion_current)
 
+        # Overwrite existing benchmarks if we so choose
+        COMPARISON_FILE = joinpath(OUTPUT_DIR, "ref_$(casename).json")
+        OSCILLATIONS_FILE = joinpath(OUTPUT_DIR, "oscillations_$(casename).json")
+        if fix
+            JSON.json(joinpath(OUTPUT_DIR, COMPARISON_FILE), het.serialize(avg))
+            JSON.json(OSCILLATIONS_FILE, oscillations)
+        end
+
+        # Load comparison files
+        ref_sim_dict = JSON.parse(read(COMPARISON_FILE); allownan=true)
+        ref_sim = het.deserialize(het.Solution, ref_sim_dict)
+        ref_oscillations = JSON.parse(read(OSCILLATIONS_FILE), Oscillations; allownan=true)
+
+        # Plot comparison of time-averaged properties
+        plot_sim(avg, ref_sim, joinpath(OUTPUT_DIR, "ref_$(casename).png"), landmark_case)
+
+        # Plot comparison of oscillatory properties
+        plot_oscillations(oscillations, ref_oscillations, joinpath(OUTPUT_DIR, "oscillations_$(casename).png"))
+
+        @show avg_start_ind
+
+        print_header("Oscillations", '-')
+        for key in [:thrust, :discharge_current, :ion_current]
+            sim_osc = getfield(oscillations, key)
+            ref_osc = getfield(ref_oscillations, key)
+
+            sim_osc_steady = sim_osc[avg_start_ind:end]
+            ref_osc_steady = ref_osc[avg_start_ind:end]
+            osc_err = het.std(ref_osc_steady) / sqrt(n_avg)
+
+            # Check for 3 things - height of transient, p2p amplitude, and mean value
+            name = to_title(string(key))
+            check_and_print(name * " max", maximum, sim_osc, ref_osc; rtol = 0.05)
+            check_and_print(name * " steady p2p", p2p, sim_osc_steady, ref_osc_steady; rtol = 0.05)
+            check_and_print(name * " steady mean", het.mean, sim_osc_steady, ref_osc_steady; atol = osc_err)
+        end
+        println()
+
+        print_header("Efficiencies", '-')
         efficiency_funcs = Dict(
             "Mass" => het.mass_eff,
             "Current" => het.current_eff,
@@ -196,74 +307,46 @@ function check_regression_case(case)
             "Divergence" => het.divergence_eff,
             "Anode" => het.anode_eff,
         )
-
-        println("\nEfficiencies:")
-
-        efficiencies = Dict{String, Float64}()
-
         for (eff_name, eff_func) in efficiency_funcs
-            eff = eff_func(sol)
-            eff_mean = het.mean(eff)
-            eff_err = het.std(eff) / sqrt(n_avg)
-            eff_expected = case.efficiencies[eff_name]
-            @printf(
-                "%s: %.1f ±  %.1f%% (expected %.1f%%)\n",
-                eff_name, eff_mean * 100, eff_err * 100, eff_expected * 100
-            )
-            @test isapprox(eff_mean, eff_expected, rtol = 1.0e-2)
-            efficiencies[eff_name] = eff_mean
+            sim_eff = eff_func(avg)
+            ref_eff = eff_func(ref_sim)
+            check_and_print(eff_name, x -> x[], sim_eff, ref_eff, rtol = 0.01)
         end
-
-        max_Te = maximum(avg[:Tev][])
-        max_E = maximum(avg[:E][])
-        max_nn = maximum(avg[:nn][])
-        max_ni = maximum(avg[:ni][])
-
-        println("\nPlasma properties:")
-        @printf(
-            "Peak electron temp: %.3f eV (expected %.3f eV)\n",
-            max_Te, case.max_Te
-        )
-        @printf(
-            "Peak electric field: %.3e V/m (expected %.3e V/m)\n",
-            max_E, case.max_E
-        )
-        @printf(
-            "Peak neutral density: %.3e m^-3 (expected %.3e m^-3)\n",
-            max_nn, case.max_nn
-        )
-        @printf(
-            "Peak ion density: %.3e m^-3 (expected %.3e m^-3)\n",
-            max_ni, case.max_ni
-        )
         println()
-        @test sol.retcode == :success
 
-        @test isapprox(max_Te, case.max_Te, rtol = 1.0e-2)
-        @test isapprox(max_E, case.max_E, rtol = 1.0e-2)
-        @test isapprox(max_nn, case.max_nn, rtol = 1.0e-2)
-        @test isapprox(max_ni, case.max_ni, rtol = 1.0e-2)
-
-        # print output to replace what we had
-        println("-----")
-        println("Replace contents of benchmark with the following if necessary")
-        println("-----")
-        @printf("thrust = %.3f,\n", T_mean)
-        @printf("current = %.3f,\n", Id_mean)
-        @printf("ion_current = %.3f,\n", ji_mean)
-        @printf("max_Te = %.3f,\n", max_Te)
-        @printf("max_E = %.3e,\n", max_E)
-        @printf("max_nn = %.3e,\n", max_nn)
-        @printf("max_ni = %.3e,\n", max_ni)
-        @printf("efficiencies = Dict(\n")
-        @printf("   \"Mass\" => %.3f,\n", efficiencies["Mass"])
-        @printf("   \"Current\" => %.3f,\n", efficiencies["Current"])
-        @printf("   \"Divergence\" => %.3f,\n", efficiencies["Divergence"])
-        @printf("   \"Voltage\" => %.3f,\n", efficiencies["Voltage"])
-        @printf("   \"Anode\" => %.3f,\n", efficiencies["Anode"])
-        @printf("),\n")
-        println("-----")
+        print_header("Plasma properties", '-')
+        sim_frame = avg.frames[]
+        ref_frame = ref_sim.frames[]
+        field_names = ["Tev", "E", "ne", "nn"]
+        field_fns = [:Tev, :E, :ne, x -> x.neutrals[:Xe].n]
+        for Z in eachindex(ref_frame.ions[:Xe])
+            push!(field_names, "ni_$(Z)")
+            push!(field_fns, x -> x.ions[:Xe][Z].n)
+        end
+        reductions = [maximum, minimum, het.mean, only]
+        reduction_names = ["max", "min", "mean", "L2"]
+        for (field_name, field_fn) in zip(field_names, field_fns)
+            if field_fn isa Symbol
+                sim_qty = getfield(sim_frame, field_fn)
+                ref_qty = getfield(ref_frame, field_fn)
+            else
+                sim_qty = field_fn(sim_frame)
+                ref_qty = field_fn(ref_frame)
+            end
+            for (reduction_name, reduction) in zip(reduction_names, reductions)
+                exponential = field_name != "Tev" && field_name != "E" && reduction_name != "L2"
+                name = "$(field_name) $(reduction_name)"
+                if reduction_name == "L2"
+                    L2 = sqrt(sum((sim_qty .- ref_qty).^2) / sum(ref_qty.^2))
+                    check_and_print(name, reduction, [L2], [0.0]; atol=0.01, exponential)
+                else
+                    check_and_print(name, reduction, sim_qty, ref_qty; rtol=1e-2, exponential)
+                end
+            end
+            println()
+        end
     end
 
     return
 end
+""

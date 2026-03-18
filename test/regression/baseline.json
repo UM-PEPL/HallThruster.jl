@@ -16,7 +16,13 @@
       0.0,
       0.08
     ],
-    "anode_mass_flow_rate": 5e-6,
+    "propellants": [
+      {
+        "gas": "Xenon",
+        "max_charge": 3,
+        "flow_rate_kg_s": 5e-6
+      }
+    ],
     "discharge_voltage": 300,
     "cathode_coupling_voltage": 30,
     "anom_model": {
@@ -55,11 +61,11 @@
   "simulation": {
       "dt": 5e-9,
       "adaptive": true,
-      "duration": 1e-3,
+      "duration": 2e-3,
       "num_save": 1000,
       "grid": {
           "type": "EvenGrid",
-          "num_cells": 200
+          "num_cells": 150
       }
   }
 }

@@ -20,8 +20,11 @@ test/*.png
 !docs/*.png
 run
 landmark_*.png
+!test/regression/output
+test/regression/output/*.png
 
 *.mod
 *.so
 .aider*
 _output.json
+__output.json
