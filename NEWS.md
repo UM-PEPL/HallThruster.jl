@@ -4,6 +4,33 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## v0.21.3
+### Internal changes
+- Some internal changes to support negative ions. You can now pass an array of `allowed_charges` in place of `max_charge`.
+
+### Bug fixes
+- Fix `_output.json` not getting cleaned up after precompilation
+- Fix bug in setting of minimum electron temperatures that caused 
+
+## v0.21.2
+
+### Bug fixes
+ - Fix missing propellant serialization for nitrogen
+
+**Merged pull requests:**
+- add MolecularNitrogen and Nitrogen to propellant serialization list (#160) (@amta3208)
+
+**Closed issues:**
+- Make AD Compatible (#77)
+- Behavior of neutral density and question on config parameters (#136)
+- Curve fitting for adjustment of anomalous parameters (#140)
+- Proposal for Contributing to the Hallthruster Project (#150)
+
+## v0.21.1
+
+**Merged pull requests:**
+- add TOML dependency (#156) (@klesnick823)
+
 ## v0.21.0
 
 ### Internal changes

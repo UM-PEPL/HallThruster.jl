@@ -12,7 +12,7 @@ We verify that the PDEs are discretized correctly using the [Method of Manufactu
 The method of manufactured solutions requires the injection of special source terms into `HallThruster`'s solution procedure.
 These are specified in the [Configuration](@ref) stage, using the following keys.
 
-- `source_heavy_species
+- `source_heavy_species`
 - `source_electron_energy`
 
 We use [Symbolics.jl](https://github.com/JuliaSymbolics/Symbolics.jl) to construct these source terms automatically from the governing equations of our model.
@@ -47,19 +47,19 @@ In the above, ``L_{ch}`` refers to thruster channel length and ``z_0`` is `domai
 
 Case 1
 ``\; \; \alpha_1 = 1.0, \alpha_2 = 1.0``
-![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case1_rusanov_160cells.jpg)
+![Landmark1](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_1.svg)
 
 Case 2
 ``\; \; \alpha_1 = 0.5, \alpha_2 = 1.0``
-![Landmark2](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case2_rusanov_160cells.jpg)
+![Landmark2](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_2.svg)
 
 Case 3
 ``\; \; \alpha_1 = 0.4, \alpha_2 = 1.0``
-![Landmark3](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_case3_rusanov_160cells.jpg)
+![Landmark3](https://raw.githubusercontent.com/UM-PEPL/HallThruster.jl/main/docs/src/assets/landmark_3.svg)
+
 ## Regression tests
 We automatically check all three landmark cases, as well as a few SPT-100 simulations, to ensure that the code performs as expected between releases.
-Any unforseen changes in the physics or numerics causes these tests to fail.
-For each case, we compare the time-averaged thrust, discharge current, component efficiencies, and peak values of electron temprature, electric field, plasma density and neutral density to expected values. 
-Any minor deviation from these values produces a failure.
-
+For each case, we check the mean, peak-to-peak, and transient maximum values of thrust, discharge current, and ion current.
+We also compare several time-averaged properties between versions, including the maximum, minimum, mean, and L2 residual of `Tev`, `nn`, `ne`, and `E`.
+Any unintended changes in the physics or numerics will case these tests to fail.
 These tests can be found in [test/regression](https://github.com/UM-PEPL/HallThruster.jl/tree/main/test/regression).

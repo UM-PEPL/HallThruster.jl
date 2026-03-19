@@ -1,0 +1,37 @@
+{
+  "config": {
+    "thruster": {
+      "name": "SPT-100",
+      "geometry": {
+        "inner_radius": 0.035,
+        "outer_radius": 0.05,
+        "channel_length": 0.025
+      },
+      "magnetic_field": {
+        "file": "bfield_spt100.csv"
+      }
+    },
+    "domain": [
+      0.0,
+      0.08
+    ],
+    "propellants": [
+      {
+        "gas": "Xenon",
+        "max_charge": 1,
+        "flow_rate_kg_s": 5e-6
+      }
+    ],
+    "discharge_voltage": 300
+  },
+  "simulation": {
+      "dt": 5e-9,
+      "adaptive": true,
+      "duration": 2e-3,
+      "num_save": 1000,
+      "grid": {
+          "type": "EvenGrid",
+          "num_cells": 100
+      }
+  }
+}
