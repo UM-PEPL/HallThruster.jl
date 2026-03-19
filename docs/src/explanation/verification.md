@@ -12,7 +12,7 @@ We verify that the PDEs are discretized correctly using the [Method of Manufactu
 The method of manufactured solutions requires the injection of special source terms into `HallThruster`'s solution procedure.
 These are specified in the [Configuration](@ref) stage, using the following keys.
 
-- `source_heavy_species
+- `source_heavy_species`
 - `source_electron_energy`
 
 We use [Symbolics.jl](https://github.com/JuliaSymbolics/Symbolics.jl) to construct these source terms automatically from the governing equations of our model.
@@ -59,8 +59,7 @@ Case 3
 
 ## Regression tests
 We automatically check all three landmark cases, as well as a few SPT-100 simulations, to ensure that the code performs as expected between releases.
-Any unforseen changes in the physics or numerics causes these tests to fail.
-For each case, we compare the time-averaged thrust, discharge current, component efficiencies, and peak values of electron temprature, electric field, plasma density and neutral density to expected values. 
-Any minor deviation from these values produces a failure.
-
+For each case, we check the mean, peak-to-peak, and transient maximum values of thrust, discharge current, and ion current.
+We also compare several time-averaged properties between versions, including the maximum, minimum, mean, and L2 residual of $T_e$, $n_n$, $n_e$, and $E$.
+Any unintended changes in the physics or numerics will case these tests to fail.
 These tests can be found in [test/regression](https://github.com/UM-PEPL/HallThruster.jl/tree/main/test/regression).

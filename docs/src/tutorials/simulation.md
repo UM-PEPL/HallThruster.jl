@@ -325,7 +325,7 @@ There are serveral other functions that act analogously, computing efficiencies 
 A full listing of these can be found on the [Postprocessing](../reference/postprocessing.md) page.
 
 Below, we use [Makie](https://docs.makie.org/stable/) to plot the discharge current over time for this specific simulation.
-We can see that the simulation begins with strong transient oscillations before settling down to a relatively stable steady state.
+We can see that the simulation begins with strong transient oscillations before settling down to a lower-level oscillation
 
 ```julia
 using CairoMakie: Makie as mk
@@ -354,7 +354,7 @@ avg = het.time_average(solution)
 
 # output
 
-Hall thruster solution with 1 saved frame (retcode: success, end time: 0.001 seconds)
+Hall thruster solution with 1 saved frame (retcode: success, end time: 0.002 seconds)
 ```
 The result of the time-averaging operation is a new `Solution` object containing a single frame.
 All of the normal functions that operate on `Solution` objects, like `discharge_current`, still work on a time-averaged `Solution`.
