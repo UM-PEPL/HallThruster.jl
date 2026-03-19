@@ -133,7 +133,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     ionization_model::Symbol
     """
-    Model for excitation reactions. **Default:** `:Lookup`. 
+    Model for excitation reactions. **Default:** `:Lookup`.
     """
     excitation_model::Symbol
     """
@@ -145,7 +145,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     source_heavy_species::S_HS
     """
-    Extra source term for electron energy equation. **Default:** `nothing`. 
+    Extra source term for electron energy equation. **Default:** `nothing`.
     """
     source_energy::S_E
 
@@ -311,10 +311,11 @@ function load_propellant_config(propellant_config; directories = String[], verbo
         velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
         temperature_K = get(gas_dict, "temperature_K", nothing)
         ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)
+        allowed_charges = get(gas_dict, "allowed_charges", nothing)
         max_charge = get(gas_dict, "max_charge", 1)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
 
-        push!(props, Propellant(; gas, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+        push!(props, Propellant(; gas, max_charge, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
     end
 
     return props
