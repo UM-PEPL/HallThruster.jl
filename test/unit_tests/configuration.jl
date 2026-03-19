@@ -220,6 +220,43 @@ function test_multiple_propellants()
     return
 end
 
+function test_charge_config()
+    @testset "Allowed charges takes priority over max_charge default" begin
+        config = het.Config(
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.8),
+            allowed_charges = [-1, 1, 2],
+            anode_mass_flow_rate = 5.0e-6,
+            ncharge = 3,
+        )
+        @test collect(config.propellants[1].allowed_charges) == [-1, 1, 2]
+    end
+
+    @testset "Allowed Charges Input Works" begin
+        config = het.Config(
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.8),
+            anode_mass_flow_rate = 5.0e-6,
+            allowed_charges = [-1, 1, 2],
+        )
+        @test collect(config.propellants[1].allowed_charges) == [-1, 1, 2]
+    end
+    @testset "Charges Default to [1]" begin
+        config = het.Config(
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            anode_mass_flow_rate = 5.0e-6,
+            domain = (0.0, 0.8),
+        )
+        @test collect(config.propellants[1].allowed_charges) == [1]
+    end
+
+    return
+end
+
+test_charge_config()
 test_config_serialization()
 test_configuration()
 @testset "Multiple propellants" begin

@@ -184,6 +184,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             electron_neutral_model = :Lookup,
             source_heavy_species = Returns(0.0),
             source_energy = Returns(0.0),
+            allowed_charges = nothing,
             # Backwards-compatible arguments
             anode_mass_flow_rate = nothing,
             propellant = Xenon,
@@ -210,7 +211,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             else
                 prop = Propellant(
                     propellant, anode_mass_flow_rate;
-                    max_charge = ncharge, velocity_m_s = neutral_velocity,
+                    max_charge = ncharge, allowed_charges, velocity_m_s = neutral_velocity,
                     temperature_K = neutral_temperature_K, ion_temperature_K
                 )
                 propellants = [prop]
@@ -314,7 +315,6 @@ function load_propellant_config(propellant_config; directories = String[], verbo
         allowed_charges = get(gas_dict, "allowed_charges", nothing)
         max_charge = get(gas_dict, "max_charge", 1)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
-
         push!(props, Propellant(; gas, max_charge, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
     end
 

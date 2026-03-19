@@ -206,9 +206,7 @@ struct Propellant
         end
 
         final_allowed_charges =
-        if !isnothing(max_charge) && !isnothing(allowed_charges)
-            error("Provide either `max_charge` or `allowed_charges`, not both.")
-        elseif !isnothing(allowed_charges)
+        if !isnothing(allowed_charges)
             collect(allowed_charges)
         elseif !isnothing(max_charge)
             collect(1:max_charge)
