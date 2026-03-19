@@ -60,6 +60,6 @@ Case 3
 ## Regression tests
 We automatically check all three landmark cases, as well as a few SPT-100 simulations, to ensure that the code performs as expected between releases.
 For each case, we check the mean, peak-to-peak, and transient maximum values of thrust, discharge current, and ion current.
-We also compare several time-averaged properties between versions, including the maximum, minimum, mean, and L2 residual of $T_e$, $n_n$, $n_e$, and $E$.
+We also compare several time-averaged properties between versions, including the maximum, minimum, mean, and L2 residual of `Tev`, `nn`, `ne`, and `E`.
 Any unintended changes in the physics or numerics will case these tests to fail.
 These tests can be found in [test/regression](https://github.com/UM-PEPL/HallThruster.jl/tree/main/test/regression).
