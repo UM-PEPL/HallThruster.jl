@@ -5,7 +5,7 @@ EditURL = "NEWS.md"
 # Release notes
 
 ## v0.21.3
-### Internals
+### Internal changes
 - Some internal changes to support negative ions. You can now pass an array of `allowed_charges` in place of `max_charge`.
 
 ### Bug fixes
