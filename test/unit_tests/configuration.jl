@@ -220,43 +220,64 @@ function test_multiple_propellants()
     return
 end
 
-function test_charge_config()
-    @testset "Allowed charges takes priority over max_charge default" begin
-        config = het.Config(
-            thruster = het.SPT_100,
-            discharge_voltage = 300.0,
-            domain = (0.0, 0.8),
-            allowed_charges = [-1, 1, 2],
-            anode_mass_flow_rate = 5.0e-6,
-            ncharge = 3,
-        )
-        @test collect(config.propellants[1].allowed_charges) == [-1, 1, 2]
+function test_TOML_Read()
+    @testset "TOML allowed_charges works" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                allowed_charges = [-1, 1, 2]
+                """
+            )
+
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [-1, 1, 2]
+        end
     end
 
-    @testset "Allowed Charges Input Works" begin
-        config = het.Config(
-            thruster = het.SPT_100,
-            discharge_voltage = 300.0,
-            domain = (0.0, 0.8),
-            anode_mass_flow_rate = 5.0e-6,
-            allowed_charges = [-1, 1, 2],
-        )
-        @test collect(config.propellants[1].allowed_charges) == [-1, 1, 2]
+    @testset "TOML max_charge works" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                max_charge = 3
+                """
+            )
+
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [1, 2, 3]
+        end
     end
-    @testset "Charges Default to [1]" begin
-        config = het.Config(
-            thruster = het.SPT_100,
-            discharge_voltage = 300.0,
-            anode_mass_flow_rate = 5.0e-6,
-            domain = (0.0, 0.8),
-        )
-        @test collect(config.propellants[1].allowed_charges) == [1]
+
+    @testset "TOML max_charge and allowed_charges" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                max_charge = 3
+                allowed_charges = [-1, 1, 2]
+                """
+            )
+            @test_throws Exception het.load_propellant_config(file)
+        end
     end
 
     return
 end
 
-test_charge_config()
+test_TOML_Read()
 test_config_serialization()
 test_configuration()
 @testset "Multiple propellants" begin

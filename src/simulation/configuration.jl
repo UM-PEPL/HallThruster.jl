@@ -309,13 +309,24 @@ function load_propellant_config(propellant_config; directories = String[], verbo
             gas = Gas(name, symbol, γ = gas_dict["gamma"], M = gas_dict["mass"])
         end
 
+        if haskey(gas_dict, "allowed_charges") && haskey(gas_dict, "max_charge")
+            error("Propellant config contains conflicting charge definitions")
+        end
+
         velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
         temperature_K = get(gas_dict, "temperature_K", nothing)
         ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)
         allowed_charges = get(gas_dict, "allowed_charges", nothing)
         max_charge = get(gas_dict, "max_charge", 1)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
-        push!(props, Propellant(; gas, max_charge, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+
+        if haskey(gas_dict, "allowed_charges")
+            allowed_charges = get(gas_dict, "allowed_charges", nothing)
+            push!(props, Propellant(; gas, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+        else
+            max_charge = get(gas_dict, "max_charge", 1)
+            push!(props, Propellant(; gas, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+        end
     end
 
     return props
