@@ -158,16 +158,16 @@ Initialize fluid containers and other plasma variables form a restart
 """
 function initialize_from_restart!(params, restart_file::String)
     # TODO: multiple propellants
-    restart = JSON.parse(read(restart_file))
+    restart = JSON.parsefile(restart_file)
 
     if haskey(restart, "output")
-        restart = restart.output
+        restart = restart["output"]
     end
 
     if haskey(restart, "frames")
-        frame = restart.frames[end]
+        frame = restart["frames"][end]
     elseif haskey(restart, "average")
-        frame = restart.average
+        frame = restart["average"]
     else
         throw(ArgumentError("Restart file $(restart_file) has no key `frames` or `average`."))
     end
@@ -185,23 +185,24 @@ function initialize_from_restart!(params, frame)
     # load ion properties, interpolated from restart grid to grid in params
     z = grid.cell_centers
 
-    nn = LinearInterpolation(frame.z, frame.nn .* mi).(z)
+    z_frame = frame["z"]
+    nn = LinearInterpolation(z_frame, frame["nn"] .* mi).(z)
     params.fluid_containers.continuity[1].density .= nn
 
     for Z in allowed
         if Z <= ncharge_restart
             fluid = params.fluid_containers.isothermal[Z]
-            fluid.density .= LinearInterpolation(frame.z, frame.ni[Z] .* mi).(z)
-            fluid.momentum .= LinearInterpolation(frame.z, frame.niui[Z] .* mi).(z)
+            fluid.density .= LinearInterpolation(z_frame, frame["ni"][Z] .* mi).(z)
+            fluid.momentum .= LinearInterpolation(z_frame, frame["niui"][Z] .* mi).(z)
         end
     end
 
-    cache.ne .= LinearInterpolation(frame.z, frame.ne).(z)
+    cache.ne .= LinearInterpolation(z_frame, frame["ne"]).(z)
 
     # load electron properties
-    Te = LinearInterpolation(frame.z, frame.Tev).(z)
-    phi = LinearInterpolation(frame.z, frame.potential).(z)
-    E = LinearInterpolation(frame.z, frame.E).(z)
+    Te = LinearInterpolation(z_frame, frame["Tev"]).(z)
+    phi = LinearInterpolation(z_frame, frame["potential"]).(z)
+    E = LinearInterpolation(z_frame, frame["E"]).(z)
 
     @. cache.nϵ = 1.5 * cache.ne * Te
     @. cache.Tev = Te

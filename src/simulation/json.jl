@@ -19,7 +19,7 @@ function run_simulation(json_file::String; restart::String = "")
         throw(ArgumentError("$json_file is not a valid JSON file"))
     end
 
-    obj = JSON.parse(read(json_file), allownan = true)
+    obj = JSON.parsefile(json_file)
 
     # Read config and sim params from file
     input = get(obj, "input", obj)
@@ -166,8 +166,10 @@ function write_to_json(
 
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
+    # TODO: nan support/handling if we switch to JSONX
+    # Probably just filter and replace with zeros or something
     open(file, "w") do f
-        JSON.json(f, output, allownan = true)
+        JSON.json(f, output)
     end
 
     return nothing
