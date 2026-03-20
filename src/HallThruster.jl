@@ -30,12 +30,7 @@ include("physics/constants.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
-
-include("walls/materials.jl")
-include("walls/wall_losses.jl")
-include("walls/no_wall_losses.jl")
-include("walls/constant_sheath_potential.jl")
-include("walls/wall_sheath.jl")
+include("physics/wall_losses.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")

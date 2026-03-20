@@ -22,7 +22,7 @@ function update_electrons!(params, config, t = 0)
     freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
     # Update anomalous transport
-    t > 0 && anom_model(νan, params, config)
+    t > 0 && anom_model(νan, params)
 
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)

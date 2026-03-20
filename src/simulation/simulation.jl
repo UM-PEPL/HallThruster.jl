@@ -138,7 +138,7 @@ function setup_simulation(
 
     # Initialize the anomalous collision frequency using a
     # two-zone Bohm approximation for the first iteration
-    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params, config)
+    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params)
 
     if !isempty(restart)
         # Initialize the solution from a restart JSON file

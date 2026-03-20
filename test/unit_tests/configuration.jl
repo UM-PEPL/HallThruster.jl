@@ -88,12 +88,12 @@ function test_configuration()
         # This is because we require some value of the anomalous collision frequency to
         # properly initialize the other plasma properties.
         initial_model = het.TwoZoneBohm(1 // 160, 1 / 16)
-        v = anom_model(zeros(ncells + 2), params, config)
+        v = anom_model(zeros(ncells + 2), params)
 
         # Only include interior cells here
         inds = 2:(ncells + 1)
 
-        init = initial_model(zeros(ncells + 2), params, config)
+        init = initial_model(zeros(ncells + 2), params)
         @test all(init[inds] .== params.cache.νan[inds])
         @test all(v[inds] .!= params.cache.νan[inds])
 
