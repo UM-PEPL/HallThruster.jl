@@ -1,12 +1,17 @@
 module HallThruster
 
-using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm
+using TOML: TOML
+
+# External dependencies
+using DocStringExtensions
+using OrderedCollections
 using PrecompileTools: @compile_workload
 
-using OrderedCollections
-using TOML: TOML
+# Vendored dependencies
+include("vendor/jsonx.jl")
+using .JSONX: JSONX as JSON
 
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
@@ -22,9 +27,7 @@ include("utilities/linearalgebra.jl")
 include("utilities/integration.jl")
 include("utilities/serialization.jl")
 include("utilities/finite_differences.jl")
-include("utilities/jsonx.jl")
 
-using .JSONX: JSONX as JSON
 using .Serialization: serialize, deserialize
 
 include("physics/constants.jl")
