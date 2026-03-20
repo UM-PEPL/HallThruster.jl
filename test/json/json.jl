@@ -92,9 +92,9 @@ avg = out["output"]["average"]
 @test !haskey(avg, "ui")
 for prop in config.propellants
     prop_str = string(prop.gas.short_name)
-    @test haskey(avg.ions, prop_str)
-    @test haskey(avg.neutrals, prop_str)
-    @test length(avg.ions[prop_str]) == length(prop.allowed_charges)
+    @test haskey(avg["ions"], prop_str)
+    @test haskey(avg["neutrals"], prop_str)
+    @test length(avg["ions"][prop_str]) == length(prop.allowed_charges)
 end
 
 rm(outfile, force = true)

@@ -5,7 +5,6 @@ using DocStringExtensions
 using DelimitedFiles: readdlm, writedlm
 using PrecompileTools: @compile_workload
 
-using JSON
 using OrderedCollections
 using TOML: TOML
 
@@ -23,7 +22,9 @@ include("utilities/linearalgebra.jl")
 include("utilities/integration.jl")
 include("utilities/serialization.jl")
 include("utilities/finite_differences.jl")
+include("utilities/jsonx.jl")
 
+using .JSONX: JSONX as JSON
 using .Serialization: serialize, deserialize
 
 include("physics/constants.jl")

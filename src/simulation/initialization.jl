@@ -180,7 +180,7 @@ function initialize_from_restart!(params, frame)
     (; grid, cache, propellants) = params
     mi = propellants[1].gas.m
     allowed = propellants[1].allowed_charges
-    ncharge_restart = length(frame.ni)
+    ncharge_restart = length(frame["ni"])
 
     # load ion properties, interpolated from restart grid to grid in params
     z = grid.cell_centers

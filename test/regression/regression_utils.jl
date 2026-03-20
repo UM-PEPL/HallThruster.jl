@@ -270,10 +270,10 @@ function check_regression_case(case; fix = false)
         OSCILLATIONS_FILE = joinpath(OUTPUT_DIR, "oscillations_$(casename).json")
         if fix
             open(joinpath(OUTPUT_DIR, COMPARISON_FILE), "w") do f
-                JSON.json(f, het.serialize(avg))
+                JSON.write_json(f, het.serialize(avg))
             end
             open(OSCILLATIONS_FILE, "w") do f
-                JSON.json(f, oscillations)
+                JSON.write_json(f, oscillations)
             end
         end
 
