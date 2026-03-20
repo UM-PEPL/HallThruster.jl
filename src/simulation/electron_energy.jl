@@ -22,8 +22,8 @@ function update_electron_energy!(params, wall_loss_model, source_energy, dt)
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
     # Make sure Tev is positive, limit if below minumum electron temperature
-    limit_energy!(nϵ, ne)
-    update_temperature!(Tev, nϵ, ne)
+    limit_energy!(nϵ, ne, params.min_Te)
+    update_temperature!(Tev, nϵ, ne, params.min_Te)
     update_pressure!(pe, nϵ, landmark)
     update_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
@@ -159,20 +159,20 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
     return
 end
 
-function limit_energy!(nϵ, ne)
+function limit_energy!(nϵ, ne, min_Te)
     @inbounds for i in interior_cells(nϵ)
-        if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * MIN_TE
-            nϵ[i] = 1.5 * MIN_TE * ne[i]
+        if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
+            nϵ[i] = 1.5 * min_Te * ne[i]
         end
     end
     return
 end
 
-function update_temperature!(Tev, nϵ, ne)
+function update_temperature!(Tev, nϵ, ne, min_Te)
     # Update plasma quantities based on new density
     @inbounds for i in eachindex(Tev)
         # Compute new electron temperature
-        Tev[i] = max(MIN_TE, nϵ[i] / ne[i] / 1.5)
+        Tev[i] = max(min_Te, nϵ[i] / ne[i] / 1.5)
     end
     return
 end

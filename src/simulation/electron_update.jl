@@ -4,7 +4,7 @@ function update_electrons!(params, config, t = 0)
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature given new density
-    update_temperature!(Tev, nϵ, ne)
+    update_temperature!(Tev, nϵ, ne, params.min_Te)
 
     # Update collision frequencies
     if (params.electron_ion_collisions)
