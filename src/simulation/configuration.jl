@@ -20,7 +20,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     discharge_voltage::Float64
     """
     The propellants to be used. See [Propellants](propellants.md) for more.
-
+    
     ---
     # Optional fields
     ---
@@ -116,7 +116,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     propellant_config::String
     """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
-
+    
     ---
     # Verification and validation options
     ---
