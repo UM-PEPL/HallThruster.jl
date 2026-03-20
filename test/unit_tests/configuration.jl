@@ -221,7 +221,7 @@ function test_multiple_propellants()
 end
 
 function test_TOML_Read()
-    @testset "TOML allowed_charges works" begin
+    @testset "TOML allowed_charges and max charge parsing" begin
         mktempdir() do dir
             file = joinpath(dir, "propellant.toml")
             write(
@@ -237,9 +237,7 @@ function test_TOML_Read()
             props = het.load_propellant_config(file)
             @test collect(props[1].allowed_charges) == [-1, 1, 2]
         end
-    end
 
-    @testset "TOML max_charge works" begin
         mktempdir() do dir
             file = joinpath(dir, "propellant.toml")
             write(
@@ -255,9 +253,7 @@ function test_TOML_Read()
             props = het.load_propellant_config(file)
             @test collect(props[1].allowed_charges) == [1, 2, 3]
         end
-    end
 
-    @testset "TOML max_charge and allowed_charges" begin
         mktempdir() do dir
             file = joinpath(dir, "propellant.toml")
             write(
@@ -271,6 +267,21 @@ function test_TOML_Read()
                 """
             )
             @test_throws Exception het.load_propellant_config(file)
+        end
+
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                """
+            )
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [1]
+
         end
     end
 
