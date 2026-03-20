@@ -289,6 +289,32 @@ function test_TOML_Read()
 end
 
 test_TOML_Read()
+function test_allowed_charges_initialization()
+    @testset "Allowed charges initialization" begin
+        Xe_default = het.Propellant(
+            het.Xenon,
+            flow_rate_kg_s = 5.0e-6,
+        )
+        @test collect(Xe_default.allowed_charges) == [1]
+
+        Xe = het.Propellant(
+            het.Xenon,
+            flow_rate_kg_s = 5.0e-6,
+            max_charge = 3,
+        )
+        @test collect(Xe.allowed_charges) == [1, 2, 3]
+
+        Xe_neg = het.Propellant(
+            het.Xenon,
+            flow_rate_kg_s = 5.0e-6,
+            allowed_charges = [-1, 1, 2, 3],
+        )
+        @test collect(Xe_neg.allowed_charges) == [-1, 1, 2, 3]
+    end
+    return
+end
+
+test_allowed_charges_initialization()
 test_config_serialization()
 test_configuration()
 @testset "Multiple propellants" begin
