@@ -24,7 +24,7 @@ function setup_simulation(
     # This is used in the convective update.
     continuity = vcat([x.continuity for x in fluids_by_propellant]...)
     isothermal = vcat([x.isothermal for x in fluids_by_propellant]...)
-    fluid_containers = (; continuity, isothermal)
+    fluid_containers = FluidContainerSet(continuity, isothermal)
 
     # Finally, a single flat array of fluid containers, which we use for reaction calculations.
     fluid_array = vcat([[fluid.continuity..., fluid.isothermal...] for fluid in fluids_by_propellant]...)
