@@ -194,12 +194,13 @@ end
 
 function check_and_print(description, reduction, x::Vector{T}, y::Vector{T}; atol = zero(T), rtol = (atol > 0 ? zero(T) : sqrt(eps(T))), exponential = false) where {T <: Real}
     rx, ry = reduction(x), reduction(y)
-    @test isapprox(rx, ry; rtol, atol)
-    return if exponential
+    if exponential
         @printf("%s: %.4g (expected %.4g)\n", description, rx, ry)
     else
         @printf("%s: %.3f (expected %.3f)\n", description, rx, ry)
     end
+    @test isapprox(rx, ry; rtol, atol)
+    return nothing
 end
 
 HEADER_WIDTH = 40
@@ -273,7 +274,7 @@ function check_regression_case(case; fix = false)
                 JSON.write_json(f, het.serialize(avg))
             end
             open(OSCILLATIONS_FILE, "w") do f
-                JSON.write_json(f, oscillations)
+                JSON.write_json(f, het.serialize(oscillations))
             end
         end
 

@@ -12,11 +12,8 @@ Abstract type for wall loss models in the electron energy equation. Types includ
     See `WallMaterial` for material options.
 
 Users implementing their own `WallLossModel` will need to implement at least three methods
-    1) `freq_electron_wall(model, params, config, i)`: Compute the electron-wall momentum transfer collision frequency in cell `i`
-    2) `wall_power_loss!(Q, model, params, config)`: Compute the electron power lost to the walls in array Q
-
-A third method, `wall_electron_current(model, params, i)`, will compute the electron current to the walls in cell `i`. If left unimplemented,
-it defaults to Ie,w = e ne νew V_cell where V_cell is the cell volume.
+    1) `freq_electron_wall!(νew, model, params)`: Compute the electron-wall momentum transfer collision frequency in cell `i`
+    2) `wall_power_loss!(Q, model, params)`: Compute the electron power lost to the walls in array Q
 """
 abstract type WallLossModel end
 
@@ -32,9 +29,9 @@ Serialization.options(::Type{T}) where {T <: WallLossModel} = wall_loss_models()
  Placeholder definitions
 ==============================================================================#
 
-function freq_electron_wall(::T, _params, _i) where {T <: WallLossModel}
-    @nospecialize _params, _i
-    error("freq_electron_wall not implemented for wall loss model of type $(nameof(T)). 
+function freq_electron_wall!(νew::Vector{Float64}, ::T, _params) where {T <: WallLossModel}
+    @nospecialize _params
+    error("freq_electron_wall! not implemented for wall loss model of type $(nameof(T)). 
           See documentation for WallLossModel for a list of required methods")
 end
 
@@ -44,33 +41,22 @@ function wall_power_loss(_Q, ::T, _params) where {T <: WallLossModel}
           See documentation for WallLossModel for a list of required methods")
 end
 
-function wall_electron_current(::WallLossModel, params, i)
-    (; grid, cache, grid, thruster) = params
-    (; ne, νew_momentum) = cache
-    A_ch = thruster.geometry.channel_area
-    V_cell = A_ch * grid.dz_cell[i]
-    return e * νew_momentum[i] * V_cell * ne[i]
-end
-
 #=============================================================================
 # NoWallLosses
 ==============================================================================#
 
 struct NoWallLosses <: WallLossModel end
 
-function freq_electron_wall(::NoWallLosses, _params, _i)
-    @nospecialize _params, _i
-    return 0.0
-end
-
-function wall_electron_current(::NoWallLosses, _params, _i)
-    @nospecialize _params, _i
-    return 0.0
+function freq_electron_wall!(νew::Vector{Float64}, ::NoWallLosses, _params)
+    @nospecialize _params
+    @inbounds νew .= 0.0
+    return nothing
 end
 
 function wall_power_loss!(Q, ::NoWallLosses, _params)
     @nospecialize _params
-    return Q .= 0.0
+    @inbounds Q .= 0.0
+    return nothing
 end
 
 wall_loss_scale(::NoWallLosses) = 0.0
@@ -85,9 +71,10 @@ Base.@kwdef struct ConstantSheathPotential <: WallLossModel
     outer_loss_coeff::Float64
 end
 
-function freq_electron_wall(::ConstantSheathPotential, _params, _i)
-    @nospecialize(_params, _i)
-    return 1.0e7
+function freq_electron_wall!(νew::Vector{Float64}, ::ConstantSheathPotential, _params)
+    @nospecialize _params
+    @inbounds νew .= 1e7
+    return nothing
 end
 
 function wall_power_loss!(Q, model::ConstantSheathPotential, params)
@@ -185,35 +172,36 @@ end
 @inline edge_to_center_density_ratio() = 0.86 / sqrt(3);
 
 # TODO: reorganize this into something that operates on arrays
-function freq_electron_wall(model::WallSheath, params, i)
+function freq_electron_wall!(νew::Vector{Float64}, model::WallSheath, params)
     (; cache, thruster, transition_length) = params
-    geometry = thruster.geometry
 
-    # compute difference in radii
-    Δr = geometry.outer_radius - geometry.inner_radius
-    # compute electron wall temperature
-    Tev = wall_electron_temperature(params, transition_length, i)
-
-    # calculate and store SEE coefficient
-    # use number-averaged mass here
-    γ_SEE_max = 1 - 8.3 * sqrt(me / cache.m_eff[i])
-    γ = SEE_yield(model.material, Tev, γ_SEE_max)
-    cache.γ_SEE[i] = γ
-
-    # compute the ion current to the walls
+    # compute difference in radii and edge-to-center density ratio
+    Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
     h = edge_to_center_density_ratio()
-    j_iw = 0.0
-    for fluid in params.fluid_containers.isothermal
-        Z = fluid.species.Z
-        inv_mi = inv(fluid.species.element.m)
-        niw = h * fluid.density[i] * inv_mi
-        j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
+
+    for i in eachindex(params.grid.cell_centers)
+        # compute electron wall temperature
+        Tev = wall_electron_temperature(params, transition_length, i)
+
+        # use number-averaged mass here
+        γ_SEE_max = 1 - 8.3 * sqrt(me / cache.m_eff[i])
+        γ = SEE_yield(model.material, Tev, γ_SEE_max)
+        cache.γ_SEE[i] = γ
+
+        # compute the ion current to the walls
+        j_iw = 0.0
+        for fluid in params.fluid_containers.isothermal
+            Z = fluid.species.Z
+            inv_mi = inv(fluid.species.element.m)
+            niw = h * fluid.density[i] * inv_mi
+            j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
+        end
+
+        # compute electron wall collision frequency
+        νew[i] = j_iw / (Δr * (1 - γ)) / cache.ne[i]
     end
 
-    # compute electron wall collision frequency
-    νew = j_iw / (Δr * (1 - γ)) / cache.ne[i]
-
-    return νew
+    return nothing
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
