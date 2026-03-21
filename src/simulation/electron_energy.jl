@@ -1,16 +1,14 @@
-function update_electron_energy!(params, wall_loss_model, source_energy, dt)
+function update_electron_energy!(params, wall_loss_model, user_source_energy!, dt)
     (; Te_L, Te_R, grid, cache, implicit_energy, anode_bc, landmark) = params
-    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe, ∇pe) = cache
+    (; Aϵ, bϵ, nϵ, ue, ne, Tev, pe, ∇pe, user_energy_source) = cache
 
     Q = cache.cell_cache_1
 
-    # Compute energy source terms
-    source_electron_energy!(Q, params, wall_loss_model)
-
     # User-provided source term
-    @inbounds for i in 2:(grid.num_cells - 1)
-        Q[i] += source_energy(params, i)
-    end
+    user_source_energy!(user_energy_source, params)
+
+    # Compute other energy source terms
+    source_electron_energy!(Q, params, wall_loss_model)
 
     # Set up energy boundary conditions
     energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
@@ -222,7 +220,7 @@ function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indice
     for (ind, rxn) in zip(reactant_indices, reactions)
         dens = fluids[ind].density
         inv_m = 1 / fluids[ind].species.element.m
-        for i in 2:(ncells - 1)
+        @inbounds for i in 2:(ncells - 1)
             r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
             νex[i] += ndot / ne[i]
@@ -240,18 +238,22 @@ function ohmic_heating!(Q, cache, landmark)
     if (landmark)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
-        @. Q = ne * ue * ∇ϕ
+        @inbounds for i in 2:length(Q) - 1
+            Q[i] = ne[i] * ue[i] * ∇ϕ[i]
+        end
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
-        @. Q = 2 * ne * K * νe + ue * ∇pe
+        @inbounds for i in 2:length(Q) - 1
+            Q[i] = 2 * ne[i] * K[i] * νe[i] + ue[i] * ∇pe[i]
+        end
     end
     return nothing
 end
 
 function source_electron_energy!(Q, params, wall_loss_model)
     (; cache, landmark, grid, excitation_reactions) = params
-    (; ne, ohmic_heating, wall_losses, inelastic_losses) = cache
+    (; ne, ohmic_heating, wall_losses, inelastic_losses, user_energy_source) = cache
 
     # compute ohmic heating
     ohmic_heating!(ohmic_heating, cache, landmark)
@@ -267,7 +269,9 @@ function source_electron_energy!(Q, params, wall_loss_model)
     wall_power_loss!(wall_losses, wall_loss_model, params)
 
     # Compute net energy source, i.e heating minus losses
-    @. Q = ohmic_heating - ne * wall_losses - inelastic_losses
+    @inbounds for i in 2:params.grid.num_cells - 1
+        Q[i] = user_energy_source[i] + ohmic_heating[i] - ne[i] * wall_losses[i] - inelastic_losses[i]
+    end
 
     return Q
 end

@@ -40,7 +40,13 @@ k(ϵ) = 8.32 * het.ovs_rate_coeff_ex(ϵ)
 W(ϵ) = 1.0e7 * ϵ * exp(-20 / ϵ)
 energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
     ne * (-ue * Dx(ϕ) + nn * k(ϵ) + W(ϵ))
-source_energy = eval(build_function(expand_derivatives(energy_eq), [x]))
+source_energy_cell = eval(build_function(expand_derivatives(energy_eq), [x]))
+
+function source_energy_grid!(Q, params)
+    @inbounds for i in 2:params.grid.num_cells - 1
+        Q[i] = source_energy_cell(params.grid.cell_centers[i])
+    end
+end
 
 function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
     t = 0.0
@@ -82,7 +88,7 @@ function verify_energy(ncells; implicit_energy = 1.0, niters = 20000)
         anode_Tev = 2 / 3 * Te_L,
         cathode_Tev = 2 / 3 * Te_R,
         ncharge = 1,
-        source_energy = (params, i) -> source_energy(params.grid.cell_centers[i]),
+        source_energy = source_energy_grid!,
         transition_length = 0.0,
         LANDMARK = true,
         propellant = het.Xenon,
