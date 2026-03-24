@@ -484,7 +484,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
 end
 
 
-function solve(params, config, tspan; saveat)
+function solve(params, config, tspan; num_save=-1)
     # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -498,6 +498,7 @@ function solve(params, config, tspan; saveat)
     retcode = :success
 
     # Frame saving setup
+    saveat = range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save)
     save_ind = 2
     frames = [Frame(params.fluids_by_propellant, params.cache)]
     times = zeros(length(saveat))
