@@ -23,15 +23,15 @@
       }
     ],
     "discharge_voltage": 400,
-    "cathode_coupling_voltage": 30,
+    "cathode_coupling_voltage": 35,
     "anom_model": {
       "type": "LogisticPressureShift",
       "model": {
         "type": "GaussianBohm",
-        "hall_min": 0.007015845231627282,
-        "hall_max": 0.0702476237091668,
-        "center": 0.02506,
-        "width": 0.0065
+        "hall_min": 0.00625,
+        "hall_max": 0.0625,
+        "center": 0.026,
+        "width": 0.005
       },
       "dz": 0.3594,
       "z0": -0.17682,
@@ -41,9 +41,9 @@
     "wall_loss_model": {
       "type": "WallSheath",
       "material": "BNSiO2",
-      "loss_scale": 0.86904
+      "loss_scale": 0.5
     },
-    "neutral_velocity": 278.031,
+    "neutral_velocity": 350.0,
     "neutral_temperature_K": 300.0,
     "ion_temperature_K": 1000.0,
     "transition_length": 0.004174,
@@ -55,13 +55,13 @@
     "apply_thrust_divergence_correction": true,
     "ion_wall_losses": true,
     "electron_ion_collisions": true,
-    "neutral_ingestion_multiplier": 6.23341
+    "neutral_ingestion_multiplier": 6
   },
   "simulation": {
       "dt": 5e-9,
       "adaptive": true,
       "duration": 2e-3,
-      "num_save": 1000,
+      "num_save": 1001,
       "grid": {
           "type": "EvenGrid",
           "num_cells": 150
