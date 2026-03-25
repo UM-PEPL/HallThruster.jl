@@ -62,7 +62,7 @@ function freq_electron_wall(model::WallSheath, params, i)
         inv_mi = inv(fluid.species.element.m)
         niw = h * fluid.density[i] * inv_mi
         if Z > 0
-        j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
+            j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
         end
     end
 

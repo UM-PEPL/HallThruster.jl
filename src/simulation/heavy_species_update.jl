@@ -255,7 +255,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             boundary_density = interior_density
         else
             sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
-        boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
+            boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
             if interior_velocity <= -sound_speed
                 # Supersonic outflow, pure Neumann boundary condition
                 boundary_density = interior_density
