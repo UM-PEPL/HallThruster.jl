@@ -20,7 +20,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     discharge_voltage::Float64
     """
     The propellants to be used. See [Propellants](propellants.md) for more.
-    
+
     ---
     # Optional fields
     ---
@@ -116,7 +116,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     propellant_config::String
     """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
-    
+
     ---
     # Verification and validation options
     ---
@@ -315,16 +315,7 @@ function load_propellant_config(propellant_config; directories = String[], verbo
         max_charge = get(gas_dict, "max_charge", nothing)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
 
-        if isnothing(allowed_charges) && !isnothing(max_charge)
-            push!(props, Propellant(; gas, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
-        elseif !isnothing(allowed_charges) && isnothing(max_charge)
-            push!(props, Propellant(; gas, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
-        elseif isnothing(allowed_charges) && isnothing(max_charge)
-            allowed_charges = [1]
-            push!(props, Propellant(; gas, allowed_charges, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
-        else
-            push!(props, Propellant(; gas, allowed_charges, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
-        end
+        push!(props, Propellant(; gas, allowed_charges, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
     end
 
     return props
