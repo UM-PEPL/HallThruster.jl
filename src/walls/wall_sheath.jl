@@ -61,7 +61,9 @@ function freq_electron_wall(model::WallSheath, params, i)
         Z = fluid.species.Z
         inv_mi = inv(fluid.species.element.m)
         niw = h * fluid.density[i] * inv_mi
+        if Z > 0
         j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
+        end
     end
 
     # compute electron wall collision frequency
