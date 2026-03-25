@@ -220,6 +220,75 @@ function test_multiple_propellants()
     return
 end
 
+function test_TOML_Read()
+    @testset "TOML allowed_charges and max charge parsing" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                allowed_charges = [-1, 1, 2]
+                """
+            )
+
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [-1, 1, 2]
+        end
+
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                max_charge = 3
+                """
+            )
+
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [1, 2, 3]
+        end
+
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                max_charge = 3
+                allowed_charges = [-1, 1, 2]
+                """
+            )
+            @test_throws Exception het.load_propellant_config(file)
+        end
+
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                name = "Xenon"
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                """
+            )
+            props = het.load_propellant_config(file)
+            @test collect(props[1].allowed_charges) == [1]
+
+        end
+    end
+
+    return
+end
+
+test_TOML_Read()
 function test_allowed_charges_initialization()
     @testset "Allowed charges initialization" begin
         Xe_default = het.Propellant(
