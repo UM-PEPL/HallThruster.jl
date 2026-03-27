@@ -54,7 +54,7 @@ end
 
 function _get_species_states(fluids_by_propellant)
     neutrals = OrderedDict{Symbol, SpeciesState}()
-    ions = OrderedDict{Symbol, Vector{SpeciesState}}()
+    ions = OrderedDict{Symbol, OrderedDict{Int, SpeciesState}}()
 
     for fluids in fluids_by_propellant
         continuity = fluids.continuity[1]
@@ -69,14 +69,14 @@ function _get_species_states(fluids_by_propellant)
         remove_ghosts!(neutral_state)
         neutrals[symbol] = neutral_state
 
-        ion_states = SpeciesState[]
+        ion_states = OrderedDict{Int, SpeciesState}()
         for ion in fluids.isothermal
             ion_state = SpeciesState(length(ion.density), m, ion.species.Z)
             @. ion_state.n = ion.density * inv_m
             @. ion_state.nu = ion.momentum * inv_m
             @. ion_state.u = ion.momentum / ion.density
             remove_ghosts!(ion_state)
-            push!(ion_states, ion_state)
+            ion_states[ion.species.Z] = ion_state
         end
         ions[symbol] = ion_states
     end
@@ -99,7 +99,7 @@ $(TYPEDFIELDS)
     """Dictionary containing neutral species. Indexed by that species' symbol."""
     neutrals::OrderedDict{Symbol, SpeciesState}
     """Dictionary containing ion species. Indexed by the species' symbol, followed by charge state."""
-    ions::OrderedDict{Symbol, Vector{SpeciesState}}
+    ions::OrderedDict{Symbol, OrderedDict{Int, SpeciesState}}
     """Magnetic field strength (T)"""
     B::Vector{Float64}
     """Plasma density (1/m^3)"""
@@ -447,11 +447,11 @@ function Base.getindex(sol::Solution, field::Symbol)
     if field == :nn
         return [frame.neutrals[symbol].n for frame in sol.frames]
     elseif field == :ni
-        return [[frame.ions[symbol][Z].n[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].n[i] for Z in allowed, i in 1:ncells] for frame in sol.frames]
     elseif field == :niui
-        return [[frame.ions[symbol][Z].nu[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].nu[i] for Z in allowed, i in 1:ncells] for frame in sol.frames]
     elseif field == :ui
-        return [[frame.ions[symbol][Z].u[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
+        return [[frame.ions[symbol][Z].u[i] for Z in allowed, i in 1:ncells] for frame in sol.frames]
     end
 
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))

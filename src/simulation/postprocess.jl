@@ -39,7 +39,7 @@ function time_average(sol::Solution, start_frame::Integer = 1)
         elseif f == :ions
             for prop in sol.config.propellants
                 symbol = prop.gas.short_name
-                for ion in avg[symbol]
+                for ion in values(avg[symbol])
                     ion.n .= 0.0
                     ion.nu .= 0.0
                     ion.u .= 0.0
@@ -71,10 +71,10 @@ function time_average(sol::Solution, start_frame::Integer = 1)
             elseif f == :ions
                 for prop in sol.config.propellants
                     symbol = prop.gas.short_name
-                    for (j, ion) in enumerate(avg[symbol])
-                        ion.n .+= field[symbol][j].n ./ dt
-                        ion.nu .+= field[symbol][j].nu ./ dt
-                        ion.u .+= field[symbol][j].u ./ dt
+                    for Z in prop.allowed_charges
+                        avg[symbol][Z].n.+= field[symbol][Z].n ./ dt
+                        avg[symbol][Z].nu .+= field[symbol][Z].nu ./ dt
+                        avg[symbol][Z].u .+= field[symbol][Z].u ./ dt
                     end
                 end
             else
@@ -106,7 +106,7 @@ function thrust(sol::Solution, frame::Integer)
     thrust = 0.0
 
     for ions in values(f.ions)
-        for ion in ions
+        for ion in values(ions)
             thrust += right_area * ion.m * ion.nu[end]^2 / ion.n[end]
             thrust -= left_area * ion.m * ion.nu[begin]^2 / ion.n[begin]
         end
@@ -253,7 +253,7 @@ function mass_eff(sol::Solution, frame)
     mdot_i = 0.0
 
     for ions in values(f.ions)
-        for ion in ions
+        for ion in values(ions)
             mdot_i += ion.m * ion.nu[end] * right_area
         end
     end

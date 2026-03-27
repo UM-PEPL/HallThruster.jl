@@ -77,9 +77,9 @@ function frame_dict(sol::Solution, frame::Integer)
     if length(sol.config.propellants) == 1
         symbol = sol.config.propellants[1].gas.short_name
         d["nn"] = f.neutrals[symbol].n
-        d["ni"] = [ion.n for ion in f.ions[symbol]]
-        d["ui"] = [ion.u for ion in f.ions[symbol]]
-        d["niui"] = [ion.nu for ion in f.ions[symbol]]
+        d["ni"] = [ion.n for ion in values(f.ions[symbol])]
+        d["ui"] = [ion.u for ion in values(f.ions[symbol])]
+        d["niui"] = [ion.nu for ion in values(f.ions[symbol])]
     end
 
     d["neutrals"] = OrderedDict(
@@ -98,7 +98,7 @@ function frame_dict(sol::Solution, frame::Integer)
                     "nu" => ion.nu,
                     "Z" => ion.Z,
                 )
-                for ion in ions
+                for ion in values(ions)
             ]
             for (symbol, ions) in pairs(f.ions)
     )
