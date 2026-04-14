@@ -148,6 +148,8 @@ $(TYPEDFIELDS)
     anom_multiplier::Array{Float64, 0}
     """Discharge current (A)"""
     discharge_current::Array{Float64, 0}
+    """ Discharge voltage (V)"""
+    discharge_voltage::Array{Float64, 0}
     """SImulation timestep (s)"""
     dt::Array{Float64, 0}
 end
@@ -181,6 +183,7 @@ function Frame(fluids_by_propellant, cache)
         anom_variables = [copy_and_remove_ghosts(var) for var in cache.anom_variables],
         anom_multiplier = fill(cache.anom_multiplier[]),
         discharge_current = fill(cache.Id[]),
+        discharge_voltage = fill(cache.Vd[]),
         dt = fill(cache.dt[]),
     )
 end

@@ -55,7 +55,7 @@ function update_electrical_vars!(params)
     (; cache, anom_smoothing_iters, landmark, grid) = params
     (;
         cell_cache_1, νan, νe, νc, μ, B, νew_momentum, anom_multiplier,
-        Vs, ue, ji, channel_area, ne, Id, K, pe, ∇pe, ϕ, ∇ϕ,
+        Vs, ue, ji, channel_area, ne, Id, Vd, K,  ϕ, ∇ϕ,
     ) = cache
 
     # Smooth anomalous transport model
@@ -84,12 +84,13 @@ function update_electrical_vars!(params)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    V_L = params.discharge_voltage + Vs[]
+    V_L = Vd[] + Vs[]
     V_R = params.cathode_coupling_voltage
 
     apply_drag = !landmark && params.iteration[] > 5
 
     Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
+    Vd[] = update_circuit(params.filter_circuit, params.discharge_voltage, Id[], params.dt[])
 
     # Compute electric field and potential
     update_electric_field!(∇ϕ, cache, apply_drag)
