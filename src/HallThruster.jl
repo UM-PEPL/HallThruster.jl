@@ -187,7 +187,6 @@ end
         sol = run_simulation(file)
     end
     # Remove output files
-    rm("_output.json", force = true)
     rm("__output.json", force = true)
 end
 
