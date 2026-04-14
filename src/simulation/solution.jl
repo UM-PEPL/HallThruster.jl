@@ -149,7 +149,7 @@ $(TYPEDFIELDS)
     """Discharge current (A)"""
     discharge_current::Array{Float64, 0}
     """ Discharge voltage (V)"""
-    discharge_voltage::Array{Float64, 0}
+    discharge_voltage::Array{Float64, 0} = fill(0.0) # need to provide default value for backwards compatibility when loading
     """Simulation timestep (s)"""
     dt::Array{Float64, 0}
 end

@@ -7,6 +7,11 @@
     type::Char
 end
 
+# Don't write currents and voltages on circuit elements to file
+function Serialization.exclude(::Type{C}) where {C <: CircuitElement}
+    return (:V, :dV_dt, :I, :dI_dt)
+end
+
 function CircuitElement(type::Char, value::Float64)
     if type ∉ ['R', 'L', 'C']
         throw(ArgumentError("Invalid circuit element type: $type. Must be 'R', 'L', or 'C'."))
@@ -24,32 +29,32 @@ The voltage commanded by the power supply is denoted as `V0`, the current drawn 
 - `:ParallelRC`: A circuit with a resistor in series with power supply and a capacitor in parallel with the thruster
 - `:ParallelRLSeriesC`: A circuit with a resistor and inductor in parallel between the power supply and the thruster and capacitor, which are in parallel with each other
 """
-struct CircuitModel
+@kwdef struct CircuitModel
     type::Symbol
     elements::Vector{CircuitElement}
-    function CircuitModel(type::Symbol; R::Float64=NaN, L::Float64=NaN, C::Float64=NaN)
-        elements = CircuitElement[]
-        if type == :NoCircuit
-            # do nothing
-        elseif type == :LoadResistor
-            push!(elements, CircuitElement('R', R))
-        elseif type == :ParallelRL
-            push!(elements, CircuitElement('R', R))
-            push!(elements, CircuitElement('L', L))
-        elseif type == :ParallelRC
-            push!(elements, CircuitElement('R', R))
-            push!(elements, CircuitElement('C', C))
-        elseif type == :ParallelRLSeriesC
-            push!(elements, CircuitElement('R', R))
-            push!(elements, CircuitElement('L', L))
-            push!(elements, CircuitElement('C', C))
-        else
-            throw(ArgumentError("Unknown circuit type: $type"))
-        end
-        return new(type, elements)
-    end
 end
 
+function CircuitModel(type::Symbol; R::Float64=NaN, L::Float64=NaN, C::Float64=NaN)
+    elements = CircuitElement[]
+    if type == :NoCircuit
+        # do nothing
+    elseif type == :LoadResistor
+        push!(elements, CircuitElement('R', R))
+    elseif type == :ParallelRL
+        push!(elements, CircuitElement('R', R))
+        push!(elements, CircuitElement('L', L))
+    elseif type == :ParallelRC
+        push!(elements, CircuitElement('R', R))
+        push!(elements, CircuitElement('C', C))
+    elseif type == :ParallelRLSeriesC
+        push!(elements, CircuitElement('R', R))
+        push!(elements, CircuitElement('L', L))
+        push!(elements, CircuitElement('C', C))
+    else
+        throw(ArgumentError("Unknown circuit type: $type"))
+    end
+    return CircuitModel(type, elements)
+end
 
 function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float64)
     Vd = if model.type == :NoCircuit 
