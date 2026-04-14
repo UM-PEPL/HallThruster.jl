@@ -484,7 +484,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
 end
 
 
-function solve(params, config, tspan; num_save=-1)
+function solve(params, config, tspan; num_save = -1)
     # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -550,7 +550,7 @@ function solve(params, config, tspan; num_save=-1)
                 times[save_ind] = t
                 save_ind += 1
             end
-    
+
             t >= saveat[end] && break
 
             #====
