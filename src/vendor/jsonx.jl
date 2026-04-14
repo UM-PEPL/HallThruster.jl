@@ -52,7 +52,7 @@ end
 
 # Unicode handling functions (adapted from JSON.jl)
 utf16_is_surrogate(c::UInt16) = (c & 0xf800) == 0xd800
-utf16_get_supplementary(lead::UInt16, trail::UInt16) = Char(UInt32(lead-0xd7f7)<<10 + trail)
+utf16_get_supplementary(lead::UInt16, trail::UInt16) = Char(UInt32(lead - 0xd7f7) << 10 + trail)
 
 function reverseescapechar(b)
     b == UInt8('"')  && return UInt8('"')
@@ -84,18 +84,18 @@ function unescape_string(str::String, start_pos::Int, end_pos::Int)
                 for offset in 1:4
                     bb = codeunit(str, pos + offset)
                     nv = if UInt8('0') <= bb <= UInt8('9')
-                             bb - UInt8('0')
-                         elseif UInt8('A') <= bb <= UInt8('F')
-                             bb - (UInt8('A') - 10)
-                         elseif UInt8('a') <= bb <= UInt8('f')
-                             bb - (UInt8('a') - 10)
-                         else
-                             throw(ArgumentError("Invalid Unicode escape"))
-                         end
+                        bb - UInt8('0')
+                    elseif UInt8('A') <= bb <= UInt8('F')
+                        bb - (UInt8('A') - 10)
+                    elseif UInt8('a') <= bb <= UInt8('f')
+                        bb - (UInt8('a') - 10)
+                    else
+                        throw(ArgumentError("Invalid Unicode escape"))
+                    end
                     c = (c << 4) + UInt16(nv)
                 end
                 pos += 4
-                
+
                 if utf16_is_surrogate(c)
                     # Check for surrogate pair
                     if pos + 6 < end_pos && codeunit(str, pos + 1) == UInt8('\\') && codeunit(str, pos + 2) == UInt8('u')
@@ -104,14 +104,14 @@ function unescape_string(str::String, start_pos::Int, end_pos::Int)
                         for offset in 3:6
                             bb = codeunit(str, pos + offset)
                             nv = if UInt8('0') <= bb <= UInt8('9')
-                                     bb - UInt8('0')
-                                 elseif UInt8('A') <= bb <= UInt8('F')
-                                     bb - (UInt8('A') - 10)
-                                 elseif UInt8('a') <= bb <= UInt8('f')
-                                     bb - (UInt8('a') - 10)
-                                 else
-                                     throw(ArgumentError("Invalid Unicode escape"))
-                                 end
+                                bb - UInt8('0')
+                            elseif UInt8('A') <= bb <= UInt8('F')
+                                bb - (UInt8('A') - 10)
+                            elseif UInt8('a') <= bb <= UInt8('f')
+                                bb - (UInt8('a') - 10)
+                            else
+                                throw(ArgumentError("Invalid Unicode escape"))
+                            end
                             c2 = (c2 << 4) + UInt16(nv)
                         end
                         if utf16_is_surrogate(c2)
@@ -203,6 +203,7 @@ function parse_object(str::String, pos::Int, len::Int)
             throw(ArgumentError("Expected ',' or '}' at position $pos"))
         end
     end
+    return
 end
 
 function parse_array(str::String, pos::Int, len::Int)
@@ -227,6 +228,7 @@ function parse_array(str::String, pos::Int, len::Int)
             throw(ArgumentError("Expected ',' or ']' at position $pos"))
         end
     end
+    return
 end
 
 function parse_string(str::String, pos::Int, len::Int)
@@ -270,7 +272,7 @@ function parse_number(str::String, pos::Int, len::Int)
             break
         end
     end
-    num_str = @view str[start_pos:pos-1]
+    num_str = @view str[start_pos:(pos - 1)]
 
     # Try parsing as Int64 if no decimal point or exponent
     if !has_decimal_or_exp
@@ -296,7 +298,7 @@ struct JSONText
 end
 
 function write_json(io::IO, value; replace_nan = false, replace_inf = false)
-    if value === nothing || value === missing
+    return if value === nothing || value === missing
         print(io, "null")
     elseif value isa Bool
         print(io, value ? "true" : "false")
@@ -310,7 +312,7 @@ function write_json(io::IO, value; replace_nan = false, replace_inf = false)
                 throw(ArgumentError("Cannot serialize $(value) to JSON"))
             end
         end
-        
+
         print(io, value)
     elseif value isa JSONText
         print(io, value.text)
@@ -345,12 +347,12 @@ function write_string(io::IO, str::AbstractString)
         elseif c == '\t'
             print(io, "\\t")
         elseif Int(c) < 0x20
-            print(io, "\\u", string(Int(c), base=16, pad=4))
+            print(io, "\\u", string(Int(c), base = 16, pad = 4))
         else
             print(io, c)
         end
     end
-    print(io, '"')
+    return print(io, '"')
 end
 
 function write_array(io::IO, arr::Union{AbstractVector, AbstractSet, Tuple})
@@ -359,7 +361,7 @@ function write_array(io::IO, arr::Union{AbstractVector, AbstractSet, Tuple})
         i > 1 && print(io, ',')
         write_json(io, item)
     end
-    print(io, ']')
+    return print(io, ']')
 end
 
 function write_object(io::IO, dict::Union{AbstractDict, NamedTuple})
@@ -372,7 +374,7 @@ function write_object(io::IO, dict::Union{AbstractDict, NamedTuple})
         print(io, ':')
         write_json(io, value)
     end
-    print(io, '}')
+    return print(io, '}')
 end
 
 end # module

@@ -238,13 +238,13 @@ function ohmic_heating!(Q, cache, landmark)
     if (landmark)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
-        @inbounds for i in 2:length(Q) - 1
+        @inbounds for i in 2:(length(Q) - 1)
             Q[i] = ne[i] * ue[i] * ∇ϕ[i]
         end
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
-        @inbounds for i in 2:length(Q) - 1
+        @inbounds for i in 2:(length(Q) - 1)
             Q[i] = 2 * ne[i] * K[i] * νe[i] + ue[i] * ∇pe[i]
         end
     end
@@ -269,7 +269,7 @@ function source_electron_energy!(Q, params, wall_loss_model)
     wall_power_loss!(wall_losses, wall_loss_model, params)
 
     # Compute net energy source, i.e heating minus losses
-    @inbounds for i in 2:params.grid.num_cells - 1
+    @inbounds for i in 2:(params.grid.num_cells - 1)
         Q[i] = user_energy_source[i] + ohmic_heating[i] - ne[i] * wall_losses[i] - inelastic_losses[i]
     end
 

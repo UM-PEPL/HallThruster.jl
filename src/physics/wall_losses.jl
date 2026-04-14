@@ -73,7 +73,7 @@ end
 
 function freq_electron_wall!(νew::Vector{Float64}, ::ConstantSheathPotential, _params)
     @nospecialize _params
-    @inbounds νew .= 1e7
+    @inbounds νew .= 1.0e7
     return nothing
 end
 

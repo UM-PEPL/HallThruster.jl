@@ -360,7 +360,7 @@ function params_from_config(config)
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
         min_Te = config.min_Te,
-        background_pressure_Torr = config.background_pressure_Torr
+        background_pressure_Torr = config.background_pressure_Torr,
     )
 end
 
