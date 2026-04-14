@@ -1,9 +1,8 @@
-using HallThruster: HallThruster as het
+using HallThruster: HallThruster as het, JSON
 using Printf
 using Test
 using CairoMakie: Makie as mk
 using DelimitedFiles
-using JSON: JSON as JSON
 
 struct Oscillations
     time::Vector{Float64}
@@ -195,12 +194,13 @@ end
 
 function check_and_print(description, reduction, x::Vector{T}, y::Vector{T}; atol = zero(T), rtol = (atol > 0 ? zero(T) : sqrt(eps(T))), exponential = false) where {T <: Real}
     rx, ry = reduction(x), reduction(y)
-    @test isapprox(rx, ry; rtol, atol)
-    return if exponential
+    if exponential
         @printf("%s: %.4g (expected %.4g)\n", description, rx, ry)
     else
         @printf("%s: %.3f (expected %.3f)\n", description, rx, ry)
     end
+    @test isapprox(rx, ry; rtol, atol)
+    return nothing
 end
 
 HEADER_WIDTH = 40
@@ -270,14 +270,25 @@ function check_regression_case(case; fix = false)
         COMPARISON_FILE = joinpath(OUTPUT_DIR, "ref_$(casename).json")
         OSCILLATIONS_FILE = joinpath(OUTPUT_DIR, "oscillations_$(casename).json")
         if fix
-            JSON.json(joinpath(OUTPUT_DIR, COMPARISON_FILE), het.serialize(avg))
-            JSON.json(OSCILLATIONS_FILE, oscillations)
+            open(joinpath(OUTPUT_DIR, COMPARISON_FILE), "w") do f
+                JSON.write_json(f, het.serialize(avg))
+            end
+            open(OSCILLATIONS_FILE, "w") do f
+                JSON.write_json(f, het.serialize(oscillations))
+            end
         end
 
         # Load comparison files
-        ref_sim_dict = JSON.parse(read(COMPARISON_FILE); allownan = true)
+        ref_sim_dict = JSON.parsefile(COMPARISON_FILE)
         ref_sim = het.deserialize(het.Solution, ref_sim_dict)
-        ref_oscillations = JSON.parse(read(OSCILLATIONS_FILE), Oscillations; allownan = true)
+        ref_oscillations_dict = JSON.parsefile(OSCILLATIONS_FILE)
+
+        ref_oscillations = Oscillations(
+            ref_oscillations_dict["time"],
+            ref_oscillations_dict["thrust"],
+            ref_oscillations_dict["discharge_current"],
+            ref_oscillations_dict["ion_current"]
+        )
 
         # Plot comparison of time-averaged properties
         plot_sim(avg, ref_sim, joinpath(OUTPUT_DIR, "ref_$(casename).png"), landmark_case)

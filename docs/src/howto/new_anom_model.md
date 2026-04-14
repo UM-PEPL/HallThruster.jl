@@ -19,11 +19,13 @@ end
 ```
 
 We then need to define the function which computes the anomalous transport in each cell.
-This is a mutating function which takes two arguments: the vector of anomalous collision
-frequency values to be updated, and the solver params.
+This is a mutating function which takes three arguments: the vector of anomalous collision
+frequency values to be updated, the solver params, and an optional pressure shift argument.
+This can be used to move the anomalous transport profile in space as a function of pressure.
+We will ignore it for now, though.
 
 ```julia
-function (model::BohmDiffusion)(νan, params, config)
+function (model::BohmDiffusion)(νan, params, z_shift = 0.0)
     e = HallThruster.e
     me = HallThruster.me
     B = params.cache.B
@@ -74,7 +76,7 @@ Now, we define the behavior of the model in a function, just as we did for `Bohm
 Since the model is based on assuming the wave energy convects with the ions, we will use upwind differencing for the gradient.
 
 ```julia
-function (model::LafleurModel)(νan, params, config)
+function (model::LafleurModel)(νan, params, z_shift = 0.0)
     (;grid, cache) = params
     z = grid.cell_centers
     # assuming single propellant gas here
@@ -163,7 +165,7 @@ HallThruster.num_anom_variables(::ScalarAdvection) = 2
 Next, we define the model function:
 
 ```julia
-function (model::ScalarAdvection)(νan, params, config)
+function (model::ScalarAdvection)(νan, params, z_shift = 0.0)
     ncells = length(νan)
 
     # Extract variables from params

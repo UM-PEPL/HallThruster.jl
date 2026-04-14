@@ -115,6 +115,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     propellant_config::String
     """
+    Minimum allowed electron temperature. Defaults to 1.5 eV
+    """
+    min_Te::Float64
+    """
      How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
@@ -193,6 +197,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ncharge = 1,
             # Alternate propellant specification through a file
             propellant_config::String = "",
+            min_Te = 1.5,
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
@@ -266,6 +271,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             implicit_energy,
             reaction_rate_directories,
             propellant_config,
+            min_Te,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -354,6 +360,8 @@ function params_from_config(config)
         discharge_voltage = config.discharge_voltage,
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
+        min_Te = config.min_Te,
+        background_pressure_Torr = config.background_pressure_Torr,
     )
 end
 

@@ -55,7 +55,6 @@ mutable struct SimParams{C <: CurrentController}
     Discharge current controller. **Default:** `HallThruster.NoController()`
     """
     current_control::C
-
     function SimParams(;
             grid::GridSpec,
             duration = 1.0e-3,
