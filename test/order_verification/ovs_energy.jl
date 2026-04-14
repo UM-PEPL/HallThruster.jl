@@ -43,9 +43,10 @@ energy_eq = Dt(nϵ) + Dx(5 / 3 * nϵ * ue - 10 / 9 * μ * nϵ * Dx(nϵ / ne)) +
 source_energy_cell = eval(build_function(expand_derivatives(energy_eq), [x]))
 
 function source_energy_grid!(Q, params)
-    @inbounds for i in 2:params.grid.num_cells - 1
+    @inbounds for i in 2:(params.grid.num_cells - 1)
         Q[i] = source_energy_cell(params.grid.cell_centers[i])
     end
+    return nothing
 end
 
 function solve_energy!(params, config, max_steps, dt, rtol = sqrt(eps(Float64)))
