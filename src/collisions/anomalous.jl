@@ -40,8 +40,8 @@ No anomalous collision frequency included in simulation
 """
 struct NoAnom <: AnomalousTransportModel end
 
-function (::NoAnom)(νan, @nospecialize(_x1), @nospecialize(_x2))
-    for i in eachindex(νan)
+function (::NoAnom)(νan, @nospecialize(_params), @nospecialize(_z_shift::Float64 = 0.0))
+    @inbounds for i in eachindex(νan)
         νan[i] = 0.0
     end
     return νan
@@ -58,8 +58,8 @@ $(TYPEDFIELDS)
     c::Float64
 end
 
-function (model::Bohm)(νan, params, config)
-    (; cache, grid, thruster) = params
+function (model::Bohm)(νan, params, ::Float64 = 0.0)
+    (; cache, grid) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -67,12 +67,9 @@ function (model::Bohm)(νan, params, config)
         return νan
     end
 
-    L_ch = thruster.geometry.channel_length
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (_, zc) in enumerate(grid.cell_centers)
-        z = zc - z_shift
         B = B_interp(zc)
         ωce = e * B / me
         νan = model.c * ωce
@@ -84,7 +81,7 @@ end
 """
     TwoZoneBohm(c1, c2) <: AnomalousTransportModel
 Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
-Takes two arguments: c1 and c2. The transition between these values is smoothed over `config.transition_length`.
+Takes two arguments: c1 and c2. The transition between these values is smoothed over `params.transition_length`.
 
 # Fields
 $(TYPEDFIELDS)
@@ -94,13 +91,13 @@ $(TYPEDFIELDS)
     c2::Float64
 end
 
-function (model::TwoZoneBohm)(νan, params, config)
+function (model::TwoZoneBohm)(νan, params, z_shift::Float64 = 0.0)
     (; c1, c2) = model
     (; cache, grid, thruster) = params
     (; B) = cache
 
-    L_trans = config.transition_length
-    L_ch = config.thruster.geometry.channel_length
+    L_trans = params.transition_length
+    L_ch = params.thruster.geometry.channel_length
 
     # Profile is fixed in time, do not update after 5 iterations
     if (params.iteration[] > 5)
@@ -108,7 +105,6 @@ function (model::TwoZoneBohm)(νan, params, config)
     end
 
     L_ch = thruster.geometry.channel_length
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -148,8 +144,8 @@ $(TYPEDFIELDS)
     end
 end
 
-function (model::MultiLogBohm)(νan, params, config)
-    (; grid, thruster) = params
+function (model::MultiLogBohm)(νan, params, z_shift::Float64 = 0.0)
+    (; grid) = params
     (; B) = params.cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -157,8 +153,6 @@ function (model::MultiLogBohm)(νan, params, config)
         return νan
     end
 
-    L_ch = thruster.geometry.channel_length
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -192,9 +186,9 @@ $(TYPEDFIELDS)
     width::Float64
 end
 
-function (model::GaussianBohm)(νan, params, config)
+function (model::GaussianBohm)(νan, params, z_shift::Float64 = 0.0)
     (; hall_min, hall_max, center, width) = model
-    (; cache, grid, thruster) = params
+    (; cache, grid) = params
     (; B) = cache
 
     # Profile is fixed in time, do not update after 5 iterations
@@ -202,8 +196,6 @@ function (model::GaussianBohm)(νan, params, config)
         return νan
     end
 
-    L_ch = thruster.geometry.channel_length
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
     for (i, zc) in enumerate(grid.cell_centers)
@@ -238,7 +230,7 @@ $(TYPEDFIELDS)
     center::Float64
 end
 
-function (model::ScaledGaussianBohm)(νan, params, config)
+function (model::ScaledGaussianBohm)(νan, params, z_shift::Float64 = 0.0)
     (; anom_scale, barrier_scale, width, center) = model
     (; cache, grid, thruster) = params
     (; B) = cache
@@ -249,7 +241,6 @@ function (model::ScaledGaussianBohm)(νan, params, config)
     end
 
     L_ch = thruster.geometry.channel_length
-    z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
     mean = L_ch * center
     std = L_ch * width
@@ -269,8 +260,9 @@ abstract type PressureShift <: AnomalousTransportModel end
 
 pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
 
-function (model::PressureShift)(args...; kwargs...)
-    return model.model(args...; kwargs...)
+function (model::PressureShift)(νan, params, _z::Float64 = 0.0)
+    z_shift = pressure_shift(model, params.background_pressure_Torr, params.thruster.geometry.channel_length)
+    return model.model(νan, params, z_shift)
 end
 
 """

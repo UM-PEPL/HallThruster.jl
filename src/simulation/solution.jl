@@ -150,7 +150,7 @@ $(TYPEDFIELDS)
     discharge_current::Array{Float64, 0}
     """ Discharge voltage (V)"""
     discharge_voltage::Array{Float64, 0}
-    """SImulation timestep (s)"""
+    """Simulation timestep (s)"""
     dt::Array{Float64, 0}
 end
 
@@ -487,7 +487,7 @@ function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
 end
 
 
-function solve(params, config, tspan; saveat)
+function solve(params, config, tspan; num_save = -1)
     # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -501,8 +501,11 @@ function solve(params, config, tspan; saveat)
     retcode = :success
 
     # Frame saving setup
+    saveat = range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save)
     save_ind = 2
     frames = [Frame(params.fluids_by_propellant, params.cache)]
+    times = zeros(length(saveat))
+    times[1] = t
 
     # Parameters for adaptive timestep escape hatch
     small_step_count = 0
@@ -514,8 +517,53 @@ function solve(params, config, tspan; saveat)
     (; source_heavy_species) = config
 
     try
-        while t < tspan[2]
-            # compute new timestep
+        while true
+            # Run the heavy species solver and check for NaN or Inf
+            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
+
+            if any_nan
+                if sim.print_errors
+                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
+                end
+                retcode = :failure
+                break
+            end
+
+            # Update electron quantities
+            update_electrons!(params, config, t)
+
+            # Update plume geometry
+            config.solve_plume && update_plume_geometry!(params)
+
+            # Update the current iteration and time
+            iteration[] += 1
+            t += params.dt[]
+
+            # Allow for system interrupts at pre-determined intervals
+            if iteration[] % yield_interval == 0
+                yield()
+            end
+
+            #====
+            Save the current simulation state if we jumped over or landed on a checkpoint time.
+            This should always be a direct hit, but just in case we allow for a miss.
+            ====#
+            if t >= saveat[save_ind]
+                push!(frames, Frame(params.fluids_by_propellant, params.cache))
+                times[save_ind] = t
+                save_ind += 1
+            end
+
+            t >= saveat[end] && break
+
+            #====
+            Compute the new timestep
+            If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
+            minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
+            (see below).
+            We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
+            so that we land on it exactly.
+            ====#
             if sim.adaptive
                 if uniform_steps
                     params.dt[] = sim.dt
@@ -525,7 +573,9 @@ function solve(params, config, tspan; saveat)
                 end
             end
 
-            t += params.dt[]
+            if t + params.dt[] > saveat[save_ind]
+                params.dt[] = saveat[save_ind] - t
+            end
 
             #====
             Count how many times we've taken the minimum allowable timestep.
@@ -545,40 +595,6 @@ function solve(params, config, tspan; saveat)
                 uniform_steps = false
             end
 
-            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
-
-            # Check for NaNs or Infs in heavy species solve and terminate if necessary
-            if any_nan
-                if sim.print_errors
-                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
-                end
-                retcode = :failure
-                break
-            end
-
-            # Update electron quantities
-            update_electrons!(params, config, t)
-
-            # Update plume geometry
-            if config.solve_plume
-                update_plume_geometry!(params)
-            end
-
-            # Update the current iteration
-            iteration[] += 1
-
-            # Allow for system interrupts
-            if iteration[] % yield_interval == 0
-                yield()
-            end
-
-            # # Save values at designated intervals
-            # # TODO interpolate these to exact times
-            if t > saveat[save_ind]
-                push!(frames, Frame(params.fluids_by_propellant, params.cache))
-                save_ind += 1
-            end
-
         end
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
@@ -588,11 +604,9 @@ function solve(params, config, tspan; saveat)
         end
     end
 
-    ind = min(save_ind, length(frames) + 1) - 1
-
     return Solution(
-        saveat[1:ind],
-        frames[1:ind],
+        times,
+        frames,
         copy_and_remove_ghosts(params.grid.cell_centers),
         config,
         params.simulation,

@@ -77,14 +77,12 @@ Z = 1
 @test het.freq_electron_ion(ne, Tev, Z) ==
     2.9e-12 * Z^2 * ne * het.coulomb_logarithm(ne, Tev, Z) / Tev^1.5
 
-config_landmark.anom_model(
-    params_landmark.cache.νan, params_landmark, config_landmark,
-)
-config_none.anom_model(params_none.cache.νan, params_none, config_none)
+config_landmark.anom_model(params_landmark.cache.νan, params_landmark)
+config_none.anom_model(params_none.cache.νan, params_none)
 
 model = het.NoAnom()
 
-model(params_landmark.cache.νan, params_landmark, config_landmark)
+model(params_landmark.cache.νan, params_landmark)
 
 @test params_landmark.cache.νan[1] == 0.0
 

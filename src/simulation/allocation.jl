@@ -54,6 +54,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         K = zeros(ncells),
 
         # Electron source terms
+        user_energy_source = zeros(ncells),
         ohmic_heating = zeros(ncells),
         wall_losses = zeros(ncells),
         inelastic_losses = zeros(ncells),
