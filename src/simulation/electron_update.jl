@@ -4,7 +4,7 @@ function update_electrons!(params, config, t = 0)
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update electron temperature given new density
-    update_temperature!(Tev, nϵ, ne)
+    update_temperature!(Tev, nϵ, ne, params.min_Te)
 
     # Update collision frequencies
     if (params.electron_ion_collisions)
@@ -19,10 +19,10 @@ function update_electrons!(params, config, t = 0)
     end
 
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
-    freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
+    update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
     # Update anomalous transport
-    t > 0 && anom_model(νan, params, config)
+    t > 0 && anom_model(νan, params)
 
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)
@@ -36,19 +36,20 @@ function update_electrons!(params, config, t = 0)
     return
 end
 
-function freq_electron_wall!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
+function update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
     (; thruster, grid, transition_length) = params
     L_ch = thruster.geometry.channel_length
+
+    freq_electron_wall!(radial_loss_frequency, wall_loss_model, params)
+
     # Update wall collisions
-    return @inbounds for i in eachindex(radial_loss_frequency)
+    @inbounds for i in eachindex(radial_loss_frequency)
         # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
-        radial_loss_frequency[i] = freq_electron_wall(
-            wall_loss_model, params, i,
-        )
         νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
             grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
         )
     end
+    return nothing
 end
 
 function update_electrical_vars!(params)

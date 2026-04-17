@@ -19,7 +19,7 @@ function run_simulation(json_file::String; restart::String = "")
         throw(ArgumentError("$json_file is not a valid JSON file"))
     end
 
-    obj = JSON.parse(read(json_file), allownan = true)
+    obj = JSON.parsefile(json_file)
 
     # Read config and sim params from file
     input = get(obj, "input", obj)
@@ -27,9 +27,9 @@ function run_simulation(json_file::String; restart::String = "")
     sim = deserialize(SimParams, input["simulation"])
 
     postprocess::Union{Postprocess, Nothing} = nothing
-    if haskey(input, "postprocess") && haskey(input.postprocess, "output_file") &&
-            !isempty(input.postprocess.output_file)
-        postprocess = deserialize(Postprocess, input.postprocess)
+    if haskey(input, "postprocess") && haskey(input["postprocess"], "output_file") &&
+            !isempty(input["postprocess"]["output_file"])
+        postprocess = deserialize(Postprocess, input["postprocess"])
     end
 
     sol = run_simulation(cfg, sim; postprocess, include_dirs = dirname(json_file), restart)
@@ -144,7 +144,7 @@ end
 
 """
     $(TYPEDSIGNATURES)
-Write `sol` to `file`, if `file` is a JSON file.
+Write `sol` to `file`, if `file` is a JSON file. Any NaN or Inf values in the solution will be replaced with zero.
 
 ## Mandatory arguments
 - `file`: the file to which we write the solution
@@ -166,8 +166,9 @@ function write_to_json(
 
     output = serialize_sol(sol; average_start_time, save_time_resolved)
 
+    # Write output dictionary to file, replacing NaN and Inf values with zeros for JSON compliance.
     open(file, "w") do f
-        JSON.json(f, output, allownan = true)
+        JSON.write_json(f, output, replace_inf = true, replace_nan = true)
     end
 
     return nothing

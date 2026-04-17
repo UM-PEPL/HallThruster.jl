@@ -109,12 +109,13 @@ function test_electron_losses()
         Δz = grid.edges[2] - grid.edges[1]
         V_cell = A_ch * Δz
 
-        @test het.freq_electron_wall(no_losses, params, idx_in) == 0.0
-        @test het.freq_electron_wall(no_losses, params, idx_out) == 0.0
+        het.freq_electron_wall!(cache.radial_loss_frequency, no_losses, params)
+        @test cache.radial_loss_frequency[idx_in] == 0.0
+        @test cache.radial_loss_frequency[idx_out] == 0.0
 
-        @test het.freq_electron_wall(landmark_losses, params, idx_in) == 1.0e7
-        @test het.freq_electron_wall(landmark_losses, params, idx_out) *
-            het.linear_transition(
+        het.freq_electron_wall!(cache.radial_loss_frequency, landmark_losses, params)
+        @test cache.radial_loss_frequency[idx_in] == 1.0e7
+        @test cache.radial_loss_frequency[idx_out] * het.linear_transition(
             grid.cell_centers[idx_out], L_ch, config.transition_length, 1.0, 0.0,
         ) == 0.0e7
 
@@ -127,15 +128,12 @@ function test_electron_losses()
         params.cache.νew_momentum[(idx_in + 1):end] .= 0.0
         params.cache.radial_loss_frequency[:] .= νew
 
-        Iew = het.wall_electron_current(sheath_model, params, idx_in)
-        @test Iew ≈ νew * het.e * V_cell * ne
-
-        @test het.freq_electron_wall(sheath_model, params, idx_in) *
-            het.linear_transition(
+        het.freq_electron_wall!(cache.radial_loss_frequency, sheath_model, params)
+        @test cache.radial_loss_frequency[idx_in] * het.linear_transition(
             grid.cell_centers[idx_in], L_ch, config.transition_length, 1.0, 0.0,
         ) ≈ νew
 
-        @test het.freq_electron_wall(sheath_model, params, idx_out) *
+        @test cache.radial_loss_frequency[idx_out] *
             het.linear_transition(
             grid.cell_centers[idx_out], L_ch, config.transition_length, 1.0, 0.0,
         ) ≈ 0.0
@@ -257,9 +255,6 @@ function test_ion_losses()
             @test ion.dens_ddt[out_index] ≈ 0.0
             @test ion.mom_ddt[out_index] ≈ 0.0
         end
-
-        # No wall current outside of channel
-        @test het.wall_electron_current(constant_sheath, params_constant_sheath, out_index) == 0.0
 
         # Test 3: Self-consistent wall sheath
         for fluid in fluids

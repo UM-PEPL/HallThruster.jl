@@ -64,6 +64,11 @@ struct FluidContainer
     end
 end
 
+struct FluidContainerSet
+    continuity::Vector{FluidContainer}
+    isothermal::Vector{FluidContainer}
+end
+
 function allocate_fluids(p::Propellant, ncells)
     continuity = [
         FluidContainer(_ContinuityOnly, p.gas(0), ncells; vel = p.velocity_m_s, temp = p.temperature_K),
@@ -72,5 +77,5 @@ function allocate_fluids(p::Propellant, ncells)
     isothermal = [
         FluidContainer(_IsothermalEuler, p.gas(Z), ncells; temp = p.ion_temperature_K) for Z in p.allowed_charges
     ]
-    return (; continuity, isothermal)
+    return FluidContainerSet(continuity, isothermal)
 end

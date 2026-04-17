@@ -61,7 +61,7 @@
       "dt": 5e-9,
       "adaptive": true,
       "duration": 2e-3,
-      "num_save": 1000,
+      "num_save": 1001,
       "grid": {
           "type": "EvenGrid",
           "num_cells": 150
