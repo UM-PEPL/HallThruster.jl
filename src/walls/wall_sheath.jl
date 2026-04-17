@@ -50,7 +50,7 @@ function freq_electron_wall(model::WallSheath, params, i)
 
     # calculate and store SEE coefficient
     # use number-averaged mass here
-    γ_SEE_max = 1 - 8.3 * sqrt(me / cache.m_eff[i])
+    γ_SEE_max = 1 - 8.3 * sqrt(abs(me / cache.m_eff[i]))
     γ = SEE_yield(model.material, Tev, γ_SEE_max)
     cache.γ_SEE[i] = γ
 

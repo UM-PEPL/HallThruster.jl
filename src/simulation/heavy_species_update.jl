@@ -180,19 +180,15 @@ function update_heavy_species_cache!(fluids, cache, landmark)
         for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
             _niui = fluid.momentum[i] * inv_m
-
+            ne[i] += Z * _ni
             ji[i] += Z * e * _niui
-
-            if Z > 0
-                ne[i] += Z * _ni
-                avg_ion_vel[i] += _niui
-                Z_eff[i] += _ni
-                m_eff[i] += fluid.density[i]
-            end
+            avg_ion_vel[i] += _niui
+            # First pass, store total ion mass density in m_eff and ion number density in Z_eff
+            Z_eff[i] += _ni
+            m_eff[i] += fluid.density[i]
         end
     end
 
-    @. ne = max(ne, MIN_NUMBER_DENSITY)
     @. avg_neutral_vel /= nn
 
     # Inverse ion density
@@ -253,9 +249,10 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         interior_flux = fluid.momentum[2]
         interior_velocity = interior_flux / interior_density
 
+
         if Z < 0
-            boundary_density = interior_density
-            boundary_flux = interior_flux
+            boundary_density = interior_density / 6
+            boundary_flux = interior_flux / 6
         else
             sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
             boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
@@ -285,10 +282,8 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             end
         end
 
-        if Z > 0
-            # Add ions that have left back as neutrals (note: boundary_flux is negative)
-            neutral_density -= boundary_flux / un
-        end
+        # Add ions that have left back as neutrals (note: boundary_flux is negative)
+        neutral_density -= boundary_flux / un
 
         # Extrapolate values to ghost cells
         ghost_cell_density = 2 * boundary_density - fluid.density[2]
@@ -310,16 +305,21 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        interior_density = fluid.density[end - 1]
-        interior_flux = fluid.momentum[end - 1]
-        interior_velocity = interior_flux / interior_density
-
-        if interior_velocity > 0
-            fluid.density[end] = interior_density
-            fluid.momentum[end] = interior_flux
+        if fluid.species.Z > 0
+            fluid.density[end] = fluid.density[end - 1]
+            fluid.momentum[end] = fluid.momentum[end - 1]
         else
-            fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
-            fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+            interior_density = fluid.density[end - 1]
+            interior_flux = fluid.momentum[end - 1]
+            interior_velocity = interior_flux / interior_density
+
+            if interior_velocity > 0
+                fluid.density[end] = interior_density
+                fluid.momentum[end] = interior_flux
+            else
+                fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
+                fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+            end
         end
     end
 
@@ -354,7 +354,9 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         ne .= 0.0
         for fluid in fluids
             for i in eachindex(ne)
-                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
+                if fluid.species.Z > 0
+                    ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
+                end
             end
         end
         νiz .= 0.0
@@ -433,7 +435,7 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
     return dt_max
 end
 
-@inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * abs(ne) * n_reactant
+@inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
 function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
     dt_max = Inf
@@ -472,17 +474,19 @@ function apply_ion_wall_losses!(fluid_containers, params)
         qe_m = Z * e / m
 
         for i in 2:(length(ion_fluid.density) - 1)
-            u_bohm = sqrt(qe_m * cache.Tev[i])
-            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
-            νiw = in_channel * u_bohm * inv_Δr * h
+            if Z > 0
+                u_bohm = sqrt(qe_m * cache.Tev[i])
+                in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
+                νiw = in_channel * u_bohm * inv_Δr * h
 
-            density_loss = ion_fluid.density[i] * νiw
-            momentum_loss = ion_fluid.momentum[i] * νiw
+                density_loss = ion_fluid.density[i] * νiw
+                momentum_loss = ion_fluid.momentum[i] * νiw
 
-            # Neutrals gain density due to ion recombination at the walls
-            neutral_fluid.dens_ddt[i] += density_loss
-            ion_fluid.dens_ddt[i] -= density_loss
-            ion_fluid.mom_ddt[i] -= momentum_loss
+                # Neutrals gain density due to ion recombination at the walls
+                neutral_fluid.dens_ddt[i] += density_loss
+                ion_fluid.dens_ddt[i] -= density_loss
+                ion_fluid.mom_ddt[i] -= momentum_loss
+            end
         end
     end
 
