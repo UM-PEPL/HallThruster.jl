@@ -249,31 +249,37 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         interior_flux = fluid.momentum[2]
         interior_velocity = interior_flux / interior_density
 
-        sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
-        boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
 
-        if interior_velocity <= -sound_speed
-            # Supersonic outflow, pure Neumann boundary condition
-            boundary_density = interior_density
-            boundary_flux = interior_flux
+        if Z < 0
+            boundary_density = interior_density / 6
+            boundary_flux = interior_flux / 6
         else
-            # Subsonic outflow, need to drive the flow toward sonic
-            # For the isothermal Euler equations, the Riemann invariants are
-            # J⁺ = u + c ln ρ
-            # J⁻ = u - c ln ρ
-            # For the boundary condition, we take c = u_bohm
+            sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
+            boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
 
-            # 1. Compute outgoing characteristic using interior state
-            J⁻ = interior_velocity - sound_speed * log(interior_density)
+            if interior_velocity <= -sound_speed
+                # Supersonic outflow, pure Neumann boundary condition
+                boundary_density = interior_density
+                boundary_flux = interior_flux
+            else
+                # Subsonic outflow, need to drive the flow toward sonic
+                # For the isothermal Euler equations, the Riemann invariants are
+                # J⁺ = u + c ln ρ
+                # J⁻ = u - c ln ρ
+                # For the boundary condition, we take c = u_bohm
 
-            # 2. Compute incoming characteristic using J⁻ invariant
-            J⁺ = 2 * boundary_velocity - J⁻
+                # 1. Compute outgoing characteristic using interior state
+                J⁻ = interior_velocity - sound_speed * log(interior_density)
 
-            # 3. Compute boundary density using J⁺ and J⁻ invariants
-            boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+                # 2. Compute incoming characteristic using J⁻ invariant
+                J⁺ = 2 * boundary_velocity - J⁻
 
-            # Compute boundary flux (flux at leftmost edge)
-            boundary_flux = boundary_velocity * boundary_density
+                # 3. Compute boundary density using J⁺ and J⁻ invariants
+                boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+
+                # Compute boundary flux (flux at leftmost edge)
+                boundary_flux = boundary_velocity * boundary_density
+            end
         end
 
         # Add ions that have left back as neutrals (note: boundary_flux is negative)
@@ -299,8 +305,22 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        fluid.density[end] = fluid.density[end - 1]
-        fluid.momentum[end] = fluid.momentum[end - 1]
+        if fluid.species.Z > 0
+            fluid.density[end] = fluid.density[end - 1]
+            fluid.momentum[end] = fluid.momentum[end - 1]
+        else
+            interior_density = fluid.density[end - 1]
+            interior_flux = fluid.momentum[end - 1]
+            interior_velocity = interior_flux / interior_density
+
+            if interior_velocity > 0
+                fluid.density[end] = interior_density
+                fluid.momentum[end] = interior_flux
+            else
+                fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
+                fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+            end
+        end
     end
 
     return
@@ -334,7 +354,9 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         ne .= 0.0
         for fluid in fluids
             for i in eachindex(ne)
-                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
+                if fluid.species.Z > 0
+                    ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
+                end
             end
         end
         νiz .= 0.0
@@ -452,17 +474,19 @@ function apply_ion_wall_losses!(fluid_containers, params)
         qe_m = Z * e / m
 
         for i in 2:(length(ion_fluid.density) - 1)
-            u_bohm = sqrt(qe_m * cache.Tev[i])
-            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
-            νiw = in_channel * u_bohm * inv_Δr * h
+            if Z > 0
+                u_bohm = sqrt(qe_m * cache.Tev[i])
+                in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
+                νiw = in_channel * u_bohm * inv_Δr * h
 
-            density_loss = ion_fluid.density[i] * νiw
-            momentum_loss = ion_fluid.momentum[i] * νiw
+                density_loss = ion_fluid.density[i] * νiw
+                momentum_loss = ion_fluid.momentum[i] * νiw
 
-            # Neutrals gain density due to ion recombination at the walls
-            neutral_fluid.dens_ddt[i] += density_loss
-            ion_fluid.dens_ddt[i] -= density_loss
-            ion_fluid.mom_ddt[i] -= momentum_loss
+                # Neutrals gain density due to ion recombination at the walls
+                neutral_fluid.dens_ddt[i] += density_loss
+                ion_fluid.dens_ddt[i] -= density_loss
+                ion_fluid.mom_ddt[i] -= momentum_loss
+            end
         end
     end
 

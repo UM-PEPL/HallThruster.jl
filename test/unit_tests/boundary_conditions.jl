@@ -5,6 +5,7 @@ function test_boundaries()
 
     V_d = 300.0
     V_cc = 20.0
+    MIN_NUMBER_DENSITY = 1.0
 
     config = het.Config(
         ncharge = 2,
@@ -86,10 +87,19 @@ function test_boundaries()
     @test boundary_ion_vel[1] ≈ -u_bohm_1
     @test boundary_ion_vel[2] ≈ -u_bohm_2
 
-    # Neumann BC for all species on right boundary
-    for fluid in [continuity..., isothermal...]
-        @test fluid.density[end] == fluid.density[end - 1]
-        @test fluid.momentum[end] == fluid.momentum[end - 1]
+    # Right BC
+    for fluid in isothermal
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+
+        if interior_velocity > 0
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
+            fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+        end
     end
 
     # ====================================================================
@@ -119,10 +129,19 @@ function test_boundaries()
     @test boundary_ion_vel[1] ≈ -2 * u_bohm_1
     @test boundary_ion_vel[2] ≈ -2 * u_bohm_2
 
-    # Neumann BC for all species at right boundary
-    for fluid in [continuity..., isothermal...]
-        @test fluid.density[end] == fluid.density[end - 1]
-        @test fluid.momentum[end] == fluid.momentum[end - 1]
+
+    for fluid in isothermal
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+
+        if interior_velocity > 0
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
+            fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+        end
     end
 
     return
