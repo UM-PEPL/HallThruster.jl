@@ -325,21 +325,19 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        if fluid.species.Z > 0
-            fluid.density[end] = fluid.density[end - 1]
-            fluid.momentum[end] = fluid.momentum[end - 1]
-        else
-            interior_density = fluid.density[end - 1]
-            interior_flux = fluid.momentum[end - 1]
-            interior_velocity = interior_flux / interior_density
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+        mi = fluid.species.element.m
 
-            if interior_velocity > 0
-                fluid.density[end] = interior_density
-                fluid.momentum[end] = interior_flux
-            else
-                fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
-                fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
-            end
+        if interior_velocity >= 0
+            # Normal supersonic outflow — Neumann
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            # inflow clamp
+            fluid.density[end] = MIN_NUMBER_DENSITY * mi
+            fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
         end
     end
 
