@@ -140,7 +140,7 @@ function update_heavy_species!(params)
 
     # Apply left boundary conditions per-propellant
     for (i, (propellant, fluids)) in enumerate(zip(propellants, params.fluids_by_propellant))
-        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rates[i])
+        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rates[i], params.landmark)
     end
 
     # Apply right boundary conditions for all propellants
@@ -212,34 +212,39 @@ end
 Boundary conditions
 ===============================================================================#
 
-function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate)
+function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark = false)
     Te_L = 0.5 * (cache.Tev[2] + cache.Tev[1])         # eV
     Ti = propellant.ion_temperature_K                 # K
     mdot_a = propellant.flow_rate_kg_s
 
     kTe_J = e * Te_L      # electron energy in Joules
     kTi_J = kB * Ti        # ion thermal energy in Joules
-    γ = kTe_J / kTi_J
 
-    # Sheath-edge electronegativity
-    # Use first interior cell (index 2) as the sheath-edge estimate.
-    n_pos_charge = 0.0
-    n_neg_charge = 0.0
-    @inbounds for fluid in fluids.isothermal
-        Z = fluid.species.Z
-        n = fluid.density[2]
-        if Z > 0
-            n_pos_charge += Z * n
-        elseif Z < 0
-            n_neg_charge += abs(Z) * n
+    if !landmark
+        γ = kTe_J / kTi_J
+
+        # Sheath-edge electronegativity
+        # Use first interior cell (index 2) as the sheath-edge estimate.
+        n_pos_charge = 0.0
+        n_neg_charge = 0.0
+        @inbounds for fluid in fluids.isothermal
+            Z = fluid.species.Z
+            n = fluid.density[2]
+            if Z > 0
+                n_pos_charge += Z * n
+            elseif Z < 0
+                n_neg_charge += abs(Z) * n
+            end
         end
-    end
-    n_e_edge = max(n_pos_charge - n_neg_charge, eps(Float64))
-    αs = n_neg_charge / n_e_edge
+        n_e_edge = max(n_pos_charge - n_neg_charge, eps(Float64))
+        αs = n_neg_charge / n_e_edge
 
-    # Electronegative correction factor from Ridenti et al (2025) Eq. (18)
-    # Collapses to 1.0 when αs = 0 (no negative ions → classical Bohm)
-    Te_eff_factor = (1 + αs) / (1 + γ * αs)
+        # Electronegative correction factor from Ridenti et al (2025) Eq. (18)
+        # Collapses to 1.0 when αs = 0 (no negative ions → classical Bohm)
+        Te_eff_factor = (1 + αs) / (1 + γ * αs)
+    else
+        Te_eff_factor = 1.0
+    end
 
     # Neutral inlet density
     un = fluids.continuity[].const_velocity
@@ -291,7 +296,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             neutral_density -= boundary_flux / un
 
         else
-            # Negative ions: repelled by sheath, NOT beamed.
+            # Negative ions: repelled by sheath
             sound_speed = sqrt(kTi_J / mi)
             boundary_velocity = 0.0
 
@@ -325,24 +330,37 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        interior_density = fluid.density[end - 1]
-        interior_flux = fluid.momentum[end - 1]
-        interior_velocity = interior_flux / interior_density
-        mi = fluid.species.element.m
-
-        if interior_velocity >= 0
-            # Normal supersonic outflow — Neumann
-            fluid.density[end] = interior_density
-            fluid.momentum[end] = interior_flux
-        else
-            # inflow clamp
-            fluid.density[end] = MIN_NUMBER_DENSITY * mi
-            fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
-        end
+        fluid.density[end] = fluid.density[end - 1]
+        fluid.momentum[end] = fluid.momentum[end - 1]
     end
 
     return
 end
+
+#function apply_right_boundary!(fluids)
+# @inbounds for fluid in fluids.continuity
+#      fluid.density[end] = fluid.density[end - 1]
+#   end
+
+#@inbounds for fluid in fluids.isothermal
+#    interior_density = fluid.density[end - 1]
+#     interior_flux = fluid.momentum[end - 1]
+#      interior_velocity = interior_flux / interior_density
+#       mi = fluid.species.element.m
+
+# if interior_velocity >= 0
+# Normal supersonic outflow — Neumann
+#      fluid.density[end] = interior_density
+#       fluid.momentum[end] = interior_flux
+#    else
+# inflow clamp
+#         fluid.density[end] = MIN_NUMBER_DENSITY * mi
+#          fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
+#       end
+#    end
+
+#   return
+#end
 
 #===============================================================================
 Heavy species source terms
