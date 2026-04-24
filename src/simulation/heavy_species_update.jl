@@ -330,37 +330,24 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        fluid.density[end] = fluid.density[end - 1]
-        fluid.momentum[end] = fluid.momentum[end - 1]
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+        mi = fluid.species.element.m
+
+        if interior_velocity >= 0
+            # Normal supersonic outflow — Neumann
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            # inflow clamp
+            fluid.density[end] = MIN_NUMBER_DENSITY * mi
+            fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
+        end
     end
 
     return
 end
-
-#function apply_right_boundary!(fluids)
-# @inbounds for fluid in fluids.continuity
-#      fluid.density[end] = fluid.density[end - 1]
-#   end
-
-#@inbounds for fluid in fluids.isothermal
-#    interior_density = fluid.density[end - 1]
-#     interior_flux = fluid.momentum[end - 1]
-#      interior_velocity = interior_flux / interior_density
-#       mi = fluid.species.element.m
-
-# if interior_velocity >= 0
-# Normal supersonic outflow — Neumann
-#      fluid.density[end] = interior_density
-#       fluid.momentum[end] = interior_flux
-#    else
-# inflow clamp
-#         fluid.density[end] = MIN_NUMBER_DENSITY * mi
-#          fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
-#       end
-#    end
-
-#   return
-#end
 
 #===============================================================================
 Heavy species source terms
