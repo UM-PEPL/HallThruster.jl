@@ -293,7 +293,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
 
                 # 1. Compute outgoing characteristic using interior state
                 J⁻ = interior_velocity - sound_speed * log(interior_density)
-                
+
                 # 2. Compute incoming characteristic using J⁻ invariant
                 J⁺ = 2 * boundary_velocity - J⁻
 
