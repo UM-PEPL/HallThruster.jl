@@ -285,10 +285,22 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
                 boundary_density = interior_density
                 boundary_flux = interior_flux
             else
-                # Subsonic → drive to Bohm speed via Riemann invariants
+                # Subsonic outflow, need to drive the flow toward sonic
+                # For the isothermal Euler equations, the Riemann invariants are
+                # J⁺ = u + c ln ρ
+                # J⁻ = u - c ln ρ
+                # For the boundary condition, we take c = u_bohm
+
+                # 1. Compute outgoing characteristic using interior state
                 J⁻ = interior_velocity - sound_speed * log(interior_density)
+                
+                # 2. Compute incoming characteristic using J⁻ invariant
                 J⁺ = 2 * boundary_velocity - J⁻
+
+                # 3. Compute boundary density using J⁺ and J⁻ invariants
                 boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+
+                # Compute boundary flux (flux at leftmost edge)
                 boundary_flux = boundary_velocity * boundary_density
             end
 
