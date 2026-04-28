@@ -191,7 +191,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     @. avg_neutral_vel /= nn
 
-    @. ne = max(ne, MIN_NUMBER_DENSITY)
+    #@. ne = max(ne, MIN_NUMBER_DENSITY*1e6)
 
     # Inverse ion density
     @. Z_eff = inv(Z_eff)
@@ -392,7 +392,7 @@ function apply_reactions!(fluids, rxns, cache, landmark)
                 ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
             end
         end
-        @. ne = max(ne, MIN_NUMBER_DENSITY)
+        #@. ne = max(ne, MIN_NUMBER_DENSITY)
         νiz .= 0.0
         inelastic_losses .= 0.0
         @. ϵ = cache.nϵ / cache.ne
