@@ -226,3 +226,90 @@ By substituting energy conservation equation, the ion Bohm speed can be recovere
 ```math
     v_0 > \sqrt{\frac{kT_e}{m_i}}
 ```
+
+### Adding negative ions
+
+In an electronegative plasma, negative ions form a third charged species alongside electrons and positive ions. Like electrons, negative ions are repelled by the positive plasma potential and accumulate where the potential is lowest. Treating them as a fluid in hydrostatic equilibrium at temperature ``T_i`` with isothermal pressure ``p_n = n_n k T_i`` yields a Boltzmann-like density relation,
+
+```math
+    n_n = n_{n,0} \exp\!\left(\frac{e\phi}{kT_i}\right)
+```
+
+which, expanded for small ``\phi``, gives
+
+```math
+    n_n = n_{n,0} \left(1 - \frac{e\phi}{kT_i} + \dots \right).
+```
+
+#### Quasineutrality at the sheath edge
+
+At the sheath edge the plasma is approximately neutral, so
+
+```math
+    n_{i,0} = n_{e,0} + n_{n,0}.
+```
+
+It is convenient to define the electronegativity
+
+```math
+    \alpha_s \equiv \frac{n_{n,0}}{n_{e,0}}
+```
+
+and the temperature ratio
+
+```math
+    \gamma \equiv \frac{T_e}{T_i}.
+```
+
+These two parameters, together with the Maxwellian assumption, fully characterize the negative species at the sheath edge. ``\alpha_s = 0`` recovers the simple electron–positive-ion plasma, and ``\gamma = 1`` recovers the case where electrons and negative ions have equal temperatures.
+
+#### Modified Poisson equation
+
+Taking Poisson's equation in the form
+
+```math
+    \nabla^2 \phi = -\frac{e}{\epsilon_0}\bigl(n_i - n_e - n_n\bigr)
+```
+
+and substituting the expanded ion, electron, and negative-ion densities, the constant terms cancel by quasineutrality, leaving
+
+```math
+    \nabla^2 \phi = \frac{e \phi}{\epsilon_0}
+        \left(
+            \frac{n_{i,0}}{2\phi_0}
+            - \frac{e\, n_{e,0}}{kT_e}
+            - \frac{e\, n_{n,0}}{kT_i}
+        \right).
+```
+
+Using ``n_{i,0} = n_{e,0}(1 + \alpha_s)`` and pulling out a common factor,
+
+```math
+    \nabla^2 \phi = \frac{e\, n_{e,0}\, \phi}{\epsilon_0}
+        \left(
+            \frac{1 + \alpha_s}{2\phi_0}
+            - \frac{e}{kT_e}\bigl(1 + \gamma\, \alpha_s\bigr)
+        \right).
+```
+
+#### Stability condition
+
+As before, the sheath is ion-attracting, so the right-hand side of Poisson's equation must always be positive. This requires
+
+```math
+    \frac{1 + \alpha_s}{2\phi_0} \;>\; \frac{e}{kT_e}\bigl(1 + \gamma\, \alpha_s\bigr),
+```
+
+or equivalently
+
+```math
+    \phi_0 \;>\; \frac{kT_e}{2e}\,\frac{1 + \alpha_s}{1 + \gamma\, \alpha_s}.
+```
+
+Substituting the energy-conservation relation ``\frac{1}{2}m_i v_0^2 = e\phi_0`` gives the generalized Bohm criterion:
+
+```math
+    v_0 \;>\; \sqrt{\frac{kT_e}{m_i}\,\frac{1 + \alpha_s}{1 + \gamma\, \alpha_s}}.
+```
+
+This is the result derived by [Boyd and Thompson (1959)](https://doi.org/10.1098/rspa.1959.0140) and re-derived more rigorously by [Ridenti *et al.* (2025, Eq. 18)](https://doi.org/10.1063/5.0241405).

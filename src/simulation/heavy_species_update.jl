@@ -140,7 +140,7 @@ function update_heavy_species!(params)
 
     # Apply left boundary conditions per-propellant
     for (i, (propellant, fluids)) in enumerate(zip(propellants, params.fluids_by_propellant))
-        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rates[i])
+        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rates[i], params.landmark)
     end
 
     # Apply right boundary conditions for all propellants
@@ -191,6 +191,8 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     @. avg_neutral_vel /= nn
 
+    #@. ne = max(ne, MIN_NUMBER_DENSITY*1e6)
+
     # Inverse ion density
     @. Z_eff = inv(Z_eff)
     @. avg_ion_vel *= Z_eff
@@ -210,16 +212,42 @@ end
 Boundary conditions
 ===============================================================================#
 
-function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate)
-    Te_L = 0.5 * (cache.Tev[2] + cache.Tev[1])
-    Ti = propellant.ion_temperature_K
+function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark = false)
+    Te_L = 0.5 * (cache.Tev[2] + cache.Tev[1])         # eV
+    Ti = propellant.ion_temperature_K                 # K
     mdot_a = propellant.flow_rate_kg_s
 
-    # Add inlet neutral density
-    # Add ingested mass flow rate at anode
-    un = fluids.continuity[].const_velocity
+    kTe_J = e * Te_L      # electron energy in Joules
+    kTi_J = kB * Ti        # ion thermal energy in Joules
 
-    # Expected neutral density at left edge (from injection)
+    if !landmark
+        γ = kTe_J / kTi_J
+
+        # Sheath-edge electronegativity
+        # Use first interior cell (index 2) as the sheath-edge estimate.
+        n_pos_charge = 0.0
+        n_neg_charge = 0.0
+        @inbounds for fluid in fluids.isothermal
+            Z = fluid.species.Z
+            n = fluid.density[2]
+            if Z > 0
+                n_pos_charge += Z * n
+            elseif Z < 0
+                n_neg_charge += abs(Z) * n
+            end
+        end
+        n_e_edge = max(n_pos_charge - n_neg_charge, eps(Float64))
+        αs = n_neg_charge / n_e_edge
+
+        # Electronegative correction factor from Ridenti et al (2025) Eq. (18)
+        # Collapses to 1.0 when αs = 0 (no negative ions → classical Bohm)
+        Te_eff_factor = (1 + αs) / (1 + γ * αs)
+    else
+        Te_eff_factor = 1.0
+    end
+
+    # Neutral inlet density
+    un = fluids.continuity[].const_velocity
     neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
 
     bohm_factor = if anode_bc == :sheath
@@ -233,7 +261,6 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
             inv(√(1 + χ))
         else
-            # Ion-repelling sheath, ions have zero velocity at anode
             0.0
         end
     else
@@ -241,7 +268,6 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
     end
 
     @inbounds for fluid in fluids.isothermal
-
         mi = fluid.species.element.m
         Z = fluid.species.Z
 
@@ -249,16 +275,13 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         interior_flux = fluid.momentum[2]
         interior_velocity = interior_flux / interior_density
 
-
-        if Z < 0
-            boundary_density = interior_density / 6
-            boundary_flux = interior_flux / 6
-        else
-            sound_speed = sqrt((kB * Ti + Z * e * Te_L) / mi)  # Ion acoustic speed
-            boundary_velocity = -bohm_factor * sound_speed # Want to drive flow to (negative) bohm velocity
+        if Z > 0
+            # Electronegativity correction enters via Te_eff_factor.
+            sound_speed = sqrt((kTi_J + Z * kTe_J * Te_eff_factor) / mi)
+            boundary_velocity = -bohm_factor * sound_speed
 
             if interior_velocity <= -sound_speed
-                # Supersonic outflow, pure Neumann boundary condition
+                # Supersonic outflow → pure Neumann
                 boundary_density = interior_density
                 boundary_flux = interior_flux
             else
@@ -280,20 +303,34 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
                 # Compute boundary flux (flux at leftmost edge)
                 boundary_flux = boundary_velocity * boundary_density
             end
+
+            # send outflowing positive-ion flux back as neutrals
+            neutral_density -= boundary_flux / un
+
+        else
+            # Negative ions: repelled by sheath
+            sound_speed = sqrt(kTi_J / mi)
+            boundary_velocity = 0.0
+
+            if interior_velocity >= 0.0
+                # Already flowing away from anode → Neumann
+                boundary_density = interior_density
+                boundary_flux = interior_density * interior_velocity
+            else
+                # Would leave domain → clamp to zero velocity
+                J⁻ = interior_velocity - sound_speed * log(interior_density)
+                J⁺ = -J⁻
+                boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
+                boundary_flux = 0.0
+            end
         end
 
-        # Add ions that have left back as neutrals (note: boundary_flux is negative)
-        neutral_density -= boundary_flux / un
-
-        # Extrapolate values to ghost cells
-        ghost_cell_density = 2 * boundary_density - fluid.density[2]
-        ghost_cell_momentum = 2 * boundary_flux - fluid.momentum[2]
-
-        fluid.density[1] = ghost_cell_density
-        fluid.momentum[1] = ghost_cell_momentum
+        # Extrapolate to ghost cell
+        fluid.density[1] = 2 * boundary_density - fluid.density[2]
+        fluid.momentum[1] = 2 * boundary_flux - fluid.momentum[2]
     end
 
-    # Extrapolate neutral density from edge and interior to ghost cell
+    # Extrapolate neutral density to ghost cell
     fluids.continuity[].density[1] = 2 * neutral_density - fluids.continuity[].density[2]
 
     return
@@ -305,21 +342,19 @@ function apply_right_boundary!(fluids)
     end
 
     @inbounds for fluid in fluids.isothermal
-        if fluid.species.Z > 0
-            fluid.density[end] = fluid.density[end - 1]
-            fluid.momentum[end] = fluid.momentum[end - 1]
-        else
-            interior_density = fluid.density[end - 1]
-            interior_flux = fluid.momentum[end - 1]
-            interior_velocity = interior_flux / interior_density
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+        mi = fluid.species.element.m
 
-            if interior_velocity > 0
-                fluid.density[end] = interior_density
-                fluid.momentum[end] = interior_flux
-            else
-                fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
-                fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
-            end
+        if interior_velocity >= 0
+            # Normal supersonic outflow — Neumann
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            # inflow clamp
+            fluid.density[end] = MIN_NUMBER_DENSITY * mi
+            fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
         end
     end
 
@@ -354,11 +389,10 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         ne .= 0.0
         for fluid in fluids
             for i in eachindex(ne)
-                if fluid.species.Z > 0
-                    ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
-                end
+                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
             end
         end
+        #@. ne = max(ne, MIN_NUMBER_DENSITY)
         νiz .= 0.0
         inelastic_losses .= 0.0
         @. ϵ = cache.nϵ / cache.ne

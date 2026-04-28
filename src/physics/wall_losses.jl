@@ -184,7 +184,7 @@ function freq_electron_wall!(νew::Vector{Float64}, model::WallSheath, params)
         Tev = wall_electron_temperature(params, transition_length, i)
 
         # use number-averaged mass here
-        γ_SEE_max = 1 - 8.3 * sqrt(me / cache.m_eff[i])
+        γ_SEE_max = 1 - 8.3 * sqrt(abs(me / cache.m_eff[i]))
         γ = SEE_yield(model.material, Tev, γ_SEE_max)
         cache.γ_SEE[i] = γ
 
@@ -194,7 +194,7 @@ function freq_electron_wall!(νew::Vector{Float64}, model::WallSheath, params)
             Z = fluid.species.Z
             inv_mi = inv(fluid.species.element.m)
             niw = h * fluid.density[i] * inv_mi
-            j_iw += Z * model.loss_scale * niw * sqrt(Z * e * Tev * inv_mi)
+            j_iw += Z * model.loss_scale * niw * sqrt(abs(Z) * e * Tev * inv_mi)
         end
 
         # compute electron wall collision frequency
