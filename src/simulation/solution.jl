@@ -518,12 +518,28 @@ function solve(params, config, tspan; num_save = -1)
 
     try
         while true
-            # Run the heavy species solver and check for NaN or Inf
             any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
 
             if any_nan
                 if sim.print_errors
-                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
+                    # Find which fluids/cells have NaN or Inf
+                    for (i, fluid) in enumerate(params.fluid_array)
+                        nan_density = findall(x -> !isfinite(x), fluid.density)
+                        nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
+                        if !isempty(nan_density)
+                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
+                        end
+                        if !isempty(nan_momentum)
+                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
+                        end
+                    end
+                    # Report timestep and time context
+                    @warn(
+                        "NaN/Inf detected in heavy species solver",
+                        time = t,
+                        dt = params.dt[],
+                        iteration = params.iteration[],
+                    )
                 end
                 retcode = :failure
                 break
