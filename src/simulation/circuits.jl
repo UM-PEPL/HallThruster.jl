@@ -32,11 +32,18 @@ The voltage commanded by the power supply is denoted as `V0`, the current drawn 
 @kwdef struct CircuitModel
     type::Symbol
     elements::Vector{CircuitElement}
+	limit_current::Float64 = Inf
 end
 
-function CircuitModel(type::Symbol; R::Float64=NaN, L::Float64=NaN, C::Float64=NaN)
+"""
+$(TYPEDSIGNATURES)
+
+Construct a circuit model of the given type, given R, L, and C. Optional current limiting is also supported.
+"""
+function CircuitModel(type::Union{Symbol, Nothing} = nothing; R::Float64=NaN, L::Float64=NaN, C::Float64=NaN, limit_current::Float64=Inf)
     elements = CircuitElement[]
-    if type == :NoCircuit
+	if type == :NoCircuit || isnothing(type)
+		type = :NoCircuit
         # do nothing
     elseif type == :LoadResistor
         push!(elements, CircuitElement('R', R))
@@ -51,9 +58,9 @@ function CircuitModel(type::Symbol; R::Float64=NaN, L::Float64=NaN, C::Float64=N
         push!(elements, CircuitElement('L', L))
         push!(elements, CircuitElement('C', C))
     else
-        throw(ArgumentError("Unknown circuit type: $type"))
+        throw(ArgumentError("Unknown circuit type: $type. Valid options are :NoCircuit, :LoadResistor, :ParallelRL, :ParallelRC, and :ParallelRLSeriesC"))
     end
-    return CircuitModel(type, elements)
+    return CircuitModel(type, elements, limit_current)
 end
 
 function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float64)

@@ -91,6 +91,10 @@ function update_electrical_vars!(params)
     apply_drag = !landmark && params.iteration[] > 5
 
     Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
+
+	# Apply discharge current limit (defaults to infinity -> no limiting)
+	Id[] = max(0.0, min(params.filter_circuit.limit_current, Id[]))
+
     Vd[] = update_circuit(params.filter_circuit, params.discharge_voltage, Id[], params.dt[])
 
     # Compute electric field and potential
