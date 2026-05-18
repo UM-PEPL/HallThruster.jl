@@ -115,11 +115,15 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     propellant_config::String
     """
+    Discharge filter circuit. Set to `nothing` if not used.
+    """
+    filter_circuit::CircuitModel
+    """
     Minimum allowed electron temperature. Defaults to 1.5 eV
     """
     min_Te::Float64
     """
-     How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
+    How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
     # Verification and validation options
@@ -181,6 +185,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             initial_condition::IC = DefaultInitialization(),
             implicit_energy = 1.0,
             reaction_rate_directories = String[],
+            filter_circuit = nothing,
             anom_smoothing_iters = 0,
             LANDMARK = false,
             ionization_model = :Lookup,
@@ -271,6 +276,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             implicit_energy,
             reaction_rate_directories,
             propellant_config,
+            filter_circuit === nothing ? CircuitModel(:NoCircuit) : filter_circuit,
             min_Te,
             anom_smoothing_iters,
             LANDMARK,
@@ -358,6 +364,7 @@ function params_from_config(config)
         plume_loss_scale = config.electron_plume_loss_scale,
         anom_smoothing_iters = config.anom_smoothing_iters,
         discharge_voltage = config.discharge_voltage,
+        filter_circuit = config.filter_circuit,
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
         min_Te = config.min_Te,

@@ -321,7 +321,7 @@ function write_json(io::IO, value; replace_nan = false, replace_inf = false)
     elseif value isa AbstractVector || value isa AbstractSet || value isa Tuple
         write_array(io, value)
     elseif value isa AbstractDict || value isa NamedTuple
-        write_object(io, value)
+        write_object(io, value; replace_nan, replace_inf)
     elseif value isa Symbol || value isa Enum
         write_string(io, string(value))
     else
@@ -364,7 +364,7 @@ function write_array(io::IO, arr::Union{AbstractVector, AbstractSet, Tuple})
     return print(io, ']')
 end
 
-function write_object(io::IO, dict::Union{AbstractDict, NamedTuple})
+function write_object(io::IO, dict::Union{AbstractDict, NamedTuple}; replace_inf, replace_nan)
     print(io, '{')
     first = true
     for (key, value) in pairs(dict)
@@ -372,7 +372,7 @@ function write_object(io::IO, dict::Union{AbstractDict, NamedTuple})
         first = false
         write_string(io, string(key))
         print(io, ':')
-        write_json(io, value)
+        write_json(io, value; replace_inf, replace_nan)
     end
     return print(io, '}')
 end

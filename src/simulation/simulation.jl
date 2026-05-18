@@ -47,6 +47,9 @@ function setup_simulation(
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
     cache = allocate_arrays(grid, config)
 
+    # Set discharge voltage
+    cache.Vd[] = config.discharge_voltage
+
     # ================================================================================
     # Magnetic field setup
     # ================================================================================
