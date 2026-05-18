@@ -59,7 +59,7 @@ $(TYPEDSIGNATURES)
 
 Construct a circuit model of the given type, given R, L, and C. Optional current limiting is also supported.
 """
-function CircuitModel(type::Union{Symbol, Nothing} = nothing; R::Float64 = NaN, L::Float64 = NaN, C::Float64 = NaN, limit_current::Float64 = Inf)
+function CircuitModel(type::Union{Symbol, Nothing}; R::Float64 = NaN, L::Float64 = NaN, C::Float64 = NaN, limit_current::Float64 = Inf)
     elements = CircuitElement[]
     if type == :NoCircuit || isnothing(type)
         type = :NoCircuit
