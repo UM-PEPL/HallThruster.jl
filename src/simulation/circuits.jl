@@ -36,7 +36,7 @@ The voltage commanded by the power supply is denoted as `V0`, the current drawn 
 @kwdef struct CircuitModel
     type::Symbol
     elements::Vector{CircuitElement}
-	limit_current::Float64 = Inf
+    limit_current::Float64 = Inf
 end
 
 function Serialization.serialize(x::CircuitModel)
@@ -59,10 +59,10 @@ $(TYPEDSIGNATURES)
 
 Construct a circuit model of the given type, given R, L, and C. Optional current limiting is also supported.
 """
-function CircuitModel(type::Union{Symbol, Nothing} = nothing; R::Float64=NaN, L::Float64=NaN, C::Float64=NaN, limit_current::Float64=Inf)
+function CircuitModel(type::Union{Symbol, Nothing} = nothing; R::Float64 = NaN, L::Float64 = NaN, C::Float64 = NaN, limit_current::Float64 = Inf)
     elements = CircuitElement[]
-	if type == :NoCircuit || isnothing(type)
-		type = :NoCircuit
+    if type == :NoCircuit || isnothing(type)
+        type = :NoCircuit
         # do nothing
     elseif type == :LoadResistor
         push!(elements, CircuitElement('R', R))
@@ -83,7 +83,7 @@ function CircuitModel(type::Union{Symbol, Nothing} = nothing; R::Float64=NaN, L:
 end
 
 function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float64)
-    Vd = if model.type == :NoCircuit 
+    Vd = if model.type == :NoCircuit
         V0
 
     elseif model.type == :LoadResistor
@@ -118,7 +118,7 @@ function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float
 
         # Update inductor current
         inductor.I += inductor.dI_dt * dt
-        inductor.dI_dt += dt * (-(inductor.I/L + inductor.dI_dt/R) / C + Id / (L * C))
+        inductor.dI_dt += dt * (-(inductor.I / L + inductor.dI_dt / R) / C + Id / (L * C))
 
         # Update discharge voltage
         Vd = V0 - L * inductor.dI_dt

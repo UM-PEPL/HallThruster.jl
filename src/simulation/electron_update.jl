@@ -56,7 +56,7 @@ function update_electrical_vars!(params)
     (; cache, anom_smoothing_iters, landmark, grid) = params
     (;
         cell_cache_1, νan, νe, νc, μ, B, νew_momentum, anom_multiplier,
-        Vs, ue, ji, channel_area, ne, Id, Vd, K,  ϕ, ∇ϕ,
+        Vs, ue, ji, channel_area, ne, Id, Vd, K, ϕ, ∇ϕ,
     ) = cache
 
     # Smooth anomalous transport model
@@ -92,8 +92,8 @@ function update_electrical_vars!(params)
 
     Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
 
-	# Apply discharge current limit (defaults to infinity -> no limiting)
-	Id[] = max(0.0, min(params.filter_circuit.limit_current, Id[]))
+    # Apply discharge current limit (defaults to infinity -> no limiting)
+    Id[] = max(0.0, min(params.filter_circuit.limit_current, Id[]))
 
     Vd[] = update_circuit(params.filter_circuit, params.discharge_voltage, Id[], params.dt[])
 
