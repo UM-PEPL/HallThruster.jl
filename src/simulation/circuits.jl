@@ -1,3 +1,7 @@
+"""
+A `CircuitElement` is a resistor, capacitor, or inductor in an electrical circuit. Its `type` is indicated by a character (R, L, or C),
+while its value, voltage across it, current though it, and the time rate of change of these values are saved as separate floats.
+"""
 @kwdef mutable struct CircuitElement
     value::Float64
     V::Float64
@@ -33,6 +37,21 @@ The voltage commanded by the power supply is denoted as `V0`, the current drawn 
     type::Symbol
     elements::Vector{CircuitElement}
 	limit_current::Float64 = Inf
+end
+
+function Serialization.serialize(x::CircuitModel)
+    return OrderedDict(
+        "type" => serialize(x.type),
+        "elements" => serialize(x.elements),
+        "limit_current" => isfinite(x.limit_current) ? serialize(x.limit_current) : nothing
+    )
+end
+
+function Serialization.deserialize(::Type{CircuitModel}, dict)
+    type = Serialization.deserialize(Symbol, dict["type"])
+    elements = Serialization.deserialize(Vector{CircuitElement}, dict["elements"])
+    limit_current = isnothing(dict["limit_current"]) ? Inf : Serialization.deserialize(Float64, dict["limit_current"])
+    return CircuitModel(type, elements, limit_current)
 end
 
 """
