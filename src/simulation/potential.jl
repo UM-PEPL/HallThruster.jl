@@ -33,7 +33,7 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L)
     # Integrate potential from left to right edge
     cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
 
-    # Extrapolate potential to ghost cells
+    #Extrapolate potential to ghost cells
     ϕ[1] = ϕ[1] + (ϕ[1] - ϕ[2])
     ϕ[end] = ϕ[end] + (ϕ[end] - ϕ[end - 1])
 
@@ -54,8 +54,8 @@ function anode_sheath_potential(params)
     # Compute anode sheath potential
     @inbounds if anode_bc == :sheath
 
-        Te_sheath_edge = 0.5 * (Tev[1] + Tev[2])
-        ne_sheath_edge = 0.5 * (ne[1] + ne[2])
+        Te_sheath_edge = Tev[2]
+        ne_sheath_edge = ne[2]
         ce = sqrt(8 * e * Te_sheath_edge / π / me)
         je_sheath = e * ne_sheath_edge * ce / 4
 
@@ -63,7 +63,7 @@ function anode_sheath_potential(params)
         jd = Id[] / channel_area[1]
 
         # current densities at sheath edge
-        ji_sheath_edge = 0.5 * (ji[1] + ji[2])
+        ji_sheath_edge = ji[2]
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath

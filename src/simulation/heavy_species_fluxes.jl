@@ -30,10 +30,10 @@ function compute_edge_states_continuity!(fluid, do_reconstruct)
 
     # Get edge density from boundary cells
     # More details in `compute_edge_states_isothermal`
-    edg_dens_L = 0.5 * (fluid.density[1] + fluid.density[2])
-    edg_dens_R = 0.5 * (fluid.density[end - 1] + fluid.density[end])
-    fluid.dens_L[1] = edg_dens_L
-    fluid.dens_R[end] = edg_dens_R
+    fluid.dens_L[1] = fluid.density[1]
+    fluid.dens_R[1] = fluid.density[2]
+    fluid.dens_L[end] = fluid.density[end - 1]
+    fluid.dens_R[end] = fluid.density[end]
     return
 end
 
@@ -81,16 +81,15 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
     # The flux at the left edge should be set according to the edge property,
     # which we can compute by averaging the cell 1 and cell 2 properties.
 
-    edg_dens_L = 0.5 * (fluid.density[1] + fluid.density[2])
-    edg_dens_R = 0.5 * (fluid.density[end - 1] + fluid.density[end])
-    edg_mom_L = 0.5 * (fluid.momentum[1] + fluid.momentum[2])
-    edg_mom_R = 0.5 * (fluid.momentum[end - 1] + fluid.momentum[end])
+    fluid.dens_L[1] = fluid.density[1]
+    fluid.dens_R[1] = fluid.density[2]
+    fluid.dens_L[end] = fluid.density[end - 1]
+    fluid.dens_R[end] = fluid.density[end]
 
-    fluid.dens_L[1] = edg_dens_L
-    fluid.dens_R[end] = edg_dens_R
-
-    fluid.mom_L[1] = edg_mom_L
-    fluid.mom_R[end] = edg_mom_R
+    fluid.mom_L[1] = fluid.momentum[1]
+    fluid.mom_R[1] = fluid.momentum[2]
+    fluid.mom_L[end] = fluid.momentum[end - 1]
+    fluid.mom_R[end] = fluid.momentum[end]
 
     return
 end

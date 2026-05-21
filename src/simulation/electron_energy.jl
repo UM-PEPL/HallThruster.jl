@@ -189,7 +189,7 @@ end
 
 function update_pressure_gradient!(∇pe, pe, z_cell)
     # Pressure gradient (forward)
-    ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
+    ∇pe[1] = (pe[2] - pe[1]) / (z_cell[2] - z_cell[1])
 
     # Centered difference in interior cells
     @inbounds for j in interior_cells(pe)
@@ -200,10 +200,7 @@ function update_pressure_gradient!(∇pe, pe, z_cell)
     end
 
     # pressure gradient (backward)
-    ∇pe[end] = backward_difference(
-        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],
-
-    )
+    ∇pe[end] = (pe[end] - pe[end - 1]) / (z_cell[end] - z_cell[end - 1])
 
     return nothing
 end
