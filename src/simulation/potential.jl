@@ -53,17 +53,17 @@ function anode_sheath_potential(params)
 
     # Compute anode sheath potential
     @inbounds if anode_bc == :sheath
-
+        # Sheath edge properties use the values at the first cell center
         Te_sheath_edge = Tev[2]
         ne_sheath_edge = ne[2]
+        ji_sheath_edge = ji[2]
+
+        # Thermal flux
         ce = sqrt(8 * e * Te_sheath_edge / π / me)
         je_sheath = e * ne_sheath_edge * ce / 4
 
-        # discharge current density
+        # Convective flux
         jd = Id[] / channel_area[1]
-
-        # current densities at sheath edge
-        ji_sheath_edge = ji[2]
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath
