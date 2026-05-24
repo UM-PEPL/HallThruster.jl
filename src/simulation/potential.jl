@@ -74,7 +74,7 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
     #cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
 
     if ie_idx > 0 && !isnan(V_IE)
-    # Left region: integrate from V_L, up to and including ie_idx
+        # Left region: integrate from V_L, up to and including ie_idx
         cumtrapz!(
             view(ϕ, 1:ie_idx),
             view(grid.cell_centers, 1:ie_idx),
@@ -83,9 +83,9 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
         )
         # Right region: restart from V_IE at the IE boundary
         cumtrapz!(
-            view(ϕ, ie_idx+1:length(ϕ)),
+            view(ϕ, ie_idx:length(ϕ)),
             view(grid.cell_centers, ie_idx+1:length(grid.cell_centers)),
-            view(∇ϕ, ie_idx+1:length(∇ϕ)),
+            view(∇ϕ, ie_idx:length(∇ϕ)),
             V_IE,
         )
     else
@@ -99,8 +99,6 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
     # Replace electric field and cell center with original values
     grid.cell_centers[1], grid.cell_centers[end] = zL, zR
     ∇ϕ[1], ∇ϕ[end] = EL, ER
-
-    
 
     # debug printout
     @printf("  EL: %.3f V/m, ER: %.3f V/m, zL: %.3f cm, zR: %.3f cm\n", EL, ER, zL*100, zR*100)
@@ -119,12 +117,13 @@ function anode_sheath_potential(params)
     # Compute anode sheath potential
     @inbounds if anode_bc == :sheath
 
-        Te_sheath_edge = 0.5 * (Tev[1] + Tev[2])
-        ne_sheath_edge = 0.5 * (ne[1] + ne[2])
-        ce = sqrt(8 * e * Te_sheath_edge / π / me)
-        je_sheath = e * ne_sheath_edge * ce / 4
+        # use average of the first two cells to estimate sheath edge conditions
+        Te_sheath_edge = 0.5 * (Tev[1] + Tev[2]) # electron temperature at sheath edge
+        ne_sheath_edge = 0.5 * (ne[1] + ne[2]) # electron density at sheath edge
+        ce = sqrt(8 * e * Te_sheath_edge / π / me) # characteristic (mean thermal) speed of electrons at sheath edge (https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/0bd5cd04b2040f2324f3d6a78e8fb15b_MIT16_522S15_Lecture9.pdf)
+        je_sheath = e * ne_sheath_edge * ce / 4 # thermal electron current density at sheath edge
 
-        # discharge current density [A/m^2]
+        # total discharge current density [A/m^2]
         if params.discharge_voltage_IE > 0
             jd = Id_L_IE[] / channel_area[1] # use current on left side of IE if IE is present, since anode sheath is on left side of domain
         else
@@ -132,8 +131,8 @@ function anode_sheath_potential(params)
         end
 
         # current densities at sheath edge
-        ji_sheath_edge = 0.5 * (ji[1] + ji[2])
-        je_sheath_edge = jd - ji_sheath_edge
+        ji_sheath_edge = 0.5 * (ji[1] + ji[2]) # ion current density at sheath edge
+        je_sheath_edge = jd - ji_sheath_edge # electron current density at sheath edge from current continuity (jd = ji + je)
 
         current_ratio = je_sheath_edge / je_sheath
         if current_ratio ≤ 0.0
@@ -146,4 +145,36 @@ function anode_sheath_potential(params)
     end
 
     return Vs
+end
+
+function ie_sheath_potential(params, ie_index)
+    if params.landmark
+        return 0.0
+    end
+    (; cache) = params
+    (; ne, ji, channel_area, Tev, Id_L_IE, Id_IE_R) = cache
+
+    # Left face: sheath edge between cells ie_index-1 and ie_index
+    Te_L = 0.5 * (Tev[ie_index - 1] + Tev[ie_index])
+    ne_L = 0.5 * (ne[ie_index - 1]  + ne[ie_index])
+    ji_L = 0.5 * (ji[ie_index - 1]  + ji[ie_index])
+
+    ce_L       = sqrt(8 * e * Te_L / π / me)
+    je_rand_L  = e * ne_L * ce_L / 4
+    je_L       = Id_L_IE[] / channel_area[ie_index] - ji_L
+
+    Vs_L = (je_L <= 0.0) ? 0.0 : -Te_L * log(min(1.0, je_L / je_rand_L))
+
+    # Right face: sheath edge between cells ie_index+1 and ie_index+2
+    Te_R = 0.5 * (Tev[ie_index + 1] + Tev[ie_index + 2])
+    ne_R = 0.5 * (ne[ie_index + 1]  + ne[ie_index + 2])
+    ji_R = 0.5 * (ji[ie_index + 1]  + ji[ie_index + 2])
+
+    ce_R       = sqrt(8 * e * Te_R / π / me)
+    je_rand_R  = e * ne_R * ce_R / 4
+    je_R       = Id_IE_R[] / channel_area[ie_index + 1] - ji_R
+
+    Vs_R = (je_R <= 0.0) ? 0.0 : -Te_R * log(min(1.0, je_R / je_rand_R))
+
+    return Vs_L, Vs_R
 end

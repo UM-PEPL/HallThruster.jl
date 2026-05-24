@@ -103,7 +103,7 @@ function update_electrical_vars!(params)
     if ie_index != 0
         cell_range_A = 1:ie_index
         Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IE, apply_drag, cell_range_A)
-        cell_range_B = ie_index+1:length(grid.cell_centers)
+        cell_range_B = ie_index:length(grid.cell_centers)
         Id_IE_R[] = integrate_discharge_current(grid, cache, V_IE, V_R, apply_drag, cell_range_B)
         Id[] = NaN
     else

@@ -82,7 +82,8 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
 
                 # discharge current density
                 # channel area is constant inside channel so [1] is an OK index.
-                jd = cache.Id[] / channel_area[1]
+                #jd = cache.Id[] / channel_area[1]
+                jd = (isnan(cache.Id[]) ? cache.Id_L_IE[] : cache.Id[]) / channel_area[1]
 
                 # current densities at sheath edge
                 ji_sheath_edge = 0.5 * (ji[1] + ji[2])
