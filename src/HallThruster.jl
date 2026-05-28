@@ -189,6 +189,7 @@ end
     end
     # Remove output files
     rm("__output.json", force = true)
+    rm("_output.json", force = true)
 end
 
 end # module
