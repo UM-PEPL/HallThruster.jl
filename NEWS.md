@@ -3,10 +3,13 @@ EditURL = "NEWS.md"
 ```
 
 # Release notes
+## 0.21.6
+### Bug fixes
+- Output files generated during precompilation should now be properly cleaned up 
 
 ## 0.21.5
 ### Bug fixes
-Fix left boundary extrapolation, which would cause boundary velocities to go strongly positive, creating instabilities. 
+- Fix left boundary extrapolation, which would cause boundary velocities to go strongly positive, creating instabilities. 
 
 ## 0.21.4
 ### Features
