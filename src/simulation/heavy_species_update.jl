@@ -213,12 +213,12 @@ Boundary conditions
 ===============================================================================#
 
 function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark = false)
-    Te_L = 0.5 * (cache.Tev[2] + cache.Tev[1])         # eV
-    Ti = propellant.ion_temperature_K                 # K
+    Te_L = cache.Tev[2]                  # eV
+    Ti = propellant.ion_temperature_K    # K
     mdot_a = propellant.flow_rate_kg_s
 
     kTe_J = e * Te_L      # electron energy in Joules
-    kTi_J = kB * Ti        # ion thermal energy in Joules
+    kTi_J = kB * Ti       # ion thermal energy in Joules
 
     if !landmark
         γ = kTe_J / kTi_J
@@ -256,12 +256,12 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         electron_repelling_sheath = Vs > 0
         if electron_repelling_sheath
             # Ion attracting/electron-repelling sheath, ions in pre-sheath attain reduced Bohm speed
-            Vs_norm = Vs / Te_L
+            Vs_norm = (Vs / Te_L + 1.0e-6)
             # Compute correction factor (see Hara, PSST 28 (2019))
             χ = exp(-Vs_norm) / √(π * Vs_norm) / (1 + myerf(sqrt(Vs_norm)))
             inv(√(1 + χ))
         else
-            0.0
+            1.0
         end
     else
         1.0
@@ -289,18 +289,15 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
                 # For the isothermal Euler equations, the Riemann invariants are
                 # J⁺ = u + c ln ρ
                 # J⁻ = u - c ln ρ
-                # For the boundary condition, we take c = u_bohm
+                # For the boundary condition, we take c = u_bohm and use J⁻ to set the boundary density.
 
-                # 1. Compute outgoing characteristic using interior state
+                # J⁻ from interior (outgoing)
                 J⁻ = interior_velocity - sound_speed * log(interior_density)
 
-                # 2. Compute incoming characteristic using J⁻ invariant
-                J⁺ = 2 * boundary_velocity - J⁻
-
-                # 3. Compute boundary density using J⁺ and J⁻ invariants
-                boundary_density = exp(0.5 * (J⁺ - J⁻) / sound_speed)
-
-                # Compute boundary flux (flux at leftmost edge)
+                # Set boundary velocity to Bohm, use J⁻ to get boundary density
+                # J⁻ = boundary_velocity - sound_speed * log(boundary_density)
+                # → log(boundary_density) = (boundary_velocity - J⁻) / sound_speed
+                boundary_density = exp((boundary_velocity - J⁻) / sound_speed)
                 boundary_flux = boundary_velocity * boundary_density
             end
 
@@ -324,14 +321,11 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             end
         end
 
-        # Extrapolate to ghost cell
-        fluid.density[1] = 2 * boundary_density - fluid.density[2]
-        fluid.momentum[1] = 2 * boundary_flux - fluid.momentum[2]
+        fluid.density[1] = boundary_density
+        fluid.momentum[1] = boundary_flux
     end
 
-    # Extrapolate neutral density to ghost cell
-    fluids.continuity[].density[1] = 2 * neutral_density - fluids.continuity[].density[2]
-
+    fluids.continuity[].density[1] = neutral_density
     return
 end
 

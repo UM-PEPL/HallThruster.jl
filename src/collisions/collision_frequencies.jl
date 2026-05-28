@@ -16,9 +16,8 @@ function freq_electron_neutral!(νen::Vector{T}, coll::ElasticCollision, fluid::
     @inbounds for i in interior_cells(νen)
         νen[i] += freq_electron_neutral(coll, fluid.density[i] * inv_m, Tev[i])
     end
-    # Extrapolate collision frequencies to ghost cells
-    νen[1] = νen[2] - (νen[2] - νen[3])
-    νen[end] = νen[end - 1] + (νen[end - 1] - νen[end - 2])
+    νen[1] = νen[2]
+    νen[end] = νen[end - 1]
     return νen
 end
 
@@ -36,9 +35,8 @@ function freq_electron_ion!(
     @inbounds for i in interior_cells(νei)
         νei[i] = freq_electron_ion(ne[i], Tev[i], Z[i])
     end
-    # Extrapolate collision frequencies to ghost cells
-    νei[1] = νei[2] - (νei[2] - νei[3])
-    νei[end] = νei[end - 1] + (νei[end - 1] - νei[end - 2])
+    νei[1] = νei[2]
+    νei[end] = νei[end - 1]
     return
 end
 

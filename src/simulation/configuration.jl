@@ -385,7 +385,7 @@ function Serialization.deserialize(::Type{C}, x) where {C <: Config}
     d = copy(x)
     # Handle configs from older versions
     if !haskey(d, "propellants")
-        gas = get(d, "propellant", Xenon)
+        gas = deserialize(Gas, get(d, "propellant", "Xenon"))
         max_charge = get(d, "ncharge", 1)
         velocity_m_s = get(d, "neutral_velocity", nothing)
         temperature_K = get(d, "neutral_temperature_K", nothing)

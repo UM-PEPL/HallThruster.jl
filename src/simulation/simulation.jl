@@ -61,14 +61,9 @@ function setup_simulation(
     itp = LinearInterpolation(thruster.magnetic_field.z, thruster.magnetic_field.B)
     @. cache.B = itp(grid.cell_centers) * config.magnetic_field_scale
 
-    # Fix magnetic field in ghost cells by extrapolating from domain
-    # TODO: add extrapolate option to LinearInterpolation to fix this
-    # 1. Get values at left and right edges
-    B_L, B_R = itp(config.domain[1]), itp(config.domain[2])
-
-    # 2. Extrapolate to ghost cells
-    cache.B[1] = B_L - (cache.B[2] - B_L)
-    cache.B[end] = B_R + (B_R - cache.B[end - 1])
+    # Extrapolate magnetic field to ghost cells
+    cache.B[1] = max(2 * cache.B[2] - cache.B[3], 0.0)
+    cache.B[end] = max(2 * cache.B[end - 1] - cache.B[end - 2], 0.0)
 
     # ================================================================================
     # Timestep setup
