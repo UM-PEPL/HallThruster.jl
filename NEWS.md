@@ -4,6 +4,17 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## 0.21.5
+### Bug fixes
+Fix left boundary extrapolation, which would cause boundary velocities to go strongly positive, creating instabilities. 
+
+## 0.21.4
+### Features
+- Experimental circuit modeling interface
+
+### Minor changes
+- Update boundary condition handling for negative ions
+
 ## v0.21.3
 ### Internal changes
 - Some internal changes to support negative ions. You can now pass an array of `allowed_charges` in place of `max_charge`.
