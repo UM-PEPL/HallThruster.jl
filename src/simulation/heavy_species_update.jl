@@ -79,9 +79,15 @@ end
 function compute_heavy_species_derivatives!(fluid_containers, params, source_heavy_species)
     (; cache, grid, ion_wall_losses, reconstruct) = params
 
+    neutral_convect_negative_ions!(fluid_containers.isothermal, cache)
+
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
+    apply_mutual_neutralization!(params)
+    apply_associative_detachment!(params)
+
+    neutral_convect_negative_ions!(fluid_containers.isothermal, cache)
 
     apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
 
@@ -147,12 +153,12 @@ function update_heavy_species!(params)
     apply_right_boundary!(params.fluid_containers)
 
     # Update ion variables as seen by electrons
-    update_heavy_species_cache!(params.fluid_containers, cache, params.landmark)
+    update_heavy_species_cache!(params.fluid_containers, cache, params.grid, params.landmark)
 
     return
 end
 
-function update_heavy_species_cache!(fluids, cache, landmark)
+function update_heavy_species_cache!(fluids, cache, grid, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
     @. ne = 0
@@ -191,7 +197,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
 
     @. avg_neutral_vel /= nn
 
-    #@. ne = max(ne, MIN_NUMBER_DENSITY*1e6)
+    @. ne = max(ne, MIN_NUMBER_DENSITY * 1.0e6)
 
     # Inverse ion density
     @. Z_eff = inv(Z_eff)
@@ -199,13 +205,36 @@ function update_heavy_species_cache!(fluids, cache, landmark)
     @. m_eff *= Z_eff
     @. Z_eff = ne * Z_eff
 
-    # Compute electron mean energy for reactions
+    # Cathode electron source keeping ne non-singular; gated to electronegative runs (shifts the Xe baseline otherwise).
+    if any(f -> f.species.Z < 0, fluids.isothermal)
+        apply_cathode_electron_source!(ne, grid)
+    end
+
     @. ϵ = nϵ / ne
     if !landmark
         @. ϵ += K
     end
 
     return
+end
+
+# Cathode-emitted electron density: Gaussian at the right-boundary cathode, width half the domain; peak/width tunable below.
+const _CATHODE_PEAK_NE = 1.0e16          # m⁻³
+const _CATHODE_WIDTH_FRACTION = 0.5      # fraction of domain length
+
+function apply_cathode_electron_source!(ne, grid)
+    z = grid.cell_centers
+    z_c = z[end]                          # cathode at right boundary
+    L = z[end] - z[1]
+    σ = _CATHODE_WIDTH_FRACTION * L
+    inv_2σ2 = 1 / (2 * σ * σ)
+    n_peak = _CATHODE_PEAK_NE
+
+    @inbounds for i in eachindex(ne)
+        Δ = z[i] - z_c
+        ne[i] += n_peak * exp(-Δ * Δ * inv_2σ2)
+    end
+    return nothing
 end
 
 #===============================================================================
@@ -250,6 +279,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
     un = fluids.continuity[].const_velocity
     neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
 
+    Vs = 0.0
     bohm_factor = if anode_bc == :sheath
         Vs = cache.Vs[]
         # Compute sheath potential
@@ -329,8 +359,11 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         fluid.momentum[1] = 2 * boundary_flux - fluid.momentum[2]
     end
 
-    # Extrapolate neutral density to ghost cell
-    fluids.continuity[].density[1] = 2 * neutral_density - fluids.continuity[].density[2]
+    nm = fluids.continuity[].species.element.m
+    fluids.continuity[].density[1] = max(
+        2 * neutral_density - fluids.continuity[].density[2],
+        MIN_NUMBER_DENSITY * nm,
+    )
 
     return
 end
@@ -391,7 +424,7 @@ function apply_reactions!(fluids, rxns, cache, landmark)
                 ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
             end
         end
-        #@. ne = max(ne, MIN_NUMBER_DENSITY)
+        @. ne = max(ne, MIN_NUMBER_DENSITY * 1.0e6)
         νiz .= 0.0
         inelastic_losses .= 0.0
         @. ϵ = cache.nϵ / cache.ne
@@ -470,11 +503,174 @@ end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
 
+@inline function negative_ion_collision_frequency(nn, Tev, m)
+    σin = 1.0e-18
+    vth = sqrt(max(e * max(Tev, 0.0) / m, 0.0))
+    return max(nn * σin * max(vth, 100.0), 1.0e8)
+end
+
+function neutral_convect_negative_ions!(fluids, cache)
+    @inbounds for fluid in fluids
+        fluid.species.Z < 0 || continue
+
+        m = fluid.species.element.m
+        Z = fluid.species.Z
+
+        u_sat = 3.0e5
+
+        for i in eachindex(fluid.momentum)
+            ρ = fluid.density[i]
+            un = cache.avg_neutral_vel[i]
+            gradϕ = cache.∇ϕ[i]
+            νin = negative_ion_collision_frequency(cache.nn[i], cache.Tev[i], m)
+
+            if !(isfinite(ρ) && isfinite(un) && isfinite(gradϕ) && isfinite(νin)) || νin <= 0.0
+                fluid.momentum[i] = 0.0
+            else
+                u_drift = -(Z * e / m) * gradϕ / νin
+                u_drift = clamp(u_drift, -u_sat, u_sat)
+
+                u = clamp(un + u_drift, -u_sat, u_sat)
+                fluid.momentum[i] = ρ * u
+            end
+        end
+    end
+
+    return nothing
+end
+
+#===============================================================================
+Mutual neutralization
+===============================================================================#
+
+# Ion-ion neutralization rate coefficient (lit. ~4e-14 to ~1e-12 m^3/s).
+const _K_MUTUAL_NEUTRALIZATION = 1.0e-12   # m^3/s
+
+# Aggregated neutral-induced detachment rate (A^- + N -> A + N + e^-); n_e-independent, dominates the cold shoulder where MN is weak.
+const _K_NEUTRAL_DETACHMENT = 1.0e-15   # m^3/s
+
+#Apply mutual neutralization A^- + B^+ -> neutral A + neutral B: the dominant n_e-independent negative-ion sink that bounds α = n_-/n_e; added as a direct source term since the electron-impact framework can't express it.
+
+function apply_mutual_neutralization!(params)
+    k_MN = _K_MUTUAL_NEUTRALIZATION
+    propellant_groups = params.fluids_by_propellant
+    cache = params.cache
+
+    dt_max = Inf
+
+    @inbounds for neg_group in propellant_groups
+        # Parent neutral that receives the neutralized negative ion (e.g. H^- -> H).
+        neutral_neg = neg_group.continuity[]
+        for neg_fluid in neg_group.isothermal
+            neg_fluid.species.Z < 0 || continue
+            m_neg = neg_fluid.species.element.m
+            inv_m_neg = inv(m_neg)
+
+            for pos_group in propellant_groups
+                # Parent neutral that receives the neutralized positive ion (e.g. H2O^+ -> H2O).
+                neutral_pos = pos_group.continuity[]
+                for pos_fluid in pos_group.isothermal
+                    pos_fluid.species.Z > 0 || continue
+                    m_pos = pos_fluid.species.element.m
+                    inv_m_pos = inv(m_pos)
+
+                    for i in eachindex(neg_fluid.dens_ddt)
+                        ρ_neg = neg_fluid.density[i]
+                        ρ_pos = pos_fluid.density[i]
+                        n_neg = ρ_neg * inv_m_neg
+                        n_pos = ρ_pos * inv_m_pos
+
+                        R = k_MN * n_neg * n_pos      # 1/m^3/s
+
+                        ρdot_neg = R * m_neg
+                        ρdot_pos = R * m_pos
+
+                        # Ions destroyed; parent neutrals gain the mass.
+                        neg_fluid.dens_ddt[i] -= ρdot_neg
+                        pos_fluid.dens_ddt[i] -= ρdot_pos
+                        neutral_neg.dens_ddt[i] += ρdot_neg
+                        neutral_pos.dens_ddt[i] += ρdot_pos
+
+                        # Destroyed ions carry off their drift momentum; products are near-thermal.
+                        u_neg = neg_fluid.momentum[i] / max(ρ_neg, eps())
+                        u_pos = pos_fluid.momentum[i] / max(ρ_pos, eps())
+                        neg_fluid.mom_ddt[i] -= ρdot_neg * u_neg
+                        pos_fluid.mom_ddt[i] -= ρdot_pos * u_pos
+
+                        # CFL: dt < density / |destruction rate| per species.
+                        if ρdot_neg > eps()
+                            dt_max = min(dt_max, ρ_neg / ρdot_neg)
+                        end
+                        if ρdot_pos > eps()
+                            dt_max = min(dt_max, ρ_pos / ρdot_pos)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    # Tighten the chemistry CFL with the MN destruction-rate constraint.
+    cache.dt_iz[] = min(cache.dt_iz[], dt_max)
+
+    return nothing
+end
+
+#===============================================================================
+Associative / collisional detachment by neutrals
+===============================================================================#
+
+#Apply neutral-induced detachment A^- + N -> A + N + e^- at rate k_AD·n(A^-)·n_neutral (from cache.nn): n_e-independent, so it dominates the cold shoulder where MN is weak; the freed electron is implicit in n_e = n_+ - n_-.
+
+function apply_associative_detachment!(params)
+    k_AD = _K_NEUTRAL_DETACHMENT
+    propellant_groups = params.fluids_by_propellant
+    cache = params.cache
+
+    dt_max = Inf
+
+    @inbounds for neg_group in propellant_groups
+        neutral_neg = neg_group.continuity[]
+        for neg_fluid in neg_group.isothermal
+            neg_fluid.species.Z < 0 || continue
+            m_neg = neg_fluid.species.element.m
+            inv_m_neg = inv(m_neg)
+
+            for i in eachindex(neg_fluid.dens_ddt)
+                ρ_neg = neg_fluid.density[i]
+                n_neg = ρ_neg * inv_m_neg
+                n_n = cache.nn[i]            # total neutral number density
+
+                R = k_AD * n_neg * n_n       # 1/m^3/s
+                ρdot = R * m_neg
+
+                # H^- destroyed; the H atom joins the H neutral fluid (partner neutral unchanged here).
+                neg_fluid.dens_ddt[i] -= ρdot
+                neutral_neg.dens_ddt[i] += ρdot
+
+                u_neg = neg_fluid.momentum[i] / max(ρ_neg, eps())
+                neg_fluid.mom_ddt[i] -= ρdot * u_neg
+
+                if ρdot > eps()
+                    dt_max = min(dt_max, ρ_neg / ρdot)
+                end
+            end
+        end
+    end
+
+    cache.dt_iz[] = min(cache.dt_iz[], dt_max)
+
+    return nothing
+end
+
 function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
     dt_max = Inf
 
     @inbounds for fluid in fluids
         Z = fluid.species.Z
+
+        Z > 0 || continue
+
         m = fluid.species.element.m
         qe_m = Z * e / m
 
@@ -483,12 +679,14 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
             dz = grid.dz_cell[i]
 
             Q_accel = qE_m * fluid.density[i]
-            dt_max = min(dt_max, abs(dz / qE_m))
+            if isfinite(qE_m) && abs(qE_m) > eps(Float64)
+                dt_max = min(dt_max, abs(dz / qE_m))
+            end
             fluid.mom_ddt[i] += Q_accel
         end
     end
 
-    return cache.dt_E[] = sqrt(dt_max)
+    return cache.dt_E[] = isfinite(dt_max) ? sqrt(dt_max) : Inf
 end
 
 function apply_ion_wall_losses!(fluid_containers, params)
@@ -504,13 +702,18 @@ function apply_ion_wall_losses!(fluid_containers, params)
     @inbounds for ion_fluid in isothermal
         m = ion_fluid.species.element.m
         Z = ion_fluid.species.Z
-        qe_m = Z * e / m
+        qe_m = abs(Z) * e / m
 
         for i in 2:(length(ion_fluid.density) - 1)
-            if Z > 0
-                u_bohm = sqrt(qe_m * cache.Tev[i])
+            if Z != 0
+                u_wall = if Z > 0
+                    sqrt(qe_m * cache.Tev[i])
+                else
+                    0.1 * sqrt(qe_m * cache.Tev[i])
+                end
+
                 in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
-                νiw = in_channel * u_bohm * inv_Δr * h
+                νiw = in_channel * u_wall * inv_Δr * h
 
                 density_loss = ion_fluid.density[i] * νiw
                 momentum_loss = ion_fluid.momentum[i] * νiw
