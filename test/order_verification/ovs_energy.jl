@@ -20,7 +20,7 @@ ne = sin_wave(x / L, amplitude = 2.0e15, phase = π / 4, nwaves = 0.5, offset = 
 nn = sin_wave(x / L, amplitude = 5.0e18, phase = pi / 3, nwaves = 2.0, offset = 6.0e18)
 ui = sin_wave(x / L, amplitude = 13000, phase = π / 4, nwaves = 0.75, offset = 10000)
 μ = sin_wave(x / L, amplitude = 1.0e4, phase = π / 2, nwaves = 1.2, offset = 1.1e4)
-ϵ = sin_wave(x / L, amplitude = 20, phase = 1.3 * π / 2, nwaves = 1.1, offset = 30)
+ϵ = sin_wave(x / L, amplitude = 20, phase = 1.3 * π / 2, nwaves = 1.1, offset = 45)
 ∇ϕ = Dx(ϕ)
 nϵ = ne * ϵ
 ue = μ * (∇ϕ - Dx(nϵ) / ne)
@@ -101,6 +101,7 @@ function verify_energy(ncells; implicit_energy = 1.0, niters = 20000)
         electron_plume_loss_scale = 1.0,
         implicit_energy = implicit_energy,
         anom_model = het.NoAnom(),
+        electron_ion_collisions = false,
     )
 
     params = het.setup_simulation(config, simparams)

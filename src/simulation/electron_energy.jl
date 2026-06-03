@@ -35,7 +35,7 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     Q = cache.cell_cache_1
 
     @inbounds for i in interior_cells(grid.cell_centers)
-        # Get properties at neighboring cells:
+        # Get properties in neighboring cells:
 
         # Electron density
         neL = ne[i - 1]
@@ -83,10 +83,10 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
                 jd = cache.Id[] / channel_area[1]
 
                 # current densities at sheath edge
-                ji_sheath_edge = 0.5 * (ji[1] + ji[2])
+                ji_sheath_edge = ji[2]
                 je_sheath_edge = jd - ji_sheath_edge
 
-                ne_sheath_edge = 0.5 * (ne[1] + ne[2])
+                ne_sheath_edge = ne[2]
                 ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
 
                 FL_factor_L = 0.0
@@ -145,9 +145,9 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
         bϵ[1] = 1.5 * Te_L
     else
         # Neumann BC for electron temperature
-        bϵ[1] = 0
         Aϵ.d[1] = 1.0 / ne[1]
         Aϵ.du[1] = -1.0 / ne[2]
+        bϵ[1] = 0
     end
 
     # 0.5 (nϵ[end-1]/ne[end-1] + nϵ[end]/ne[end]) = 3/2 Te_R
@@ -159,7 +159,7 @@ end
 
 function limit_energy!(nϵ, ne, min_Te)
     @inbounds for i in interior_cells(nϵ)
-        if !isfinite(nϵ[i]) || nϵ[i] / ne[i] < 1.5 * min_Te
+        if !isfinite(nϵ[i]) || nϵ[i] < 1.5 * min_Te * ne[i]
             nϵ[i] = 1.5 * min_Te * ne[i]
         end
     end
@@ -167,10 +167,10 @@ function limit_energy!(nϵ, ne, min_Te)
 end
 
 function update_temperature!(Tev, nϵ, ne, min_Te)
-    # Update plasma quantities based on new density
     @inbounds for i in eachindex(Tev)
-        # Compute new electron temperature
+        # Calc electron temp and update electron energy if changed
         Tev[i] = max(min_Te, nϵ[i] / ne[i] / 1.5)
+        nϵ[i] = 1.5 * ne[i] * Tev[i]
     end
     return
 end
@@ -187,23 +187,18 @@ function update_pressure!(pe, nϵ, landmark)
     return
 end
 
-function update_pressure_gradient!(∇pe, pe, z_cell)
+function update_pressure_gradient!(∇pe, pe, z)
     # Pressure gradient (forward)
-    ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z_cell[1], z_cell[2], z_cell[3])
+    ∇pe[1] = forward_difference(pe[1], pe[2], pe[3], z[1], z[2], z[3])
 
     # Centered difference in interior cells
     @inbounds for j in interior_cells(pe)
         # Compute pressure gradient
-        ∇pe[j] = central_difference(
-            pe[j - 1], pe[j], pe[j + 1], z_cell[j - 1], z_cell[j], z_cell[j + 1],
-        )
+        ∇pe[j] = central_difference(pe[j - 1], pe[j], pe[j + 1], z[j - 1], z[j], z[j + 1])
     end
 
     # pressure gradient (backward)
-    ∇pe[end] = backward_difference(
-        pe[end - 2], pe[end - 1], pe[end], z_cell[end - 2], z_cell[end - 1], z_cell[end],
-
-    )
+    ∇pe[end] = backward_difference(pe[end - 2], pe[end - 1], pe[end], z[end - 2], z[end - 1], z[end])
 
     return nothing
 end

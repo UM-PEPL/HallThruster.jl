@@ -51,6 +51,7 @@ include("thruster/spt100.jl")
 include("grid/gridspec.jl")
 include("grid/grid.jl")
 
+include("simulation/circuits.jl")
 include("simulation/current_control.jl")
 include("simulation/initialization.jl")
 include("simulation/configuration.jl")
@@ -188,6 +189,7 @@ end
     end
     # Remove output files
     rm("__output.json", force = true)
+    rm("_output.json", force = true)
 end
 
 end # module

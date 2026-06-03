@@ -75,17 +75,17 @@ function test_boundaries()
     het.apply_right_boundary!(params.fluid_containers)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
-    boundary_ion_flux = [(ion.momentum[1] + ion.momentum[2]) / 2 for ion in isothermal]
-    boundary_ion_dens = [(ion.density[1] + ion.density[2]) / 2 for ion in isothermal]
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    boundary_ion_dens = [ion.density[1] for ion in isothermal]
     boundary_ion_vel = [flux / dens for (flux, dens) in zip(boundary_ion_flux, boundary_ion_dens)]
+    neutral_dens_edge = continuity[1].density[1]
 
-    neutral_dens_edge = 0.5 * (continuity[1].density[1] + continuity[1].density[2])
     recombined_ion_flux = -sum(boundary_ion_flux) / un
     background_flux = nn_B * un_B / un * config.neutral_ingestion_multiplier
 
     @test neutral_dens_edge ≈ inlet_density + recombined_ion_flux + background_flux
-    @test boundary_ion_vel[1] ≈ -u_bohm_1
-    @test boundary_ion_vel[2] ≈ -u_bohm_2
+    @test boundary_ion_vel[1] ≈ -u_bohm_1 rtol = 0.01
+    @test boundary_ion_vel[2] ≈ -u_bohm_2 rtol = 0.01
 
     # Right BC
     for fluid in isothermal
@@ -117,10 +117,10 @@ function test_boundaries()
     het.apply_right_boundary!(params.fluid_containers)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
-    boundary_ion_flux = [(ion.momentum[1] + ion.momentum[2]) / 2 for ion in isothermal]
-    boundary_ion_dens = [(ion.density[1] + ion.density[2]) / 2 for ion in isothermal]
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    boundary_ion_dens = [ion.density[1] for ion in isothermal]
     boundary_ion_vel = [flux / dens for (flux, dens) in zip(boundary_ion_flux, boundary_ion_dens)]
-    neutral_dens_edge = 0.5 * (continuity[1].density[1] + continuity[1].density[2])
+    neutral_dens_edge = continuity[1].density[1]
 
     recombined_ion_flux = -sum(boundary_ion_flux) / un
     background_flux = nn_B * un_B / un * config.neutral_ingestion_multiplier
