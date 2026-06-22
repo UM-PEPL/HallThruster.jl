@@ -193,7 +193,7 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
 
     @. avg_neutral_vel /= nn
 
-    @. ne = max(ne, MIN_NUMBER_DENSITY * 1.0e6)
+    @. ne = max(ne, MIN_NUMBER_DENSITY)
 
     # Inverse ion density
     @. Z_eff = inv(Z_eff)
@@ -389,7 +389,7 @@ function apply_reactions!(fluids, rxns, cache, landmark)
                 ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
             end
         end
-        @. ne = max(ne, MIN_NUMBER_DENSITY * 1.0e6)
+        @. ne = max(ne, MIN_NUMBER_DENSITY)
         νiz .= 0.0
         inelastic_losses .= 0.0
         @. ϵ = cache.nϵ / cache.ne
@@ -476,7 +476,7 @@ Mutual neutralization
 const _K_MUTUAL_NEUTRALIZATION = 1.0e-12   # m^3/s
 
 # Aggregated neutral-induced detachment rate (A^- + N -> A + N + e^-); n_e-independent, dominates the cold shoulder where MN is weak.
-const _K_NEUTRAL_DETACHMENT = 1.0e-15   # m^3/s
+const _K_NEUTRAL_DETACHMENT = 1.0e-12   # m^3/s
 
 # Apply mutual neutralization A^- + B^+ -> neutral A + neutral B: the dominant n_e-independent negative-ion sink that bounds α = n_-/n_e; added as a direct source term since the electron-impact framework can't express it.
 function apply_mutual_neutralization!(params)
@@ -596,9 +596,6 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
 
     @inbounds for fluid in fluids
         Z = fluid.species.Z
-
-        Z != 0 || continue                 # all charged species; sign of Z sets drift direction
-
         m = fluid.species.element.m
         qe_m = Z * e / m
 
@@ -607,7 +604,7 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
             dz = grid.dz_cell[i]
 
             Q_accel = qE_m * fluid.density[i]
-            if isfinite(qE_m) && abs(qE_m) > eps(Float64)
+            if isfinite(qE_m)              # skip non-finite ∇ϕ so NaN can't poison dt_E via min
                 dt_max = min(dt_max, abs(dz / qE_m))
             end
             fluid.mom_ddt[i] += Q_accel
@@ -629,7 +626,6 @@ function apply_ion_wall_losses!(fluid_containers, params)
     neutral_fluid = continuity[1]
     @inbounds for ion_fluid in isothermal
         Z = ion_fluid.species.Z
-        Z > 0 || continue                  # positive ions only; negatives are sheath-confined
 
         m = ion_fluid.species.element.m
         qe_m = Z * e / m
