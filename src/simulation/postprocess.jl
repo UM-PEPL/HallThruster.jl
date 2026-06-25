@@ -95,12 +95,12 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     )
 end
 
+@inline ion_momentum_flux(m, n, nu) = n > 0 ? m * nu^2 / n : 0.0
+
 """
     $(TYPEDSIGNATURES)
 Compute the thrust at a specific frame of a `Solution`.
 """
-@inline ion_momentum_flux(m, n, nu) = n > 0 ? m * nu^2 / n : 0.0
-
 function thrust(sol::Solution, frame::Integer)
     f = sol.frames[frame]
     left_area = f.channel_area[begin]
