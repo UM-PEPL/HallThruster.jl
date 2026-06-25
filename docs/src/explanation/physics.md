@@ -313,3 +313,33 @@ Substituting the energy-conservation relation ``\frac{1}{2}m_i v_0^2 = e\phi_0``
 ```
 
 This is the result derived by [Boyd and Thompson (1959)](https://doi.org/10.1098/rspa.1959.0140) and re-derived more rigorously by [Ridenti *et al.* (2025, Eq. 18)](https://doi.org/10.1063/5.0241405).
+
+## Electronegative Plasma Stabilization
+
+Negative ions complicate the quasineutral electron density, which is not an independent field but is fixed by the ion charge balance,
+
+```math
+    n_e = n_+ - n_-.
+```
+
+As negative ions accumulate, ``n_e`` falls. In early water-propellant runs, dissociative attachment drove ``n_e`` toward zero in parts of the domain, producing singularities in the electron-fluid solve, since transport coefficients, rates, the electron energy, and the field all require finite ``n_e``. The fix is to bound ``n_-`` with two physical volume sinks — mutual neutralization and associative detachment — that grow with ``n_-`` and self-limit it, backed by a small numerical floor on ``n_e``.
+
+### Mutual neutralization
+
+Mutual neutralization, ``A^- + B^+ \rightarrow A + B``, is modeled at rate
+
+```math
+    R_{\mathrm{MN}} = k_{\mathrm{MN}}\, n_-\, n_+.
+```
+
+It removes one positive and one negative ion, returning their mass and directed momentum to the parent neutral fluids. Because the rate depends on ion densities rather than ``n_e``, it stays active in strongly electronegative regions and self-limits as ``n_-`` grows.
+
+### Associative detachment
+
+Associative detachment, ``A^- + N \rightarrow A + N + e^-``, is modeled at rate
+
+```math
+    R_{\mathrm{AD}} = k_{\mathrm{AD}}\, n_-\, n_n,
+```
+
+with ``n_n`` the total neutral density. Unlike mutual neutralization it requires no positive ions, so it dominates in weakly ionized, neutral-rich regions. The released electron is implicit in ``n_e = n_+ - n_-``, since destroying a negative ion raises ``n_e`` directly.
