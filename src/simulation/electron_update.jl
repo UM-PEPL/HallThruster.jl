@@ -94,22 +94,48 @@ function update_electrical_vars!(params)
 
     if params.discharge_voltage_IE > 0
         ie_index = argmin(abs.(grid.cell_centers .- params.IE_position))
-        V_IE = V_L - params.discharge_voltage_IE # if discharge_voltage is 500, and discharge_voltage_IE is 100, then the voltage at IE is 400 V
+        # compute sheath drops on each face (plasma minus metal potential)
+        Vs_L = ie_sheath_potential(cache, ie_index, :L)
+        Vs_R = ie_sheath_potential(cache, ie_index, :R)
+        @printf("  Sheath Potential: Vs: %.3f Vs_L: %.3f Vs_R: %.3f\n", Vs[], Vs_L, Vs_R)
+
+        # metal potential of the IE (electrode)
+        V_IE_wall = V_L - params.discharge_voltage_IE # e.g. discharge 500 V, discharge_voltage_IE 100 -> IE metal at 400 V
+
+        # plasma-side potentials adjacent to the IE on left and right
+        use_ie_sheath = false
+        if use_ie_sheath
+            V_IEp_L = V_IE_wall + Vs_L
+            V_IEp_R = V_IE_wall - Vs_R
+        else
+            V_IEp_L = V_IE_wall
+            V_IEp_R = V_IE_wall
+        end
     else
         ie_index = 0
-        V_IE = NaN
+        V_IE_wall = NaN
+        V_IEp_L = NaN
+        V_IEp_R = NaN
+        Vs_L = NaN
+        Vs_R = NaN
     end
 
     if ie_index != 0
+        # left branch: integrate from anode (V_L) to left-side plasma potential at IE (V_IEp_L)
         cell_range_A = 1:ie_index
-        Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IE, apply_drag, cell_range_A)
+        #Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IE_wall, apply_drag, cell_range_A)
+        Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IEp_L, apply_drag, cell_range_A)
+        
+        # right branch: integrate from right-side plasma potential at IE (V_IEp_R) to cathode (V_R)
         cell_range_B = ie_index:length(grid.cell_centers)
-        Id_IE_R[] = integrate_discharge_current(grid, cache, V_IE, V_R, apply_drag, cell_range_B)
+        #Id_IE_R[] = integrate_discharge_current(grid, cache, V_IE_wall, V_R, apply_drag, cell_range_B)
+        Id_IE_R[] = integrate_discharge_current(grid, cache, V_IEp_R, V_R, apply_drag, cell_range_B)
+        
         Id[] = NaN
     else
         Id_L_IE[] = NaN
         Id_IE_R[] = NaN
-        cell_range = 1:length(grid.cell_centers)
+        cell_range = 1:length(grid.cell_centers) # use the full domain if no IE is present
         Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_range)
     end
     @printf("  Discharge current: Id: %.3f Id_L_IE: %.3f Id_IE_R: %.3f\n", Id[], Id_L_IE[], Id_IE_R[])
@@ -117,7 +143,9 @@ function update_electrical_vars!(params)
 
     # Compute electric field and potential
     update_electric_field!(∇ϕ, ie_index, cache, apply_drag) # ∇ϕ is updated in place from electric field solve
-    integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_index) # integrates ϕ from ∇ϕ and applies boundary conditions, updates ϕ in place
+    
+    # Integrate potential, pass the plasma-side potential on the right face of the IE
+    integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE_wall, ie_index) # integrates ϕ from ∇ϕ and applies boundary conditions, updates ϕ in place
 
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in eachindex(ue)

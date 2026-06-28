@@ -56,7 +56,7 @@ function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag)
     return ∇ϕ
 end
 
-function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
+function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IEp_R, ie_idx)
     # We need to make sure the potential is integrated from the left edge to the right edge,
     # rather than from the left ghost cell center to the right ghost cell center
 
@@ -71,9 +71,7 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
     ∇ϕ[end] = 0.5 * (ER + ∇ϕ[end - 1])
 
     # Integrate potential from left to right edge
-    #cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
-
-    if ie_idx > 0 && !isnan(V_IE)
+    if ie_idx > 0 && !isnan(V_IEp_R)
         # Left region: integrate from V_L, up to and including ie_idx
         cumtrapz!(
             view(ϕ, 1:ie_idx),
@@ -84,9 +82,9 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IE, ie_idx)
         # Right region: restart from V_IE at the IE boundary
         cumtrapz!(
             view(ϕ, ie_idx:length(ϕ)),
-            view(grid.cell_centers, ie_idx+1:length(grid.cell_centers)),
+            view(grid.cell_centers, ie_idx:length(grid.cell_centers)),
             view(∇ϕ, ie_idx:length(∇ϕ)),
-            V_IE,
+            V_IEp_R,
         )
     else
         cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
@@ -122,6 +120,7 @@ function anode_sheath_potential(params)
         ne_sheath_edge = 0.5 * (ne[1] + ne[2]) # electron density at sheath edge
         ce = sqrt(8 * e * Te_sheath_edge / π / me) # characteristic (mean thermal) speed of electrons at sheath edge (https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/0bd5cd04b2040f2324f3d6a78e8fb15b_MIT16_522S15_Lecture9.pdf)
         je_sheath = e * ne_sheath_edge * ce / 4 # thermal electron current density at sheath edge
+        #   QUESTION: boltzman exponential term goes to zero since potential at the wall is zero (confirm this)?
 
         # total discharge current density [A/m^2]
         if params.discharge_voltage_IE > 0
@@ -132,7 +131,7 @@ function anode_sheath_potential(params)
 
         # current densities at sheath edge
         ji_sheath_edge = 0.5 * (ji[1] + ji[2]) # ion current density at sheath edge
-        je_sheath_edge = jd - ji_sheath_edge # electron current density at sheath edge from current continuity (jd = ji + je)
+        je_sheath_edge = jd - ji_sheath_edge # electron current density at sheath edge from current continuity (total current density = ion current density + electron current density)
 
         current_ratio = je_sheath_edge / je_sheath
         if current_ratio ≤ 0.0
@@ -147,34 +146,30 @@ function anode_sheath_potential(params)
     return Vs
 end
 
-function ie_sheath_potential(params, ie_index)
-    if params.landmark
-        return 0.0
-    end
-    (; cache) = params
+function ie_sheath_potential(cache, ie_index, side::Symbol)
     (; ne, ji, channel_area, Tev, Id_L_IE, Id_IE_R) = cache
 
-    # Left face: sheath edge between cells ie_index-1 and ie_index
-    Te_L = 0.5 * (Tev[ie_index - 1] + Tev[ie_index])
-    ne_L = 0.5 * (ne[ie_index - 1]  + ne[ie_index])
-    ji_L = 0.5 * (ji[ie_index - 1]  + ji[ie_index])
+    if side === :L
+        idxStart = ie_index - 1
+        idxEnd = ie_index
+        jd = Id_L_IE[] / channel_area[idxStart]
+    elseif side === :R
+        idxStart = ie_index
+        idxEnd = ie_index + 1
+        jd = Id_IE_R[] / channel_area[idxStart]
+    end
 
-    ce_L       = sqrt(8 * e * Te_L / π / me)
-    je_rand_L  = e * ne_L * ce_L / 4
-    je_L       = Id_L_IE[] / channel_area[ie_index] - ji_L
+    Te_sheath_edge = 0.5 * (Tev[idxStart] + Tev[idxEnd])
+    ne_sheath_edge = 0.5 * (ne[idxStart]  + ne[idxEnd])
 
-    Vs_L = (je_L <= 0.0) ? 0.0 : -Te_L * log(min(1.0, je_L / je_rand_L))
+    ce = sqrt(8 * e * Te_sheath_edge / π / me)
+    je_sheath  = e * ne_sheath_edge * ce / 4
 
-    # Right face: sheath edge between cells ie_index+1 and ie_index+2
-    Te_R = 0.5 * (Tev[ie_index + 1] + Tev[ie_index + 2])
-    ne_R = 0.5 * (ne[ie_index + 1]  + ne[ie_index + 2])
-    ji_R = 0.5 * (ji[ie_index + 1]  + ji[ie_index + 2])
+    ji_sheath_edge = 0.5 * (ji[idxStart]  + ji[idxEnd])
+    je_sheath_edge = jd - ji_sheath_edge
 
-    ce_R       = sqrt(8 * e * Te_R / π / me)
-    je_rand_R  = e * ne_R * ce_R / 4
-    je_R       = Id_IE_R[] / channel_area[ie_index + 1] - ji_R
+    # Compute the sheath potential at the intermediate electrode
+    Vs = (je_sheath_edge <= 0.0) ? 0.0 : -Te_sheath_edge * log(min(1.0, je_sheath_edge / je_sheath))
 
-    Vs_R = (je_R <= 0.0) ? 0.0 : -Te_R * log(min(1.0, je_R / je_rand_R))
-
-    return Vs_L, Vs_R
+    return Vs
 end
