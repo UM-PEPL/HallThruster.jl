@@ -95,9 +95,6 @@ function update_electrical_vars!(params)
     if params.discharge_voltage_IE > 0
         ie_index = argmin(abs.(grid.cell_centers .- params.IE_position))
         # compute sheath drops on each face (plasma minus metal potential)
-        Vs_L = ie_sheath_potential(cache, ie_index, :L)
-        Vs_R = ie_sheath_potential(cache, ie_index, :R)
-        @printf("  Sheath Potential: Vs: %.3f Vs_L: %.3f Vs_R: %.3f\n", Vs[], Vs_L, Vs_R)
 
         # metal potential of the IE (electrode)
         V_IE_wall = V_L - params.discharge_voltage_IE # e.g. discharge 500 V, discharge_voltage_IE 100 -> IE metal at 400 V
@@ -105,12 +102,17 @@ function update_electrical_vars!(params)
         # plasma-side potentials adjacent to the IE on left and right
         use_ie_sheath = false
         if use_ie_sheath
+            Vs_L = ie_sheath_potential(cache, ie_index, :L)
+            Vs_R = ie_sheath_potential(cache, ie_index, :R)
             V_IEp_L = V_IE_wall + Vs_L
             V_IEp_R = V_IE_wall - Vs_R
         else
+            Vs_L = NaN
+            Vs_R = NaN
             V_IEp_L = V_IE_wall
             V_IEp_R = V_IE_wall
         end
+        @printf("  Sheath Potential: Vs: %.3f Vs_L: %.3f Vs_R: %.3f\n", Vs[], Vs_L, Vs_R)
     else
         ie_index = 0
         V_IE_wall = NaN
@@ -123,12 +125,10 @@ function update_electrical_vars!(params)
     if ie_index != 0
         # left branch: integrate from anode (V_L) to left-side plasma potential at IE (V_IEp_L)
         cell_range_A = 1:ie_index
-        #Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IE_wall, apply_drag, cell_range_A)
         Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IEp_L, apply_drag, cell_range_A)
         
         # right branch: integrate from right-side plasma potential at IE (V_IEp_R) to cathode (V_R)
         cell_range_B = ie_index:length(grid.cell_centers)
-        #Id_IE_R[] = integrate_discharge_current(grid, cache, V_IE_wall, V_R, apply_drag, cell_range_B)
         Id_IE_R[] = integrate_discharge_current(grid, cache, V_IEp_R, V_R, apply_drag, cell_range_B)
         
         Id[] = NaN
