@@ -95,6 +95,8 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     )
 end
 
+@inline ion_momentum_flux(m, n, nu) = n > 0 ? m * nu^2 / n : 0.0
+
 """
     $(TYPEDSIGNATURES)
 Compute the thrust at a specific frame of a `Solution`.
@@ -107,8 +109,8 @@ function thrust(sol::Solution, frame::Integer)
 
     for ions in values(f.ions)
         for ion in ions
-            thrust += right_area * ion.m * ion.nu[end]^2 / ion.n[end]
-            thrust -= left_area * ion.m * ion.nu[begin]^2 / ion.n[begin]
+            thrust += right_area * ion_momentum_flux(ion.m, ion.n[end], ion.nu[end])
+            thrust -= left_area * ion_momentum_flux(ion.m, ion.n[begin], ion.nu[begin])
         end
     end
 

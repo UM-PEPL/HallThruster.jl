@@ -74,7 +74,7 @@ function _get_species_states(fluids_by_propellant)
             ion_state = SpeciesState(length(ion.density), m, ion.species.Z)
             @. ion_state.n = ion.density * inv_m
             @. ion_state.nu = ion.momentum * inv_m
-            @. ion_state.u = ion.momentum / ion.density
+            @. ion_state.u = primitive_velocity(ion.momentum, ion.density)
             remove_ghosts!(ion_state)
             push!(ion_states, ion_state)
         end
