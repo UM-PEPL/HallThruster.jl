@@ -125,18 +125,18 @@ function update_electrical_vars!(params)
     if ie_index != 0
         # left branch: integrate from anode (V_L) to left-side plasma potential at IE (V_IEp_L)
         cell_range_A = 1:ie_index
-        Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IEp_L, apply_drag, cell_range_A)
+        Id_L_IE[] = integrate_discharge_current(grid, cache, V_L, V_IEp_L, "left", apply_drag, cell_range_A)
         
         # right branch: integrate from right-side plasma potential at IE (V_IEp_R) to cathode (V_R)
         cell_range_B = ie_index:length(grid.cell_centers)
-        Id_IE_R[] = integrate_discharge_current(grid, cache, V_IEp_R, V_R, apply_drag, cell_range_B)
+        Id_IE_R[] = integrate_discharge_current(grid, cache, V_IEp_R, V_R, "right", apply_drag, cell_range_B)
         
         Id[] = NaN
     else
         Id_L_IE[] = NaN
         Id_IE_R[] = NaN
         cell_range = 1:length(grid.cell_centers) # use the full domain if no IE is present
-        Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_range)
+        Id[] = integrate_discharge_current(grid, cache, V_L, V_R, "both", apply_drag, cell_range)
     end
     @printf("  Discharge current: Id: %.3f Id_L_IE: %.3f Id_IE_R: %.3f\n", Id[], Id_L_IE[], Id_IE_R[])
     @printf("  ie_index: %d\n", ie_index)
@@ -167,7 +167,7 @@ end
 # Compute the axially-constant discharge current using Ohm's law
 # Eq. 19 from "Numerical and Experimental Investigation of Longitudinal Oscillations in Hall Thrusters"
 # https://www.mdpi.com/2226-4310/8/6/148
-function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_range)
+function integrate_discharge_current(grid, cache, V_L, V_R, edgeSide, apply_drag, cell_range)
     (; ∇pe, μ, ne, ji, channel_area, avg_neutral_vel, avg_ion_vel, νei, νen, νan) = cache
 
     # context
@@ -177,13 +177,13 @@ function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_ran
     # ΔV = int1 - Id * int2,
     # Id = (ΔV + int1) / int2, solve for Id since it's the unknown
 
-
     # Compute integrands at all cell centers
     integrand_1 = cache.cell_cache_1
     integrand_2 = cache.cell_cache_2
 
-    #@inbounds for i in eachindex(grid.cell_centers)
-    @inbounds for i in cell_range # only compute over specified cell range, to allow separate integration over IE and non-IE regions
+    # assuming indices correspond to cell centers
+    # only compute over specified cell range, to allow separate integration over IE and non-IE regions
+    @inbounds for i in cell_range
         integrand_1[i] = (ji[i] / e / μ[i] + ∇pe[i]) / ne[i]
         integrand_2[i] = inv(e * ne[i] * μ[i] * channel_area[i])
 
@@ -194,24 +194,22 @@ function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_ran
         end
     end
 
-    # old method: Replace left and right values with edge values
-    #integrand_1[1] = 0.5 * (integrand_1[1] + integrand_1[2])
-    #integrand_1[end] = 0.5 * (integrand_1[end - 1] + integrand_1[end])
-    #integrand_2[1] = 0.5 * (integrand_2[1] + integrand_2[2])
-    #integrand_2[end] = 0.5 * (integrand_2[end - 1] + integrand_2[end])
-
-    # new method: only replace values at edges of the cell range being integrated over
-    integrand_1[first(cell_range)] = 0.5 * (integrand_1[first(cell_range)] + integrand_1[first(cell_range)+1])
-    integrand_1[last(cell_range)]  = 0.5 * (integrand_1[last(cell_range)-1] + integrand_1[last(cell_range)])
-    integrand_2[first(cell_range)] = 0.5 * (integrand_2[first(cell_range)] + integrand_2[first(cell_range)+1])
-    integrand_2[last(cell_range)]  = 0.5 * (integrand_2[last(cell_range)-1] + integrand_2[last(cell_range)])
+    # Replace values at edges of the cell range being integrated over
+    if (edgeSide == "left" || edgeSide == "both")
+        integrand_1[first(cell_range)] = 0.5 * (integrand_1[first(cell_range)] + integrand_1[first(cell_range)+1])
+        integrand_2[first(cell_range)] = 0.5 * (integrand_2[first(cell_range)] + integrand_2[first(cell_range)+1])
+    end
+    if (edgeSide == "right" || edgeSide == "both")
+        integrand_1[last(cell_range)]  = 0.5 * (integrand_1[last(cell_range)-1] + integrand_1[last(cell_range)])
+        integrand_2[last(cell_range)]  = 0.5 * (integrand_2[last(cell_range)-1] + integrand_2[last(cell_range)])
+    end
 
     # Compute integrals using trapezoidal rule around edges
     int1 = 0.0
     int2 = 0.0
-    #@inbounds for (i, z_edge) in enumerate(grid.edges)
-    edge_range = first(cell_range):(last(cell_range) - 1)
-    @inbounds for (i, z_edge) in zip(edge_range, grid.edges[edge_range])
+    @inbounds for (idx, i) in enumerate(cell_range[1:end-1])
+
+        # initially assume edge values are the same as the adjacent cell centers
         zL = grid.cell_centers[i]
         zR = grid.cell_centers[i + 1]
 
@@ -221,18 +219,14 @@ function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag, cell_ran
         f2_L = integrand_2[i]
         f2_R = integrand_2[i + 1]
 
-        # account for boundary cells
-        #if i == 1 || i == length(grid.edges)
-        #    zL = z_edge
-        #elseif i == length(grid.edges)
-        #    zR = z_edge
-        #end
-
-        if i == first(edge_range)
-            zL = z_edge
+        # adjust z value at the edges
+        if i == first(cell_range) && (edgeSide == "left" || edgeSide == "both")
+            # if first cell in the range on the left edge, use the left z value
+            zL = grid.edges[1]
         end
-        if i == last(edge_range)
-            zR = z_edge
+        if i == last(cell_range)-1 && (edgeSide == "right" || edgeSide == "both")
+            # if last cell in the range on the right edge, use the right z value
+            zR = grid.edges[end]
         end
 
         int1 += 0.5 * (zR - zL) * (f1_L + f1_R)
