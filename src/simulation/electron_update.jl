@@ -150,10 +150,10 @@ function update_electrical_vars!(params)
     # Compute the electron velocity and electron kinetic energy
     @inbounds for i in eachindex(ue)
         # je + ji = Id / A
-        if i > ie_index && params.discharge_voltage_IE > 0
-            ue[i] = (ji[i] - Id_IE_R[] / channel_area[i]) / e / ne[i]
-        elseif i <= ie_index && params.discharge_voltage_IE > 0
+        if i < ie_index && params.discharge_voltage_IE > 0
             ue[i] = (ji[i] - Id_L_IE[] / channel_area[i]) / e / ne[i]
+        elseif i >= ie_index && params.discharge_voltage_IE > 0
+            ue[i] = (ji[i] - Id_IE_R[] / channel_area[i]) / e / ne[i]
         else
             ue[i] = (ji[i] - Id[] / channel_area[i]) / e / ne[i]
         end

@@ -23,7 +23,7 @@ function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag)
         @printf("  calculating E in double mode\n")
         # calculate E assuming intermediate electrode
         @inbounds for i in eachindex(∇ϕ)
-            if i <= ie_idx
+            if i < ie_idx
                 E = ((Id_L_IE[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
             else
                 E = ((Id_IE_R[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
@@ -74,9 +74,9 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IEp_R, ie_idx)
     if ie_idx > 0 && !isnan(V_IEp_R)
         # Left region: integrate from V_L, up to and including ie_idx
         cumtrapz!(
-            view(ϕ, 1:ie_idx),
-            view(grid.cell_centers, 1:ie_idx),
-            view(∇ϕ, 1:ie_idx),
+            view(ϕ, 1:ie_idx-1),
+            view(grid.cell_centers, 1:ie_idx-1),
+            view(∇ϕ, 1:ie_idx-1),
             V_L,
         )
         # Right region: restart from V_IE at the IE boundary
