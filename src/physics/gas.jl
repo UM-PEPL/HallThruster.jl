@@ -35,13 +35,15 @@ end
 Base.show(io::IO, g::Gas) = print(io, g.name)
 Base.show(io::IO, ::MIME"text/plain", g::Gas) = show(io, g)
 
-# lets you do things like Xenon(1) == Species(Xenon, 1)
+# lets you do things like Xenon(1) == Species(Xenon, 1) or Xenon(0, 1) == Species(Xenon, 0, 1)
 (g::Gas)(Z::Int) = Species(g, Z)
+(g::Gas)(Z::Int, n::Int) = Species(g, Z, n)
 
 """
 	$(TYPEDEF)
-Represents a gas with a specific charge state. In a plasma, different ionization states of the same
-gas may coexist, so we need to be able to differentiate between these.
+Represents a gas with a specific charge state and electronic excitation level. In a plasma,
+different ionization states of the same gas may coexist, so we need to be able to differentiate
+between these. Excited states are likewise distinguished so they can be tracked as their own fluids.
 
 # Fields
 $(TYPEDFIELDS)
@@ -55,6 +57,12 @@ Xe(+)
 
 julia> Species(Xenon, 3)
 Xe(3+)
+
+julia> Species(Xenon, 0, 1)
+Xe*
+
+julia> Species(Xenon, 0, 2)
+Xe**
 ```
 """
 struct Species
@@ -64,31 +72,52 @@ struct Species
     symbol::Symbol
     """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
     Z::Int8
+    """The excitation level of the species, i.e. n = 0 for a ground-state species"""
+    n::Int8
     @doc"""
-    	Species(element::Gas, Z::Int) -> Species
-    Construct a `Species` from a `Gas` and a charge state. You can also use the `(::Gas)(Z)` convenience constructor like so.
+    	Species(element::Gas, Z::Int, n::Int = 0) -> Species
+    Construct a `Species` from a `Gas`, a charge state, and (optionally) an excitation level.
+    You can also use the `(::Gas)(Z)` and `(::Gas)(Z, n)` convenience constructors like so.
 
     ```julia
     julia> Xenon(0) == Species(Xenon, 0)
     true
+
+    julia> Xenon(0, 1) == Species(Xenon, 0, 1)
+    true
     ```
     """ ->
-    function Species(element::Gas, Z::Integer)::Species
-        return new(element, Symbol(species_string(element, Z)), Int8(Z))
+    function Species(element::Gas, Z::Integer, n::Integer = 0)::Species
+        n < 0 && error("Excitation level `n` must be non-negative.")
+        return new(element, Symbol(species_string(element, Z, n)), Int8(Z), Int8(n))
     end
 end
 
 Base.show(io::IO, s::Species) = print(io, string(s))
 Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 
-function _species_string(short_name::String, Z::Integer)
+"""
+    is_excited(s::Species) -> Bool
+Whether this species is electronically excited (`n > 0`).
+"""
+is_excited(s::Species) = s.n > 0
+
+"""
+    ground_state(s::Species) -> Species
+The ground-state species with the same element and charge state as `s`.
+"""
+ground_state(s::Species) = Species(s.element, s.Z)
+
+function _species_string(short_name::String, Z::Integer, n::Integer = 0)
     sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
     sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
     sign_str = Z > 0 ? "($(sign_str))" : ""
-    return short_name * sign_str
+    exc_str = "*"^n
+    return short_name * exc_str * sign_str
 end
 
-species_string(element::Gas, Z::Integer) = _species_string(string(element.short_name), Z)
+species_string(element::Gas, Z::Integer, n::Integer = 0) =
+    _species_string(string(element.short_name), Z, n)
 
 Base.string(s::Species) = string(s.symbol)
 

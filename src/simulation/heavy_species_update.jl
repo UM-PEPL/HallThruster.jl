@@ -165,8 +165,7 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
     @. avg_ion_vel = 0
     @. avg_neutral_vel = 0
 
-    # Compute neutral number density
-    # TODO: this computes total neutral number density, not per species
+    # Compute neutral number density, summed over all electronic states
     @inbounds for fluid in fluids.continuity
         _nn = fluid.density / fluid.species.element.m
         @. nn += _nn
@@ -247,8 +246,9 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         Te_eff_factor = 1.0
     end
 
-    # Neutral inlet density
-    un = fluids.continuity[].const_velocity
+    # Neutral inlet density. Anode flow feeds the ground state only.
+    neutral_fluid = ground_neutral(fluids)
+    un = neutral_fluid.const_velocity
     neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
 
     Vs = 0.0
@@ -303,7 +303,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
                 boundary_flux = boundary_velocity * boundary_density
             end
 
-            # send outflowing positive-ion flux back as neutrals
+            # send outflowing positive-ion flux back as ground-state neutrals
             neutral_density -= boundary_flux / un
 
         else
@@ -327,8 +327,14 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
         fluid.momentum[1] = boundary_flux
     end
 
-    nm = fluids.continuity[].species.element.m
-    fluids.continuity[].density[1] = max(neutral_density, MIN_NUMBER_DENSITY * nm)
+    nm = neutral_fluid.species.element.m
+    neutral_fluid.density[1] = max(neutral_density, MIN_NUMBER_DENSITY * nm)
+
+    # Excited states have no anode inflow, so clamp their ghost cells to the floor
+    @inbounds for fluid in fluids.continuity
+        is_excited(fluid.species) || continue
+        fluid.density[1] = MIN_NUMBER_DENSITY * fluid.species.element.m
+    end
 
     return
 end
@@ -412,11 +418,26 @@ function apply_reactions!(fluids, rxns, cache, landmark)
     return
 end
 
+# A reaction is ionizing if any product's charge state differs from the reactant's.
+# Excitation and charge-conserving dissociation are not, and must not enter νiz.
+@inline function _is_ionizing(fluids, reactant_index, product_index)
+    reactant_Z = fluids[reactant_index].species.Z
+    for prod_ind in product_index
+        if fluids[prod_ind].species.Z != reactant_Z
+            return true
+        end
+    end
+    return false
+end
+
 function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
     dt_max = Inf
     reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
+
+    # Only ionizing channels contribute to νiz; all channels contribute inelastic losses
+    is_ionizing = _is_ionizing(fluids, reactant_index, product_index)
 
     # Extract temp caches
     dens_cache, mom_cache = rxn_cache
@@ -429,10 +450,10 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
         dt_max = min(dt_max, ρ_reactant / ρdot)
         ndot = ρdot * inv_m
-        νiz[i] += ndot / ne[i]
+        νiz[i] += is_ionizing * ndot / ne[i]
         inelastic_losses[i] += ndot * rxn.energy
 
-        # Change in density due to ionization
+        # Change in density due to this reaction
         reactant.dens_ddt[i] -= ρdot
 
         # Store density changes in cache
@@ -487,16 +508,16 @@ function apply_mutual_neutralization!(params)
     dt_max = Inf
 
     @inbounds for neg_group in propellant_groups
-        # Parent neutral that receives the neutralized negative ion (e.g. H^- -> H).
-        neutral_neg = neg_group.continuity[]
+        # Ground-state neutral that receives the neutralized negative ion (e.g. H^- -> H).
+        neutral_neg = ground_neutral(neg_group)
         for neg_fluid in neg_group.isothermal
             neg_fluid.species.Z < 0 || continue
             m_neg = neg_fluid.species.element.m
             inv_m_neg = inv(m_neg)
 
             for pos_group in propellant_groups
-                # Parent neutral that receives the neutralized positive ion (e.g. H2O^+ -> H2O).
-                neutral_pos = pos_group.continuity[]
+                # Ground-state neutral that receives the neutralized positive ion (e.g. H2O^+ -> H2O).
+                neutral_pos = ground_neutral(pos_group)
                 for pos_fluid in pos_group.isothermal
                     pos_fluid.species.Z > 0 || continue
                     m_pos = pos_fluid.species.element.m
@@ -558,7 +579,7 @@ function apply_associative_detachment!(params)
     dt_max = Inf
 
     @inbounds for neg_group in propellant_groups
-        neutral_neg = neg_group.continuity[]
+        neutral_neg = ground_neutral(neg_group)
         for neg_fluid in neg_group.isothermal
             neg_fluid.species.Z < 0 || continue
             m_neg = neg_fluid.species.element.m
@@ -616,14 +637,14 @@ end
 
 function apply_ion_wall_losses!(fluid_containers, params)
     (; thruster, cache, grid, transition_length, wall_loss_scale) = params
-    (; continuity, isothermal) = fluid_containers
+    (; isothermal) = fluid_containers
 
     geometry = thruster.geometry
     L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     h = wall_loss_scale * edge_to_center_density_ratio()
 
-    neutral_fluid = continuity[1]
+    neutral_fluid = ground_neutral(fluid_containers)
     @inbounds for ion_fluid in isothermal
         Z = ion_fluid.species.Z
 

@@ -20,3 +20,98 @@ end
     @test gas.m == M / het.NA
     @test gas(2) == het.Species(gas, 2)
 end
+
+@testset "Excited state species" begin
+    # Construction and display
+    @test repr(het.Species(het.Xenon, 0, 1)) == "Xe*"
+    @test repr(het.Species(het.Xenon, 0, 2)) == "Xe**"
+    @test repr(het.Species(het.MolecularNitrogen, 0, 1)) == "N2*"
+    @test repr(het.Species(het.Xenon, 1, 1)) == "Xe*(+)"
+
+    # Convenience constructor
+    @test het.Xenon(0, 1) == het.Species(het.Xenon, 0, 1)
+
+    # Default excitation level is ground state, so old two-arg behavior is preserved
+    @test het.Species(het.Xenon, 0).n == 0
+    @test het.Xenon(0) == het.Species(het.Xenon, 0, 0)
+    @test repr(het.Species(het.Xenon, 0)) == "Xe"
+
+    # Distinct levels are distinct species
+    @test het.Xenon(0, 1) != het.Xenon(0)
+    @test het.Xenon(0, 1) != het.Xenon(0, 2)
+
+    # Helpers
+    @test !het.is_excited(het.Xenon(0))
+    @test het.is_excited(het.Xenon(0, 1))
+    @test het.ground_state(het.Xenon(0, 2)) == het.Xenon(0)
+    @test het.ground_state(het.Xenon(1, 1)) == het.Xenon(1)
+
+    # Negative levels are invalid
+    @test_throws ErrorException het.Species(het.Xenon, 0, -1)
+end
+
+@testset "Excited state allocation" begin
+    ncells = 17
+
+    propellant = het.Propellant(
+        het.Xenon, 5.0e-6;
+        max_charge = 2,
+        velocity_m_s = 300.0,
+        temperature_K = 500.0,
+    )
+
+    @testset "No excited levels (default, lumped behavior)" begin
+        fluids = het.allocate_fluids(propellant, ncells)
+        @test length(fluids.continuity) == 1
+        @test length(fluids.isothermal) == 2
+        @test isempty(het.excited_fluids(fluids))
+        @test het.ground_neutral(fluids) === fluids.continuity[1]
+        @test het.ground_neutral(fluids).species == het.Xenon(0)
+    end
+
+    @testset "Per-channel excitation" begin
+        excited_levels = [2, 1]  # deliberately unsorted
+        fluids = het.allocate_fluids(propellant, ncells; excited_levels)
+
+        # One continuity fluid per excited level, plus the ground state
+        @test length(fluids.continuity) == 3
+        # Ion fluids unaffected
+        @test length(fluids.isothermal) == 2
+        @test all(f -> f.species.Z > 0, fluids.isothermal)
+
+        # Ground state first, then excited levels in sorted order
+        @test het.ground_neutral(fluids).species == het.Xenon(0)
+        @test fluids.continuity[2].species == het.Xenon(0, 1)
+        @test fluids.continuity[3].species == het.Xenon(0, 2)
+
+        excited = het.excited_fluids(fluids)
+        @test length(excited) == 2
+        @test all(f -> het.is_excited(f.species), excited)
+
+        ground = het.ground_neutral(fluids)
+        for fluid in excited
+            # Excited neutrals are continuity-only and advect with the
+            # ground-state neutral background
+            @test fluid.type == het._ContinuityOnly
+            @test fluid.const_velocity == propellant.velocity_m_s
+            @test fluid.const_velocity == ground.const_velocity
+            @test fluid.sound_speed == ground.sound_speed
+
+            # Same element and charge state as the ground neutral
+            @test het.ground_state(fluid.species) == ground.species
+
+            # Correctly-sized state arrays
+            @test size(fluid.density) == (ncells + 2,)
+            @test size(fluid.dens_ddt) == (ncells + 2,)
+            @test size(fluid.flux_dens) == (ncells + 1,)
+        end
+    end
+
+    @testset "Level discovery stub" begin
+        # With no per-channel rate data registered, no excited fluids are
+        # allocated and lumped behavior is preserved
+        @test het.supported_excitation_levels(het.Xenon) == Int[]
+        fluids = het.allocate_fluids(propellant, ncells)
+        @test length(fluids.continuity) == 1
+    end
+end
