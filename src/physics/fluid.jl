@@ -67,30 +67,30 @@ end
 """
 $(TYPEDEF)
 
-All `FluidContainer`s in a simulation. `continuity` holds the ground-state neutral first,
-then one fluid per tracked excited state; `isothermal` holds one per ion charge state.
+Collection of all `FluidContainer`s, grouped by conservation law type. `continuity` holds
+the ground-state neutral first, then one fluid per excited state; `isothermal` holds one
+fluid per ion charge state.
 """
 struct FluidContainerSet
     continuity::Vector{FluidContainer}
     isothermal::Vector{FluidContainer}
 end
 
-"""The ground-state neutral fluid (always the first continuity fluid)."""
+"""
+    ground_neutral(fluids::FluidContainerSet) -> FluidContainer
+The ground-state neutral fluid (the first continuity fluid).
+"""
 ground_neutral(fluids::FluidContainerSet) = fluids.continuity[1]
 
-"""All excited-state neutral fluids in the set."""
+"""
+    excited_fluids(fluids::FluidContainerSet) -> Vector{FluidContainer}
+All excited-state neutral fluids in the set.
+"""
 excited_fluids(fluids::FluidContainerSet) =
     [f for f in fluids.continuity if is_excited(f.species)]
 
-"""
-Excitation levels with per-channel rate data for `gas`; each gets its own neutral fluid.
-Stub: the real implementation belongs in the reaction-loading code, scanning the rate
-tables on disk. Empty preserves the lumped-excitation behavior.
-"""
-supported_excitation_levels(::Gas) = Int[]
-
-function allocate_fluids(p::Propellant, ncells; excited_levels = supported_excitation_levels(p.gas))
-    # excited neutrals advect with the ground-state velocity and temperature
+function allocate_fluids(p::Propellant, ncells; excited_levels = p.excited_levels)
+    # Ground state first, then one fluid per excited level, all advecting with the neutral flow
     continuity = [
         FluidContainer(
             _ContinuityOnly, p.gas(0, n), ncells;

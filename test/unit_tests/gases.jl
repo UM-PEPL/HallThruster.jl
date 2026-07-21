@@ -107,11 +107,45 @@ end
         end
     end
 
-    @testset "Level discovery stub" begin
-        # With no per-channel rate data registered, no excited fluids are
-        # allocated and lumped behavior is preserved
-        @test het.supported_excitation_levels(het.Xenon) == Int[]
-        fluids = het.allocate_fluids(propellant, ncells)
-        @test length(fluids.continuity) == 1
+    @testset "Levels declared on Propellant" begin
+        p = het.Propellant(het.Xenon, 5.0e-6; max_charge = 2, excited_levels = [2, 1])
+        @test p.excited_levels == [1, 2]
+
+        fluids = het.allocate_fluids(p, ncells)
+        @test length(fluids.continuity) == 3
+        @test fluids.continuity[2].species == het.Xenon(0, 1)
+        @test fluids.continuity[3].species == het.Xenon(0, 2)
+
+        # Default is no excited states
+        @test het.Propellant(het.Xenon, 5.0e-6).excited_levels == Int[]
+
+        # Level 0 is the ground state and is always present, so it is not a valid
+        # entry; duplicates are rejected as for allowed_charges
+        @test_throws ErrorException het.Propellant(het.Xenon, 5.0e-6; excited_levels = [0, 1])
+        @test_throws ErrorException het.Propellant(het.Xenon, 5.0e-6; excited_levels = [1, 1])
     end
+end
+
+@testset "Excited state reaction parsing" begin
+    # Asterisks bind to the symbol and precede the charge
+    lhs, rhs = het._parse_reaction_equation("Xe + e -> Xe* + e")
+    @test only(keys(lhs) |> collect |> t -> filter(x -> x.species != "e", t)).excitation == 0
+    @test only(keys(rhs) |> collect |> t -> filter(x -> x.species != "e", t)).excitation == 1
+
+    # Stepwise ionization out of an excited state balances charge
+    lhs, rhs = het._parse_reaction_equation("Xe* + e -> Xe(+) + 2e")
+    reactant = only(filter(x -> x.species != "e", collect(keys(lhs))))
+    product = only(filter(x -> x.species != "e", collect(keys(rhs))))
+    @test reactant.excitation == 1
+    @test reactant.charge == 0
+    @test product.excitation == 0
+    @test product.charge == 1
+
+    # Round-trip through the display string used for species lookup
+    @test repr(reactant) == "Xe*"
+    @test string(het.Xenon(0, 1)) == "Xe*"
+
+    # Multiple levels
+    lhs, _ = het._parse_reaction_equation("Xe** + e -> Xe* + e")
+    @test only(filter(x -> x.species != "e", collect(keys(lhs)))).excitation == 2
 end
