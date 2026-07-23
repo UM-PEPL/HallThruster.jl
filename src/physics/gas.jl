@@ -207,11 +207,17 @@ struct Propellant
     Allowed charges of ion states. **Default:** `[1, 2, ..., max_charge]`.
     """
     allowed_charges::Vector{Int}
+    """
+    Excitation levels tracked as their own neutral fluids (`Xe*`, `Xe**`, ...), usable
+    in reaction equations. **Default:** `[]` (excitation is lumped into an energy loss).
+    """
+    excited_levels::Vector{Int}
 
     function Propellant(;
             gas, flow_rate_kg_s, max_charge = nothing,
             allowed_charges = nothing, velocity_m_s = nothing,
             temperature_K = nothing, ion_temperature_K = nothing,
+            excited_levels = nothing,
         )
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
@@ -250,10 +256,23 @@ struct Propellant
 
         sort!(final_allowed_charges)
 
+        final_excited_levels = isnothing(excited_levels) ? Int[] : collect(excited_levels)
+
+        any(<(1), final_excited_levels) &&
+            error("`excited_levels` must be positive; the ground state (0) is always present.")
+
+        length(unique(final_excited_levels)) != length(final_excited_levels) &&
+            error("`excited_levels` must not contain duplicates.")
+
+        sort!(final_excited_levels)
+
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
-        return new(gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K, final_allowed_charges)
+        return new(
+            gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K,
+            final_allowed_charges, final_excited_levels,
+        )
     end
 end
 
