@@ -7,15 +7,21 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
         join([reaction_type, repr(reactant), repr(product)], "_") * ".dat"
     end
 
+    # '*' is not a legal filename character on Windows, so excited states are
+    # rendered with their level number instead: Xe(*) -> Xe_e1, Xe(2*) -> Xe_e2
+    fname = replace(fname, r"\((?:[1-9]\d*)?\*\)" => excitation -> begin
+        excitation = String(excitation)
+        level = excitation == "(*)" ? "1" : excitation[2:(end - 2)]
+        return "_e$(level)"
+    end)
+
+    if occursin('*', fname)
+        error("Invalid excitation syntax. Use Xe(*), Xe(2*), Xe(3*), etc.")
+    end
+
     # Remove '(' and ')' for backwards compatibility
     # TODO: switch all reaction file names to have the parentheses around charges for consistency
     fname = replace(fname, "(" => "", ")" => "")
-
-    # '*' is not a legal filename character on Windows, so excited states are
-    # rendered with their level number instead: Xe* -> Xe_e1, Xe** -> Xe_e2
-    if occursin('*', fname)
-        fname = replace(fname, r"\*+" => m -> "_e$(length(m))")
-    end
 
     if !isnothing(folder)
         fname = joinpath(folder, fname)
@@ -178,10 +184,6 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                 end
             end
 
-            # A species may not carry both a lumped excitation term and per-channel
-            # excitation reactions, since that double-counts the electron energy loss.
-            _check_excitation_double_counting(ei_reactions, ex_reactions)
-
             return ei_reactions, ex_reactions, en_reactions
         end
     end
@@ -192,29 +194,6 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
     en_reactions = load_elastic_collisions(en_model, species; directories)
 
     return ei_reactions, ex_reactions, en_reactions
-end
-
-# Error if a species has a lumped excitation reaction while also participating in
-# per-channel excitation, i.e. an electron-impact reaction that changes excitation
-# level without changing charge state.
-function _check_excitation_double_counting(ei_reactions, ex_reactions)
-    lumped = Set(rxn.reactant.element.short_name for rxn in ex_reactions)
-
-    for rxn in ei_reactions
-        reactant = rxn.reactant
-        for product in rxn.products
-            is_excitation = product.Z == reactant.Z && product.n != reactant.n
-            if is_excitation && reactant.element.short_name in lumped
-                error(
-                    "Propellant $(reactant.element.name) has both a lumped `excitation` reaction " *
-                        "and a per-channel excitation reaction ($(reactant) -> $(product)). " *
-                        "Remove the lumped entry to avoid double-counting the electron energy loss."
-                )
-            end
-        end
-    end
-
-    return nothing
 end
 
 #===========================================
@@ -254,7 +233,7 @@ end
 function _expect!(lex::Lexer, expected_char)
     got = _advance!(lex)
     if got != expected_char
-        error("Expected $(expected_char) at position $(lex.index) in reaction equation $(lexer.str)")
+        error("Expected $(expected_char) at position $(lex.index) in reaction equation $(lex.str)")
     end
     return nothing
 end
@@ -288,13 +267,29 @@ function _is_term_char(char)
     return isdigit(char) || isletter(char)
 end
 
-# Excitation level is written as trailing asterisks on the chemical symbol,
-# one per level: Xe (ground), Xe* (n = 1), Xe** (n = 2).
 function _parse_excitation(lex)
-    if lex.index > lastindex(lex.str)
+    if lex.index > lastindex(lex.str) || _peek(lex) != '('
         return 0
     end
-    return length(_takewhile!(==('*'), lex))
+
+    suffix_start = lex.index
+    _advance!(lex)
+    level_str = _takewhile!(isdigit, lex)
+
+    if lex.index > lastindex(lex.str) || _peek(lex) != '*'
+        lex.index = suffix_start
+        return 0
+    end
+
+    _advance!(lex)
+    _expect!(lex, ')')
+
+    level = isempty(level_str) ? 1 : parse(Int, level_str)
+    if level < 1 || level > typemax(Int8)
+        error("Invalid excitation level $(level) in reaction equation $(lex.str)")
+    end
+
+    return level
 end
 
 function _parse_charge(lex)
@@ -331,7 +326,7 @@ function _parse_term!(lex)
         error("Expected chemical symbol in position $(lex.index) in reaction equation $(lex.str).")
     end
 
-    # Get excitation level from trailing asterisks. Set to zero if not present.
+    # Get excitation level. Set to zero if not present.
     excitation = _parse_excitation(lex)
 
     # Get charge of species in parentheses. Set to zero if not present.
