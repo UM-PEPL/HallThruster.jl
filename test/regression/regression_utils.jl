@@ -301,8 +301,6 @@ function check_regression_case(case; fix = false)
         # Plot comparison of oscillatory properties
         plot_oscillations(oscillations, ref_oscillations, joinpath(OUTPUT_DIR, "oscillations_$(casename).png"))
 
-        @show avg_start_ind
-
         print_header("Oscillations", '-')
         for key in [:thrust, :discharge_current, :ion_current]
             sim_osc = getfield(oscillations, key)
