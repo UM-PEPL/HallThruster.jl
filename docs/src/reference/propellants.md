@@ -9,7 +9,7 @@ CurrentModule = HallThruster
 ```
 ```@docs
 Gas
-Gas(formula; γ, M)
+Gas(formula::String; γ::Union{Float64, Nothing}, M::Union{Float64, Nothing})
 ```
 
 `HallThruster.jl` will parse the gas formula automatically to determine the mass and number of atoms.

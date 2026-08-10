@@ -28,6 +28,6 @@ end
 
 @testset "SPT-100 regression" begin
     for file in ["spt100_tutorial.json", "spt100_baseline.json", "spt100_withplume.json"]
-        check_regression_case((; file); fix=false)
+        check_regression_case((; file); fix)
     end
 end
