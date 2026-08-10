@@ -27,7 +27,7 @@ struct ElementTerm
 end
 
 struct MoleculeTerm
-    components:: Vector{Union{ElementTerm, MoleculeTerm}}
+    components::Vector{Union{ElementTerm, MoleculeTerm}}
     count::Int
 end
 
@@ -60,7 +60,7 @@ function parse_chemical_formula(formula::String)::Vector{ChemicalTerm}
     end
 
     function emit_token!(parser)
-        tok = parser.text[parser.token_start_pos[]:parser.pos[]-1]
+        tok = parser.text[parser.token_start_pos[]:(parser.pos[] - 1)]
         parser.token_start_pos[] = parser.pos[]
         return tok
     end
@@ -86,7 +86,7 @@ function parse_chemical_formula(formula::String)::Vector{ChemicalTerm}
         if pred(peek(parser))
             return advance!(parser)
         else
-            return peek(parser) 
+            return peek(parser)
         end
     end
 
@@ -146,11 +146,11 @@ end
 
 function term_info(term)
     unit = if term isa ElementTerm
-        (;mass = ELEMENTS[term.element].mass, num_atoms = 1)
+        (; mass = ELEMENTS[term.element].mass, num_atoms = 1)
     else
         molecule_info(term.components)
     end
-    return (;mass = unit.mass * term.count, num_atoms = unit.num_atoms * term.count)
+    return (; mass = unit.mass * term.count, num_atoms = unit.num_atoms * term.count)
 end
 
 function molecule_info(components)
@@ -161,7 +161,7 @@ function molecule_info(components)
         mass += info.mass
         num_atoms += info.num_atoms
     end
-    return (;mass, num_atoms)
+    return (; mass, num_atoms)
 end
 
 function term_formula(term)
@@ -174,7 +174,7 @@ function term_formula(term)
         if term.count == 1
             return formula
         else
-            return "(" * formula * ")" *  number_str(term.count)
+            return "(" * formula * ")" * number_str(term.count)
         end
     end
 end
@@ -187,17 +187,20 @@ function molecule_formula(components)
     return str
 end
 
-# Construct a gas from a chemical formula
-# For monatomic and diatomic species, the specific heat ratio is inferred
-# For triatomic and up, it must be provided
-# Unless provided, the full name will be determined from the short name provided.
+"""
+    Gas(formula; γ, M)
+Construct a gas from a chemical formula
+For monatomic and diatomic species, the specific heat ratio is inferred
+For triatomic and up, it must be provided
+Unless provided, the full name will be determined from the short name provided.
+"""
 function Gas(formula::String; γ::Union{Float64, Nothing} = nothing, M::Union{Float64, Nothing} = nothing)
     components = parse_chemical_formula(formula)
     info = molecule_info(components)
     molecular_weight = M === nothing ? info.mass : M
     gamma = if γ === nothing
         if info.num_atoms == 1
-            5/3
+            5 / 3
         elseif info.num_atoms == 2
             1.4
         else
@@ -206,7 +209,7 @@ function Gas(formula::String; γ::Union{Float64, Nothing} = nothing, M::Union{Fl
     else
         γ
     end
-   
+
     formula = molecule_formula(components)
     return Gas(Symbol(formula), gamma, molecular_weight, molecular_weight / NA)
 end
@@ -413,5 +416,5 @@ List of all built-in Gases. Users can of course provide their own if they want.
 TODO: remove dependency on built-ins
 """
 const GASES = [
-    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury, Water
+    Argon, Krypton, Xenon, Nitrogen, MolecularNitrogen, Bismuth, Mercury, Water,
 ]
