@@ -303,23 +303,14 @@ function load_propellant_config(propellant_config; directories = String[], verbo
     props = Propellant[]
 
     for gas_dict in species
-        name = gas_dict["name"]
         symbol = gas_dict["symbol"]
-        mass = get(gas_dict, "mass", nothing)
-
-        gas = nothing
-        for builtin in GASES
-            if builtin.short_name == Symbol(symbol) && (isnothing(mass) || mass ≈ builtin.M)
-                gas = builtin
-                verbose && println("Found gas $(builtin) ($(symbol)) in built-in gases.")
-                break
-            end
+        M = get(gas_dict, "mass", nothing)
+        γ = get(gas_dict, "γ", nothing)
+        if isnothing("γ")
+            γ = get(gas_dict, "gamma", nothing)
         end
 
-        if isnothing(gas)
-            gas = Gas(name, symbol, γ = gas_dict["gamma"], M = gas_dict["mass"])
-        end
-
+        gas = Gas(symbol; γ, M)
         velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
         temperature_K = get(gas_dict, "temperature_K", nothing)
         ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)

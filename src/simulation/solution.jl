@@ -61,7 +61,7 @@ function _get_species_states(fluids_by_propellant)
         m = continuity.species.element.m
         inv_m = 1 / m
 
-        symbol = continuity.species.element.short_name
+        symbol = continuity.species.element.formula
         neutral_state = SpeciesState(length(continuity.density), m, 0)
         @. neutral_state.n = continuity.density * inv_m
         @. neutral_state.u = continuity.const_velocity
@@ -442,7 +442,7 @@ function Base.getindex(sol::Solution, field::Symbol)
     if length(sol.config.propellants) > 1
         throw(ArgumentError("Cannot index by :nn, :ni, :niui, or :ui when more than one propellant species present. Instead, please index by the specific propellant species."))
     end
-    symbol = sol.config.propellants[1].gas.short_name
+    symbol = sol.config.propellants[1].gas.formula
     allowed = sol.config.propellants[1].allowed_charges
 
     ncells = length(sol.grid)
