@@ -3,7 +3,7 @@ using HallThruster: HallThruster as het
 include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
 @testset "Serialization" begin
-    test_instances(het.Gas, (;het.Xenon, het.Krypton, het.Argon))
+    test_instances(het.Gas, (; het.Xenon, het.Krypton, het.Argon))
 
     for (name, gas) in pairs(het.propellants_v0_21_7)
         @test het.deserialize(het.Gas, name) == gas
@@ -32,7 +32,7 @@ end
     @test_throws(ErrorException, het.Gas("Ca(OH)2"))
 
     # gamma specified
-    CaOH2 = het.Gas("Ca(OH)2", γ=1.5)
+    CaOH2 = het.Gas("Ca(OH)2", γ = 1.5)
     @test CaOH2.M == expected_mass
     @test CaOH2.γ == 1.5
 
@@ -70,5 +70,4 @@ end
     # Redundancy checking
     components = het.parse_chemical_formula("(C)1((O002)1)")
     @test het.molecule_formula(components) == "CO2"
-end 
-
+end
