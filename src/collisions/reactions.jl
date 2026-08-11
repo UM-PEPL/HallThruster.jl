@@ -32,7 +32,7 @@ function load_rate_coeff_file(path, reaction_type)
             energy = 0.0
             header = firstline
         end
-        rates = readdlm(io, '\t', skipstart = 1)
+        rates = readdlm(io)
         energy, rates
     end
 
