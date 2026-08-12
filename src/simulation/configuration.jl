@@ -210,13 +210,17 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             IC <: InitialCondition,
         }
 
-        # Set up propellants
+        # Read the propellant config file, if it exists
+        if length(propellant_config) > 0
+            props_from_file = load_propellant_config(propellant_config; directories = reaction_rate_directories)
+        else
+            props_from_file = Propellant[]
+        end
+
+        # Next, read the propellants specified in the config struct
         if isnothing(propellants)
-            if isnothing(anode_mass_flow_rate) && length(propellant_config) == 0
+            if isnothing(anode_mass_flow_rate) && length(props_from_file) == 0
                 error("Must supply one of:\n- A vector of propellants\n- A single `propellant` an `anode_mass_flow_rate`\nA `propellant_config` file.")
-            end
-            if length(propellant_config) > 0
-                propellants = load_propellant_config(propellant_config; directories = reaction_rate_directories)
             else
                 prop = Propellant(
                     propellant, anode_mass_flow_rate;
@@ -227,7 +231,57 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             end
         end
 
-        # Convert to Float64 if using Unitful
+        # Finally, merge the two sets of information
+        if isnothing(propellants)
+            # First, if no propellant information is provided in the config struct, we take the info in the file.
+            @assert length(props_from_file) > 0
+            propellants = props_from_file
+        else
+            # Otherwise, use the information in the config struct if it exists
+            # We set the flow rate to 0.0 kg/s for all species without specified flow rates
+            # The neutral and ion temperature are taken from the propellant with the highest flow rate.
+            # The neutral velocity is scaled based on the ratio of masses from the propellant with the highest flow rate.
+            max_flow_rate = -Inf
+            max_prop = nothing
+
+            # Find prop with the highest flow rate
+            for prop in propellants
+                if prop.flow_rate_kg_s > max_flow_rate
+                    max_flow_rate = prop.flow_rate_kg_s
+                    max_prop = prop
+                end
+            end
+
+            # Add propellants from the file which are not in the config struct to the list
+            for prop in props_from_file
+                # Look for the prop in the main list
+                # These numbers are small so a linear search is fine
+                present = false
+                for _prop in propellants
+                    if prop.gas.formula == _prop.gas.formula
+                        present = true
+                        break
+                    end
+                end
+
+                if present
+                    continue
+                end
+
+                new_prop = Propellant(
+                    prop.gas,
+                    flow_rate_kg_s = 0.0,
+                    velocity_m_s = sqrt(max_prop.gas.M / prop.gas.M) * max_prop.velocity_m_s,
+                    temperature_K = max_prop.temperature_K,
+                    ion_temperature_K = max_prop.ion_temperature_K,
+                    allowed_charges = prop.allowed_charges,
+                )
+
+                push!(propellants, new_prop)
+            end
+        end
+
+        # Convert inputs to Float64 if using Unitful
         discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
         cathode_coupling_voltage = convert_to_float64(cathode_coupling_voltage, units(:V))
 
@@ -289,7 +343,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     end
 end
 
-function load_propellant_config(propellant_config; directories = String[], verbose = false)
+function load_propellant_config(propellant_config; directories = String[], verbose = false, default_neutral_temp = nothing, default_ion_temp = nothing)
     propellant_config_path = find_file_in_dirs(propellant_config, directories)
     if isnothing(propellant_config_path)
         error("Propellant config file $(propellant_config) not found in current directory or any of the provided directories ($(directories))")
@@ -303,26 +357,17 @@ function load_propellant_config(propellant_config; directories = String[], verbo
     props = Propellant[]
 
     for gas_dict in species
-        name = gas_dict["name"]
         symbol = gas_dict["symbol"]
-        mass = get(gas_dict, "mass", nothing)
-
-        gas = nothing
-        for builtin in GASES
-            if builtin.short_name == Symbol(symbol) && (isnothing(mass) || mass ≈ builtin.M)
-                gas = builtin
-                verbose && println("Found gas $(builtin) ($(symbol)) in built-in gases.")
-                break
-            end
+        M = get(gas_dict, "mass", nothing)
+        γ = get(gas_dict, "γ", nothing)
+        if isnothing(γ)
+            γ = get(gas_dict, "gamma", nothing)
         end
 
-        if isnothing(gas)
-            gas = Gas(name, symbol, γ = gas_dict["gamma"], M = gas_dict["mass"])
-        end
-
+        gas = Gas(symbol; γ, M)
         velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
-        temperature_K = get(gas_dict, "temperature_K", nothing)
-        ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)
+        temperature_K = get(gas_dict, "temperature_K", default_neutral_temp)
+        ion_temperature_K = get(gas_dict, "ion_temperature_K", default_ion_temp)
         allowed_charges = get(gas_dict, "allowed_charges", nothing)
         max_charge = get(gas_dict, "max_charge", nothing)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)

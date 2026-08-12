@@ -31,6 +31,7 @@ include("utilities/finite_differences.jl")
 using .Serialization: serialize, deserialize
 
 include("physics/constants.jl")
+include("physics/elements.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")

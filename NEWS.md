@@ -3,6 +3,17 @@ EditURL = "NEWS.md"
 ```
 
 # Release notes
+
+## 0.22.0
+### New features
+- Overhaul of how propellant gases are handled. This makes it possible to serialize and deserialize arbitrary gases and reduces the amount of information needed to be provided by the user. Chemical formulae are parsed and the molecular weight is computed. The long name of a gas is no longer included in the `Gas` structure, making this a breaking change.
+More information about these changes can be seen on the [Propellants](@ref) and [Adding a new propellant](@ref) page.
+
+## 0.21.7
+### New features
+- Added heavy species collision sinks to limit negative ion quantities (#178) (@klesnick823)
+- Support for zero flow rate propellant species  (#179) (@amta3208)
+
 ## 0.21.6
 ### Bug fixes
 - Output files generated during precompilation should now be properly cleaned up 
@@ -12,7 +23,7 @@ EditURL = "NEWS.md"
 - Fix left boundary extrapolation, which would cause boundary velocities to go strongly positive, creating instabilities. 
 
 ## 0.21.4
-### Features
+### New features
 - Experimental circuit modeling interface
 
 ### Minor changes

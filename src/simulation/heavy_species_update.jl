@@ -632,6 +632,11 @@ function apply_ion_wall_losses!(fluid_containers, params)
     @inbounds for ion_fluid in isothermal
         Z = ion_fluid.species.Z
 
+        # Do not apply wall losses to negative ions, as they are repelled from the positive pre-sheath.
+        if Z < 0
+            continue
+        end
+
         m = ion_fluid.species.element.m
         qe_m = Z * e / m
 

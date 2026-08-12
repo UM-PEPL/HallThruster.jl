@@ -31,14 +31,14 @@ function time_average(sol::Solution, start_frame::Integer = 1)
             end
         elseif f == :neutrals
             for prop in sol.config.propellants
-                symbol = prop.gas.short_name
+                symbol = prop.gas.formula
                 avg[symbol].n .= 0.0
                 avg[symbol].nu .= 0.0
                 avg[symbol].u .= 0.0
             end
         elseif f == :ions
             for prop in sol.config.propellants
-                symbol = prop.gas.short_name
+                symbol = prop.gas.formula
                 for ion in avg[symbol]
                     ion.n .= 0.0
                     ion.nu .= 0.0
@@ -63,14 +63,14 @@ function time_average(sol::Solution, start_frame::Integer = 1)
                 end
             elseif f == :neutrals
                 for prop in sol.config.propellants
-                    symbol = prop.gas.short_name
+                    symbol = prop.gas.formula
                     avg[symbol].n .+= field[symbol].n ./ dt
                     avg[symbol].nu .+= field[symbol].nu ./ dt
                     avg[symbol].u .+= field[symbol].u ./ dt
                 end
             elseif f == :ions
                 for prop in sol.config.propellants
-                    symbol = prop.gas.short_name
+                    symbol = prop.gas.formula
                     for (j, ion) in enumerate(avg[symbol])
                         ion.n .+= field[symbol][j].n ./ dt
                         ion.nu .+= field[symbol][j].nu ./ dt
