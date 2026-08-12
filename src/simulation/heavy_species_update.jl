@@ -168,9 +168,13 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
     # Compute neutral number density
     # TODO: this computes total neutral number density, not per species
     @inbounds for fluid in fluids.continuity
-        _nn = fluid.density / fluid.species.element.m
-        @. nn += _nn
-        @. avg_neutral_vel += _nn * fluid.const_velocity
+        mass = fluid.species.element.m
+        neutral_velocity = fluid.const_velocity
+        @simd for i in eachindex(fluid.density)
+            _nn = fluid.density[i] / mass
+            nn[i] += _nn
+            avg_neutral_vel[i] += _nn * neutral_velocity
+        end
     end
 
 

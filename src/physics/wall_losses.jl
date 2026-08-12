@@ -131,14 +131,18 @@ Serialization.options(::Type{WallMaterial}) = wall_materials
 # WallSheath
 ==============================================================================#
 
-function wall_electron_temperature(params, transition_length, i)
+@inline function wall_electron_temperature(params, transition_length, i)
     (; cache, grid, thruster) = params
 
     shielded = thruster.shielded
 
     Tev = cache.Tev[i]
 
-    Tev_channel = shielded * cache.Tev[1] + !shielded * Tev
+    # For an unshielded thruster the channel and plume temperatures are the
+    # same, so the transition is an identity operation.
+    !shielded && return Tev
+
+    Tev_channel = cache.Tev[1]
     Tev_plume = Tev
 
     L_ch = thruster.geometry.channel_length
@@ -218,9 +222,14 @@ function wall_power_loss!(Q, ::WallSheath, params)
         ϕ_s = sheath_potential(Tev, γ, cache.m_eff[i])
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
-        νew = cache.radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, plume_loss_scale,
-        )
+        plume_transition = if plume_loss_scale == 1.0
+            1.0
+        else
+            linear_transition(
+                grid.cell_centers[i], L_ch, transition_length, 1.0, plume_loss_scale,
+            )
+        end
+        νew = cache.radial_loss_frequency[i] * plume_transition
 
         # Compute wall power loss rate
         Q[i] = νew * (2 * Tev + (1 - γ) * ϕ_s)

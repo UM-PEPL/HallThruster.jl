@@ -98,7 +98,7 @@ function setup_simulation(
     # Except for `sim`, nothing in this struct should have type parameters.
     # For convenience, the method `params_from_config` copies concretely-typed
     # values from `config` and reinserts them into params.
-    params = (;
+    params = SimulationParameters(;
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad

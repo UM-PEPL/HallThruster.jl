@@ -98,12 +98,20 @@ end
 function compute_fluxes_continuity!(fluid, grid)
     (; flux_dens, dens_L, dens_R, wave_speed, const_velocity) = fluid
     smax = wave_speed[]
-    fluid.max_timestep[] = Inf
+
+    # The neutral wave speed and grid never change during a simulation, so its
+    # CFL limit only needs to be computed on the first flux update.
+    if fluid.max_timestep[] <= 0
+        min_timestep = Inf
+        @inbounds for i in eachindex(grid.dz_edge)
+            min_timestep = min(min_timestep, grid.dz_edge[i] / smax)
+        end
+        fluid.max_timestep[] = min_timestep
+    end
 
     return @inbounds for i in eachindex(fluid.dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
         flux_dens[i] = 0.5 * (const_velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
-        fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
     end
 end
 
@@ -113,7 +121,7 @@ function compute_fluxes_isothermal!(fluid, grid)
     RT = a^2 / fluid.species.element.γ
 
     max_wave_speed = 0.0
-    fluid.max_timestep[] = Inf
+    min_timestep = Inf
 
     @inbounds for i in eachindex(dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
@@ -123,7 +131,7 @@ function compute_fluxes_isothermal!(fluid, grid)
         u_R = primitive_velocity(ρu_R, ρ_R)
 
         smax = max(abs(u_L - a), abs(u_L + a), abs(u_R - a), abs(u_R + a))
-        fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
+        min_timestep = min(min_timestep, grid.dz_edge[i] / smax)
         max_wave_speed = max(smax, max_wave_speed)
 
         flux_mom_L = ρ_L * (u_L^2 + RT)
@@ -133,6 +141,7 @@ function compute_fluxes_isothermal!(fluid, grid)
         flux_mom[i] = 0.5 * ((flux_mom_L + flux_mom_R) - smax * (ρu_R - ρu_L))
     end
 
+    fluid.max_timestep[] = min_timestep
     return wave_speed[] = max_wave_speed
 end
 
