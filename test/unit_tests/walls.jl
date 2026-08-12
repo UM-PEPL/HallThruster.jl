@@ -183,6 +183,10 @@ function test_ion_losses()
             Z_eff = [1.0, 1.0, 1.0, 1.0], ni = [ni_1 ni_1 ni_1 ni_1; ni_2 ni_2 ni_2 ni_2],
             γ_SEE = [0.0, 0.0, 0.0, 0.0],
             νew_momentum = [νew, νew, 0.0, 0.0],
+            wall_transition = [
+                het.linear_transition(z, L_ch, config.transition_length, 1.0, 0.0)
+                    for z in grid.cell_centers
+            ],
         )
 
         ρn = 10 * ne * mi

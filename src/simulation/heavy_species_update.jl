@@ -624,11 +624,10 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
 end
 
 function apply_ion_wall_losses!(fluid_containers, params)
-    (; thruster, cache, grid, transition_length, wall_loss_scale) = params
+    (; thruster, cache, wall_loss_scale) = params
     (; continuity, isothermal) = fluid_containers
 
     geometry = thruster.geometry
-    L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     h = wall_loss_scale * edge_to_center_density_ratio()
 
@@ -647,8 +646,7 @@ function apply_ion_wall_losses!(fluid_containers, params)
         for i in 2:(length(ion_fluid.density) - 1)
             u_wall = sqrt(qe_m * cache.Tev[i])
 
-            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
-            νiw = in_channel * u_wall * inv_Δr * h
+            νiw = cache.wall_transition[i] * u_wall * inv_Δr * h
 
             density_loss = ion_fluid.density[i] * νiw
             momentum_loss = ion_fluid.momentum[i] * νiw

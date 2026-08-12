@@ -1,17 +1,25 @@
 function initialize_plume_geometry(params)
-    (; cache, thruster) = params
-    (; channel_area, inner_radius, outer_radius, channel_height) = cache
+    (; cache, grid, thruster, transition_length) = params
+    (; channel_area, inner_radius, outer_radius, channel_height, wall_transition) = cache
     geometry = thruster.geometry
     r_in = geometry.inner_radius
     r_out = geometry.outer_radius
     A_ch = geometry.channel_area
+    L_ch = geometry.channel_length
 
-    return @inbounds begin
+    @inbounds begin
         @. channel_area = A_ch
         @. inner_radius = r_in
         @. outer_radius = r_out
         @. channel_height = r_out - r_in
+        for i in eachindex(wall_transition)
+            wall_transition[i] = linear_transition(
+                grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
+            )
+        end
     end
+
+    return nothing
 end
 
 function update_plume_geometry!(params)
