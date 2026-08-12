@@ -8,6 +8,7 @@ EditURL = "NEWS.md"
 ### New features
 - Overhaul of how propellant gases are handled. This makes it possible to serialize and deserialize arbitrary gases and reduces the amount of information needed to be provided by the user. Chemical formulae are parsed and the molecular weight is computed. The long name of a gas is no longer included in the `Gas` structure, making this a breaking change.
 More information about these changes can be seen on the [Propellants](@ref) and [Adding a new propellant](@ref) page.
+- Users can now specify propellant information in the `Config` struct that overrides information in the propellant configuration TOML file.
 
 ## 0.21.7
 ### New features
