@@ -35,9 +35,9 @@ end
 Base.show(io::IO, g::Gas) = print(io, g.name)
 Base.show(io::IO, ::MIME"text/plain", g::Gas) = show(io, g)
 
-# lets you do things like Xenon(1) == Species(Xenon, 1) or Xenon(0, 1) == Species(Xenon, 0, 1)
-(g::Gas)(Z::Int) = Species(g, Z)
-(g::Gas)(Z::Int, n::Int) = Species(g, Z, n)
+# Convenience constructors such as Xenon(1) and Xenon(0, 1).
+(g::Gas)(Z::Integer) = Species(g, Z)
+(g::Gas)(Z::Integer, excited_level::Integer) = Species(g, Z, excited_level)
 
 """
 	$(TYPEDEF)
@@ -59,10 +59,10 @@ julia> Species(Xenon, 3)
 Xe(3+)
 
 julia> Species(Xenon, 0, 1)
-Xe*
+Xe(*)
 
 julia> Species(Xenon, 0, 2)
-Xe**
+Xe(2*)
 ```
 """
 struct Species
@@ -72,12 +72,16 @@ struct Species
     symbol::Symbol
     """The charge state of the species, i.e. Z = 1 for a singly-charged species"""
     Z::Int8
-    """The excitation level of the species, i.e. n = 0 for a ground-state species"""
-    n::Int8
+    """The excitation level of the species; zero denotes the ground state"""
+    excited_level::Int8
     @doc"""
-    	Species(element::Gas, Z::Int, n::Int = 0) -> Species
-    Construct a `Species` from a `Gas`, a charge state, and (optionally) an excitation level.
-    You can also use the `(::Gas)(Z)` and `(::Gas)(Z, n)` convenience constructors like so.
+        Species(element::Gas, Z::Integer, excited_level::Integer = 0) -> Species
+
+    Construct a `Species` from a gas, charge state, and optional excitation level.
+    An `excited_level` of zero represents the ground state.
+
+    Call the gas directly with `gas(Z)` or `gas(Z, excited_level)` as a
+    convenience:
 
     ```julia
     julia> Xenon(0) == Species(Xenon, 0)
@@ -87,9 +91,18 @@ struct Species
     true
     ```
     """ ->
-    function Species(element::Gas, Z::Integer, n::Integer = 0)::Species
-        n < 0 && error("Excitation level `n` must be non-negative.")
-        return new(element, Symbol(species_string(element, Z, n)), Int8(Z), Int8(n))
+    function Species(
+            element::Gas,
+            Z::Integer,
+            excited_level::Integer = 0,
+        )::Species
+        excited_level < 0 && error("`excited_level` must be non-negative.")
+        return new(
+            element,
+            Symbol(species_string(element, Z, excited_level)),
+            Int8(Z),
+            Int8(excited_level),
+        )
     end
 end
 
@@ -98,9 +111,9 @@ Base.show(io::IO, ::MIME"text/plain", s::Species) = show(io, s)
 
 """
     is_excited(s::Species) -> Bool
-Whether this species is electronically excited (`n > 0`).
+Whether this species is electronically excited (`excited_level > 0`).
 """
-is_excited(s::Species) = s.n > 0
+is_excited(s::Species) = s.excited_level > 0
 
 """
     ground_state(s::Species) -> Species
@@ -108,16 +121,26 @@ The ground-state species with the same element and charge state as `s`.
 """
 ground_state(s::Species) = Species(s.element, s.Z)
 
-function _species_string(short_name::String, Z::Integer, n::Integer = 0)
-    sign_str = Z > 0 ? "+" : Z < 0 ? "-" : ""
-    sign_str = abs(Z) > 1 ? "$(Z)" * sign_str : sign_str
-    sign_str = Z > 0 ? "($(sign_str))" : ""
-    exc_str = "*"^n
-    return short_name * exc_str * sign_str
+function _species_string(
+        short_name::String, Z::Integer, excited_level::Integer = 0,
+    )
+    if Z == 0
+        excited_level == 0 && return short_name
+        level = excited_level == 1 ? "" : string(excited_level)
+        return "$short_name($level*)"
+    end
+
+    sign = Z > 0 ? "+" : "-"
+    if excited_level > 0
+        return "$short_name($(abs(Z))$sign,$excited_level*)"
+    end
+
+    magnitude = abs(Z) == 1 ? "" : string(abs(Z))
+    return "$short_name($magnitude$sign)"
 end
 
-species_string(element::Gas, Z::Integer, n::Integer = 0) =
-    _species_string(string(element.short_name), Z, n)
+species_string(element::Gas, Z::Integer, excited_level::Integer = 0) =
+    _species_string(string(element.short_name), Z, excited_level)
 
 Base.string(s::Species) = string(s.symbol)
 
@@ -208,16 +231,21 @@ struct Propellant
     """
     allowed_charges::Vector{Int}
     """
-    Excitation levels tracked as their own neutral fluids (`Xe*`, `Xe**`, ...), usable
+    Excitation levels tracked as their own neutral fluids (`Xe(*)`, `Xe(2*)`, ...), usable
     in reaction equations. **Default:** `[]` (excitation is lumped into an energy loss).
     """
     excited_levels::Vector{Int}
+    """
+    Excited levels tracked per ion charge state as their own fluids (`Xe(1+,1*)`, ...), keyed
+    by charge. **Default:** empty (no excited ions).
+    """
+    excited_ion_levels::Dict{Int, Vector{Int}}
 
     function Propellant(;
             gas, flow_rate_kg_s, max_charge = nothing,
             allowed_charges = nothing, velocity_m_s = nothing,
             temperature_K = nothing, ion_temperature_K = nothing,
-            excited_levels = nothing,
+            excited_levels = nothing, excited_ion_levels = nothing,
         )
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
@@ -266,12 +294,27 @@ struct Propellant
 
         sort!(final_excited_levels)
 
+        final_excited_ion_levels = Dict{Int, Vector{Int}}()
+        if !isnothing(excited_ion_levels)
+            for (k, v) in excited_ion_levels
+                Z = k isa AbstractString ? parse(Int, k) : Int(k)
+                Z in final_allowed_charges ||
+                    error("`excited_ion_levels` charge $(Z) is not in `allowed_charges`.")
+                levels = collect(v)
+                any(<(1), levels) &&
+                    error("excited ion levels must be positive (ground state 0 is implicit).")
+                length(unique(levels)) != length(levels) &&
+                    error("excited ion levels must not contain duplicates.")
+                final_excited_ion_levels[Z] = sort!(levels)
+            end
+        end
+
         ion_temperature_K = convert_to_float64(ion_temperature_K, units(:K))
         flow_rate_kg_s = convert_to_float64(flow_rate_kg_s, units(:kg) / units(:s))
 
         return new(
             gas, flow_rate_kg_s, velocity_m_s, temperature_K, ion_temperature_K,
-            final_allowed_charges, final_excited_levels,
+            final_allowed_charges, final_excited_levels, final_excited_ion_levels,
         )
     end
 end

@@ -98,9 +98,11 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
         end
     end
 
+    # Excited ions start near zero to avoid duplicating the initial charge density.
     @inbounds for fluid in fluids.isothermal
         Z = fluid.species.Z
-        @. fluid.density = ion_density_function(grid.cell_centers, Z)
+        excitation_fraction = is_excited(fluid.species) ? 1.0e-10 : 1.0
+        @. fluid.density = excitation_fraction * ion_density_function(grid.cell_centers, Z)
         @. fluid.momentum = fluid.density * ion_velocity_function(grid.cell_centers, Z)
     end
 

@@ -82,6 +82,7 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
+    cache.dt_iz[] = min(cache.dt_iz[], apply_deexcitation_reactions!(params.fluid_array, params))
     apply_mutual_neutralization!(params)
     apply_associative_detachment!(params)
 
@@ -128,10 +129,10 @@ function stage_limiter!(fluid_containers)
 
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
-            dens = fluid.density[i]
-            vel = fluid.momentum[i] / dens
-            fluid.density[i] = max(dens, min_density)
-            fluid.momentum[i] = fluid.density[i] * vel
+            if fluid.density[i] < min_density
+                fluid.density[i] = min_density
+                fluid.momentum[i] = 0.0
+            end
         end
     end
     return false
@@ -404,17 +405,20 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         end
     end
 
-    dt_max = Inf
+    inverse_dt_by_reactant = zeros(length(fluids))
     for (rxn, reactant_index, product_index) in rxns
         # Temp storage for reaction calculations
         rxn_cache = (cache.cell_cache_1, cache.cell_cache_2)
 
         # Apply single reaction
         _dt = apply_reaction!(fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
-        dt_max = min(_dt, dt_max)
+        if _dt > 0 && isfinite(_dt)
+            inverse_dt_by_reactant[reactant_index] += inv(_dt)
+        end
     end
 
-    cache.dt_iz[] = dt_max
+    max_inverse_dt = maximum(inverse_dt_by_reactant; init = 0.0)
+    cache.dt_iz[] = max_inverse_dt > 0 ? inv(max_inverse_dt) : Inf
     return
 end
 

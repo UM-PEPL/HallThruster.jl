@@ -14,8 +14,8 @@ end
     @test repr(het.Species(het.MolecularNitrogen, 0)) == "N2"
 
     M = 5.0
-    γ = 1.0
-    gas = het.Gas("Fake", "Fa"; γ, M)
+    Î³ = 1.0
+    gas = het.Gas("Fake", "Fa"; Î³, M)
     @test repr(gas) == "Fake"
     @test gas.m == M / het.NA
     @test gas(2) == het.Species(gas, 2)
@@ -23,16 +23,16 @@ end
 
 @testset "Excited state species" begin
     # Construction and display
-    @test repr(het.Species(het.Xenon, 0, 1)) == "Xe*"
-    @test repr(het.Species(het.Xenon, 0, 2)) == "Xe**"
-    @test repr(het.Species(het.MolecularNitrogen, 0, 1)) == "N2*"
-    @test repr(het.Species(het.Xenon, 1, 1)) == "Xe*(+)"
+    @test repr(het.Species(het.Xenon, 0, 1)) == "Xe(*)"
+    @test repr(het.Species(het.Xenon, 0, 2)) == "Xe(2*)"
+    @test repr(het.Species(het.MolecularNitrogen, 0, 1)) == "N2(*)"
+    @test repr(het.Species(het.Xenon, 1, 1)) == "Xe(1+,1*)"
 
     # Convenience constructor
     @test het.Xenon(0, 1) == het.Species(het.Xenon, 0, 1)
 
     # Default excitation level is ground state, so old two-arg behavior is preserved
-    @test het.Species(het.Xenon, 0).n == 0
+    @test het.Species(het.Xenon, 0).excited_level == 0
     @test het.Xenon(0) == het.Species(het.Xenon, 0, 0)
     @test repr(het.Species(het.Xenon, 0)) == "Xe"
 
@@ -127,25 +127,25 @@ end
 end
 
 @testset "Excited state reaction parsing" begin
-    # Asterisks bind to the symbol and precede the charge
-    lhs, rhs = het._parse_reaction_equation("Xe + e -> Xe* + e")
-    @test only(keys(lhs) |> collect |> t -> filter(x -> x.species != "e", t)).excitation == 0
-    @test only(keys(rhs) |> collect |> t -> filter(x -> x.species != "e", t)).excitation == 1
+    # Neutral excitation uses a parenthesized level
+    lhs, rhs = het._parse_reaction_equation("Xe + e -> Xe(*) + e")
+    @test only(keys(lhs) |> collect |> t -> filter(x -> x.species != "e", t)).excited_level == 0
+    @test only(keys(rhs) |> collect |> t -> filter(x -> x.species != "e", t)).excited_level == 1
 
     # Stepwise ionization out of an excited state balances charge
-    lhs, rhs = het._parse_reaction_equation("Xe* + e -> Xe(+) + 2e")
+    lhs, rhs = het._parse_reaction_equation("Xe(*) + e -> Xe(+) + 2e")
     reactant = only(filter(x -> x.species != "e", collect(keys(lhs))))
     product = only(filter(x -> x.species != "e", collect(keys(rhs))))
-    @test reactant.excitation == 1
+    @test reactant.excited_level == 1
     @test reactant.charge == 0
-    @test product.excitation == 0
+    @test product.excited_level == 0
     @test product.charge == 1
 
     # Round-trip through the display string used for species lookup
-    @test repr(reactant) == "Xe*"
-    @test string(het.Xenon(0, 1)) == "Xe*"
+    @test repr(reactant) == "Xe(*)"
+    @test string(het.Xenon(0, 1)) == "Xe(*)"
 
     # Multiple levels
-    lhs, _ = het._parse_reaction_equation("Xe** + e -> Xe* + e")
-    @test only(filter(x -> x.species != "e", collect(keys(lhs)))).excitation == 2
+    lhs, _ = het._parse_reaction_equation("Xe(2*) + e -> Xe(*) + e")
+    @test only(filter(x -> x.species != "e", collect(keys(lhs)))).excited_level == 2
 end

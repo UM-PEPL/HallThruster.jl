@@ -1,5 +1,11 @@
 abstract type Reaction end
 
+struct DeExcitationReaction <: Reaction
+    reactant::Species
+    products::Vector{Species}
+    rates::Vector{Float64}   # spontaneous emission rate per branch, 1/s
+end
+
 function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION_FOLDER)
     fname = if product === nothing
         join([reaction_type, repr(reactant)], "_") * ".dat"
@@ -7,16 +13,22 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
         join([reaction_type, repr(reactant), repr(product)], "_") * ".dat"
     end
 
-    # '*' is not a legal filename character on Windows, so excited states are
-    # rendered with their level number instead: Xe(*) -> Xe_e1, Xe(2*) -> Xe_e2
-    fname = replace(fname, r"\((?:[1-9]\d*)?\*\)" => excitation -> begin
-        excitation = String(excitation)
-        level = excitation == "(*)" ? "1" : excitation[2:(end - 2)]
+    # Charged excited states use Xe(2+,3*) -> Xe2+_e3.
+    fname = replace(fname, r"\((\d+)([+-]),(\d+)\*\)" => state -> begin
+        parsed = match(r"\((\d+)([+-]),(\d+)\*\)", state)
+        charge, sign, excited_level = parsed.captures
+        return "$(charge)$(sign)_e$(excited_level)"
+    end)
+
+    # '*' is not legal in Windows filenames.
+    fname = replace(fname, r"\((\d*)\*\)" => state -> begin
+        parsed = match(r"\((\d*)\*\)", state)
+        level = isempty(parsed.captures[1]) ? "1" : parsed.captures[1]
         return "_e$(level)"
     end)
 
     if occursin('*', fname)
-        error("Invalid excitation syntax. Use Xe(*), Xe(2*), Xe(3*), etc.")
+        error("Invalid excitation syntax in reaction filename: $(fname)")
     end
 
     # Remove '(' and ')' for backwards compatibility
@@ -60,7 +72,8 @@ end
 By default, rate_coeff looks for a lookup table stored in the reaction struct
 """
 function rate_coeff(rxn::Reaction, energy)
-    ind = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
+    isfinite(energy) || return first(rxn.rate_coeffs)
+    ind = Base.unsafe_trunc(Int, energy)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind < 0 ? 0 : ind
     r1 = rxn.rate_coeffs[ind + 1]
@@ -105,12 +118,57 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
             ei_reactions = ElectronImpactReaction[]
             ex_reactions = ExcitationReaction[]
             en_reactions = ElasticCollision[]
+            de_reactions = DeExcitationReaction[]
 
             species_map = Dict{Symbol, Species}(s.symbol => s for s in species)
 
             for reaction in contents["reactions"]
 
                 type = reaction["type"]
+
+                # De-excitation is radiative: it has no rate coefficient file. `target_species`
+                # is the upper state, `branches` the lower levels it decays to, and `half_lives`
+                # the per-branch radiative half-lives.
+                if type == "de-excitation"
+                    upper_str = reaction["target_species"]
+                    upper = _parse_species_term(upper_str)
+
+                    reactant_str = _species_string(upper.species, upper.charge, upper.excited_level)
+                    reactant = get(species_map, Symbol(reactant_str), nothing)
+                    if isnothing(reactant)
+                        error("Species '$(upper_str)' not found for de-excitation reaction $(reaction).")
+                    end
+
+                    levels = reaction["branches"]
+                    half_lives = reaction["half_lives"]
+                    if length(levels) != length(half_lives)
+                        error("`branches` and `half_lives` must have equal length in de-excitation reaction $(reaction).")
+                    end
+
+                    products = Species[]
+                    rates = Float64[]
+                    for (level, half_life) in zip(levels, half_lives)
+                        rate = _deexcitation_rate(
+                            upper.excited_level, level, half_life, reaction,
+                        )
+                        product_str = _species_string(upper.species, upper.charge, level)
+                        product = get(species_map, Symbol(product_str), nothing)
+                        if isnothing(product)
+                            setting = _excited_level_setting(upper.charge)
+                            error(
+                                "Product species '$(product_str)' not found for " *
+                                    "de-excitation reaction $(reaction). Add level $(level) " *
+                                    "to $(setting) on the corresponding propellant."
+                            )
+                        end
+                        push!(products, product)
+                        push!(rates, rate)
+                    end
+
+                    push!(de_reactions, DeExcitationReaction(reactant, products, rates))
+                    continue
+                end
+
                 rate_coeff_file = reaction["rate_coeff_file"]
                 rate_coeff_path = find_file_in_dirs(rate_coeff_file, directories, cwd = true)
 
@@ -134,15 +192,17 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                                 continue
                             end
 
-                            target_species_str = _species_string(k.species, k.charge, k.excitation)
+                            target_species_str = _species_string(k.species, k.charge, k.excited_level)
                             target_species_symbol = Symbol(target_species_str)
                             target_species = get(species_map, target_species_symbol, nothing)
 
                             if isnothing(target_species)
-                                if k.excitation > 0
+                                if k.excited_level > 0
+                                    setting = _excited_level_setting(k.charge)
                                     error(
-                                        "Excited species '$(target_species_str)' not found for reaction $(reaction). " *
-                                            "Add $(k.excitation) to `excited_levels` on the corresponding propellant."
+                                        "Excited species '$(target_species_str)' not found for " *
+                                            "reaction $(reaction). Add $(k.excited_level) to " *
+                                            "$(setting) on the corresponding propellant."
                                     )
                                 end
                                 error("Species '$(target_species_str)' not found for reaction $(reaction).")
@@ -166,12 +226,15 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     push!(ei_reactions, reaction)
 
                 elseif type == "excitation" || type == "elastic"
-                    target_species_str = reaction["target_species"]
-                    target_species_symbol = Symbol(target_species_str)
-                    target_species = get(species_map, target_species_symbol, nothing)
+                    configured_target = reaction["target_species"]
+                    target = _parse_species_term(configured_target)
+                    target_species_str = _species_string(
+                        target.species, target.charge, target.excited_level,
+                    )
+                    target_species = get(species_map, Symbol(target_species_str), nothing)
 
                     if isnothing(target_species)
-                        error("Species '$(target_species_str)' not found for reaction $(reaction).")
+                        error("Species '$(configured_target)' not found for reaction $(reaction).")
                     end
 
                     if type == "excitation"
@@ -184,7 +247,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                 end
             end
 
-            return ei_reactions, ex_reactions, en_reactions
+            return ei_reactions, ex_reactions, en_reactions, de_reactions
         end
     end
 
@@ -192,8 +255,9 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
     ei_reactions = load_electron_impact_reactions(iz_model, species; directories)
     ex_reactions = load_excitation_reactions(ex_model, species; directories)
     en_reactions = load_elastic_collisions(en_model, species; directories)
+    de_reactions = DeExcitationReaction[]
 
-    return ei_reactions, ex_reactions, en_reactions
+    return ei_reactions, ex_reactions, en_reactions, de_reactions
 end
 
 #===========================================
@@ -203,12 +267,13 @@ end
 struct RxnTerm
     species::String
     charge::Int8
-    excitation::Int8
+    excited_level::Int8
 end
 
 RxnTerm(species::String, charge) = RxnTerm(species, charge, 0)
 
-Base.show(io::IO, s::RxnTerm) = print(io, "$(_species_string(s.species, s.charge, s.excitation))")
+Base.show(io::IO, s::RxnTerm) =
+    print(io, _species_string(s.species, s.charge, s.excited_level))
 Base.show(io::IO, ::MIME"text/plain", s::RxnTerm) = show(io, s)
 
 mutable struct Lexer
@@ -275,7 +340,6 @@ function _parse_excitation(lex)
     suffix_start = lex.index
     _advance!(lex)
     level_str = _takewhile!(isdigit, lex)
-
     if lex.index > lastindex(lex.str) || _peek(lex) != '*'
         lex.index = suffix_start
         return 0
@@ -283,13 +347,60 @@ function _parse_excitation(lex)
 
     _advance!(lex)
     _expect!(lex, ')')
+    excited_level = isempty(level_str) ? 1 : parse(Int, level_str)
+    1 <= excited_level <= typemax(Int8) ||
+        error("Invalid excitation level $(excited_level) in reaction equation $(lex.str)")
+    return excited_level
+end
 
-    level = isempty(level_str) ? 1 : parse(Int, level_str)
-    if level < 1 || level > typemax(Int8)
-        error("Invalid excitation level $(level) in reaction equation $(lex.str)")
+function _parse_combined_state(lex)
+    if lex.index > lastindex(lex.str) || _peek(lex) != '('
+        return nothing
     end
 
-    return level
+    suffix_start = lex.index
+    _advance!(lex)
+    charge_str = _takewhile!(isdigit, lex)
+    if isempty(charge_str)
+        lex.index = suffix_start
+        return nothing
+    end
+    charge_magnitude = parse(Int, charge_str)
+    charge_magnitude > 0 ||
+        error("Charge magnitude must be positive in reaction equation $(lex.str)")
+
+    if lex.index > lastindex(lex.str) || !(_peek(lex) in ('+', '-'))
+        lex.index = suffix_start
+        return nothing
+    end
+
+    sign = _advance!(lex)
+    charge = sign == '+' ? charge_magnitude : -charge_magnitude
+
+    if lex.index > lastindex(lex.str) || _peek(lex) != ','
+        lex.index = suffix_start
+        return nothing
+    end
+    _advance!(lex)
+
+    level_str = _takewhile!(isdigit, lex)
+    isempty(level_str) &&
+        error("Excitation level is required in reaction equation $(lex.str)")
+    excited_level = parse(Int, level_str)
+    if lex.index > lastindex(lex.str) || _peek(lex) != '*'
+        lex.index = suffix_start
+        return nothing
+    end
+    _advance!(lex)
+    _expect!(lex, ')')
+
+    if excited_level < 1 || excited_level > typemax(Int8)
+        error(
+            "Invalid excitation level $(excited_level) in reaction equation $(lex.str)"
+        )
+    end
+
+    return charge, excited_level
 end
 
 function _parse_charge(lex)
@@ -326,11 +437,15 @@ function _parse_term!(lex)
         error("Expected chemical symbol in position $(lex.index) in reaction equation $(lex.str).")
     end
 
-    # Get excitation level. Set to zero if not present.
-    excitation = _parse_excitation(lex)
-
-    # Get charge of species in parentheses. Set to zero if not present.
-    charge = _parse_charge(lex)
+    combined_state = _parse_combined_state(lex)
+    if isnothing(combined_state)
+        excited_level = _parse_excitation(lex)
+        charge = _parse_charge(lex)
+        excited_level > 0 && charge != 0 &&
+            error("Use combined charged-excited notation in reaction equation $(lex.str)")
+    else
+        charge, excited_level = combined_state
+    end
 
     # Electron charge is -1 even if not specified
     if symbol == "e"
@@ -340,7 +455,31 @@ function _parse_term!(lex)
     # Consume trailing spaces
     _takewhile!(isspace, lex)
 
-    return RxnTerm(symbol, charge, excitation), count
+    return RxnTerm(symbol, charge, excited_level), count
+end
+
+function _parse_species_term(text::AbstractString)
+    lex = Lexer(String(text))
+    term, count = _parse_term!(lex)
+    count == 1 || error("Species term must not include a coefficient: $(text)")
+    if lex.index <= lastindex(lex.str)
+        error("Unexpected text at position $(lex.index) in species term $(text)")
+    end
+    return term
+end
+
+_excited_level_setting(charge) =
+    charge == 0 ? "`excited_levels`" : "`excited_ion_levels[$charge]`"
+
+function _deexcitation_rate(upper_level, lower_level, half_life, reaction)
+    0 <= lower_level < upper_level ||
+        error(
+            "De-excitation branch $(upper_level) -> $(lower_level) must end at a " *
+                "lower, non-negative excited level in reaction $(reaction)."
+        )
+    isfinite(half_life) && half_life > 0 ||
+        error("De-excitation half-life must be positive and finite in reaction $(reaction).")
+    return log(2.0) / half_life
 end
 
 function _parse_side!(lex)

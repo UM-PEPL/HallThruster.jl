@@ -31,7 +31,7 @@ function setup_simulation(
     species = unique([fl.species for fl in fluid_array])
 
     # Load reactions and collisions either from file or generate from species list
-    ei_reactions, excitation_reactions, electron_neutral_collisions = load_reactions(
+    ei_reactions, excitation_reactions, electron_neutral_collisions, deexcitation_reactions = load_reactions(
         config.propellant_config, species,
         config.ionization_model, config.excitation_model, config.electron_neutral_model;
         directories = config.reaction_rate_directories
@@ -42,6 +42,8 @@ function setup_simulation(
     ei_product_indices = product_indices(ei_reactions, fluid_array)
     excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
     electron_neutral_indices = reactant_indices(electron_neutral_collisions, fluid_array)
+    deexcitation_reactant_indices = reactant_indices(deexcitation_reactions, fluid_array)
+    deexcitation_product_indices = product_indices(deexcitation_reactions, fluid_array)
 
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
@@ -122,6 +124,9 @@ function setup_simulation(
         excitation_reactant_indices,
         electron_neutral_collisions,
         electron_neutral_indices,
+        deexcitation_reactions,
+        deexcitation_reactant_indices,
+        deexcitation_product_indices,
         fluid_containers,
         fluid_array,
         fluids_by_propellant,
