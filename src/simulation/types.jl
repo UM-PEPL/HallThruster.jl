@@ -36,7 +36,7 @@ mutable struct SimParams{C <: CurrentController}
     """
     adaptive::Bool
     """
-    The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
+    The CFL number used for transport and acceleration in adaptive timestepping. The chemistry CFL is capped at 0.799. **Default:** 0.799
     """
     CFL::Float64
     """

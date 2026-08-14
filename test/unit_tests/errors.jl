@@ -20,10 +20,8 @@ config = het.Config(;
     anode_mass_flow_rate = 5.0e-6,
 )
 
-@test_logs (
-    :warn,
-    "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.",
-) match_mode = :any het.run_simulation(
+params = het.setup_simulation(
     config; dt = 5.0e-9, duration = 0.0e-9, grid = het.EvenGrid(9),
     nsave = 10, adaptive = true, CFL = 0.9,
 )
+@test params.simulation.CFL == 0.9

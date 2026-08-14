@@ -142,8 +142,11 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
         min_dt_u = min(min_dt_u, fluid.max_timestep[])
     end
 
+    # The empirical 0.799 stability limit applies to chemistry. Transport and
+    # acceleration can use a higher user-specified CFL independently.
+    chemistry_CFL = min(CFL, 0.799)
     cache.dt[] = min(
-        CFL * cache.dt_iz[],
+        chemistry_CFL * cache.dt_iz[],
         sqrt(CFL) * cache.dt_E[],
         CFL * min_dt_u,
     )
