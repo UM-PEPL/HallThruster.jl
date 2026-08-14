@@ -32,47 +32,91 @@ y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
         = (y_n + y_{n1} + h * k_{n2}) / 2
 
 With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
+
+The implementation is split into two update kernels so each stage traverses every
+fluid field only once. `update_first_stage!` saves y_n in the fluid caches while
+forming the Euler predictor y_{n1}. After evaluating the derivatives at that
+predictor, `update_second_stage!` combines the cached y_n, y_{n1}, and k_{n2} to
+form the final state. Each kernel also performs its finite-value check during the
+same traversal.
 """
 function step_heavy_species!(fluid_containers, params, source, dt)
-    # First step
-    # Compute slope k_{n1}
+    # Evaluate k_{n1} at the initial state.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
 
-    # Copy density and momentum to dens_cache and mom_cache for all fluids
-    # and update density and momentum to y_{n1}
-    for fluid in fluid_containers.continuity
-        @. fluid.dens_cache = fluid.density
-        @. fluid.density += dt * fluid.dens_ddt
-    end
+    # Cache y_n, form the Euler predictor y_{n1}, and validate it in one pass.
+    update_first_stage!(fluid_containers, dt) && return true
+    # The second derivative evaluation must see a physically admissible predictor.
+    limit_heavy_species!(fluid_containers)
 
-    for fluid in fluid_containers.isothermal
-        @. fluid.dens_cache = fluid.density
-        @. fluid.mom_cache = fluid.momentum
-        @. fluid.density += dt * fluid.dens_ddt
-        @. fluid.momentum += dt * fluid.mom_ddt
-    end
-
-    # Apply stage limiter, returning true if a NaN or an Inf is detected
-    stage_limiter!(fluid_containers) && return true
-
-    # Second step
-    # Compute slope k_{n2}, reusing memory of k_{n1}
+    # Evaluate k_{n2} at y_{n1}, reusing the derivative arrays that held k_{n1}.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
 
-    # Final step
+    # Combine cached y_n with y_{n1} and k_{n2}, validating the result in one pass.
+    update_second_stage!(fluid_containers, dt) && return true
+    limit_heavy_species!(fluid_containers)
+
+    return false
+end
+
+function update_first_stage!(fluid_containers, dt)
+    invalid = false
+
     @inbounds for fluid in fluid_containers.continuity
-        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
+        @simd for i in eachindex(fluid.density)
+            density = fluid.density[i]
+            new_density = density + dt * fluid.dens_ddt[i]
+            fluid.dens_cache[i] = density
+            fluid.density[i] = new_density
+            invalid |= !isfinite(new_density)
+        end
     end
 
     @inbounds for fluid in fluid_containers.isothermal
-        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
-        @. fluid.momentum = 0.5 * (fluid.momentum + fluid.mom_cache + dt * fluid.mom_ddt)
+        @simd for i in eachindex(fluid.density)
+            density = fluid.density[i]
+            momentum = fluid.momentum[i]
+            new_density = density + dt * fluid.dens_ddt[i]
+            new_momentum = momentum + dt * fluid.mom_ddt[i]
+            fluid.dens_cache[i] = density
+            fluid.mom_cache[i] = momentum
+            fluid.density[i] = new_density
+            fluid.momentum[i] = new_momentum
+            invalid |= !(isfinite(new_density) && isfinite(new_momentum))
+        end
     end
 
-    # Apply stage limiter, returning true if a NaN or an Inf is detected
-    stage_limiter!(fluid_containers) && return true
+    return invalid
+end
 
-    return false
+function update_second_stage!(fluid_containers, dt)
+    invalid = false
+
+    @inbounds for fluid in fluid_containers.continuity
+        @simd for i in eachindex(fluid.density)
+            new_density = 0.5 * (
+                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+            )
+            fluid.density[i] = new_density
+            invalid |= !isfinite(new_density)
+        end
+    end
+
+    @inbounds for fluid in fluid_containers.isothermal
+        @simd for i in eachindex(fluid.density)
+            new_density = 0.5 * (
+                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+            )
+            new_momentum = 0.5 * (
+                fluid.momentum[i] + fluid.mom_cache[i] + dt * fluid.mom_ddt[i]
+            )
+            fluid.density[i] = new_density
+            fluid.momentum[i] = new_momentum
+            invalid |= !(isfinite(new_density) && isfinite(new_momentum))
+        end
+    end
+
+    return invalid
 end
 
 # Populate dens_ddt and mom_ddt for all fluid containers
@@ -88,9 +132,7 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
 
     if ion_wall_losses
-        for (_, fluids) in zip(params.propellants, params.fluids_by_propellant)
-            apply_ion_wall_losses!(fluids, params)
-        end
+        apply_ion_wall_losses!(params)
     end
 
     # Update maximum allowable timestep
@@ -109,12 +151,8 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     return
 end
 
-function stage_limiter!(fluid_containers)
+function limit_heavy_species!(fluid_containers)
     @inbounds for fluid in fluid_containers.continuity
-        if any(!isfinite, fluid.density)
-            return true
-        end
-
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             fluid.density[i] = max(fluid.density[i], min_density)
@@ -122,10 +160,6 @@ function stage_limiter!(fluid_containers)
     end
 
     @inbounds for fluid in fluid_containers.isothermal
-        if any(!isfinite, fluid.density) || any(!isfinite, fluid.momentum)
-            return true
-        end
-
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             dens = fluid.density[i]
@@ -134,7 +168,7 @@ function stage_limiter!(fluid_containers)
             fluid.momentum[i] = fluid.density[i] * vel
         end
     end
-    return false
+    return
 end
 
 function update_heavy_species!(params)
@@ -157,13 +191,15 @@ end
 function update_heavy_species_cache!(fluids, cache, grid, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
-    @. ne = 0
-    @. ji = 0
-    @. m_eff = 0
-    @. Z_eff = 0
-    @. nn = 0
-    @. avg_ion_vel = 0
-    @. avg_neutral_vel = 0
+    @inbounds @simd for i in eachindex(ne)
+        ne[i] = 0.0
+        ji[i] = 0.0
+        m_eff[i] = 0.0
+        Z_eff[i] = 0.0
+        nn[i] = 0.0
+        avg_ion_vel[i] = 0.0
+        avg_neutral_vel[i] = 0.0
+    end
 
     # Compute neutral number density
     # TODO: this computes total neutral number density, not per species
@@ -183,7 +219,7 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
         inv_m = inv(fluid.species.element.m)
         Z = fluid.species.Z
 
-        for i in eachindex(fluid.density)
+        @simd for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
             _niui = fluid.momentum[i] * inv_m
             ne[i] += Z * _ni
@@ -195,19 +231,19 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
         end
     end
 
-    @. avg_neutral_vel /= nn
+    @inbounds @simd for i in eachindex(ne)
+        avg_neutral_vel[i] /= nn[i]
+        ne[i] = max(ne[i], MIN_NUMBER_DENSITY)
 
-    @. ne = max(ne, MIN_NUMBER_DENSITY)
+        inv_ion_density = inv(Z_eff[i])
+        avg_ion_vel[i] *= inv_ion_density
+        m_eff[i] *= inv_ion_density
+        Z_eff[i] = ne[i] * inv_ion_density
 
-    # Inverse ion density
-    @. Z_eff = inv(Z_eff)
-    @. avg_ion_vel *= Z_eff
-    @. m_eff *= Z_eff
-    @. Z_eff = ne * Z_eff
-
-    @. ϵ = nϵ / ne
-    if !landmark
-        @. ϵ += K
+        ϵ[i] = nϵ[i] / ne[i]
+        if !landmark
+            ϵ[i] += K[i]
+        end
     end
 
     return
@@ -623,13 +659,44 @@ function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
     return cache.dt_E[] = isfinite(dt_max) ? sqrt(dt_max) : Inf
 end
 
-function apply_ion_wall_losses!(fluid_containers, params)
+function prepare_ion_wall_losses!(params)
     (; thruster, cache, wall_loss_scale) = params
-    (; continuity, isothermal) = fluid_containers
-
     geometry = thruster.geometry
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     h = wall_loss_scale * edge_to_center_density_ratio()
+    wall_loss_base = cache.cell_cache_1
+
+    # This cell-dependent part is common to every ion species: it contains the
+    # local electron temperature, wall transition, geometry, and sheath-density
+    # correction. Compute it once per derivative evaluation and reuse the cache
+    # while applying the species-dependent charge-to-mass scaling below.
+    @inbounds @simd for i in 2:(length(wall_loss_base) - 1)
+        wall_loss_base[i] =
+            cache.wall_transition[i] * sqrt(e * cache.Tev[i]) * inv_Δr * h
+    end
+
+    return wall_loss_base
+end
+
+function apply_ion_wall_losses!(params)
+    # Preparing outside the propellant loop avoids repeating the shared cell work
+    # for molecular propellants with many ion fluids or reaction products.
+    wall_loss_base = prepare_ion_wall_losses!(params)
+    for fluids in params.fluids_by_propellant
+        apply_ion_wall_losses!(fluids, wall_loss_base)
+    end
+    return
+end
+
+function apply_ion_wall_losses!(fluid_containers, params)
+    # Retain the single-container entry point while using the same split between
+    # shared cell work and species-specific losses.
+    wall_loss_base = prepare_ion_wall_losses!(params)
+    return apply_ion_wall_losses!(fluid_containers, wall_loss_base)
+end
+
+function apply_ion_wall_losses!(fluid_containers, wall_loss_base::Vector{Float64})
+    (; continuity, isothermal) = fluid_containers
 
     neutral_fluid = continuity[1]
     @inbounds for ion_fluid in isothermal
@@ -640,13 +707,12 @@ function apply_ion_wall_losses!(fluid_containers, params)
             continue
         end
 
-        m = ion_fluid.species.element.m
-        qe_m = Z * e / m
+        # Complete the ion wall-loss frequency by applying sqrt(Z / m) to the
+        # shared cell-dependent factor prepared above.
+        species_scale = sqrt(Z / ion_fluid.species.element.m)
 
         for i in 2:(length(ion_fluid.density) - 1)
-            u_wall = sqrt(qe_m * cache.Tev[i])
-
-            νiw = cache.wall_transition[i] * u_wall * inv_Δr * h
+            νiw = wall_loss_base[i] * species_scale
 
             density_loss = ion_fluid.density[i] * νiw
             momentum_loss = ion_fluid.momentum[i] * νiw

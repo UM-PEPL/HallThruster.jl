@@ -187,6 +187,7 @@ function test_ion_losses()
                 het.linear_transition(z, L_ch, config.transition_length, 1.0, 0.0)
                     for z in grid.cell_centers
             ],
+            cell_cache_1 = zeros(4),
         )
 
         ρn = 10 * ne * mi
