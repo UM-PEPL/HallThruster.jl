@@ -3,8 +3,12 @@
 @inline primitive_velocity(momentum, density) = density > 0 ? momentum / density : 0.0
 
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
-    r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
-    Δu = 0.25 * van_leer_limiter(r) * (uⱼ₊₁ - uⱼ₋₁)
+    Δu_L = uⱼ - uⱼ₋₁
+    Δu_R = uⱼ₊₁ - uⱼ
+    same_sign = signbit(Δu_L) == signbit(Δu_R)
+    valid = same_sign && Δu_L != 0 && isfinite(Δu_L) && isfinite(Δu_R)
+    # Harmonic form of the Van Leer slope: r / (1 + r)^2 * (Δu_L + Δu_R).
+    Δu = valid ? Δu_L * Δu_R / (Δu_L + Δu_R) : 0.0
     return uⱼ - Δu, uⱼ + Δu
 end
 
@@ -130,7 +134,8 @@ function compute_fluxes_isothermal!(fluid, grid)
         u_L = primitive_velocity(ρu_L, ρ_L)
         u_R = primitive_velocity(ρu_R, ρ_R)
 
-        smax = max(abs(u_L - a), abs(u_L + a), abs(u_R - a), abs(u_R + a))
+        # For nonnegative sound speed, max(|u - a|, |u + a|) = |u| + a.
+        smax = max(abs(u_L), abs(u_R)) + a
         min_timestep = min(min_timestep, grid.dz_edge[i] / smax)
         max_wave_speed = max(smax, max_wave_speed)
 
