@@ -120,11 +120,10 @@ function compute_fluxes_continuity!(fluid, grid)
 end
 
 function compute_fluxes_isothermal!(fluid, grid)
-    (; flux_dens, flux_mom, dens_L, dens_R, mom_L, mom_R, wave_speed) = fluid
+    (; flux_dens, flux_mom, dens_L, dens_R, mom_L, mom_R) = fluid
     a = fluid.sound_speed
     RT = a^2 / fluid.species.element.γ
 
-    max_wave_speed = 0.0
     min_timestep = Inf
 
     @inbounds for i in eachindex(dens_L)
@@ -137,7 +136,6 @@ function compute_fluxes_isothermal!(fluid, grid)
         # For nonnegative sound speed, max(|u - a|, |u + a|) = |u| + a.
         smax = max(abs(u_L), abs(u_R)) + a
         min_timestep = min(min_timestep, grid.dz_edge[i] / smax)
-        max_wave_speed = max(smax, max_wave_speed)
 
         flux_mom_L = ρ_L * (u_L^2 + RT)
         flux_mom_R = ρ_R * (u_R^2 + RT)
@@ -147,7 +145,7 @@ function compute_fluxes_isothermal!(fluid, grid)
     end
 
     fluid.max_timestep[] = min_timestep
-    return wave_speed[] = max_wave_speed
+    return
 end
 
 function update_convective_terms_continuity!(fluid, grid)

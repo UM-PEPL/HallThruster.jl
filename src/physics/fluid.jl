@@ -27,7 +27,7 @@ struct FluidContainer
     mom_R::Vector{Float64}
     flux_dens::Vector{Float64}
     flux_mom::Vector{Float64}
-    """Maximum wave speed for this species"""
+    """Constant wave speed used by continuity-only fluids"""
     wave_speed::Array{Float64, 0}
     """Maximum permissable timestep for this species"""
     max_timestep::Array{Float64, 0}
