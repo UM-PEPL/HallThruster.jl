@@ -43,7 +43,7 @@ function compute_edge_states_continuity!(fluid, do_reconstruct)
 end
 
 function compute_edge_states_isothermal!(fluid, do_reconstruct)
-    (; density, momentum, dens_L, dens_R, mom_L, mom_R) = fluid
+    (; density, momentum, dens_L, dens_R, vel_L, vel_R) = fluid
     N = length(fluid.density)
 
     if do_reconstruct
@@ -61,16 +61,17 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
             uᵢ = primitive_velocity(momentum[i], uᵢ)
             u₊ = primitive_velocity(momentum[i + 1], u₊)
             uR, uL = reconstruct(u₋, uᵢ, u₊)
-            mom_L[iR] = uL * dens_L[iR]
-            mom_R[iL] = uR * dens_R[iL]
+            vel_L[iR] = uL
+            vel_R[iL] = uR
         end
     else
         @inbounds for i in 2:(N - 1)
             iL, iR = left_edge(i), right_edge(i)
             dens_L[iR] = density[i]
             dens_R[iL] = density[i]
-            mom_L[iR] = momentum[i]
-            mom_R[iL] = momentum[i]
+            velocity = primitive_velocity(momentum[i], density[i])
+            vel_L[iR] = velocity
+            vel_R[iL] = velocity
         end
     end
 
@@ -91,10 +92,12 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
     fluid.dens_L[end] = fluid.density[end - 1]
     fluid.dens_R[end] = fluid.density[end]
 
-    fluid.mom_L[1] = fluid.momentum[1]
-    fluid.mom_R[1] = fluid.momentum[2]
-    fluid.mom_L[end] = fluid.momentum[end - 1]
-    fluid.mom_R[end] = fluid.momentum[end]
+    fluid.vel_L[1] = primitive_velocity(fluid.momentum[1], fluid.density[1])
+    fluid.vel_R[1] = primitive_velocity(fluid.momentum[2], fluid.density[2])
+    fluid.vel_L[end] = primitive_velocity(
+        fluid.momentum[end - 1], fluid.density[end - 1],
+    )
+    fluid.vel_R[end] = primitive_velocity(fluid.momentum[end], fluid.density[end])
 
     return
 end
@@ -120,7 +123,7 @@ function compute_fluxes_continuity!(fluid, grid)
 end
 
 function compute_fluxes_isothermal!(fluid, grid)
-    (; flux_dens, flux_mom, dens_L, dens_R, mom_L, mom_R) = fluid
+    (; flux_dens, flux_mom, dens_L, dens_R, vel_L, vel_R) = fluid
     a = fluid.sound_speed
     RT = a^2 / fluid.species.element.γ
 
@@ -128,10 +131,8 @@ function compute_fluxes_isothermal!(fluid, grid)
 
     @inbounds for i in eachindex(dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
-        ρu_L, ρu_R = mom_L[i], mom_R[i]
-
-        u_L = primitive_velocity(ρu_L, ρ_L)
-        u_R = primitive_velocity(ρu_R, ρ_R)
+        u_L, u_R = vel_L[i], vel_R[i]
+        ρu_L, ρu_R = ρ_L * u_L, ρ_R * u_R
 
         # For nonnegative sound speed, max(|u - a|, |u + a|) = |u| + a.
         smax = max(abs(u_L), abs(u_R)) + a

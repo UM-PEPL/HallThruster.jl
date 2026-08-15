@@ -23,8 +23,8 @@ struct FluidContainer
     mom_cache::Vector{Float64}
     dens_L::Vector{Float64}
     dens_R::Vector{Float64}
-    mom_L::Vector{Float64}
-    mom_R::Vector{Float64}
+    vel_L::Vector{Float64}
+    vel_R::Vector{Float64}
     flux_dens::Vector{Float64}
     flux_mom::Vector{Float64}
     """Constant wave speed used by continuity-only fluids"""
