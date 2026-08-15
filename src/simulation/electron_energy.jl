@@ -217,8 +217,9 @@ function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indice
         inv_m = 1 / fluids[ind].species.element.m
         @inbounds for i in 2:(ncells - 1)
             r = rate_coeff(rxn, ϵ[i])
-            ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
-            νex[i] += ndot / ne[i]
+            excitation_frequency = r * dens[i] * inv_m
+            ndot = excitation_frequency * ne[i]
+            νex[i] += excitation_frequency
             Q[i] += ndot * (rxn.energy - !landmark * K[i])
         end
     end

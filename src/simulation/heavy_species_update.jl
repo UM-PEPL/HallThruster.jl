@@ -457,7 +457,7 @@ function apply_reactions!(fluids, rxns, cache, landmark)
 end
 
 function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
-    dt_max = Inf
+    max_destruction_frequency = 0.0
     reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
@@ -470,13 +470,16 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
     @inbounds @simd for i in 2:(ncells - 1)
         r = rate_coeff(rxn, ϵ[i])
         ρ_reactant = reactant.density[i]
-        ρdot = reaction_rate(r, ne[i], ρ_reactant)
+        destruction_frequency = r * ne[i]
+        ρdot = destruction_frequency * ρ_reactant
         ndot = ρdot * inv_m
         if ρdot > 0
-            dt_max = min(dt_max, ρ_reactant / ρdot)
+            max_destruction_frequency = max(
+                max_destruction_frequency, destruction_frequency,
+            )
         end
         if ne[i] > 0
-            νiz[i] += ndot / ne[i]
+            νiz[i] += r * ρ_reactant * inv_m
             inelastic_losses[i] += ndot * rxn.energy
         end
 
@@ -511,7 +514,7 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
         end
     end
 
-    return dt_max
+    return inv(max_destruction_frequency)
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
