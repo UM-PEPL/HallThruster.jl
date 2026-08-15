@@ -370,9 +370,11 @@ function load_propellant_config(propellant_config; directories = String[], verbo
         ion_temperature_K = get(gas_dict, "ion_temperature_K", default_ion_temp)
         allowed_charges = get(gas_dict, "allowed_charges", nothing)
         max_charge = get(gas_dict, "max_charge", nothing)
+        excited_levels = get(gas_dict, "excited_levels", nothing)
+        excited_ion_levels = get(gas_dict, "excited_ion_levels", nothing)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
 
-        push!(props, Propellant(; gas, allowed_charges, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+        push!(props, Propellant(; gas, allowed_charges, max_charge, excited_levels, excited_ion_levels, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
     end
 
     return props

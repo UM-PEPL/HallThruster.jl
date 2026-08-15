@@ -23,6 +23,10 @@ rxn_I_III = het.ElectronImpactReaction(0.0, Xe_I, [Xe_III], r)
     joinpath(het.REACTION_FOLDER, "excitation_Xe_Xe2+.dat")
 @test het.rate_coeff_filename(Xe_0, nothing, "excitation") ==
     joinpath(het.REACTION_FOLDER, "excitation_Xe.dat")
+@test het.rate_coeff_filename(het.Xenon(0, 2), nothing, "excitation") ==
+    joinpath(het.REACTION_FOLDER, "excitation_Xe_e2.dat")
+@test het.rate_coeff_filename(het.Xenon(2, 2), nothing, "excitation") ==
+    joinpath(het.REACTION_FOLDER, "excitation_Xe2+_e2.dat")
 
 Bi_0 = het.Bismuth(0)
 Bi_I = het.Bismuth(1)
@@ -39,6 +43,8 @@ Bi_I = het.Bismuth(1)
 landmark_rxns = het.load_electron_impact_reactions(:Landmark, [Xe_0, Xe_I])
 @test length(landmark_rxns) == 1
 @test het.rate_coeff(landmark_rxns[1], 19.0) ≈ 5.69e-14
+@test het.rate_coeff(landmark_rxns[1], NaN) == first(landmark_rxns[1].rate_coeffs)
+@test het.rate_coeff(landmark_rxns[1], Inf) == first(landmark_rxns[1].rate_coeffs)
 
 # Test behavior of general lookup
 @test_throws ArgumentError het.load_electron_impact_reactions(:Lookup, [Bi_0, Bi_I])
@@ -107,6 +113,14 @@ iz_landmark_rxn = landmark_rxns[1]
     12.12 * het.rate_coeff(iz_landmark_rxn, 14.32) ≈
     loss_itp(14.32)
 
+@test het._parse_species_term("Xe(2+,2*)") == het.RxnTerm("Xe", 2, 2)
+@test het._parse_species_term("Xe(*)") == het.RxnTerm("Xe", 0, 1)
+@test het._parse_species_term("Xe(2*)") == het.RxnTerm("Xe", 0, 2)
+@test_throws ErrorException het._parse_species_term("Xe**")
+@test_throws ErrorException het._parse_species_term("Xe(2*)(2+)")
+@test het._deexcitation_rate(2, 1, 0.5, "test") == log(2.0) / 0.5
+@test_throws ErrorException het._deexcitation_rate(2, 3, 0.5, "test")
+@test_throws ErrorException het._deexcitation_rate(2, 1, 0.0, "test")
 # More complex reactions
 rxn_test = het.ElectronImpactReaction(0.0, het.MolecularNitrogen(0), [het.Nitrogen(0), het.Nitrogen(0)], r)
 @test repr(rxn_test) == "e(-) + N2 -> e(-) + N + N"

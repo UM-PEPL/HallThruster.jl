@@ -57,9 +57,20 @@ function _get_species_states(fluids_by_propellant)
     ions = OrderedDict{Symbol, Vector{SpeciesState}}()
 
     for fluids in fluids_by_propellant
-        continuity = fluids.continuity[1]
-        m = continuity.species.element.m
+        m = fluids.continuity[1].species.element.m
         inv_m = 1 / m
+        gas_symbol = fluids.continuity[1].species.element.short_name
+
+        # Ground neutral (index 1) plus any excited-state neutrals, each keyed by its
+        # species symbol: :Xe for ground, Symbol("Xe(*)"), Symbol("Xe(2*)"), ... for excited.
+        for continuity in fluids.continuity
+            neutral_state = SpeciesState(length(continuity.density), m, 0)
+            @. neutral_state.n = continuity.density * inv_m
+            @. neutral_state.u = continuity.const_velocity
+            @. neutral_state.nu = neutral_state.n * neutral_state.u
+            remove_ghosts!(neutral_state)
+            neutrals[continuity.species.symbol] = neutral_state
+        end
 
         symbol = continuity.species.element.formula
         neutral_state = SpeciesState(length(continuity.density), m, 0)
@@ -78,7 +89,7 @@ function _get_species_states(fluids_by_propellant)
             remove_ghosts!(ion_state)
             push!(ion_states, ion_state)
         end
-        ions[symbol] = ion_states
+        ions[gas_symbol] = ion_states
     end
 
     return neutrals, ions

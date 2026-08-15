@@ -64,18 +64,48 @@ struct FluidContainer
     end
 end
 
+"""
+$(TYPEDEF)
+
+Collection of all `FluidContainer`s, grouped by conservation law type. `continuity` holds
+the ground-state neutral first, then one fluid per excited state; `isothermal` holds one
+fluid per ion charge state.
+"""
 struct FluidContainerSet
     continuity::Vector{FluidContainer}
     isothermal::Vector{FluidContainer}
 end
 
-function allocate_fluids(p::Propellant, ncells)
+"""
+    ground_neutral(fluids::FluidContainerSet) -> FluidContainer
+The ground-state neutral fluid (the first continuity fluid).
+"""
+ground_neutral(fluids::FluidContainerSet) = fluids.continuity[1]
+
+"""
+    excited_fluids(fluids::FluidContainerSet) -> Vector{FluidContainer}
+All excited-state neutral fluids in the set.
+"""
+excited_fluids(fluids::FluidContainerSet) =
+    [f for f in fluids.continuity if is_excited(f.species)]
+
+function allocate_fluids(p::Propellant, ncells; excited_levels = p.excited_levels)
+    # Ground state first, then one fluid per excited level, all advecting with the neutral flow
     continuity = [
-        FluidContainer(_ContinuityOnly, p.gas(0), ncells; vel = p.velocity_m_s, temp = p.temperature_K),
+        FluidContainer(
+            _ContinuityOnly, p.gas(0, excited_level), ncells;
+            vel = p.velocity_m_s, temp = p.temperature_K,
+        )
+        for excited_level in [0; sort!(collect(excited_levels))]
     ]
 
     isothermal = [
-        FluidContainer(_IsothermalEuler, p.gas(Z), ncells; temp = p.ion_temperature_K) for Z in p.allowed_charges
+        FluidContainer(
+            _IsothermalEuler, p.gas(Z, excited_level), ncells;
+            temp = p.ion_temperature_K,
+        )
+        for Z in p.allowed_charges
+        for excited_level in [0; get(p.excited_ion_levels, Z, Int[])]
     ]
     return FluidContainerSet(continuity, isothermal)
 end

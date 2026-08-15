@@ -88,14 +88,21 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     # Tanh function steps between inlet and outlet densities
     neutral_function(z) = smooth_if(z - z0, L_ch / 2, ρn_0, ρn_1, L_ch / 6)
 
-    # Fill the fluid containers
-    @inbounds for fluid in fluids.continuity
-        @. fluid.density = neutral_function(grid.cell_centers)
+    # Only the ground-state neutral carries the neutral density at t=0; excited states
+    # start empty and fill via excitation reactions.
+    @inbounds for (i, fluid) in enumerate(fluids.continuity)
+        if i == 1
+            @. fluid.density = neutral_function(grid.cell_centers)
+        else
+            @. fluid.density = 1e-10 * neutral_function(grid.cell_centers)  # floor, ~0
+        end
     end
 
+    # Excited ions start near zero to avoid duplicating the initial charge density.
     @inbounds for fluid in fluids.isothermal
         Z = fluid.species.Z
-        @. fluid.density = ion_density_function(grid.cell_centers, Z)
+        excitation_fraction = is_excited(fluid.species) ? 1.0e-10 : 1.0
+        @. fluid.density = excitation_fraction * ion_density_function(grid.cell_centers, Z)
         @. fluid.momentum = fluid.density * ion_velocity_function(grid.cell_centers, Z)
     end
 
