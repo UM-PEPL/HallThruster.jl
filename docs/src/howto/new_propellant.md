@@ -10,21 +10,56 @@ If you wanted to run a thruster simulation on neon, you would first create an ap
 ```jldoctest; output=false
 using HallThruster: HallThruster as het
 
-Neon = het.Gas("Neon", "Ne"; γ = 5/3, M = 20.1797)
+Neon = het.Gas("Ne")
 
 # output
 
-Neon
+Ne
 ```
-Next, you need to find some reactions.
+
+Note that we did not specify the ratio of specific heats, $\gamma$, or the molar mass.
+HallThruster.jl can calculate these properties for simple monatomic and diatomic gases.
+For more complex propellants, we need to specify at least $\gamma$. 
+The mass can still be computed from the chemical formula.
+
+```jldoctest; setup = :(using HallThruster: HallThruster as het)
+# incorrect
+CO2 = het.Gas("CO2")
+
+# output
+ERROR: The ratio of specific heats,
+```
+
+```jldoctest; output = false, setup = :(using HallThruster: HallThruster as het)
+# correct
+CO2 = het.Gas("CO2", γ = 1.28)
+
+# output
+
+CO2
+```
+
+More complex molecular formulae are possible, and parentheses used to group terms.
+```jldoctest; output = false, setup = :(using HallThruster: HallThruster as het)
+
+# No one would want to run a thruster on calcium hydroxide, but it's a good demonstration case.
+# The gamma value in this case is made-up.
+CaOH = het.Gas("Ca(OH)2", γ = 1.4)
+
+# output
+
+Ca(OH)2
+```
+
+While defining a gas is easy enough, you still need to provide reaction rate coefficients or else `HallThruster.jl` won't be able to tell how to ionize the input gas.
 Ionization reactions are mandatory, while elastic collisions and excitation reactions are optional.
 We recommend you check the [LXCat](https://nl.lxcat.net/data/set_type.php) database for appropriate cross sections.
 
 You must then convert cross sections must be converted into ionization rate coefficients by integrating over a Maxwellian electron energy distribution for a number of energies.
-You can do this manually, or use a tool like [BOLSIG+](https://www.bolsig.laplace.univ-tlse.fr/) to do it for you.
+You can do this yourself or have a tool like [BOLSIG+](https://www.bolsig.laplace.univ-tlse.fr/) do it for you.
 
-Then, you must place the resulting table of electron energy versus rate coefficient in an appropriately-named file.
-The expected formats for these filenames and files can be seen by examining the tables for the [built-in propellants](https://github.com/UM-PEPL/HallThruster.jl/tree/main/reactions).
+Then, you can either place the resulting table of electron energy versus rate coefficient in an appropriately-named file or provide a propellant configuration TOML file, as shown in the following section.
+The expected formats for filename-based lookup can be seen by examining the tables for the [built-in propellants](https://github.com/UM-PEPL/HallThruster.jl/tree/main/reactions).
 
 If you want to run a simulation with `Z` as the maximum charge state, `HallThruster` requires at least one reaction containing each species, including the mandatory first ionization reaction (i.e. neutral -> singly-charged ion).
 For example, for Neon with `max_charge = 3`, the following ionization reaction sets would suffice.
@@ -38,10 +73,13 @@ With these files created, you can now run a simulation using Neon as a propellan
 ```julia
 using HallThruster: HallThruster as het
 
-Neon = het.Gas("Neon", "Ne"; γ = 5/3, M = 20.1797)
 
 config = het.Config(
-    propellants = het.Propellant(Neon, flow_rate_kg_s = 5e-6),
+    propellants = het.Propellant(het.Gas("Ne"), flow_rate_kg_s = 5e-6),
+    # For monatomic and diatomic propellants, you can simply pass the chemical formula and
+    # the code will construct the Gas object for you with the default handling of specific heat ratios
+    # and masses.
+    # propellants = het.Propellant("Ne", flow_rate_kg_s = 5e-6),
     reaction_rate_directories = ["~/reactions/neon_reaction_dir"]
     ... # other arguments
 )
@@ -61,17 +99,13 @@ See [Configuration](@ref) for more details about these options.
 ## Molecular propellants
 
 Hallthruster.jl also supports molecular propellants.
-These are handled through a `propellant_config` file passed to the `Config`.
-This replaces the `propellants` argument and will disable the automatic reaction network construction described above for monatomic propellants.
-The `propellant_config` is expected to be a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
+These are handled through a `propellant_config` TOML file passed to the `Config`.
+This replaces the `propellants` argument and disables the automatic filename-based reaction rate lookup described above.
+The `propellant_config` file is a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
 We suport three types of reactions: elastic/momentum transfer collisions, excitation reactions, and electron-impact reactions.
-These latter include disocciation, ionization, and dissociative ionization.
+These latter include dissociation, ionization, and dissociative ionization.
 
 We do not provide complete cross sections out-of-the box in HallThruster.jl for any molecular species, but we show an example configuration file for nitrogen below.
-Note that if your provided species match any of HallThruster.jl's built-in species, the code will use the built-in species.
-To check this, we look at the provided symbol and mass, ignoring the specific heat ratio and full name.
-This means that these fields can be omitted if you are using built-in gases.
-Check `HallThruster.GASES` for a list of the built-in gases.
 Just as for normal propellants, you can also specify the temperature, flow rate, and velocity of each neutral fluid.
 
 The reaction file paths are assumed to be relative to the current working directory, but other directories can be passed in using the `reaction_rate_directories` configuration argument.

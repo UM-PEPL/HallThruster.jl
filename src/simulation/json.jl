@@ -75,7 +75,7 @@ function frame_dict(sol::Solution, frame::Integer)
     d["channel_area"] = f.channel_area
 
     if length(sol.config.propellants) == 1
-        symbol = sol.config.propellants[1].gas.short_name
+        symbol = sol.config.propellants[1].gas.formula
         d["nn"] = f.neutrals[symbol].n
         d["ni"] = [ion.n for ion in f.ions[symbol]]
         d["ui"] = [ion.u for ion in f.ions[symbol]]
