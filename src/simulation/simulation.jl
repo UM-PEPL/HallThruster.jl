@@ -96,6 +96,7 @@ function setup_simulation(
         # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
+        last_wall_cell = 0,
         grid,
         postprocess = if isnothing(postprocess)
             Postprocess()

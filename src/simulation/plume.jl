@@ -17,6 +17,14 @@ function initialize_plume_geometry(params)
                 grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
             )
         end
+
+        # Cache the final interior cell affected by ion wall losses. The wall
+        # transition and grid are fixed throughout the simulation.
+        last_wall_cell = length(wall_transition) - 1
+        while last_wall_cell >= 2 && iszero(wall_transition[last_wall_cell])
+            last_wall_cell -= 1
+        end
+        params.last_wall_cell = last_wall_cell
     end
 
     return nothing

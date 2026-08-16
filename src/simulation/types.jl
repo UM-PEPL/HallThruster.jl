@@ -130,6 +130,7 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     ion_wall_losses::Bool
     wall_loss_scale::Float64
     plume_loss_scale::Float64
+    last_wall_cell::Int
     anom_smoothing_iters::Int
     discharge_voltage::Float64
     filter_circuit::CircuitModel

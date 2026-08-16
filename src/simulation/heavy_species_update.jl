@@ -718,25 +718,26 @@ function prepare_ion_wall_losses!(params)
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     h = wall_loss_scale * edge_to_center_density_ratio()
     wall_loss_base = cache.cell_cache_1
+    wall_cells = 2:params.last_wall_cell
 
     # This cell-dependent part is common to every ion species: it contains the
     # local electron temperature, wall transition, geometry, and sheath-density
     # correction. Compute it once per derivative evaluation and reuse the cache
     # while applying the species-dependent charge-to-mass scaling below.
-    @inbounds @simd for i in 2:(length(wall_loss_base) - 1)
+    @inbounds @simd for i in wall_cells
         wall_loss_base[i] =
             cache.wall_transition[i] * sqrt(e * cache.Tev[i]) * inv_Δr * h
     end
 
-    return wall_loss_base
+    return wall_loss_base, wall_cells
 end
 
 function apply_ion_wall_losses!(params)
     # Preparing outside the propellant loop avoids repeating the shared cell work
     # for molecular propellants with many ion fluids or reaction products.
-    wall_loss_base = prepare_ion_wall_losses!(params)
+    wall_loss_base, wall_cells = prepare_ion_wall_losses!(params)
     for fluids in params.fluids_by_propellant
-        apply_ion_wall_losses!(fluids, wall_loss_base)
+        apply_ion_wall_losses!(fluids, wall_loss_base, wall_cells)
     end
     return
 end
@@ -744,11 +745,11 @@ end
 function apply_ion_wall_losses!(fluid_containers, params)
     # Retain the single-container entry point while using the same split between
     # shared cell work and species-specific losses.
-    wall_loss_base = prepare_ion_wall_losses!(params)
-    return apply_ion_wall_losses!(fluid_containers, wall_loss_base)
+    wall_loss_base, wall_cells = prepare_ion_wall_losses!(params)
+    return apply_ion_wall_losses!(fluid_containers, wall_loss_base, wall_cells)
 end
 
-function apply_ion_wall_losses!(fluid_containers, wall_loss_base::Vector{Float64})
+function apply_ion_wall_losses!(fluid_containers, wall_loss_base, wall_cells)
     (; continuity, isothermal) = fluid_containers
 
     neutral_fluid = continuity[1]
@@ -764,7 +765,7 @@ function apply_ion_wall_losses!(fluid_containers, wall_loss_base::Vector{Float64
         # shared cell-dependent factor prepared above.
         species_scale = sqrt(Z / ion_fluid.species.element.m)
 
-        for i in 2:(length(ion_fluid.density) - 1)
+        for i in wall_cells
             νiw = wall_loss_base[i] * species_scale
 
             density_loss = ion_fluid.density[i] * νiw
