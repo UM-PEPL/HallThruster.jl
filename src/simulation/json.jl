@@ -46,7 +46,7 @@ end
     $(TYPEDSIGNATURES)
 Convert one frame of a `Solution` to an `OrderedDict`
 """
-function frame_dict(sol::Solution, frame::Integer)
+Base.@nospecializeinfer function frame_dict(@nospecialize(sol::Solution), frame::Integer)
     f = sol.frames[frame]
     d = OrderedDict{String, Any}()
     d["thrust"] = thrust(sol, frame)
@@ -112,8 +112,9 @@ Convert `sol` to an `OrderedDict`, containing both the inputs used to run the si
 and any requested outputs.
 This function is used to convert a `Solution` to a format suitable for writing to an output file.
 """
-function serialize_sol(
-        sol::Solution; average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,
+Base.@nospecializeinfer function serialize_sol(
+        @nospecialize(sol::Solution);
+        average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,
     )
     output = OrderedDict{String, Any}()
     output["retcode"] = string(sol.retcode)
@@ -154,8 +155,8 @@ Write `sol` to `file`, if `file` is a JSON file. Any NaN or Inf values in the so
 - `average_start_time` = -1: the time at which averaging begins. If < 0, no averaged output is written.
 - `save_time_resolved` = true: Whether to save all frames of the simulation. If `false`, no time-resolved output is written.
 """
-function write_to_json(
-        file::String, sol::Solution;
+Base.@nospecializeinfer function write_to_json(
+        file::String, @nospecialize(sol::Solution);
         average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,
     )
 
