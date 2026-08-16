@@ -424,22 +424,25 @@ end
 function apply_reactions!(fluids, rxns, cache, landmark)
     (; inelastic_losses, νiz, ϵ, ne, K) = cache
 
-    # Zero ionization frequency and inelastic losses and compute electron density
-    @inbounds begin
-        # Update electron density (TODO check if this is optimal)
-        ne .= 0.0
-        for fluid in fluids
-            for i in eachindex(ne)
-                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
-            end
+    # Recompute electron density for the current RK stage. Neutral fluids do not
+    # contribute, which becomes increasingly useful with multiple propellants.
+    fill!(ne, 0.0)
+    @inbounds for fluid in fluids
+        Z = fluid.species.Z
+        iszero(Z) && continue
+        charge_to_mass = Z / fluid.species.element.m
+        @simd for i in eachindex(ne)
+            ne[i] += charge_to_mass * fluid.density[i]
         end
-        @. ne = max(ne, MIN_NUMBER_DENSITY)
-        νiz .= 0.0
-        inelastic_losses .= 0.0
-        @. ϵ = cache.nϵ / cache.ne
-        if !landmark
-            @. ϵ += K
-        end
+    end
+
+    # Initialize reaction outputs and electron energy in the same traversal.
+    @inbounds @simd for i in eachindex(ne)
+        electron_density = max(ne[i], MIN_NUMBER_DENSITY)
+        ne[i] = electron_density
+        νiz[i] = 0.0
+        inelastic_losses[i] = 0.0
+        ϵ[i] = cache.nϵ[i] / electron_density + (landmark ? 0.0 : K[i])
     end
 
     # All lookup tables use the same unit-spaced energy coordinate. With multiple
