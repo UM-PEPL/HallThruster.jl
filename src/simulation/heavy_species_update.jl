@@ -681,22 +681,28 @@ function apply_associative_detachment!(params)
 end
 
 function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
-    dt_max = Inf
+    max_abs_qe_m = 0.0
 
     @inbounds for fluid in fluids
         Z = fluid.species.Z
         m = fluid.species.element.m
         qe_m = Z * e / m
+        max_abs_qe_m = max(max_abs_qe_m, abs(qe_m))
 
         @simd for i in 2:(length(fluid.dens_ddt) - 1)
             qE_m = -qe_m * cache.∇ϕ[i]
-            dz = grid.dz_cell[i]
+            fluid.mom_ddt[i] += qE_m * fluid.density[i]
+        end
+    end
 
-            Q_accel = qE_m * fluid.density[i]
-            if isfinite(qE_m)              # skip non-finite ∇ϕ so NaN can't poison dt_E via min
-                dt_max = min(dt_max, abs(dz / qE_m))
-            end
-            fluid.mom_ddt[i] += Q_accel
+    # The most restrictive acceleration timestep comes from the ion with the
+    # largest |q/m|, so reduce over the grid once rather than once per species.
+    dt_max = Inf
+    @inbounds @simd for i in 2:(length(grid.dz_cell) - 1)
+        qE_m = max_abs_qe_m * cache.∇ϕ[i]
+        # Skip non-finite ∇ϕ so NaN cannot poison dt_E through the reduction.
+        if isfinite(qE_m)
+            dt_max = min(dt_max, abs(grid.dz_cell[i] / qE_m))
         end
     end
 

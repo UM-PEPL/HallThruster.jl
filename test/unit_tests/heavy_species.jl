@@ -61,3 +61,29 @@ using HallThruster: HallThruster as het
     expected_νiz = 2.0 / fluid_arr[1].species.element.m
     @test all(νiz[2:(end - 1)] .≈ expected_νiz)
 end
+
+@testset "Ion acceleration timestep" begin
+    ncells = 3
+    propellant = het.Propellant(het.Xenon, 0.0, max_charge = 3)
+    fluids = het.allocate_fluids(propellant, ncells).isothermal
+    grid = (; dz_cell = [1.0, 0.4, 0.7, 0.5, 1.0])
+    cache = (; ∇ϕ = [0.0, -2.0, 4.0, -8.0, 0.0], dt_E = fill(0.0))
+
+    for (j, fluid) in enumerate(fluids)
+        fluid.density .= j
+    end
+
+    het.apply_ion_acceleration!(fluids, grid, cache)
+
+    expected_dt = Inf
+    for fluid in fluids
+        qe_m = fluid.species.Z * het.e / fluid.species.element.m
+        for i in 2:(ncells + 1)
+            qE_m = -qe_m * cache.∇ϕ[i]
+            expected_dt = min(expected_dt, abs(grid.dz_cell[i] / qE_m))
+            @test fluid.mom_ddt[i] == qE_m * fluid.density[i]
+        end
+    end
+
+    @test cache.dt_E[] == sqrt(expected_dt)
+end
