@@ -19,10 +19,8 @@ function update_electron_energy!(params, wall_loss_model, user_source_energy!, d
     # Solve equation system using the Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    # Make sure Tev is positive, limit if below minumum electron temperature
-    limit_energy!(nϵ, ne, params.min_Te)
-    update_temperature!(Tev, nϵ, ne, params.min_Te)
-    update_pressure!(pe, nϵ, landmark)
+    # Limit energy and update temperature and pressure in one state traversal.
+    update_energy_state!(Tev, nϵ, ne, pe, params.min_Te, landmark)
     update_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     return
@@ -157,20 +155,19 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
     return
 end
 
-function limit_energy!(nϵ, ne, min_Te)
-    @inbounds for i in interior_cells(nϵ)
-        if !isfinite(nϵ[i]) || nϵ[i] < 1.5 * min_Te * ne[i]
-            nϵ[i] = 1.5 * min_Te * ne[i]
+function update_energy_state!(Tev, nϵ, ne, pe, min_Te, landmark)
+    pe_factor = landmark ? 1.0 : 2.0 / 3.0
+    @inbounds @simd for i in eachindex(Tev)
+        energy = nϵ[i]
+        temperature = if isfinite(energy)
+            max(min_Te, energy / ne[i] / 1.5)
+        else
+            min_Te
         end
-    end
-    return
-end
-
-function update_temperature!(Tev, nϵ, ne, min_Te)
-    @inbounds for i in eachindex(Tev)
-        # Calc electron temp and update electron energy if changed
-        Tev[i] = max(min_Te, nϵ[i] / ne[i] / 1.5)
-        nϵ[i] = 1.5 * ne[i] * Tev[i]
+        energy = 1.5 * ne[i] * temperature
+        Tev[i] = temperature
+        nϵ[i] = energy
+        pe[i] = pe_factor * energy
     end
     return
 end

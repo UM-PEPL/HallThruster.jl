@@ -24,7 +24,7 @@ function update_electrons!(params, config, t = 0)
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)
 
-    # update the thermal conductivity
+    # Update thermal conductivity.
     conductivity_model(κ, params)
 
     # Update the electron energy density,  temperature and pressure
