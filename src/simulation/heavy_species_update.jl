@@ -442,13 +442,37 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         end
     end
 
+    # All lookup tables use the same unit-spaced energy coordinate. With multiple
+    # reactions, compute its integer part once per cell instead of once per table.
+    reaction_rate_indices = if length(rxns) > 1
+        indices = cache.reaction_rate_indices
+        @inbounds @simd for i in eachindex(ϵ)
+            energy = ϵ[i]
+            indices[i] = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
+        end
+        indices
+    else
+        nothing
+    end
+
     dt_max = Inf
     for (rxn, reactant_index, product_index) in rxns
         # Temp storage for reaction calculations
         rxn_cache = (cache.cell_cache_1, cache.cell_cache_2)
 
         # Apply single reaction
-        _dt = apply_reaction!(fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+        _dt = if isnothing(reaction_rate_indices)
+            apply_reaction!(
+                fluids, reactant_index, product_index, rxn.product_coeffs,
+                rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark,
+            )
+        else
+            apply_reaction!(
+                fluids, reactant_index, product_index, rxn.product_coeffs,
+                rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark,
+                reaction_rate_indices,
+            )
+        end
         dt_max = min(_dt, dt_max)
     end
 
@@ -457,6 +481,16 @@ function apply_reactions!(fluids, rxns, cache, landmark)
 end
 
 function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+    return apply_reaction!(
+        fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ,
+        rxn, νiz, inelastic_losses, landmark, nothing,
+    )
+end
+
+function apply_reaction!(
+        fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ,
+        rxn, νiz, inelastic_losses, landmark, reaction_rate_indices,
+    )
     max_destruction_frequency = 0.0
     reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
@@ -468,7 +502,11 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
 
     # Compute reaction rate and adjust reactant properties
     @inbounds @simd for i in 2:(ncells - 1)
-        r = rate_coeff(rxn, ϵ[i])
+        r = if isnothing(reaction_rate_indices)
+            rate_coeff(rxn, ϵ[i])
+        else
+            rate_coeff(rxn, ϵ[i], reaction_rate_indices[i])
+        end
         ρ_reactant = reactant.density[i]
         destruction_frequency = r * ne[i]
         ρdot = destruction_frequency * ρ_reactant
