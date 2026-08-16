@@ -345,7 +345,7 @@
             }
         },
         "postprocess": {
-            "output_file": "_output.json",
+            "output_file": "",
             "average_start_time": 0.0005,
             "save_time_resolved": false
         }
