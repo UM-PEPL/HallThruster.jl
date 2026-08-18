@@ -36,6 +36,10 @@ function time_average(sol::Solution, start_frame::Integer = 1)
                 avg[symbol].nu .= 0.0
                 avg[symbol].u .= 0.0
             end
+        elseif f == :intensities
+            for intensity in values(avg)
+                intensity .= 0.0
+            end
         elseif f == :ions
             for prop in sol.config.propellants
                 symbol = prop.gas.short_name
@@ -67,6 +71,10 @@ function time_average(sol::Solution, start_frame::Integer = 1)
                     avg[symbol].n .+= field[symbol].n ./ dt
                     avg[symbol].nu .+= field[symbol].nu ./ dt
                     avg[symbol].u .+= field[symbol].u ./ dt
+                end
+            elseif f == :intensities
+                for (wavelength, intensity) in avg
+                    intensity .+= field[wavelength] ./ dt
                 end
             elseif f == :ions
                 for prop in sol.config.propellants
@@ -266,3 +274,143 @@ end
 Compute the mass utilization efficiency at each frame of a `Solution`.
 """
 mass_eff(sol::Solution) = [mass_eff(sol, frame) for frame in eachindex(sol.frames)]
+
+const _HC_EV_NM = 1239.8419843320026
+
+_radiative_state_key(state) =
+    (Symbol(state.species), Int(state.charge), Int(state.excited_level))
+
+function _radiative_level_energies(chemistry, directories)
+    edges = NamedTuple[]
+    energies = Dict{Tuple{Symbol, Int, Int}, Float64}()
+    for reaction in get(chemistry, "reactions", Any[])
+        get(reaction, "type", "") == "electron_impact" || continue
+        haskey(reaction, "equation") && haskey(reaction, "rate_coeff_file") || continue
+        reactants, products = _parse_reaction_equation(reaction["equation"])
+        path = find_file_in_dirs(reaction["rate_coeff_file"], directories)
+        isnothing(path) && continue
+        threshold = match(r":\s*([-+0-9.eE]+)", open(readline, path))
+        isnothing(threshold) && continue
+        delta_eV = parse(Float64, threshold.captures[1])
+        for upper in keys(products), lower in keys(reactants)
+            upper.species == "e" && continue
+            lower.species == "e" && continue
+            upper.species == lower.species || continue
+            upper.charge == lower.charge || continue
+            upper.excited_level > lower.excited_level || continue
+            push!(edges, (; lower, upper, delta_eV))
+            energies[(Symbol(lower.species), Int(lower.charge), 0)] = 0.0
+        end
+    end
+
+    for _ in 1:(length(edges) + 1)
+        changed = false
+        for edge in edges
+            lower = _radiative_state_key(edge.lower)
+            upper = _radiative_state_key(edge.upper)
+            if haskey(energies, lower) && !haskey(energies, upper)
+                energies[upper] = energies[lower] + edge.delta_eV
+                changed = true
+            end
+        end
+        changed || break
+    end
+    return energies
+end
+
+function _radiative_transitions(chemistry, energies)
+    transitions = NamedTuple[]
+    for reaction in get(chemistry, "reactions", Any[])
+        get(reaction, "type", "") == "de-excitation" || continue
+        upper = _parse_species_term(reaction["target_species"])
+        branches = Int.(reaction["branches"])
+        half_lives = Float64.(reaction["half_lives"])
+        length(branches) == length(half_lives) ||
+            error("`branches` and `half_lives` must have equal length.")
+        upper_energy = get(energies, _radiative_state_key(upper), NaN)
+        isfinite(upper_energy) || error("Missing energy for $(upper).")
+
+        for (lower_level, half_life) in zip(branches, half_lives)
+            lower = RxnTerm(upper.species, upper.charge, lower_level)
+            lower_energy = get(energies, _radiative_state_key(lower), NaN)
+            isfinite(lower_energy) || error("Missing energy for $(lower).")
+            photon_energy_eV = upper_energy - lower_energy
+            photon_energy_eV > 0 || continue
+            push!(transitions, (;
+                upper,
+                lower,
+                upper_label = string(upper),
+                lower_label = string(lower),
+                rate_s = log(2.0) / half_life,
+                photon_energy_eV,
+                wavelength_nm = _HC_EV_NM / photon_energy_eV,
+            ))
+        end
+    end
+    return transitions
+end
+
+function _radiative_ion_indices(solution)
+    indices = Dict{Tuple{Symbol, Int, Int}, Int}()
+    for propellant in solution.config.propellants
+        index = 0
+        for charge in propellant.allowed_charges
+            for level in [0; get(propellant.excited_ion_levels, charge, Int[])]
+                index += 1
+                indices[(propellant.gas.short_name, charge, level)] = index
+            end
+        end
+    end
+    return indices
+end
+
+function _radiative_state_density(frame, state, ion_indices)
+    if state.charge == 0
+        key = Symbol(_species_string(state.species, state.charge, state.excited_level))
+        haskey(frame.neutrals, key) || error("State $(state) is not saved.")
+        return frame.neutrals[key].n
+    end
+    key = _radiative_state_key(state)
+    haskey(ion_indices, key) || error("State $(state) is not saved.")
+    return frame.ions[Symbol(state.species)][ion_indices[key]].n
+end
+
+function populate_radiative_intensities!(solution)
+    chemistry_file = solution.config.propellant_config
+    isempty(chemistry_file) && return solution
+    chemistry_file = abspath(chemistry_file)
+    chemistry = TOML.parsefile(chemistry_file)
+    directories = [dirname(chemistry_file); String.(solution.config.reaction_rate_directories)]
+    energies = _radiative_level_energies(chemistry, directories)
+
+    species = get(chemistry, "species", Any[])
+    if !isempty(species)
+        gas = Symbol(species[1]["symbol"])
+        path = joinpath(dirname(chemistry_file), "$(gas)_level_energies.toml")
+        if isfile(path)
+            for (charge, values) in get(TOML.parsefile(path), "level_energies", Dict())
+                for (level, energy_eV) in enumerate(values)
+                    energies[(gas, parse(Int, charge), level - 1)] = Float64(energy_eV)
+                end
+            end
+        end
+    end
+
+    transitions = _radiative_transitions(chemistry, energies)
+    isempty(transitions) && return solution
+    ion_indices = _radiative_ion_indices(solution)
+    for frame in solution.frames
+        empty!(frame.intensities)
+        for transition in transitions
+            intensity = get!(
+                () -> zeros(length(solution.grid)),
+                frame.intensities,
+                transition.wavelength_nm,
+            )
+            intensity .+= transition.rate_s .* _radiative_state_density(
+                frame, transition.upper, ion_indices,
+            )
+        end
+    end
+    return solution
+end

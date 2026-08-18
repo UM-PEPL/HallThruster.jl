@@ -153,6 +153,8 @@ $(TYPEDFIELDS)
     discharge_current::Array{Float64, 0}
     """ Discharge voltage (V)"""
     discharge_voltage::Array{Float64, 0} = fill(0.0) # need to provide default value for backwards compatibility when loading
+    """Photon emission rate by wavelength (nm), with one value per axial cell (1/m^3/s)"""
+    intensities::Dict{Float64, Vector{Float64}} = Dict{Float64, Vector{Float64}}()
     """Simulation timestep (s)"""
     dt::Array{Float64, 0}
 end
@@ -623,7 +625,7 @@ function solve(params, config, tspan; num_save = -1)
         end
     end
 
-    return Solution(
+    solution = Solution(
         times,
         frames,
         copy_and_remove_ghosts(params.grid.cell_centers),
@@ -633,4 +635,6 @@ function solve(params, config, tspan; num_save = -1)
         retcode,
         errstring,
     )
+    retcode == :success && populate_radiative_intensities!(solution)
+    return solution
 end

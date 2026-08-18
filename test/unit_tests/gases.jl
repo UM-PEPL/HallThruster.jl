@@ -14,8 +14,8 @@ end
     @test repr(het.Species(het.MolecularNitrogen, 0)) == "N2"
 
     M = 5.0
-    Î³ = 1.0
-    gas = het.Gas("Fake", "Fa"; Î³, M)
+    γ = 1.0
+    gas = het.Gas("Fake", "Fa"; γ, M)
     @test repr(gas) == "Fake"
     @test gas.m == M / het.NA
     @test gas(2) == het.Species(gas, 2)

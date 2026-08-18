@@ -73,6 +73,10 @@ function frame_dict(sol::Solution, frame::Integer)
     d["nu_class"] = f.nu_class
     d["mobility"] = f.mobility
     d["channel_area"] = f.channel_area
+    d["intensities"] = OrderedDict(
+        string(wavelength) => f.intensities[wavelength]
+        for wavelength in sort!(collect(keys(f.intensities)))
+    )
 
     if length(sol.config.propellants) == 1
         symbol = sol.config.propellants[1].gas.short_name
