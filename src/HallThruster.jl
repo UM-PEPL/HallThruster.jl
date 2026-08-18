@@ -68,9 +68,7 @@ include("simulation/simulation.jl")
 include("simulation/postprocess.jl")
 include("simulation/json.jl")
 include("simulation/deexcitation_apply.jl")
-include("radiative_analysis/light_emission.jl")
 
-@public analyze_light_spectrum, render_light_3d
 
 @public PYTHON_PATH
 
