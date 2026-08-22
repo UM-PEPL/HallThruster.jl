@@ -45,6 +45,11 @@ landmark_rxns = het.load_electron_impact_reactions(:Landmark, [Xe_0, Xe_I])
 @test het.rate_coeff(landmark_rxns[1], 19.0) ≈ 5.69e-14
 @test het.rate_coeff(landmark_rxns[1], NaN) == first(landmark_rxns[1].rate_coeffs)
 @test het.rate_coeff(landmark_rxns[1], Inf) == first(landmark_rxns[1].rate_coeffs)
+for energy in (-1.2, 0.0, 19.25, 300.0)
+    index = Base.unsafe_trunc(Int, energy)
+    @test het.rate_coeff(landmark_rxns[1], energy, index) ==
+        het.rate_coeff(landmark_rxns[1], energy)
+end
 
 # Test behavior of general lookup
 @test_throws ArgumentError het.load_electron_impact_reactions(:Lookup, [Bi_0, Bi_I])

@@ -36,7 +36,7 @@ mutable struct SimParams{C <: CurrentController}
     """
     adaptive::Bool
     """
-    The CFL number used in adaptive timestepping. Maximum is 0.799. **Default:** 0.799
+    The CFL number used for transport and acceleration in adaptive timestepping. The chemistry CFL is capped at 0.799. **Default:** 0.799
     """
     CFL::Float64
     """
@@ -87,7 +87,6 @@ mutable struct SimParams{C <: CurrentController}
     end
 end
 
-
 """
 $(TYPEDEF)
 Contains postprocessing options for a given simulation.
@@ -111,4 +110,56 @@ $(TYPEDFIELDS)
     If true, each frame of the simulation will be written to the output file.
     """
     save_time_resolved::Bool = false
+end
+
+# Internal simulation state. This is mutable so that passing it between solver
+# kernels passes a reference instead of copying the large aggregate to the heap.
+# The cache and simulation types remain parameters so accesses in hot loops are
+# still fully inferred.
+Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
+    propellants::Vector{Propellant}
+    reconstruct::Bool
+    thruster::Thruster
+    anode_bc::Symbol
+    landmark::Bool
+    transition_length::Float64
+    Te_L::Float64
+    Te_R::Float64
+    implicit_energy::Float64
+    ingestion_flow_rates::Vector{Float64}
+    ion_wall_losses::Bool
+    wall_loss_scale::Float64
+    plume_loss_scale::Float64
+    last_wall_cell::Int
+    anom_smoothing_iters::Int
+    discharge_voltage::Float64
+    filter_circuit::CircuitModel
+    cathode_coupling_voltage::Float64
+    electron_ion_collisions::Bool
+    min_Te::Float64
+    background_pressure_Torr::Float64
+    simulation::S
+    iteration::Vector{Int}
+    dt::Vector{Float64}
+    grid::Grid1D
+    postprocess::Postprocess
+    cache::C
+    ei_reactions::Vector{ElectronImpactReaction}
+    ei_reactant_indices::Vector{Int}
+    ei_product_indices::Vector{Vector{Int}}
+    excitation_reactions::Vector{ExcitationReaction}
+    excitation_reactant_indices::Vector{Int}
+    electron_neutral_collisions::Vector{ElasticCollision}
+    electron_neutral_indices::Vector{Int}
+    deexcitation_reactions::Vector{DeExcitationReaction}
+    deexcitation_reactant_indices::Vector{Int}
+    deexcitation_product_indices::Vector{Vector{Int}}
+    radiative_networks::Vector{RadiativeNetwork}
+    radiative_emission_counts::Matrix{Float64}
+    radiative_transitions::Vector{RadiativeTransition}
+    species_energies_eV::OrderedDict{Symbol, Float64}
+    reaction_loss_frequencies::Matrix{Float64}
+    fluid_containers::FluidContainerSet
+    fluid_array::Vector{FluidContainer}
+    fluids_by_propellant::Vector{FluidContainerSet}
 end

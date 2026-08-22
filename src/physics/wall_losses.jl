@@ -78,16 +78,13 @@ function freq_electron_wall!(νew::Vector{Float64}, ::ConstantSheathPotential, _
 end
 
 function wall_power_loss!(Q, model::ConstantSheathPotential, params)
-    (; cache, grid, transition_length, thruster) = params
+    (; cache, grid) = params
     (; ϵ) = cache
     (; sheath_potential, inner_loss_coeff, outer_loss_coeff) = model
-    L_ch = thruster.geometry.channel_length
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        αϵ = linear_transition(
-            grid.cell_centers[i], L_ch, transition_length,
-            inner_loss_coeff, outer_loss_coeff,
-        )
+        αϵ = outer_loss_coeff +
+            (inner_loss_coeff - outer_loss_coeff) * cache.wall_transition[i]
         Q[i] = 1.0e7 * αϵ * ϵ[i] * exp(-sheath_potential / ϵ[i])
     end
 
@@ -131,21 +128,21 @@ Serialization.options(::Type{WallMaterial}) = wall_materials
 # WallSheath
 ==============================================================================#
 
-function wall_electron_temperature(params, transition_length, i)
-    (; cache, grid, thruster) = params
+@inline function wall_electron_temperature(params, i)
+    (; cache, thruster) = params
 
     shielded = thruster.shielded
 
     Tev = cache.Tev[i]
 
-    Tev_channel = shielded * cache.Tev[1] + !shielded * Tev
+    # For an unshielded thruster the channel and plume temperatures are the
+    # same, so the transition is an identity operation.
+    !shielded && return Tev
+
+    Tev_channel = cache.Tev[1]
     Tev_plume = Tev
 
-    L_ch = thruster.geometry.channel_length
-
-    Tev = linear_transition(
-        grid.cell_centers[i], L_ch, transition_length, Tev_channel, Tev_plume,
-    )
+    Tev = Tev_plume + (Tev_channel - Tev_plume) * cache.wall_transition[i]
 
     return Tev
 end
@@ -173,43 +170,49 @@ end
 
 # TODO: reorganize this into something that operates on arrays
 function freq_electron_wall!(νew::Vector{Float64}, model::WallSheath, params)
-    (; cache, thruster, transition_length) = params
+    (; cache, thruster) = params
 
     # compute difference in radii and edge-to-center density ratio
     Δr = thruster.geometry.outer_radius - thruster.geometry.inner_radius
     h = edge_to_center_density_ratio()
 
-    for i in eachindex(params.grid.cell_centers)
+    sqrt_Tev = cache.cell_cache_1
+    @inbounds for i in eachindex(νew)
         # compute electron wall temperature
-        Tev = wall_electron_temperature(params, transition_length, i)
+        Tev = wall_electron_temperature(params, i)
+        sqrt_Tev[i] = sqrt(Tev)
 
         # use number-averaged mass here
         γ_SEE_max = 1 - 8.3 * sqrt(abs(me / cache.m_eff[i]))
         γ = SEE_yield(model.material, Tev, γ_SEE_max)
         cache.γ_SEE[i] = γ
 
-        # compute the ion current to the walls
-        j_iw = 0.0
-        for fluid in params.fluid_containers.isothermal
-            Z = fluid.species.Z
-            inv_mi = inv(fluid.species.element.m)
-            niw = h * fluid.density[i] * inv_mi
-            j_iw += Z * model.loss_scale * niw * sqrt(abs(Z) * e * Tev * inv_mi)
-        end
+        νew[i] = 0.0
+    end
 
+    # Accumulate the ion current with species constants outside the cell loop.
+    @inbounds for fluid in params.fluid_containers.isothermal
+        Z = fluid.species.Z
+        inv_mi = inv(fluid.species.element.m)
+        coeff = Z * model.loss_scale * h * inv_mi * sqrt(abs(Z) * e * inv_mi)
+        @simd for i in eachindex(νew)
+            νew[i] += coeff * fluid.density[i] * sqrt_Tev[i]
+        end
+    end
+
+    @inbounds @simd for i in eachindex(νew)
         # compute electron wall collision frequency
-        νew[i] = j_iw / (Δr * (1 - γ)) / cache.ne[i]
+        νew[i] /= Δr * (1 - cache.γ_SEE[i]) * cache.ne[i]
     end
 
     return nothing
 end
 
 function wall_power_loss!(Q, ::WallSheath, params)
-    (; cache, grid, thruster, transition_length, plume_loss_scale) = params
-    L_ch = thruster.geometry.channel_length
+    (; cache, grid, plume_loss_scale) = params
 
     @inbounds for i in 2:(length(grid.cell_centers) - 1)
-        Tev = wall_electron_temperature(params, transition_length, i)
+        Tev = wall_electron_temperature(params, i)
 
         # space charge limited SEE coefficient
         γ = params.cache.γ_SEE[i]
@@ -218,9 +221,9 @@ function wall_power_loss!(Q, ::WallSheath, params)
         ϕ_s = sheath_potential(Tev, γ, cache.m_eff[i])
 
         # Compute electron wall collision frequency with transition function for energy wall collisions in plume
-        νew = cache.radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, plume_loss_scale,
-        )
+        plume_transition = plume_loss_scale +
+            (1.0 - plume_loss_scale) * cache.wall_transition[i]
+        νew = cache.radial_loss_frequency[i] * plume_transition
 
         # Compute wall power loss rate
         Q[i] = νew * (2 * Tev + (1 - γ) * ϕ_s)

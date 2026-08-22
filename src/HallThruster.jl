@@ -64,12 +64,12 @@ include("simulation/heavy_species_update.jl")
 include("simulation/electron_energy.jl")
 include("simulation/electron_update.jl")
 include("simulation/plume.jl")
+include("simulation/deexcitation_apply.jl")
 include("simulation/types.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")
 include("simulation/postprocess.jl")
 include("simulation/json.jl")
-include("simulation/deexcitation_apply.jl")
 
 
 @public PYTHON_PATH
@@ -180,7 +180,8 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    sol = example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    write_to_json("_output.json", sol; average_start_time = 0.0, save_time_resolved = false)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"
@@ -188,8 +189,7 @@ end
         end
         sol = run_simulation(file)
     end
-    # Remove output files
-    rm("__output.json", force = true)
+    # Remove precompile output
     rm("_output.json", force = true)
 end
 

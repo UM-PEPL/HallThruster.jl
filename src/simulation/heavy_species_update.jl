@@ -14,7 +14,7 @@ function integrate_heavy_species!(fluid_containers, params, user_source, dt)
         params.radiative_networks,
         half_dt,
     )
-    stage_limiter!(fluid_containers) && return true
+    limit_heavy_species!(fluid_containers)
     # Update properties that interface with electrons
     update_heavy_species!(params)
     return false
@@ -46,32 +46,25 @@ y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
         = (y_n + y_{n1} + h * k_{n2}) / 2
 
 With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
+
+The implementation is split into two update kernels so each stage traverses every
+fluid field only once. `update_first_stage!` saves y_n in the fluid caches while
+forming the Euler predictor y_{n1}. After evaluating the derivatives at that
+predictor, `update_second_stage!` combines the cached y_n, y_{n1}, and k_{n2} to
+form the final state. Each kernel also performs its finite-value check during the
+same traversal.
 """
 function step_heavy_species!(fluid_containers, params, source, dt)
-    # First step
-    # Compute slope k_{n1}
+    # Evaluate k_{n1} at the initial state.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
     params.cache.inelastic_losses_stage .= params.cache.inelastic_losses
 
-    # Copy density and momentum to dens_cache and mom_cache for all fluids
-    # and update density and momentum to y_{n1}
-    for fluid in fluid_containers.continuity
-        @. fluid.dens_cache = fluid.density
-        @. fluid.density += dt * fluid.dens_ddt
-    end
+    # Cache y_n, form the Euler predictor y_{n1}, and validate it in one pass.
+    update_first_stage!(fluid_containers, dt) && return true
+    # The second derivative evaluation must see a physically admissible predictor.
+    limit_heavy_species!(fluid_containers)
 
-    for fluid in fluid_containers.isothermal
-        @. fluid.dens_cache = fluid.density
-        @. fluid.mom_cache = fluid.momentum
-        @. fluid.density += dt * fluid.dens_ddt
-        @. fluid.momentum += dt * fluid.mom_ddt
-    end
-
-    # Apply stage limiter, returning true if a NaN or an Inf is detected
-    stage_limiter!(fluid_containers) && return true
-
-    # Second step
-    # Compute slope k_{n2}, reusing memory of k_{n1}
+    # Evaluate k_{n2} at y_{n1}, reusing the derivative arrays that held k_{n1}.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
 
     # Match the energy sink to the same Heun-averaged reaction rate used for
@@ -80,20 +73,70 @@ function step_heavy_species!(fluid_containers, params, source, dt)
         params.cache.inelastic_losses_stage + params.cache.inelastic_losses
     )
 
-    # Final step
+    # Combine cached y_n with y_{n1} and k_{n2}, validating the result in one pass.
+    update_second_stage!(fluid_containers, dt) && return true
+    limit_heavy_species!(fluid_containers)
+
+    return false
+end
+
+function update_first_stage!(fluid_containers, dt)
+    invalid = false
     @inbounds for fluid in fluid_containers.continuity
-        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
+        @simd for i in eachindex(fluid.density)
+            density = fluid.density[i]
+            new_density = density + dt * fluid.dens_ddt[i]
+            fluid.dens_cache[i] = density
+            fluid.density[i] = new_density
+            invalid |= !isfinite(new_density)
+        end
     end
 
     @inbounds for fluid in fluid_containers.isothermal
-        @. fluid.density = 0.5 * (fluid.density + fluid.dens_cache + dt * fluid.dens_ddt)
-        @. fluid.momentum = 0.5 * (fluid.momentum + fluid.mom_cache + dt * fluid.mom_ddt)
+        @simd for i in eachindex(fluid.density)
+            density = fluid.density[i]
+            momentum = fluid.momentum[i]
+            new_density = density + dt * fluid.dens_ddt[i]
+            new_momentum = momentum + dt * fluid.mom_ddt[i]
+            fluid.dens_cache[i] = density
+            fluid.mom_cache[i] = momentum
+            fluid.density[i] = new_density
+            fluid.momentum[i] = new_momentum
+            invalid |= !(isfinite(new_density) && isfinite(new_momentum))
+        end
     end
 
-    # Apply stage limiter, returning true if a NaN or an Inf is detected
-    stage_limiter!(fluid_containers) && return true
+    return invalid
+end
 
-    return false
+function update_second_stage!(fluid_containers, dt)
+    invalid = false
+
+    @inbounds for fluid in fluid_containers.continuity
+        @simd for i in eachindex(fluid.density)
+            new_density = 0.5 * (
+                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+            )
+            fluid.density[i] = new_density
+            invalid |= !isfinite(new_density)
+        end
+    end
+
+    @inbounds for fluid in fluid_containers.isothermal
+        @simd for i in eachindex(fluid.density)
+            new_density = 0.5 * (
+                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+            )
+            new_momentum = 0.5 * (
+                fluid.momentum[i] + fluid.mom_cache[i] + dt * fluid.mom_ddt[i]
+            )
+            fluid.density[i] = new_density
+            fluid.momentum[i] = new_momentum
+            invalid |= !(isfinite(new_density) && isfinite(new_momentum))
+        end
+    end
+
+    return invalid
 end
 
 # Populate dens_ddt and mom_ddt for all fluid containers
@@ -109,9 +152,7 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     apply_ion_acceleration!(fluid_containers.isothermal, grid, cache)
 
     if ion_wall_losses
-        for (_, fluids) in zip(params.propellants, params.fluids_by_propellant)
-            apply_ion_wall_losses!(fluids, params)
-        end
+        apply_ion_wall_losses!(params)
     end
 
     # Update maximum allowable timestep
@@ -121,8 +162,11 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
         min_dt_u = min(min_dt_u, fluid.max_timestep[])
     end
 
+    # The empirical 0.799 stability limit applies to chemistry. Transport and
+    # acceleration can use a higher user-specified CFL independently.
+    chemistry_CFL = min(CFL, 0.799)
     cache.dt[] = min(
-        CFL * cache.dt_iz[],
+        chemistry_CFL * cache.dt_iz[],
         sqrt(CFL) * cache.dt_E[],
         CFL * min_dt_u,
     )
@@ -130,12 +174,8 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     return
 end
 
-function stage_limiter!(fluid_containers)
+function limit_heavy_species!(fluid_containers)
     @inbounds for fluid in fluid_containers.continuity
-        if any(!isfinite, fluid.density)
-            return true
-        end
-
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             fluid.density[i] = max(fluid.density[i], min_density)
@@ -143,10 +183,6 @@ function stage_limiter!(fluid_containers)
     end
 
     @inbounds for fluid in fluid_containers.isothermal
-        if any(!isfinite, fluid.density) || any(!isfinite, fluid.momentum)
-            return true
-        end
-
         min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             if fluid.density[i] < min_density
@@ -155,7 +191,7 @@ function stage_limiter!(fluid_containers)
             end
         end
     end
-    return false
+    return
 end
 
 function update_heavy_species!(params)
@@ -178,21 +214,24 @@ end
 function update_heavy_species_cache!(fluids, cache, grid, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
-    @. ne = 0
-    @. ji = 0
-    @. m_eff = 0
-    @. Z_eff = 0
-    @. nn = 0
-    @. avg_ion_vel = 0
-    @. avg_neutral_vel = 0
+    @inbounds @simd for i in eachindex(ne)
+        ne[i] = 0.0
+        ji[i] = 0.0
+        m_eff[i] = 0.0
+        Z_eff[i] = 0.0
+        nn[i] = 0.0
+        avg_ion_vel[i] = 0.0
+        avg_neutral_vel[i] = 0.0
+    end
 
     # Compute neutral number density, summed over all electronic states
     @inbounds for fluid in fluids.continuity
         inv_m = inv(fluid.species.element.m)
-        for i in eachindex(fluid.density)
+        neutral_velocity = fluid.const_velocity
+        @simd for i in eachindex(fluid.density)
             number_density = fluid.density[i] * inv_m
             nn[i] += number_density
-            avg_neutral_vel[i] += number_density * fluid.const_velocity
+            avg_neutral_vel[i] += number_density * neutral_velocity
         end
     end
 
@@ -202,7 +241,7 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
         inv_m = inv(fluid.species.element.m)
         Z = fluid.species.Z
 
-        for i in eachindex(fluid.density)
+        @simd for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
             _niui = fluid.momentum[i] * inv_m
             ne[i] += Z * _ni
@@ -214,19 +253,19 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
         end
     end
 
-    @. avg_neutral_vel /= nn
+    @inbounds @simd for i in eachindex(ne)
+        avg_neutral_vel[i] /= nn[i]
+        ne[i] = max(ne[i], MIN_NUMBER_DENSITY)
 
-    @. ne = max(ne, MIN_NUMBER_DENSITY)
+        inv_ion_density = inv(Z_eff[i])
+        avg_ion_vel[i] *= inv_ion_density
+        m_eff[i] *= inv_ion_density
+        Z_eff[i] = ne[i] * inv_ion_density
 
-    # Inverse ion density
-    @. Z_eff = inv(Z_eff)
-    @. avg_ion_vel *= Z_eff
-    @. m_eff *= Z_eff
-    @. Z_eff = ne * Z_eff
-
-    @. ϵ = nϵ / ne
-    if !landmark
-        @. ϵ += K
+        ϵ[i] = nϵ[i] / ne[i]
+        if !landmark
+            ϵ[i] += K[i]
+        end
     end
 
     return
@@ -413,26 +452,40 @@ end
 function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequencies)
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne, K) = cache
 
-    # Zero ionization frequency and inelastic losses and compute electron density
-    @inbounds begin
-        # Update electron density from charged fluids only.
-        ne .= 0.0
-        for fluid in fluids
-            iszero(fluid.species.Z) && continue
-            charge_over_mass = fluid.species.Z / fluid.species.element.m
-            for i in eachindex(ne)
-                ne[i] += charge_over_mass * fluid.density[i]
-            end
+    # Recompute electron density for the current RK stage. Neutral fluids do not
+    # contribute, which becomes increasingly useful with multiple propellants.
+    fill!(ne, 0.0)
+    @inbounds for fluid in fluids
+        Z = fluid.species.Z
+        iszero(Z) && continue
+        charge_to_mass = Z / fluid.species.element.m
+        @simd for i in eachindex(ne)
+            ne[i] += charge_to_mass * fluid.density[i]
         end
-        @. ne = max(ne, MIN_NUMBER_DENSITY)
-        νiz .= 0.0
-        νex_explicit .= 0.0
-        inelastic_losses .= 0.0
-        reaction_loss_frequencies .= 0.0
-        @. ϵ = cache.nϵ / cache.ne
-        if !landmark
-            @. ϵ += K
+    end
+
+    # Initialize reaction outputs and electron energy in the same traversal.
+    @inbounds @simd for i in eachindex(ne)
+        electron_density = max(ne[i], MIN_NUMBER_DENSITY)
+        ne[i] = electron_density
+        νiz[i] = 0.0
+        νex_explicit[i] = 0.0
+        inelastic_losses[i] = 0.0
+        ϵ[i] = cache.nϵ[i] / electron_density + (landmark ? 0.0 : K[i])
+    end
+    reaction_loss_frequencies .= 0.0
+
+    # All lookup tables use the same unit-spaced energy coordinate. With multiple
+    # reactions, compute its integer part once per cell instead of once per table.
+    reaction_rate_indices = if length(rxns) > 1 && hasproperty(cache, :reaction_rate_indices)
+        indices = cache.reaction_rate_indices
+        @inbounds @simd for i in eachindex(ϵ)
+            energy = ϵ[i]
+            indices[i] = Base.unsafe_trunc(Int, isfinite(energy) ? energy : 0)
         end
+        indices
+    else
+        nothing
     end
 
     for (rxn, reactant_index, product_index) in rxns
@@ -444,7 +497,7 @@ function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequenci
         apply_reaction!(
             fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache,
             ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
-            loss_frequency,
+            loss_frequency, reaction_rate_indices,
         )
     end
 
@@ -479,9 +532,9 @@ end
 function apply_reaction!(
         fluids, reactant_index, product_index, product_coeffs, rxn_cache,
         ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
-        loss_frequency = nothing,
+        loss_frequency = nothing, reaction_rate_indices = nothing,
     )
-    dt_max = Inf
+    max_destruction_frequency = 0.0
     reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
     inv_m = 1 / reactant.species.element.m
@@ -496,18 +549,22 @@ function apply_reaction!(
 
     # Compute reaction rate and adjust reactant properties
     @inbounds @simd for i in 2:(ncells - 1)
-        r = rate_coeff(rxn, ϵ[i])
+        r = if isnothing(reaction_rate_indices)
+            rate_coeff(rxn, ϵ[i])
+        else
+            rate_coeff(rxn, ϵ[i], reaction_rate_indices[i])
+        end
         ρ_reactant = reactant.density[i]
-        ρdot = reaction_rate(r, ne[i], ρ_reactant)
+        destruction_frequency = r * ne[i]
+        ρdot = destruction_frequency * ρ_reactant
         ndot = ρdot * inv_m
         if ρdot > 0
-            inverse_dt = r * ne[i]
             if isnothing(loss_frequency)
-                # Standalone callers use the per-reaction limit. The production
-                # path sums loss frequencies by reactant after all reactions.
-                dt_max = min(dt_max, inv(inverse_dt))
+                max_destruction_frequency = max(
+                    max_destruction_frequency, destruction_frequency,
+                )
             else
-                loss_frequency[i] += inverse_dt
+                loss_frequency[i] += destruction_frequency
             end
         end
         reaction_frequency = r * ρ_reactant * inv_m
@@ -550,7 +607,7 @@ function apply_reaction!(
         end
     end
 
-    return dt_max
+    return inv(max_destruction_frequency)
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant
@@ -679,36 +736,73 @@ function apply_associative_detachment!(params)
 end
 
 function apply_ion_acceleration!(fluids::Vector{FluidContainer}, grid, cache)
-    dt_max = Inf
+    max_abs_qe_m = 0.0
 
     @inbounds for fluid in fluids
         Z = fluid.species.Z
         m = fluid.species.element.m
         qe_m = Z * e / m
+        max_abs_qe_m = max(max_abs_qe_m, abs(qe_m))
 
         @simd for i in 2:(length(fluid.dens_ddt) - 1)
             qE_m = -qe_m * cache.∇ϕ[i]
-            dz = grid.dz_cell[i]
+            fluid.mom_ddt[i] += qE_m * fluid.density[i]
+        end
+    end
 
-            Q_accel = qE_m * fluid.density[i]
-            if isfinite(qE_m)              # skip non-finite ∇ϕ so NaN can't poison dt_E via min
-                dt_max = min(dt_max, abs(dz / qE_m))
-            end
-            fluid.mom_ddt[i] += Q_accel
+    # The most restrictive acceleration timestep comes from the ion with the
+    # largest |q/m|, so reduce over the grid once rather than once per species.
+    dt_max = Inf
+    @inbounds @simd for i in 2:(length(grid.dz_cell) - 1)
+        qE_m = max_abs_qe_m * cache.∇ϕ[i]
+        # Skip non-finite ∇ϕ so NaN cannot poison dt_E through the reduction.
+        if isfinite(qE_m)
+            dt_max = min(dt_max, abs(grid.dz_cell[i] / qE_m))
         end
     end
 
     return cache.dt_E[] = isfinite(dt_max) ? sqrt(dt_max) : Inf
 end
 
-function apply_ion_wall_losses!(fluid_containers, params)
-    (; thruster, cache, grid, transition_length, wall_loss_scale) = params
-    (; isothermal) = fluid_containers
-
+function prepare_ion_wall_losses!(params)
+    (; thruster, cache, wall_loss_scale) = params
     geometry = thruster.geometry
-    L_ch = geometry.channel_length
     inv_Δr = inv(geometry.outer_radius - geometry.inner_radius)
     h = wall_loss_scale * edge_to_center_density_ratio()
+    wall_loss_base = cache.cell_cache_1
+    wall_cells = 2:params.last_wall_cell
+
+    # This cell-dependent part is common to every ion species: it contains the
+    # local electron temperature, wall transition, geometry, and sheath-density
+    # correction. Compute it once per derivative evaluation and reuse the cache
+    # while applying the species-dependent charge-to-mass scaling below.
+    @inbounds @simd for i in wall_cells
+        wall_loss_base[i] =
+            cache.wall_transition[i] * sqrt(e * cache.Tev[i]) * inv_Δr * h
+    end
+
+    return wall_loss_base, wall_cells
+end
+
+function apply_ion_wall_losses!(params)
+    # Preparing outside the propellant loop avoids repeating the shared cell work
+    # for molecular propellants with many ion fluids or reaction products.
+    wall_loss_base, wall_cells = prepare_ion_wall_losses!(params)
+    for fluids in params.fluids_by_propellant
+        apply_ion_wall_losses!(fluids, wall_loss_base, wall_cells)
+    end
+    return
+end
+
+function apply_ion_wall_losses!(fluid_containers, params)
+    # Retain the single-container entry point while using the same split between
+    # shared cell work and species-specific losses.
+    wall_loss_base, wall_cells = prepare_ion_wall_losses!(params)
+    return apply_ion_wall_losses!(fluid_containers, wall_loss_base, wall_cells)
+end
+
+function apply_ion_wall_losses!(fluid_containers, wall_loss_base, wall_cells)
+    (; continuity, isothermal) = fluid_containers
 
     neutral_fluid = ground_neutral(fluid_containers)
     @inbounds for ion_fluid in isothermal
@@ -719,14 +813,12 @@ function apply_ion_wall_losses!(fluid_containers, params)
             continue
         end
 
-        m = ion_fluid.species.element.m
-        qe_m = Z * e / m
+        # Complete the ion wall-loss frequency by applying sqrt(Z / m) to the
+        # shared cell-dependent factor prepared above.
+        species_scale = sqrt(Z / ion_fluid.species.element.m)
 
-        for i in 2:(length(ion_fluid.density) - 1)
-            u_wall = sqrt(qe_m * cache.Tev[i])
-
-            in_channel = linear_transition(grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0)
-            νiw = in_channel * u_wall * inv_Δr * h
+        for i in wall_cells
+            νiw = wall_loss_base[i] * species_scale
 
             density_loss = ion_fluid.density[i] * νiw
             momentum_loss = ion_fluid.momentum[i] * νiw

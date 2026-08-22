@@ -28,3 +28,4 @@ test/regression/output/*.png
 .aider*
 _output.json
 __output.json
+OPTIMIZATION.md

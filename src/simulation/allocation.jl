@@ -20,7 +20,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         νen = zeros(ncells),
         radial_loss_frequency = zeros(ncells),
         νew_momentum = zeros(ncells),
-        νiw = zeros(ncells),
+        wall_transition = zeros(ncells),
         νe = zeros(ncells),
         νiz = zeros(ncells),
         νex = zeros(ncells),
@@ -85,6 +85,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         # other caches
         cell_cache_1 = zeros(ncells),
         cell_cache_2 = zeros(ncells),
+        reaction_rate_indices = zeros(Int, ncells),
 
         # Plume divergence variables
         channel_area = zeros(ncells),       # Area of channel / plume

@@ -85,16 +85,6 @@ function setup_simulation(
     dt = sim.dt
     if sim.adaptive
         dt = 100 * eps() # small initial timestep to initialize everything
-
-        # force the CFL to be no higher than 0.799 for adaptive timestepping
-        # this limit is mainly due to empirical testing, but there
-        # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
-        if sim.CFL >= 0.8
-            if sim.print_errors
-                @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
-            end
-            sim.CFL = 0.799
-        end
     end
 
     cache.dt .= dt
@@ -111,7 +101,7 @@ function setup_simulation(
     # Except for `sim`, nothing in this struct should have type parameters.
     # For convenience, the method `params_from_config` copies concretely-typed
     # values from `config` and reinserts them into params.
-    params = (;
+    params = SimulationParameters(;
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
@@ -119,6 +109,7 @@ function setup_simulation(
         # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
+        last_wall_cell = 0,
         grid,
         postprocess = if isnothing(postprocess)
             Postprocess()

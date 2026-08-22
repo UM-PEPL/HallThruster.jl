@@ -183,6 +183,11 @@ function test_ion_losses()
             Z_eff = [1.0, 1.0, 1.0, 1.0], ni = [ni_1 ni_1 ni_1 ni_1; ni_2 ni_2 ni_2 ni_2],
             γ_SEE = [0.0, 0.0, 0.0, 0.0],
             νew_momentum = [νew, νew, 0.0, 0.0],
+            wall_transition = [
+                het.linear_transition(z, L_ch, config.transition_length, 1.0, 0.0)
+                    for z in grid.cell_centers
+            ],
+            cell_cache_1 = zeros(4),
         )
 
         ρn = 10 * ne * mi
@@ -204,7 +209,10 @@ function test_ion_losses()
         fluids = [continuity..., isothermal...]
 
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
-        base_params = (; cache, grid, γ_SEE_max, fluid_containers = (; continuity, isothermal))
+        base_params = (;
+            cache, grid, γ_SEE_max, last_wall_cell = 2,
+            fluid_containers = (; continuity, isothermal),
+        )
 
         params_no_losses = (; base_params..., het.params_from_config(config_no_losses)...)
 

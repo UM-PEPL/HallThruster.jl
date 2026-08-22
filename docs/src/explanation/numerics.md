@@ -37,10 +37,10 @@ In practice, it needs to be a bit lower in order to handle transients as the sol
 In most cases, it is better to let HallThruster.jl handle timestepping automatically using its adaptive timestepping option. If adaptive timestepping is enabled, the user-defined timestep is ignored in favor of a timestep based on the minimum of three conditions and a user-supplied CFL number. Mathematically the timstep is choosen as:
 
 ```math
-    \Delta t = min(\sigma \frac{\Delta x}{max(u_i + a_i, u_i - a_i)}, \sigma \frac{\dot{n}_i}{n_i}, \sqrt{\frac{\sigma m_i \Delta x}{q_i E}})
+    \Delta t = min(\sigma \frac{\Delta x}{max(u_i + a_i, u_i - a_i)}, min(\sigma, 0.799) \frac{n_i}{\dot{n}_i}, \sqrt{\frac{\sigma m_i \Delta x}{q_i E}})
 ```
 
-Where ``a_i`` is the ion sound speed. Physically, these three conditions represent timestep limits imposed by the flux, ionization, and electrostatic acceleration. Keep in mind that due to stability limits imposed by the ionization condition, the CFL number cannot be higher than 0.799 to remain stable. This limit will be imposed by HallThruster.jl if the user-defined value is too high.
+Where ``a_i`` is the ion sound speed. Physically, these three conditions represent timestep limits imposed by the flux, ionization, and electrostatic acceleration. The empirical stability limit of 0.799 applies only to the chemistry condition, so HallThruster.jl caps that multiplier while allowing transport and acceleration to use a higher user-defined CFL.
 
 ## Electron energy equation discretization
 

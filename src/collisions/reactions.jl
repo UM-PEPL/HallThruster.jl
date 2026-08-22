@@ -83,6 +83,11 @@ By default, rate_coeff looks for a lookup table stored in the reaction struct
 function rate_coeff(rxn::Reaction, energy)
     isfinite(energy) || return first(rxn.rate_coeffs)
     ind = Base.unsafe_trunc(Int, energy)
+    return rate_coeff(rxn, energy, ind)
+end
+
+function rate_coeff(rxn::Reaction, energy, ind::Int)
+    isfinite(energy) || return first(rxn.rate_coeffs)
     N = length(rxn.rate_coeffs) - 2
     ind = ind > N ? N : ind < 0 ? 0 : ind
     r1 = rxn.rate_coeffs[ind + 1]
