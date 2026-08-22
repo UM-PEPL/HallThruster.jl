@@ -27,6 +27,7 @@ mutable struct RadiativeNetwork
     state_cache::Matrix{Float64}
     updated_state_cache::Matrix{Float64}
     residence_cache::Matrix{Float64}
+    accumulated_residence::Matrix{Float64}
 end
 
 function RadiativeNetwork(
@@ -61,6 +62,7 @@ function RadiativeNetwork(
         zeros(num_states, num_cells),
         zeros(num_states, num_cells),
         zeros(num_transient, num_cells),
+        zeros(num_transient, num_cells),
     )
 end
 
@@ -70,9 +72,9 @@ end
     )
 
 Group radiative transitions by gas and charge state, then construct the linear
-generator for each independent decay network. The returned emission array is
-indexed by transition and cell and accumulates emitted photons per unit volume;
-the returned photon energies use the same transition ordering.
+generator for each independent decay network. The returned emission workspace
+is indexed by transition and cell and is populated when emissions are
+materialized; photon energies use the same transition ordering.
 """
 function build_radiative_networks(
         fluids, reactions, reactant_indices, product_indices, species_energies_eV,
@@ -161,7 +163,12 @@ end
 function update_radiative_propagator!(network::RadiativeNetwork, dt)
     dt == network.cached_dt && return nothing
 
-    network.propagator .= exp(network.generator * dt)
+    network.propagator .= network.generator
+    network.propagator .*= dt
+    propagated = exp!(network.propagator)
+    if propagated !== network.propagator
+        network.propagator .= propagated
+    end
 
     # For transient states T, Q_TT R_T = P_T - I_T gives the exact
     # time-integrated populations without exponentiating the 2N Bateman matrix.
@@ -177,13 +184,19 @@ function update_radiative_propagator!(network::RadiativeNetwork, dt)
 end
 
 """
+    apply_radiative_decay!(fluids, networks, dt)
     apply_radiative_decay!(fluids, networks, emission_counts, dt)
 
 Advance every radiative cascade exactly over `dt`. Population and momentum are
 propagated with `exp(Q * dt)`. Photon counts use the matching integrated upper-
 state populations, so branching and multi-step cascades remain conservative and
-timestep-independent.
+timestep-independent. Integrated upper-state residence is accumulated here and
+expanded into individual transition counts only when an output frame is saved.
+The four-argument form also materializes counts immediately for standalone use.
 """
+apply_radiative_decay!(fluids, networks, dt) =
+    apply_radiative_decay!(fluids, networks, nothing, dt)
+
 function apply_radiative_decay!(fluids, networks, emission_counts, dt)
     dt > 0 || return nothing
 
@@ -192,40 +205,77 @@ function apply_radiative_decay!(fluids, networks, emission_counts, dt)
         num_cells = size(network.state_cache, 2)
         interior = 2:(num_cells - 1)
 
-        for (local_index, fluid_index) in enumerate(network.fluid_indices)
-            network.state_cache[local_index, :] .= fluids[fluid_index].density
+        @inbounds for (local_index, fluid_index) in enumerate(network.fluid_indices)
+            density = fluids[fluid_index].density
+            for cell in eachindex(density)
+                network.state_cache[local_index, cell] = density[cell]
+            end
         end
 
         mul!(network.updated_state_cache, network.propagator, network.state_cache)
         mul!(network.residence_cache, network.residence_operator, network.state_cache)
 
-        for (local_index, fluid_index) in enumerate(network.fluid_indices)
+        @inbounds for (local_index, fluid_index) in enumerate(network.fluid_indices)
             fluid = fluids[fluid_index]
-            fluid.density[interior] .= network.updated_state_cache[local_index, interior]
+            for cell in interior
+                fluid.density[cell] = network.updated_state_cache[local_index, cell]
+            end
         end
 
+        @inbounds for residence_index in axes(network.residence_cache, 1)
+            @simd for cell in interior
+                network.accumulated_residence[residence_index, cell] +=
+                    network.inverse_mass * network.residence_cache[residence_index, cell]
+            end
+        end
+
+        network.carries_momentum || continue
+        @inbounds for (local_index, fluid_index) in enumerate(network.fluid_indices)
+            momentum = fluids[fluid_index].momentum
+            for cell in eachindex(momentum)
+                network.state_cache[local_index, cell] = momentum[cell]
+            end
+        end
+        mul!(network.updated_state_cache, network.propagator, network.state_cache)
+        @inbounds for (local_index, fluid_index) in enumerate(network.fluid_indices)
+            fluid = fluids[fluid_index]
+            for cell in interior
+                fluid.momentum[cell] = network.updated_state_cache[local_index, cell]
+            end
+        end
+    end
+
+    if !isnothing(emission_counts)
+        materialize_radiative_emissions!(emission_counts, networks)
+    end
+    return nothing
+end
+
+"""
+Expand accumulated upper-state residence into photon counts for each radiative
+branch. This work is deferred until output because transition rates are constant.
+"""
+function materialize_radiative_emissions!(emission_counts, networks)
+    emission_counts .= 0.0
+    for network in networks
         for (residence_index, rate, output) in zip(
                 network.transition_residence_indices,
                 network.transition_rates,
                 network.transition_output_indices,
             )
-            @inbounds @simd for cell in interior
-                emission_counts[output, cell] +=
-                    rate * network.inverse_mass *
-                    network.residence_cache[residence_index, cell]
+            @inbounds @simd for cell in axes(emission_counts, 2)
+                emission_counts[output, cell] =
+                    rate * network.accumulated_residence[residence_index, cell]
             end
         end
-
-        network.carries_momentum || continue
-        for (local_index, fluid_index) in enumerate(network.fluid_indices)
-            network.state_cache[local_index, :] .= fluids[fluid_index].momentum
-        end
-        mul!(network.updated_state_cache, network.propagator, network.state_cache)
-        for (local_index, fluid_index) in enumerate(network.fluid_indices)
-            fluid = fluids[fluid_index]
-            fluid.momentum[interior] .= network.updated_state_cache[local_index, interior]
-        end
     end
+    return nothing
+end
 
+function reset_radiative_emissions!(emission_counts, networks)
+    emission_counts .= 0.0
+    for network in networks
+        network.accumulated_residence .= 0.0
+    end
     return nothing
 end

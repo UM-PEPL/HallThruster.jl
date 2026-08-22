@@ -5,7 +5,6 @@ function integrate_heavy_species!(fluid_containers, params, user_source, dt)
     apply_radiative_decay!(
         params.fluid_array,
         params.radiative_networks,
-        params.radiative_emission_counts,
         half_dt,
     )
     # Do one timestep forward, returning `true` if we found a NaN or Inf
@@ -13,7 +12,6 @@ function integrate_heavy_species!(fluid_containers, params, user_source, dt)
     apply_radiative_decay!(
         params.fluid_array,
         params.radiative_networks,
-        params.radiative_emission_counts,
         half_dt,
     )
     stage_limiter!(fluid_containers) && return true
@@ -190,9 +188,12 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
 
     # Compute neutral number density, summed over all electronic states
     @inbounds for fluid in fluids.continuity
-        _nn = fluid.density / fluid.species.element.m
-        @. nn += _nn
-        @. avg_neutral_vel += _nn * fluid.const_velocity
+        inv_m = inv(fluid.species.element.m)
+        for i in eachindex(fluid.density)
+            number_density = fluid.density[i] * inv_m
+            nn[i] += number_density
+            avg_neutral_vel[i] += number_density * fluid.const_velocity
+        end
     end
 
 
@@ -414,11 +415,13 @@ function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequenci
 
     # Zero ionization frequency and inelastic losses and compute electron density
     @inbounds begin
-        # Update electron density (TODO check if this is optimal)
+        # Update electron density from charged fluids only.
         ne .= 0.0
         for fluid in fluids
+            iszero(fluid.species.Z) && continue
+            charge_over_mass = fluid.species.Z / fluid.species.element.m
             for i in eachindex(ne)
-                ne[i] += fluid.species.Z * fluid.density[i] / fluid.species.element.m
+                ne[i] += charge_over_mass * fluid.density[i]
             end
         end
         @. ne = max(ne, MIN_NUMBER_DENSITY)
@@ -499,13 +502,21 @@ function apply_reaction!(
         ndot = ρdot * inv_m
         if ρdot > 0
             inverse_dt = r * ne[i]
-            dt_max = min(dt_max, inv(inverse_dt))
-            if !isnothing(loss_frequency)
+            if isnothing(loss_frequency)
+                # Standalone callers use the per-reaction limit. The production
+                # path sums loss frequencies by reactant after all reactions.
+                dt_max = min(dt_max, inv(inverse_dt))
+            else
                 loss_frequency[i] += inverse_dt
             end
         end
-        νiz[i] += is_ionizing * ndot / ne[i]
-        νex_explicit[i] += is_excitation * ndot / ne[i]
+        reaction_frequency = r * ρ_reactant * inv_m
+        if is_ionizing
+            νiz[i] += reaction_frequency
+        end
+        if is_excitation
+            νex_explicit[i] += reaction_frequency
+        end
         inelastic_losses[i] += ndot * rxn.energy
 
         # Change in density due to this reaction

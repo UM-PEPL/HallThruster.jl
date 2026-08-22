@@ -270,6 +270,9 @@ function Frame(
 end
 
 function Frame(params, emission_interval)
+    materialize_radiative_emissions!(
+        params.radiative_emission_counts, params.radiative_networks,
+    )
     return Frame(
         params.fluids_by_propellant,
         params.cache,
@@ -610,7 +613,9 @@ function solve(params, config, tspan; num_save = -1)
             ====#
             if t >= saveat[save_ind]
                 push!(frames, Frame(params, t - last_save_time))
-                params.radiative_emission_counts .= 0.0
+                reset_radiative_emissions!(
+                    params.radiative_emission_counts, params.radiative_networks,
+                )
                 times[save_ind] = t
                 last_save_time = t
                 save_ind += 1

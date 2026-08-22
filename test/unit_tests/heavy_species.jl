@@ -43,4 +43,23 @@ using HallThruster: HallThruster as het
     @test all(iszero, fluid_arr[2].dens_ddt)
     @test all(iszero, rxn_cache[1])
     @test all(iszero, rxn_cache[2])
+
+    # Standalone callers without the summed-loss cache still receive their
+    # per-reaction timestep limit.
+    fluid_arr[1].density[2:(end - 1)] .= propellant.gas.m
+    dt_max = het.apply_reaction!(
+        fluid_arr,
+        1,
+        [2],
+        rxn.product_coeffs,
+        rxn_cache,
+        ne,
+        energy,
+        rxn,
+        νiz,
+        νex_explicit,
+        inelastic_losses,
+        false,
+    )
+    @test dt_max ≈ 1.0e-18
 end

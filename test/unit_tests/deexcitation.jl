@@ -74,6 +74,12 @@ using HallThruster: HallThruster as het
     @test all(iszero, emissions[:, [1, end]])
     @test all(iszero, fluid.density[1] for fluid in fluids)
     @test all(iszero, fluid.density[end] for fluid in fluids)
+
+    # Output reset clears both the materialized transition counts and the
+    # smaller upper-state residence accumulator used between saved frames.
+    het.reset_radiative_emissions!(emissions, networks)
+    @test all(iszero, emissions)
+    @test all(iszero, only(networks).accumulated_residence)
 end
 
 @testset "Radiative branching and ion momentum" begin
