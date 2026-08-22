@@ -94,7 +94,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
         if i == 1
             @. fluid.density = neutral_function(grid.cell_centers)
         else
-            @. fluid.density = 1e-10 * neutral_function(grid.cell_centers)  # floor, ~0
+            @. fluid.density = 1.0e-10 * neutral_function(grid.cell_centers)  # floor, ~0
         end
     end
 

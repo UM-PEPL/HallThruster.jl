@@ -14,18 +14,22 @@ function rate_coeff_filename(reactant, product, reaction_type, folder = REACTION
     end
 
     # Charged excited states use Xe(2+,3*) -> Xe2+_e3.
-    fname = replace(fname, r"\((\d+)([+-]),(\d+)\*\)" => state -> begin
-        parsed = match(r"\((\d+)([+-]),(\d+)\*\)", state)
-        charge, sign, excited_level = parsed.captures
-        return "$(charge)$(sign)_e$(excited_level)"
-    end)
+    fname = replace(
+        fname, r"\((\d+)([+-]),(\d+)\*\)" => state -> begin
+            parsed = match(r"\((\d+)([+-]),(\d+)\*\)", state)
+            charge, sign, excited_level = parsed.captures
+            return "$(charge)$(sign)_e$(excited_level)"
+        end
+    )
 
     # '*' is not legal in Windows filenames.
-    fname = replace(fname, r"\((\d*)\*\)" => state -> begin
-        parsed = match(r"\((\d*)\*\)", state)
-        level = isempty(parsed.captures[1]) ? "1" : parsed.captures[1]
-        return "_e$(level)"
-    end)
+    fname = replace(
+        fname, r"\((\d*)\*\)" => state -> begin
+            parsed = match(r"\((\d*)\*\)", state)
+            level = isempty(parsed.captures[1]) ? "1" : parsed.captures[1]
+            return "_e$(level)"
+        end
+    )
 
     if occursin('*', fname)
         error("Invalid excitation syntax in reaction filename: $(fname)")
@@ -477,9 +481,9 @@ _excited_level_setting(charge) =
 function _deexcitation_rate(upper_level, lower_level, half_life, reaction)
     0 <= lower_level < upper_level ||
         error(
-            "De-excitation branch $(upper_level) -> $(lower_level) must end at a " *
-                "lower, non-negative excited level in reaction $(reaction)."
-        )
+        "De-excitation branch $(upper_level) -> $(lower_level) must end at a " *
+            "lower, non-negative excited level in reaction $(reaction)."
+    )
     isfinite(half_life) && half_life > 0 ||
         error("De-excitation half-life must be positive and finite in reaction $(reaction).")
     return log(2.0) / half_life
