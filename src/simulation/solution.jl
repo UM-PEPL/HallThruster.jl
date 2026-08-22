@@ -59,7 +59,7 @@ function _get_species_states(fluids_by_propellant)
     for fluids in fluids_by_propellant
         m = fluids.continuity[1].species.element.m
         inv_m = 1 / m
-        gas_symbol = fluids.continuity[1].species.element.short_name
+        gas_symbol = fluids.continuity[1].species.element.formula
 
         # Ground neutral (index 1) plus any excited-state neutrals, each keyed by its
         # species symbol: :Xe for ground, Symbol("Xe(*)"), Symbol("Xe(2*)"), ... for excited.

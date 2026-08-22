@@ -318,8 +318,8 @@ function _species_string(
     return "$short_name($magnitude$sign)"
 end
 
-species_string(element::Gas, Z::Integer, excited_level::Integer = 0) =
-    _species_string(string(element.short_name), Z, excited_level)
+species_string(gas::Gas, Z::Integer, excited_level::Integer = 0) =
+    _species_string(string(gas.formula), Z, excited_level)
 
 Base.string(s::Species) = string(s.symbol)
 
@@ -395,6 +395,10 @@ struct Propellant
             temperature_K = nothing, ion_temperature_K = nothing,
             excited_levels = nothing, excited_ion_levels = nothing,
         )
+
+        if gas isa String
+            gas = Gas(gas)
+        end
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
             # Use default values
