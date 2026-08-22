@@ -48,12 +48,15 @@ function load_rate_coeff_file(path, reaction_type)
     end
 
     energy, rates = open(path) do io
-        if reaction_type != "elastic"
-            energy = parse(Float64, strip(split(readline(io), ':')[2]))
+        firstline = readline(io)
+        if (reaction_type != "elastic") || (':' in firstline)
+            energy = parse(Float64, strip(split(firstline, ':')[2]))
+            header = readline(io)
         else
             energy = 0.0
+            header = firstline
         end
-        rates = readdlm(io, skipstart = 1)
+        rates = readdlm(io)
         energy, rates
     end
 

@@ -1,5 +1,6 @@
 @inline check_r(r) = isfinite(r) && r >= 0
 @inline van_leer_limiter(r) = check_r(r) * (4r / (r + 1)^2)
+@inline primitive_velocity(momentum, density) = density > 0 ? momentum / density : 0.0
 
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
     r = (uⱼ₊₁ - uⱼ) / (uⱼ - uⱼ₋₁)
@@ -52,9 +53,9 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
             dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊)
 
             # Reconstruct velocity as primitive variable instead of momentum density
-            u₋ = momentum[i - 1] / u₋
-            uᵢ = momentum[i] / uᵢ
-            u₊ = momentum[i + 1] / u₊
+            u₋ = primitive_velocity(momentum[i - 1], u₋)
+            uᵢ = primitive_velocity(momentum[i], uᵢ)
+            u₊ = primitive_velocity(momentum[i + 1], u₊)
             uR, uL = reconstruct(u₋, uᵢ, u₊)
             mom_L[iR] = uL * dens_L[iR]
             mom_R[iL] = uR * dens_R[iL]
@@ -118,7 +119,8 @@ function compute_fluxes_isothermal!(fluid, grid)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
         ρu_L, ρu_R = mom_L[i], mom_R[i]
 
-        u_L, u_R = ρu_L / ρ_L, ρu_R / ρ_R
+        u_L = primitive_velocity(ρu_L, ρ_L)
+        u_R = primitive_velocity(ρu_R, ρ_R)
 
         smax = max(abs(u_L - a), abs(u_L + a), abs(u_R - a), abs(u_R + a))
         fluid.max_timestep[] = min(fluid.max_timestep[], grid.dz_edge[i] / smax)
@@ -155,7 +157,7 @@ function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
         ρi = fluid.density[i]
         ρiui = fluid.momentum[i]
         fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
-        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui^2 / ρi * dlnA_dz[i]
+        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui * primitive_velocity(ρiui, ρi) * dlnA_dz[i]
     end
 
     return

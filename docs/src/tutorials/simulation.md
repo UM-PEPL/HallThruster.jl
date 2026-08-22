@@ -135,7 +135,7 @@ DocTestSetup = quote
         thruster = thruster,
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
-        propellants = [het.Propellant(het.Xenon, flow_rate_kg_s=5e-6)],
+        propellants = [het.Propellant(het.Gas("Xe"), flow_rate_kg_s=5e-6)],
     )
 
     simparams = het.SimParams(
@@ -211,7 +211,7 @@ config = het.Config(
     thruster = thruster,
     domain = (0.0, 0.08),
     discharge_voltage = 300.0,
-    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6, allowed_charges=[1])],
+    propellants = [het.Propellant("Xe", flow_rate_kg_s = 5e-6, allowed_charges=[1])],
 )
 
 # output
@@ -229,7 +229,7 @@ config = het.Config(
     thruster = thruster,
     domain = (0.0u"cm", 8.0u"cm"),
     discharge_voltage = 300.0u"V",
-    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5u"mg/s", allowed_charges=[1])],
+    propellants = [het.Propellant("Xe", flow_rate_kg_s = 5u"mg/s", allowed_charges=[1])],
 )
 
 # output

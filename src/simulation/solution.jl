@@ -77,7 +77,7 @@ function _get_species_states(fluids_by_propellant)
             ion_state = SpeciesState(length(ion.density), m, ion.species.Z)
             @. ion_state.n = ion.density * inv_m
             @. ion_state.nu = ion.momentum * inv_m
-            @. ion_state.u = ion.momentum / ion.density
+            @. ion_state.u = primitive_velocity(ion.momentum, ion.density)
             remove_ghosts!(ion_state)
             push!(ion_states, ion_state)
         end
@@ -445,7 +445,7 @@ function Base.getindex(sol::Solution, field::Symbol)
     if length(sol.config.propellants) > 1
         throw(ArgumentError("Cannot index by :nn, :ni, :niui, or :ui when more than one propellant species present. Instead, please index by the specific propellant species."))
     end
-    symbol = sol.config.propellants[1].gas.short_name
+    symbol = sol.config.propellants[1].gas.formula
     allowed = sol.config.propellants[1].allowed_charges
 
     ncells = length(sol.grid)

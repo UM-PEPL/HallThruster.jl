@@ -276,12 +276,13 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
 
         interior_density = fluid.density[2]
         interior_flux = fluid.momentum[2]
-        interior_velocity = interior_flux / interior_density
+        interior_velocity = primitive_velocity(interior_flux, interior_density)
 
         if Z > 0
             # Electronegativity correction enters via Te_eff_factor.
             sound_speed = sqrt((kTi_J + Z * kTe_J * Te_eff_factor) / mi)
             boundary_velocity = -bohm_factor * sound_speed
+            interior_density_safe = max(interior_density, MIN_NUMBER_DENSITY * mi)
 
             if interior_velocity <= -sound_speed
                 # Supersonic outflow → pure Neumann
@@ -295,7 +296,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
                 # For the boundary condition, we take c = u_bohm and use J⁻ to set the boundary density.
 
                 # J⁻ from interior (outgoing)
-                J⁻ = interior_velocity - sound_speed * log(interior_density)
+                J⁻ = interior_velocity - sound_speed * log(interior_density_safe)
 
                 # Set boundary velocity to Bohm, use J⁻ to get boundary density
                 # J⁻ = boundary_velocity - sound_speed * log(boundary_density)
@@ -348,7 +349,7 @@ function apply_right_boundary!(fluids)
     @inbounds for fluid in fluids.isothermal
         interior_density = fluid.density[end - 1]
         interior_flux = fluid.momentum[end - 1]
-        interior_velocity = interior_flux / interior_density
+        interior_velocity = primitive_velocity(interior_flux, interior_density)
         mi = fluid.species.element.m
 
         if interior_velocity >= 0
@@ -452,7 +453,6 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
         r = rate_coeff(rxn, ϵ[i])
         ρ_reactant = reactant.density[i]
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
-        dt_max = min(dt_max, ρ_reactant / ρdot)
         ndot = ρdot * inv_m
         νiz[i] += is_ionizing * ndot / ne[i]
         inelastic_losses[i] += ndot * rxn.energy
@@ -466,7 +466,7 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
         if !landmark
             if reactant.type != _ContinuityOnly
                 # Momentum transfer due to ionization
-                reactant_velocity = reactant.momentum[i] / ρ_reactant
+                reactant_velocity = primitive_velocity(reactant.momentum[i], ρ_reactant)
                 reactant.mom_ddt[i] -= ρdot * reactant_velocity
             end
 
@@ -651,6 +651,11 @@ function apply_ion_wall_losses!(fluid_containers, params)
     neutral_fluid = ground_neutral(fluid_containers)
     @inbounds for ion_fluid in isothermal
         Z = ion_fluid.species.Z
+
+        # Do not apply wall losses to negative ions, as they are repelled from the positive pre-sheath.
+        if Z < 0
+            continue
+        end
 
         m = ion_fluid.species.element.m
         qe_m = Z * e / m
