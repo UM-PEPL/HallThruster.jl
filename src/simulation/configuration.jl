@@ -221,7 +221,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         if isnothing(propellants)
             if isnothing(anode_mass_flow_rate) && length(props_from_file) == 0
                 error("Must supply one of:\n- A vector of propellants\n- A single `propellant` an `anode_mass_flow_rate`\nA `propellant_config` file.")
-            else
+            elseif length(props_from_file) == 0
                 prop = Propellant(
                     propellant, anode_mass_flow_rate;
                     max_charge = ncharge, velocity_m_s = neutral_velocity,

@@ -15,6 +15,7 @@ using HallThruster: HallThruster as het
     ne = fill(1.0e18, ncells + 2)
     energy = fill(10.0, ncells + 2)
     νiz = zeros(ncells + 2)
+    νex_explicit = zeros(ncells + 2)
     inelastic_losses = zeros(ncells + 2)
 
     dt_max = het.apply_reaction!(
@@ -27,6 +28,7 @@ using HallThruster: HallThruster as het
         energy,
         rxn,
         νiz,
+        νex_explicit,
         inelastic_losses,
         false,
     )
@@ -35,6 +37,7 @@ using HallThruster: HallThruster as het
     @test all(isfinite, νiz)
     @test all(isfinite, inelastic_losses)
     @test all(iszero, νiz)
+    @test all(iszero, νex_explicit)
     @test all(iszero, inelastic_losses)
     @test all(iszero, fluid_arr[1].dens_ddt)
     @test all(iszero, fluid_arr[2].dens_ddt)

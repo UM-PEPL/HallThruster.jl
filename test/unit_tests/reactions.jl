@@ -124,3 +124,76 @@ iz_landmark_rxn = landmark_rxns[1]
 # More complex reactions
 rxn_test = het.ElectronImpactReaction(0.0, het.MolecularNitrogen(0), [het.Nitrogen(0), het.Nitrogen(0)], r)
 @test repr(rxn_test) == "e(-) + N2 -> e(-) + N + N"
+
+@testset "Omitted excited species filter reactions" begin
+    # Omitting level 1 should skip reactions involving it and remove only its
+    # entries from branched radiative decays, keeping branch/rate pairs aligned.
+    mktempdir() do directory
+        rate_file = joinpath(directory, "excitation_Xe_e2.dat")
+        open(rate_file, "w") do io
+            write(io, "energy: 5.0\nenergy rate\n0 1.0e-14\n255 1.0e-14\n")
+        end
+
+        config_file = joinpath(directory, "chemistry.toml")
+        open(config_file, "w") do io
+            write(
+                io,
+                """
+                [[reactions]]
+                type = "electron_impact"
+                equation = "Xe + e -> Xe(*) + e"
+                rate_coeff_file = "omitted_product.dat"
+
+                [[reactions]]
+                type = "electron_impact"
+                equation = "Xe(*) + e -> Xe(2*) + e"
+                rate_coeff_file = "omitted_reactant.dat"
+
+                [[reactions]]
+                type = "electron_impact"
+                equation = "Xe + e -> Xe(2*) + e"
+                rate_coeff_file = "excitation_Xe_e2.dat"
+
+                [[reactions]]
+                type = "excitation"
+                target_species = "Xe(*)"
+                rate_coeff_file = "omitted_lumped_target.dat"
+
+                [[reactions]]
+                type = "de-excitation"
+                target_species = "Xe(3*)"
+                branches = [2, 1, 0]
+                half_lives = [1.0, 2.0, 3.0]
+
+                [[reactions]]
+                type = "de-excitation"
+                target_species = "Xe(*)"
+                branches = [0]
+                half_lives = [1.0]
+
+                [[reactions]]
+                type = "de-excitation"
+                target_species = "Xe(2*)"
+                branches = [1]
+                half_lives = [4.0]
+                """,
+            )
+        end
+
+        species = [het.Xenon(0), het.Xenon(0, 2), het.Xenon(0, 3)]
+        ei_reactions, excitation_reactions, elastic_reactions, de_reactions =
+            het.load_reactions(
+            config_file, species, :Lookup, :Lookup, :Lookup;
+            directories = [directory],
+        )
+
+        @test length(ei_reactions) == 1
+        @test only(ei_reactions).products == [het.Xenon(0, 2)]
+        @test isempty(excitation_reactions)
+        @test isempty(elastic_reactions)
+        @test length(de_reactions) == 1
+        @test only(de_reactions).reactant == het.Xenon(0, 3)
+        @test only(de_reactions).products == [het.Xenon(0, 2), het.Xenon(0)]
+        @test only(de_reactions).rates ≈ log(2.0) ./ [1.0, 3.0]
+    end
+end

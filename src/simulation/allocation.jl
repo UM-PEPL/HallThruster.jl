@@ -24,6 +24,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         νe = zeros(ncells),
         νiz = zeros(ncells),
         νex = zeros(ncells),
+        νex_explicit = zeros(ncells),
         # Magnetic field
         B = zeros(ncells),
 
@@ -58,6 +59,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         ohmic_heating = zeros(ncells),
         wall_losses = zeros(ncells),
         inelastic_losses = zeros(ncells),
+        inelastic_losses_stage = zeros(ncells),
 
         # Effective charge number
         Z_eff = zeros(ncells),

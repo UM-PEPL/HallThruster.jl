@@ -1,5 +1,7 @@
 abstract type Reaction end
 
+const EXCITATION_ENERGY_MERGE_TOLERANCE_EV = 1.0e-2
+
 struct DeExcitationReaction <: Reaction
     reactant::Species
     products::Vector{Species}
@@ -116,6 +118,76 @@ function product_indices(reactions, fluids)
     return indices
 end
 
+"""
+    derive_species_energies(species, reactions)
+
+Derive species energies in eV from one-to-one electron-impact reactions. The
+neutral ground state defines zero energy for each gas. Reaction header energies
+provide differences between levels, including ionization thresholds connecting
+different charge-state manifolds.
+"""
+function derive_species_energies(species, reactions)
+    adjacency = Dict{Symbol, Vector{Tuple{Symbol, Float64}}}(
+        sp.symbol => Tuple{Symbol, Float64}[] for sp in species
+    )
+
+    for rxn in reactions
+        length(rxn.products) == 1 || continue
+        only(rxn.product_coeffs) == 1 || continue
+
+        reactant = rxn.reactant
+        product = only(rxn.products)
+        reactant.element.formula == product.element.formula || continue
+
+        push!(adjacency[reactant.symbol], (product.symbol, rxn.energy))
+        push!(adjacency[product.symbol], (reactant.symbol, -rxn.energy))
+    end
+
+    energies = OrderedDict{Symbol, Float64}()
+    pending = Symbol[]
+    for sp in species
+        if sp.Z == 0 && sp.excited_level == 0
+            energies[sp.symbol] = 0.0
+            push!(pending, sp.symbol)
+        end
+    end
+
+    while !isempty(pending)
+        source = popfirst!(pending)
+        source_energy = energies[source]
+        for (destination, delta_energy) in adjacency[source]
+            candidate = source_energy + delta_energy
+            if haskey(energies, destination)
+                isapprox(
+                    energies[destination], candidate;
+                    rtol = 0.0, atol = EXCITATION_ENERGY_MERGE_TOLERANCE_EV,
+                ) ||
+                    error(
+                    "Inconsistent excitation energy for $(destination): " *
+                        "derived both $(energies[destination]) eV and $(candidate) eV " *
+                        "from reaction headers (merge tolerance: " *
+                        "$(EXCITATION_ENERGY_MERGE_TOLERANCE_EV) eV)."
+                )
+            else
+                energies[destination] = candidate
+                push!(pending, destination)
+            end
+        end
+    end
+
+    for sp in species
+        if !haskey(energies, sp.symbol)
+            error(
+                "Could not derive the energy of species $(sp). Add a one-to-one " *
+                    "excitation or ionization reaction connecting it to a species " *
+                    "with a known energy."
+            )
+        end
+    end
+
+    return energies
+end
+
 function load_reactions(propellant_config, species, iz_model, ex_model, en_model; directories = String[])
     if length(propellant_config) > 0 && isfile(propellant_config)
         contents = TOML.parsefile(propellant_config)
@@ -143,6 +215,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     reactant_str = _species_string(upper.species, upper.charge, upper.excited_level)
                     reactant = get(species_map, Symbol(reactant_str), nothing)
                     if isnothing(reactant)
+                        upper.excited_level > 0 && continue
                         error("Species '$(upper_str)' not found for de-excitation reaction $(reaction).")
                     end
 
@@ -155,35 +228,23 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     products = Species[]
                     rates = Float64[]
                     for (level, half_life) in zip(levels, half_lives)
-                        rate = _deexcitation_rate(
-                            upper.excited_level, level, half_life, reaction,
-                        )
                         product_str = _species_string(upper.species, upper.charge, level)
                         product = get(species_map, Symbol(product_str), nothing)
                         if isnothing(product)
-                            setting = _excited_level_setting(upper.charge)
-                            error(
-                                "Product species '$(product_str)' not found for " *
-                                    "de-excitation reaction $(reaction). Add level $(level) " *
-                                    "to $(setting) on the corresponding propellant."
-                            )
+                            level > 0 && continue
+                            error("Ground-state product species '$(product_str)' not found for de-excitation reaction $(reaction).")
                         end
+                        rate = _deexcitation_rate(
+                            upper.excited_level, level, half_life, reaction,
+                        )
                         push!(products, product)
                         push!(rates, rate)
                     end
 
+                    isempty(products) && continue
                     push!(de_reactions, DeExcitationReaction(reactant, products, rates))
                     continue
                 end
-
-                rate_coeff_file = reaction["rate_coeff_file"]
-                rate_coeff_path = find_file_in_dirs(rate_coeff_file, directories, cwd = true)
-
-                if isnothing(rate_coeff_path)
-                    error("Reaction rate coefficient file $(rate_coeff_file) not found in provided directories $(directories)!")
-                end
-
-                energy, rate_coeffs = load_rate_coeff_file(rate_coeff_path, type)
 
                 if type == "electron_impact"
                     lhs, rhs = _parse_reaction_equation(reaction["equation"])
@@ -192,6 +253,7 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     reactant_coeffs = UInt8[]
                     products = Species[]
                     product_coeffs = UInt8[]
+                    omitted_excited_species = false
 
                     for (side, species_arr, coeff_arr) in zip((lhs, rhs), (reactants, products), (reactant_coeffs, product_coeffs))
                         for (k, v) in side
@@ -205,12 +267,8 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
 
                             if isnothing(target_species)
                                 if k.excited_level > 0
-                                    setting = _excited_level_setting(k.charge)
-                                    error(
-                                        "Excited species '$(target_species_str)' not found for " *
-                                            "reaction $(reaction). Add $(k.excited_level) to " *
-                                            "$(setting) on the corresponding propellant."
-                                    )
+                                    omitted_excited_species = true
+                                    break
                                 end
                                 error("Species '$(target_species_str)' not found for reaction $(reaction).")
                             end
@@ -218,7 +276,9 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                             push!(species_arr, target_species)
                             push!(coeff_arr, v)
                         end
+                        omitted_excited_species && break
                     end
+                    omitted_excited_species && continue
 
                     # Do some validation
                     if length(reactants) > 1
@@ -229,6 +289,9 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                         error("Leading coefficient of species $(reactants[1]) must be one in reaction $(reaction).")
                     end
 
+                    energy, rate_coeffs = _load_configured_rate_coefficients(
+                        reaction, type, directories,
+                    )
                     reaction = ElectronImpactReaction(reactants[1], products, product_coeffs, rate_coeffs, energy)
                     push!(ei_reactions, reaction)
 
@@ -241,9 +304,13 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
                     target_species = get(species_map, Symbol(target_species_str), nothing)
 
                     if isnothing(target_species)
+                        target.excited_level > 0 && continue
                         error("Species '$(configured_target)' not found for reaction $(reaction).")
                     end
 
+                    energy, rate_coeffs = _load_configured_rate_coefficients(
+                        reaction, type, directories,
+                    )
                     if type == "excitation"
                         push!(ex_reactions, ExcitationReaction(energy, target_species, rate_coeffs))
                     else
@@ -265,6 +332,16 @@ function load_reactions(propellant_config, species, iz_model, ex_model, en_model
     de_reactions = DeExcitationReaction[]
 
     return ei_reactions, ex_reactions, en_reactions, de_reactions
+end
+
+function _load_configured_rate_coefficients(reaction, type, directories)
+    rate_coeff_file = reaction["rate_coeff_file"]
+    rate_coeff_path = find_file_in_dirs(rate_coeff_file, directories, cwd = true)
+    isnothing(rate_coeff_path) && error(
+        "Reaction rate coefficient file $(rate_coeff_file) not found in " *
+            "provided directories $(directories)!"
+    )
+    return load_rate_coeff_file(rate_coeff_path, type)
 end
 
 #===========================================

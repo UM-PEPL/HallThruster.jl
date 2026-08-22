@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νew_momentum, κ, pe, ∇pe) = params.cache
+    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update collision frequencies
@@ -15,6 +15,11 @@ function update_electrons!(params, config, t = 0)
         freq_electron_neutral!(νen, coll, neutral, Tev)
     end
 
+    νex .= νex_explicit
+    add_lumped_excitation_frequency!(
+        νex, params.cache, params.grid, params.excitation_reactions,
+        params.excitation_reactant_indices, params.fluid_array,
+    )
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
     update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 

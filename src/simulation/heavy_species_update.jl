@@ -1,6 +1,22 @@
 function integrate_heavy_species!(fluid_containers, params, user_source, dt)
+    # Strang-split the stiff, linear radiative subsystem around the SSPRK update.
+    # Each half-step is an exact propagation of all coupled decay cascades.
+    half_dt = 0.5 * dt
+    apply_radiative_decay!(
+        params.fluid_array,
+        params.radiative_networks,
+        params.radiative_emission_counts,
+        half_dt,
+    )
     # Do one timestep forward, returning `true` if we found a NaN or Inf
     step_heavy_species!(fluid_containers, params, user_source, dt) && return true
+    apply_radiative_decay!(
+        params.fluid_array,
+        params.radiative_networks,
+        params.radiative_emission_counts,
+        half_dt,
+    )
+    stage_limiter!(fluid_containers) && return true
     # Update properties that interface with electrons
     update_heavy_species!(params)
     return false
@@ -37,6 +53,7 @@ function step_heavy_species!(fluid_containers, params, source, dt)
     # First step
     # Compute slope k_{n1}
     compute_heavy_species_derivatives!(fluid_containers, params, source)
+    params.cache.inelastic_losses_stage .= params.cache.inelastic_losses
 
     # Copy density and momentum to dens_cache and mom_cache for all fluids
     # and update density and momentum to y_{n1}
@@ -58,6 +75,12 @@ function step_heavy_species!(fluid_containers, params, source, dt)
     # Second step
     # Compute slope k_{n2}, reusing memory of k_{n1}
     compute_heavy_species_derivatives!(fluid_containers, params, source)
+
+    # Match the energy sink to the same Heun-averaged reaction rate used for
+    # the species source terms.
+    @. params.cache.inelastic_losses = 0.5 * (
+        params.cache.inelastic_losses_stage + params.cache.inelastic_losses
+    )
 
     # Final step
     @inbounds for fluid in fluid_containers.continuity
@@ -82,7 +105,6 @@ function compute_heavy_species_derivatives!(fluid_containers, params, source_hea
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
-    cache.dt_iz[] = min(cache.dt_iz[], apply_deexcitation_reactions!(params.fluid_array, params))
     apply_mutual_neutralization!(params)
     apply_associative_detachment!(params)
 
@@ -375,18 +397,20 @@ function apply_reactions!(fluid_arr, params)
         ei_reactions,
         ei_reactant_indices,
         ei_product_indices,
-        cache, landmark,
+        cache, landmark, reaction_loss_frequencies,
     ) = params
 
     rxns = zip(
         ei_reactions, ei_reactant_indices, ei_product_indices,
     )
 
-    return apply_reactions!(fluid_arr, rxns, cache, landmark)
+    return apply_reactions!(
+        fluid_arr, rxns, cache, landmark, reaction_loss_frequencies,
+    )
 end
 
-function apply_reactions!(fluids, rxns, cache, landmark)
-    (; inelastic_losses, νiz, ϵ, ne, K) = cache
+function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequencies)
+    (; inelastic_losses, νiz, νex_explicit, ϵ, ne, K) = cache
 
     # Zero ionization frequency and inelastic losses and compute electron density
     @inbounds begin
@@ -399,28 +423,42 @@ function apply_reactions!(fluids, rxns, cache, landmark)
         end
         @. ne = max(ne, MIN_NUMBER_DENSITY)
         νiz .= 0.0
+        νex_explicit .= 0.0
         inelastic_losses .= 0.0
+        reaction_loss_frequencies .= 0.0
         @. ϵ = cache.nϵ / cache.ne
         if !landmark
             @. ϵ += K
         end
     end
 
-    inverse_dt_by_reactant = zeros(length(fluids))
     for (rxn, reactant_index, product_index) in rxns
         # Temp storage for reaction calculations
         rxn_cache = (cache.cell_cache_1, cache.cell_cache_2)
 
         # Apply single reaction
-        _dt = apply_reaction!(fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
-        if _dt > 0 && isfinite(_dt)
-            inverse_dt_by_reactant[reactant_index] += inv(_dt)
-        end
+        loss_frequency = @view reaction_loss_frequencies[reactant_index, :]
+        apply_reaction!(
+            fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache,
+            ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
+            loss_frequency,
+        )
     end
 
-    max_inverse_dt = maximum(inverse_dt_by_reactant; init = 0.0)
-    cache.dt_iz[] = max_inverse_dt > 0 ? inv(max_inverse_dt) : Inf
+    max_loss_frequency = maximum(reaction_loss_frequencies; init = 0.0)
+    cache.dt_iz[] = max_loss_frequency > 0 ? inv(max_loss_frequency) : Inf
     return
+end
+
+# Electronic excitation preserves the gas and charge state while changing its
+# explicitly tracked level. Other charge-conserving reactions may dissociate.
+@inline function _is_electronic_excitation(rxn)
+    length(rxn.products) == 1 || return false
+    only(rxn.product_coeffs) == 1 || return false
+    product = only(rxn.products)
+    return product.element.formula == rxn.reactant.element.formula &&
+        product.Z == rxn.reactant.Z &&
+        product.excited_level != rxn.reactant.excited_level
 end
 
 # A reaction is ionizing if any product's charge state differs from the reactant's.
@@ -435,7 +473,11 @@ end
     return false
 end
 
-function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, rxn_cache, ne, ϵ, rxn, νiz, inelastic_losses, landmark)
+function apply_reaction!(
+        fluids, reactant_index, product_index, product_coeffs, rxn_cache,
+        ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
+        loss_frequency = nothing,
+    )
     dt_max = Inf
     reactant = fluids[reactant_index]
     reactant_velocity = reactant.const_velocity
@@ -443,6 +485,7 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
 
     # Only ionizing channels contribute to νiz; all channels contribute inelastic losses
     is_ionizing = _is_ionizing(fluids, reactant_index, product_index)
+    is_excitation = _is_electronic_excitation(rxn)
 
     # Extract temp caches
     dens_cache, mom_cache = rxn_cache
@@ -454,7 +497,15 @@ function apply_reaction!(fluids, reactant_index, product_index, product_coeffs, 
         ρ_reactant = reactant.density[i]
         ρdot = reaction_rate(r, ne[i], ρ_reactant)
         ndot = ρdot * inv_m
+        if ρdot > 0
+            inverse_dt = r * ne[i]
+            dt_max = min(dt_max, inv(inverse_dt))
+            if !isnothing(loss_frequency)
+                loss_frequency[i] += inverse_dt
+            end
+        end
         νiz[i] += is_ionizing * ndot / ne[i]
+        νex_explicit[i] += is_excitation * ndot / ne[i]
         inelastic_losses[i] += ndot * rxn.energy
 
         # Change in density due to this reaction

@@ -207,11 +207,29 @@ end
 Electron energy source terms
 ===============================================================================#
 
-function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indices, fluids)
-    (; νex, ϵ, ne, K) = cache
+function excitation_losses!(Q, cache, _landmark, grid, reactions, reactant_indices, fluids)
+    (; ϵ, ne) = cache
     ncells = length(grid.cell_centers)
 
-    @. νex = 0.0
+    for (ind, rxn) in zip(reactant_indices, reactions)
+        dens = fluids[ind].density
+        inv_m = 1 / fluids[ind].species.element.m
+        @inbounds for i in 2:(ncells - 1)
+            r = rate_coeff(rxn, ϵ[i])
+            ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
+            Q[i] += ndot * rxn.energy
+        end
+    end
+
+    return nothing
+end
+
+function add_lumped_excitation_frequency!(
+        νex, cache, grid, reactions, reactant_indices, fluids,
+    )
+    (; ϵ, ne) = cache
+    ncells = length(grid.cell_centers)
+
     for (ind, rxn) in zip(reactant_indices, reactions)
         dens = fluids[ind].density
         inv_m = 1 / fluids[ind].species.element.m
@@ -219,7 +237,6 @@ function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indice
             r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
             νex[i] += ndot / ne[i]
-            Q[i] += ndot * (rxn.energy - !landmark * K[i])
         end
     end
 
