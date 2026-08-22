@@ -13,8 +13,9 @@ end
 mutable struct RadiativeNetwork
     fluid_indices::Vector{Int}
     generator::Matrix{Float64}
-    augmented_generator::Matrix{Float64}
-    transition_upper_indices::Vector{Int}
+    transient_indices::Vector{Int}
+    transient_factorization::LU{Float64, Matrix{Float64}, Vector{Int}}
+    transition_residence_indices::Vector{Int}
     transition_rates::Vector{Float64}
     transition_energies_eV::Vector{Float64}
     transition_output_indices::Vector{Int}
@@ -34,17 +35,21 @@ function RadiativeNetwork(
         carries_momentum, num_cells,
     )
     num_states = length(fluid_indices)
-    augmented_generator = zeros(2 * num_states, 2 * num_states)
-    augmented_generator[1:num_states, 1:num_states] .= generator
-    for i in 1:num_states
-        augmented_generator[num_states + i, i] = 1.0
+    transient_indices = sort!(unique(transition_upper_indices))
+    transient_rows = zeros(Int, num_states)
+    for (row, state) in enumerate(transient_indices)
+        transient_rows[state] = row
     end
+    transition_residence_indices = transient_rows[transition_upper_indices]
+    transient_factorization = lu(generator[transient_indices, transient_indices])
+    num_transient = length(transient_indices)
 
     return RadiativeNetwork(
         fluid_indices,
         generator,
-        augmented_generator,
-        transition_upper_indices,
+        transient_indices,
+        transient_factorization,
+        transition_residence_indices,
         transition_rates,
         transition_energies_eV,
         transition_output_indices,
@@ -52,10 +57,10 @@ function RadiativeNetwork(
         carries_momentum,
         NaN,
         zeros(num_states, num_states),
-        zeros(num_states, num_states),
+        zeros(num_transient, num_states),
         zeros(num_states, num_cells),
         zeros(num_states, num_cells),
-        zeros(num_states, num_cells),
+        zeros(num_transient, num_cells),
     )
 end
 
@@ -156,11 +161,17 @@ end
 function update_radiative_propagator!(network::RadiativeNetwork, dt)
     dt == network.cached_dt && return nothing
 
-    num_states = length(network.fluid_indices)
-    augmented_propagator = exp(network.augmented_generator * dt)
-    network.propagator .= @view augmented_propagator[1:num_states, 1:num_states]
-    network.residence_operator .=
-        @view augmented_propagator[(num_states + 1):(2 * num_states), 1:num_states]
+    network.propagator .= exp(network.generator * dt)
+
+    # For transient states T, Q_TT R_T = P_T - I_T gives the exact
+    # time-integrated populations without exponentiating the 2N Bateman matrix.
+    # States without an outgoing transition cannot feed T, so no stable-state
+    # block is needed. The factorization of Q_TT is cached with the network.
+    network.residence_operator .= @view network.propagator[network.transient_indices, :]
+    for (row, state) in enumerate(network.transient_indices)
+        network.residence_operator[row, state] -= 1
+    end
+    ldiv!(network.transient_factorization, network.residence_operator)
     network.cached_dt = dt
     return nothing
 end
@@ -193,14 +204,15 @@ function apply_radiative_decay!(fluids, networks, emission_counts, dt)
             fluid.density[interior] .= network.updated_state_cache[local_index, interior]
         end
 
-        for (upper, rate, output) in zip(
-                network.transition_upper_indices,
+        for (residence_index, rate, output) in zip(
+                network.transition_residence_indices,
                 network.transition_rates,
                 network.transition_output_indices,
             )
             @inbounds @simd for cell in interior
                 emission_counts[output, cell] +=
-                    rate * network.inverse_mass * network.residence_cache[upper, cell]
+                    rate * network.inverse_mass *
+                    network.residence_cache[residence_index, cell]
             end
         end
 

@@ -2,7 +2,7 @@ module HallThruster
 
 
 using DelimitedFiles: readdlm, writedlm
-using LinearAlgebra: mul!
+using LinearAlgebra: LU, ldiv!, lu, mul!
 using TOML: TOML
 
 # External dependencies

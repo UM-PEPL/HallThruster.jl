@@ -33,6 +33,11 @@ using HallThruster: HallThruster as het
     @test getfield.(transitions, :energy_eV) == [2.0, 3.0]
     @test getfield.(transitions, :frequency) == [rate_21, rate_10]
 
+    # The ground state does not emit, so the exact residence calculation should
+    # retain rows only for the two transient levels while propagating all three.
+    @test size(only(networks).propagator) == (3, 3)
+    @test size(only(networks).residence_operator) == (2, 3)
+
     initial_density = 10.0
     mass = propellant.gas.m
     for cell in 2:(ncells + 1)
