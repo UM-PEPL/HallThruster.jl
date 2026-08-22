@@ -48,12 +48,14 @@ output = out["output"]
 @test haskey(output, "average")
 @test haskey(output, "frames")
 avg = output["average"]
-@test haskey(avg, "ni")
-@test haskey(avg, "niui")
-@test haskey(avg, "ui")
-@test haskey(avg, "nn")
+@test !haskey(avg, "ni")
+@test !haskey(avg, "niui")
+@test !haskey(avg, "ui")
+@test !haskey(avg, "nn")
 @test haskey(avg, "ions")
 @test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
 
 # Test that reading the output file produces the same inputs we originally ran the simulation with
 new_sol = het.run_simulation(outfile)
@@ -86,6 +88,8 @@ out = JSON.parsefile(outfile);
 avg = out["output"]["average"]
 @test haskey(avg, "ions")
 @test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
 @test !haskey(avg, "nn")
 @test !haskey(avg, "ni")
 @test !haskey(avg, "niui")

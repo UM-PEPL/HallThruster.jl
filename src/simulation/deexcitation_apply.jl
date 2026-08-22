@@ -3,6 +3,13 @@ One charge-conserving radiative network. The population propagator and the
 time-integrated population operator are cached for the most recently used
 timestep.
 """
+struct RadiativeTransition
+    upper::Symbol
+    lower::Symbol
+    frequency::Float64
+    energy_eV::Float64
+end
+
 mutable struct RadiativeNetwork
     fluid_indices::Vector{Int}
     generator::Matrix{Float64}
@@ -68,9 +75,9 @@ function build_radiative_networks(
     num_cells = length(first(fluids).density)
     transition_count = sum(length(rxn.rates) for rxn in reactions; init = 0)
     emission_counts = zeros(transition_count, num_cells)
-    photon_energies_eV = zeros(transition_count)
+    transitions = Vector{RadiativeTransition}(undef, transition_count)
     isempty(reactions) &&
-        return RadiativeNetwork[], emission_counts, photon_energies_eV
+        return RadiativeNetwork[], emission_counts, transitions
 
     reaction_groups = OrderedDict{Tuple{Symbol, Int8}, Vector{Int}}()
     for (reaction_index, rxn) in enumerate(reactions)
@@ -116,7 +123,9 @@ function build_radiative_networks(
                         "non-positive photon energy $(photon_energy) eV."
                 )
                 output_index += 1
-                photon_energies_eV[output_index] = photon_energy
+                transitions[output_index] = RadiativeTransition(
+                    rxn.reactant.symbol, lower_species.symbol, rate, photon_energy,
+                )
                 push!(transition_upper_indices, upper_local)
                 push!(transition_rates, rate)
                 push!(transition_energies_eV, photon_energy)
@@ -141,7 +150,7 @@ function build_radiative_networks(
         )
     end
 
-    return networks, emission_counts, photon_energies_eV
+    return networks, emission_counts, transitions
 end
 
 function update_radiative_propagator!(network::RadiativeNetwork, dt)

@@ -9,8 +9,11 @@ Landmark_config = het.Config(;
 )
 
 @test_throws ErrorException het.run_simulation(
-    Landmark_config; dt = 5.0e-9, duration = 4.0e-9,
-    grid = het.EvenGrid(2), nsave = 10,
+    Landmark_config,
+    het.SimParams(;
+        dt = 5.0e-9, duration = 4.0e-9,
+        grid = het.EvenGrid(2), num_save = 10,
+    ),
 )
 
 config = het.Config(;
@@ -24,6 +27,9 @@ config = het.Config(;
     :warn,
     "CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.",
 ) match_mode = :any het.run_simulation(
-    config; dt = 5.0e-9, duration = 0.0e-9, grid = het.EvenGrid(9),
-    nsave = 10, adaptive = true, CFL = 0.9,
+    config,
+    het.SimParams(;
+        dt = 5.0e-9, duration = 0.0e-9, grid = het.EvenGrid(9),
+        num_save = 10, adaptive = true, CFL = 0.9,
+    ),
 )

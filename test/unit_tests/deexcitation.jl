@@ -26,11 +26,12 @@ using HallThruster: HallThruster as het
         het.Xenon(0, 1).symbol => 3.0,
         het.Xenon(0, 2).symbol => 5.0,
     )
-    networks, emissions, photon_energies = het.build_radiative_networks(
+    networks, emissions, transitions = het.build_radiative_networks(
         fluid_array, reactions, reactant_indices, product_indices, level_energies,
     )
     @test only(networks).transition_energies_eV == [2.0, 3.0]
-    @test photon_energies == [2.0, 3.0]
+    @test getfield.(transitions, :energy_eV) == [2.0, 3.0]
+    @test getfield.(transitions, :frequency) == [rate_21, rate_10]
 
     initial_density = 10.0
     mass = propellant.gas.m
@@ -40,6 +41,7 @@ using HallThruster: HallThruster as het
 
     dt = 1.0
     het.apply_radiative_decay!(fluid_array, networks, emissions, dt)
+    photon_output = het.photon_emissions(transitions, emissions, dt)
 
     expected_2 = initial_density * exp(-rate_21 * dt)
     expected_1 = initial_density * rate_21 / (rate_10 - rate_21) *
@@ -51,7 +53,17 @@ using HallThruster: HallThruster as het
         @test populations ≈ [expected_0, expected_1, expected_2]
         @test sum(populations) ≈ initial_density
         @test emissions[:, cell] ≈ [initial_density - expected_2, expected_0]
+        @test getfield.(photon_output, :emission_rate)[1][cell] ≈
+            (initial_density - expected_2) / dt
+        @test getfield.(photon_output, :emission_rate)[2][cell] ≈ expected_0 / dt
     end
+    @test getfield.(photon_output, :upper) == [
+        het.Xenon(0, 2).symbol, het.Xenon(0, 1).symbol,
+    ]
+    @test getfield.(photon_output, :lower) == [
+        het.Xenon(0, 1).symbol, het.Xenon(0).symbol,
+    ]
+    @test getfield.(photon_output, :frequency) == [rate_21, rate_10]
 
     # Ghost cells are boundary data and must not be advanced by the source update.
     @test all(iszero, emissions[:, [1, end]])
@@ -84,11 +96,11 @@ end
         het.Xenon(1, 1).symbol => 3.0,
         het.Xenon(1, 2).symbol => 5.0,
     )
-    networks, emissions, photon_energies = het.build_radiative_networks(
+    networks, emissions, transitions = het.build_radiative_networks(
         fluid_array, reactions, reactant_indices, product_indices, level_energies,
     )
     @test only(networks).transition_energies_eV == [2.0, 5.0, 3.0]
-    @test photon_energies == [2.0, 5.0, 3.0]
+    @test getfield.(transitions, :energy_eV) == [2.0, 5.0, 3.0]
 
     mass = propellant.gas.m
     initial_density = 12.0

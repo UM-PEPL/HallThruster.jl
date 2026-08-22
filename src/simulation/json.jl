@@ -74,14 +74,6 @@ function frame_dict(sol::Solution, frame::Integer)
     d["mobility"] = f.mobility
     d["channel_area"] = f.channel_area
 
-    if length(sol.config.propellants) == 1
-        symbol = sol.config.propellants[1].gas.formula
-        d["nn"] = f.neutrals[symbol].n
-        d["ni"] = [ion.n for ion in f.ions[symbol]]
-        d["ui"] = [ion.u for ion in f.ions[symbol]]
-        d["niui"] = [ion.nu for ion in f.ions[symbol]]
-    end
-
     d["neutrals"] = OrderedDict(
         symbol => OrderedDict(
                 "n" => neutral.n,
@@ -102,6 +94,28 @@ function frame_dict(sol::Solution, frame::Integer)
             ]
             for (symbol, ions) in pairs(f.ions)
     )
+
+    d["excited_states"] = OrderedDict(
+        symbol => OrderedDict(
+                "n" => state.n,
+                "u" => state.u,
+                "nu" => state.nu,
+                "m" => state.m,
+                "Z" => state.Z,
+                "excited_level" => state.excited_level,
+                "energy_eV" => state.energy_eV,
+            ) for (symbol, state) in pairs(f.excited_states)
+    )
+
+    d["photon_emissions"] = [
+        OrderedDict(
+            "upper" => emission.upper,
+            "lower" => emission.lower,
+            "frequency" => emission.frequency,
+            "energy_eV" => emission.energy_eV,
+            "emission_rate" => emission.emission_rate,
+        ) for emission in f.photon_emissions
+    ]
 
     return d
 end

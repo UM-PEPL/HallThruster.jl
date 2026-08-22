@@ -46,7 +46,7 @@ function setup_simulation(
     deexcitation_product_indices = product_indices(deexcitation_reactions, fluid_array)
     species_energies_eV = derive_species_energies(species, ei_reactions)
 
-    radiative_networks, radiative_emission_counts, radiative_photon_energies_eV =
+    radiative_networks, radiative_emission_counts, radiative_transitions =
         build_radiative_networks(
         fluid_array,
         deexcitation_reactions,
@@ -140,7 +140,7 @@ function setup_simulation(
         deexcitation_product_indices,
         radiative_networks,
         radiative_emission_counts,
-        radiative_photon_energies_eV,
+        radiative_transitions,
         species_energies_eV,
         reaction_loss_frequencies,
         fluid_containers,
@@ -255,23 +255,5 @@ Returns a `Solution` object.
 """
 function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
     params = setup_simulation(config, sim; postprocess, restart, kwargs...)
-    return run_from_setup(params, config)
-end
-
-"""
-    $(TYPEDSIGNATURES)
-**Deprecated**. Please use `run_simulation(::Config, ::SimParams; kwargs...)`
-
-Run a Hall thruster simulation using the provided Config object.
-
-## Arguments
-- `config`: a `Config` containing simulation parameters.
-- `dt`: The timestep, in seconds. Typical values are O(10 ns) (1e-8 seconds).
-- `duration`: How long to run the simulation, in seconds (simulation time, not wall time). Typical runtimes are O(1 ms) (1e-3 seconds).
-- `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
-- `nsave`: How many frames to save.
-"""
-function run_simulation(config::Config; kwargs...)
-    params = setup_simulation(config; kwargs...)
     return run_from_setup(params, config)
 end

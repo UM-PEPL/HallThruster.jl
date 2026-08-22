@@ -25,6 +25,12 @@ function test_solution_serialization()
     sol = het.run_simulation(config, simparams)
     avg = het.time_average(sol)
 
+    # The deprecated single-propellant accessors and Config-only entry point are gone.
+    @test all(field -> field ∉ het.valid_fields(), (:nn, :ni, :ui, :niui))
+    @test_throws ArgumentError sol[:nn]
+    @test_throws MethodError sol[:ni, 1]
+    @test !hasmethod(het.run_simulation, Tuple{het.Config})
+
     frame = avg.frames[1]
     neutral_state = frame.neutrals[:Xe]
 
@@ -50,6 +56,43 @@ function test_solution_serialization()
 
     test_roundtrip(het.Frame, frame)
     test_roundtrip(het.Solution, avg)
+
+    # Explicitly tracked neutral and ion levels are emitted separately from the
+    # ground-state collections and retain their derived energies.
+    excited_propellant = het.Propellant(
+        het.Xenon, 1.0e-6;
+        max_charge = 1,
+        excited_levels = [1],
+        excited_ion_levels = Dict(1 => [2]),
+    )
+    excited_fluids = [het.allocate_fluids(excited_propellant, 2)]
+    energies = het.OrderedDict(
+        het.Xenon(0).symbol => 0.0,
+        het.Xenon(0, 1).symbol => 8.3,
+        het.Xenon(1).symbol => 12.1,
+        het.Xenon(1, 2).symbol => 13.4,
+    )
+    neutrals, ions, excited_states = het._get_species_states(
+        excited_fluids, energies,
+    )
+
+    @test collect(keys(neutrals)) == [:Xe]
+    @test length(ions[:Xe]) == 1
+    @test collect(keys(excited_states)) == [
+        het.Xenon(0, 1).symbol, het.Xenon(1, 2).symbol,
+    ]
+    @test excited_states[het.Xenon(0, 1).symbol].energy_eV == 8.3
+    @test excited_states[het.Xenon(1, 2).symbol].energy_eV == 13.4
+    @test excited_states[het.Xenon(1, 2).symbol].excited_level == 2
+
+    emission = het.PhotonEmission(;
+        upper = het.Xenon(0, 1).symbol,
+        lower = het.Xenon(0).symbol,
+        frequency = 2.0e7,
+        energy_eV = 8.3,
+        emission_rate = fill(4.0e18, 4),
+    )
+    test_roundtrip(het.PhotonEmission, het.serialize(emission))
 
     return
 end

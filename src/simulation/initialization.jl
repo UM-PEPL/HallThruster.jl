@@ -183,24 +183,41 @@ function initialize_from_restart!(params, restart_file::String)
 end
 
 function initialize_from_restart!(params, frame)
-    # TODO: multiple propellants
-    (; grid, cache, propellants) = params
-    mi = propellants[1].gas.m
-    allowed = propellants[1].allowed_charges
-    ncharge_restart = length(frame["ni"])
-
-    # load ion properties, interpolated from restart grid to grid in params
+    (; grid, cache, propellants, fluids_by_propellant) = params
     z = grid.cell_centers
-
     z_frame = frame["z"]
-    nn = LinearInterpolation(z_frame, frame["nn"] .* mi).(z)
-    params.fluid_containers.continuity[1].density .= nn
 
-    for Z in allowed
-        if Z <= ncharge_restart
-            fluid = params.fluid_containers.isothermal[Z]
-            fluid.density .= LinearInterpolation(z_frame, frame["ni"][Z] .* mi).(z)
-            fluid.momentum .= LinearInterpolation(z_frame, frame["niui"][Z] .* mi).(z)
+    # Restore every configured ground or excited fluid from the structured species output.
+    for (propellant, fluids) in zip(propellants, fluids_by_propellant)
+        gas_symbol = string(propellant.gas.formula)
+
+        for fluid in fluids.continuity
+            species = fluid.species
+            state = if is_excited(species)
+                frame["excited_states"][string(species.symbol)]
+            else
+                frame["neutrals"][gas_symbol]
+            end
+            fluid.density .= LinearInterpolation(
+                z_frame, state["n"] .* species.element.m
+            ).(z)
+        end
+
+        for fluid in fluids.isothermal
+            species = fluid.species
+            state = if is_excited(species)
+                frame["excited_states"][string(species.symbol)]
+            else
+                ion_states = frame["ions"][gas_symbol]
+                index = findfirst(ion -> ion["Z"] == species.Z, ion_states)
+                isnothing(index) && throw(ArgumentError(
+                    "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
+                ))
+                ion_states[index]
+            end
+            mass = species.element.m
+            fluid.density .= LinearInterpolation(z_frame, state["n"] .* mass).(z)
+            fluid.momentum .= LinearInterpolation(z_frame, state["nu"] .* mass).(z)
         end
     end
 
