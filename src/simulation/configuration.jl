@@ -1,3 +1,49 @@
+function _complete_propellant(
+        propellant;
+        allowed_charges = propellant.allowed_charges,
+        excited_levels = propellant.excited_levels,
+        excited_ion_levels = propellant.excited_ion_levels,
+    )
+    return Propellant(;
+        gas = propellant.gas,
+        flow_rate_kg_s = propellant.flow_rate_kg_s,
+        velocity_m_s = propellant.velocity_m_s,
+        temperature_K = propellant.temperature_K,
+        ion_temperature_K = propellant.ion_temperature_K,
+        allowed_charges,
+        excited_levels,
+        excited_ion_levels,
+    )
+end
+
+function _merge_propellant_chemistry(propellant, file_propellant)
+    allowed_charges = if propellant.allowed_charges == [1]
+        file_propellant.allowed_charges
+    else
+        propellant.allowed_charges
+    end
+
+    excited_levels = if isempty(propellant.excited_levels)
+        file_propellant.excited_levels
+    else
+        propellant.excited_levels
+    end
+
+    excited_ion_levels = if isempty(propellant.excited_ion_levels)
+        # A user-provided charge override also limits inherited excited-ion levels.
+        Dict(
+            charge => levels for (charge, levels) in file_propellant.excited_ion_levels
+                if charge in allowed_charges
+        )
+    else
+        propellant.excited_ion_levels
+    end
+
+    return _complete_propellant(
+        propellant; allowed_charges, excited_levels, excited_ion_levels,
+    )
+end
+
 """
 $(TYPEDEF)
 Hall thruster configuration struct. Only four mandatory fields: `discharge_voltage`, `thruster`, `anode_mass_flow_rate`, and `domain`.
@@ -235,9 +281,23 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         if isnothing(propellants)
             # First, if no propellant information is provided in the config struct, we take the info in the file.
             @assert length(props_from_file) > 0
-            propellants = props_from_file
+            propellants = _complete_propellant.(props_from_file)
         else
-            # Otherwise, use the information in the config struct if it exists
+            # Explicit physical properties override file values. Default charge and
+            # excitation values inherit from a matching file species; non-default values
+            # supplied on the Propellant override the file.
+            propellants = collect(propellants)
+            for (i, propellant) in pairs(propellants)
+                file_index = findfirst(
+                    p -> p.gas.formula == propellant.gas.formula, props_from_file,
+                )
+                propellants[i] = if isnothing(file_index)
+                    _complete_propellant(propellant)
+                else
+                    _merge_propellant_chemistry(propellant, props_from_file[file_index])
+                end
+            end
+
             # We set the flow rate to 0.0 kg/s for all species without specified flow rates
             # The neutral and ion temperature are taken from the propellant with the highest flow rate.
             # The neutral velocity is scaled based on the ratio of masses from the propellant with the highest flow rate.
@@ -275,6 +335,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
                     temperature_K = max_prop.temperature_K,
                     ion_temperature_K = max_prop.ion_temperature_K,
                     allowed_charges = prop.allowed_charges,
+                    excited_levels = prop.excited_levels,
+                    excited_ion_levels = prop.excited_ion_levels,
                 )
 
                 push!(propellants, new_prop)

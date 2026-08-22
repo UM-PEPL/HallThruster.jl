@@ -289,6 +289,75 @@ function test_TOML_Read()
 end
 
 test_TOML_Read()
+
+function test_propellant_config_overrides()
+    @testset "Propellant chemistry inheritance" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                symbol = "Xe"
+                max_charge = 3
+                excited_levels = [1, 2]
+                excited_ion_levels = { 1 = [1], 2 = [1, 2], 3 = [1] }
+                """
+            )
+
+            config_args = (;
+                thruster = het.SPT_100,
+                domain = (0.0, 0.08),
+                discharge_voltage = 300.0,
+                propellant_config = file,
+            )
+
+            # Physical overrides retain chemistry options omitted from Propellant.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant("Xe"; flow_rate_kg_s = 5.0e-6, velocity_m_s = 150.0),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.flow_rate_kg_s == 5.0e-6
+            @test propellant.velocity_m_s == 150.0
+            @test propellant.allowed_charges == [1, 2, 3]
+            @test propellant.excited_levels == [1, 2]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2], 3 => [1])
+
+            # Specifying only max_charge still inherits both excited-state collections.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant("Xe"; flow_rate_kg_s = 5.0e-6, max_charge = 3),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.excited_levels == [1, 2]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2], 3 => [1])
+
+            # Non-default chemistry values override the file; inherited ion levels
+            # are restricted to the explicitly allowed charge states.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant(
+                        "Xe"; flow_rate_kg_s = 5.0e-6, max_charge = 2,
+                        excited_levels = [4],
+                    ),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.allowed_charges == [1, 2]
+            @test propellant.excited_levels == [4]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2])
+        end
+    end
+    return
+end
+
+test_propellant_config_overrides()
+
 function test_allowed_charges_initialization()
     @testset "Allowed charges initialization" begin
         Xe_default = het.Propellant(
