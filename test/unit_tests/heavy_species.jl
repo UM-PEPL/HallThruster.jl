@@ -8,7 +8,7 @@ using HallThruster: HallThruster as het
     ion.density .= [0.0, 2.0, 4.0, 5.0, 0.0]
     ion.momentum .= [1.0, 6.0, -8.0, 0.0, -1.0]
 
-    @test het.update_primitive_velocities!([ion]) === nothing
+    @test het.update_primitive_velocity!(ion) === nothing
     @test ion.vel_prim == [0.0, 3.0, -2.0, 0.0, 0.0]
 end
 
@@ -23,68 +23,51 @@ end
     fluid_arr = [fluids.continuity[1], fluids.isothermal[1]]
 
     rxn = het.ElectronImpactReaction(0.0, het.Xenon(0), [het.Xenon(1)], ones(256))
-    rxn_cache = (zeros(ncells + 2), zeros(ncells + 2))
-    ne = fill(1.0e18, ncells + 2)
-    energy = fill(10.0, ncells + 2)
-    νiz = zeros(ncells + 2)
-    νex_explicit = zeros(ncells + 2)
-    inelastic_losses = zeros(ncells + 2)
-
-    dt_max = het.apply_reaction!(
-        fluid_arr,
-        1,
-        [2],
-        rxn.product_coeffs,
-        rxn_cache,
-        ne,
-        energy,
-        rxn,
-        νiz,
-        νex_explicit,
-        inelastic_losses,
-        false,
+    groups = het.build_electron_impact_groups([rxn], [1], [[2]], fluid_arr)
+    num_grid_cells = ncells + 2
+    fluid_arr[2].density .= propellant.gas.m * 1.0e18
+    cache = (;
+        inelastic_losses = zeros(num_grid_cells),
+        νiz = zeros(num_grid_cells),
+        νex_explicit = zeros(num_grid_cells),
+        ϵ = zeros(num_grid_cells),
+        ne = zeros(num_grid_cells),
+        K = zeros(num_grid_cells),
+        nϵ = fill(1.0e19, num_grid_cells),
+        cell_cache_1 = zeros(num_grid_cells),
+        reaction_loss_frequency = zeros(num_grid_cells),
+        reaction_rate_indices = zeros(Int, num_grid_cells),
+        reaction_rate_fractions = zeros(num_grid_cells),
+        reaction_rate_index_limit = [254],
+        dt_iz = [Inf],
     )
 
-    @test dt_max == Inf
-    @test all(isfinite, νiz)
-    @test all(isfinite, inelastic_losses)
-    @test all(iszero, νiz)
-    @test all(iszero, νex_explicit)
-    @test all(iszero, inelastic_losses)
+    het.apply_reaction_groups!(fluid_arr, groups, cache, false)
+
+    @test cache.dt_iz[] == Inf
+    @test all(isfinite, cache.νiz)
+    @test all(isfinite, cache.inelastic_losses)
+    @test all(iszero, cache.νiz)
+    @test all(iszero, cache.νex_explicit)
+    @test all(iszero, cache.inelastic_losses)
     @test all(iszero, fluid_arr[1].dens_ddt)
     @test all(iszero, fluid_arr[2].dens_ddt)
-    @test all(iszero, rxn_cache[1])
-    @test all(iszero, rxn_cache[2])
 
-    # Standalone callers without the summed-loss cache still receive their
-    # per-reaction timestep limit.
+    # A populated reactant produces the expected grouped chemistry timestep.
     fluid_arr[1].density[2:(end - 1)] .= propellant.gas.m
-    dt_max = het.apply_reaction!(
-        fluid_arr,
-        1,
-        [2],
-        rxn.product_coeffs,
-        rxn_cache,
-        ne,
-        energy,
-        rxn,
-        νiz,
-        νex_explicit,
-        inelastic_losses,
-        false,
-    )
-    @test dt_max ≈ 1.0e-18
+    het.apply_reaction_groups!(fluid_arr, groups, cache, false)
+    @test cache.dt_iz[] ≈ 1.0e-18
 end
 
 @testset "Empty heavy-species populations" begin
     ncells = 3
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
     fluids = het.allocate_fluids(propellant, ncells)
-    cache = het.allocate_arrays(length(first(fluids.continuity).density), [propellant], 0)
+    cache = het.allocate_arrays(length(first(fluids.continuity).density), 0)
 
     # User-provided initial conditions and restarts may contain an empty cell
     # before the normal density limiter runs; derived plasma fields must stay finite.
-    het.update_heavy_species_cache!(fluids, cache, nothing, false)
+    het.update_heavy_species_cache!(fluids, cache, false)
     @test all(isfinite, cache.avg_neutral_vel)
     @test all(isfinite, cache.avg_ion_vel)
     @test all(isfinite, cache.m_eff)
@@ -98,7 +81,7 @@ end
     # required by the electron and wall models, so fail with a useful error.
     neutral_only = (; continuity = fluids.continuity, isothermal = typeof(fluids.isothermal)())
     @test_throws ArgumentError het.update_heavy_species_cache!(
-        neutral_only, cache, nothing, false,
+        neutral_only, cache, false,
     )
 end
 

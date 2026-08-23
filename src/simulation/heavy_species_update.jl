@@ -208,12 +208,12 @@ function update_heavy_species!(params)
     apply_right_boundary!(params.fluid_containers)
 
     # Update ion variables as seen by electrons
-    update_heavy_species_cache!(params.fluid_containers, cache, params.grid, params.landmark)
+    update_heavy_species_cache!(params.fluid_containers, cache, params.landmark)
 
     return
 end
 
-function update_heavy_species_cache!(fluids, cache, grid, landmark)
+function update_heavy_species_cache!(fluids, cache, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
     isempty(fluids.continuity) && throw(ArgumentError(
@@ -496,7 +496,7 @@ function common_rate_index_limit(groups)
     return limit
 end
 
-function prepare_reaction_state!(fluids, cache, landmark, groups)
+function prepare_reaction_state!(fluids, cache, landmark)
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne, K) = cache
 
     # Recompute electron density for the current RK stage. Neutral fluids do not
@@ -522,14 +522,8 @@ function prepare_reaction_state!(fluids, cache, landmark, groups)
     end
     # When lookup tables share their unit-spaced coordinate, clamp the index and
     # compute its interpolation fraction once per cell instead of once per table.
-    rate_index_limit = if hasproperty(cache, :reaction_rate_index_limit)
-        cache.reaction_rate_index_limit[]
-    else
-        common_rate_index_limit(groups)
-    end
-    has_lookup_cache = hasproperty(cache, :reaction_rate_indices) &&
-        hasproperty(cache, :reaction_rate_fractions)
-    if rate_index_limit >= 0 && has_lookup_cache
+    rate_index_limit = cache.reaction_rate_index_limit[]
+    if rate_index_limit >= 0
         indices = cache.reaction_rate_indices
         fractions = cache.reaction_rate_fractions
         @inbounds @simd for i in eachindex(ϵ)
@@ -543,9 +537,8 @@ function prepare_reaction_state!(fluids, cache, landmark, groups)
                 fractions[i] = 0.0
             end
         end
-        return true
     end
-    return false
+    return nothing
 end
 
 # Electronic excitation preserves the gas and charge state while changing its
@@ -604,11 +597,10 @@ function build_electron_impact_groups(
 end
 
 function apply_reaction_groups!(fluids, groups, cache, landmark)
-    use_cached_coordinates = prepare_reaction_state!(
-        fluids, cache, landmark, groups,
-    )
-    reaction_rate_indices = use_cached_coordinates ? cache.reaction_rate_indices : nothing
-    reaction_rate_fractions = use_cached_coordinates ? cache.reaction_rate_fractions : nothing
+    prepare_reaction_state!(fluids, cache, landmark)
+    cache_lookup_coordinates = cache.reaction_rate_index_limit[] >= 0
+    reaction_rate_indices = cache_lookup_coordinates ? cache.reaction_rate_indices : nothing
+    reaction_rate_fractions = cache_lookup_coordinates ? cache.reaction_rate_fractions : nothing
     loss_frequency = cache.reaction_loss_frequency
     max_loss_frequency = 0.0
 
@@ -725,87 +717,6 @@ function apply_reaction_channel!(
         end
     end
     return group_max
-end
-
-function apply_reaction!(
-        fluids, reactant_index, product_index, product_coeffs, rxn_cache,
-        ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
-        loss_frequency = nothing, reaction_rate_indices = nothing,
-    )
-    max_destruction_frequency = 0.0
-    reactant = fluids[reactant_index]
-    reactant_velocity = reactant.const_velocity
-    inv_m = 1 / reactant.species.element.m
-
-    # Only ionizing channels contribute to νiz; all channels contribute inelastic losses
-    is_ionizing = _is_ionizing(fluids, reactant_index, product_index)
-    is_excitation = _is_electronic_excitation(rxn)
-
-    # Extract temp caches
-    dens_cache, mom_cache = rxn_cache
-    ncells = length(dens_cache)
-
-    # Compute reaction rate and adjust reactant properties
-    @inbounds @simd for i in 2:(ncells - 1)
-        r = if isnothing(reaction_rate_indices)
-            rate_coeff(rxn, ϵ[i])
-        else
-            rate_coeff(rxn, ϵ[i], reaction_rate_indices[i])
-        end
-        ρ_reactant = reactant.density[i]
-        destruction_frequency = r * ne[i]
-        ρdot = destruction_frequency * ρ_reactant
-        ndot = ρdot * inv_m
-        if ρdot > 0
-            if isnothing(loss_frequency)
-                max_destruction_frequency = max(
-                    max_destruction_frequency, destruction_frequency,
-                )
-            else
-                loss_frequency[i] += destruction_frequency
-            end
-        end
-        reaction_frequency = r * ρ_reactant * inv_m
-        if is_ionizing
-            νiz[i] += reaction_frequency
-        end
-        if is_excitation
-            νex_explicit[i] += reaction_frequency
-        end
-        inelastic_losses[i] += ndot * rxn.energy
-
-        # Change in density due to this reaction
-        reactant.dens_ddt[i] -= ρdot
-
-        # Store density changes in cache
-        dens_cache[i] = ndot
-
-        if !landmark
-            if reactant.type != _ContinuityOnly
-                # Momentum transfer due to ionization
-                reactant_velocity = primitive_velocity(reactant.momentum[i], ρ_reactant)
-                reactant.mom_ddt[i] -= ρdot * reactant_velocity
-            end
-
-            # Store momentum change in cache
-            mom_cache[i] = ndot * reactant_velocity
-        else
-            mom_cache[i] = 0.0
-        end
-    end
-
-    # Iterate products and add mass/momentum as needed
-    @inbounds for (prod_ind, prod_coeff) in zip(product_index, product_coeffs)
-        product = fluids[prod_ind]
-        prod_mass = product.species.element.m
-
-        @simd for i in 2:(ncells - 1)
-            product.dens_ddt[i] += prod_mass * prod_coeff * dens_cache[i]
-            product.mom_ddt[i] += prod_mass * prod_coeff * mom_cache[i]
-        end
-    end
-
-    return inv(max_destruction_frequency)
 end
 
 @inline reaction_rate(rate_coeff, ne, n_reactant) = rate_coeff * ne * n_reactant

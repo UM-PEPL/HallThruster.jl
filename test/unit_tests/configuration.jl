@@ -148,13 +148,19 @@ function test_multiple_propellants()
         # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
         triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
 
-        (; ei_reactions, ei_reactant_indices, ei_product_indices) = params
-
-        @test length(ei_reactions) == triangular(length(Kr.allowed_charges)) + triangular(length(Xe.allowed_charges))
-        for (rxn, reactant_ind, prod_ind) in zip(ei_reactions, ei_reactant_indices, ei_product_indices)
-            @test rxn.reactant == species[reactant_ind]
-            for (i, _prod_ind) in enumerate(prod_ind)
-                @test rxn.products[i] == species[_prod_ind]
+        @test sum(length(group.channels) for group in params.reaction_groups) ==
+            triangular(length(Kr.allowed_charges)) + triangular(length(Xe.allowed_charges))
+        for group in params.reaction_groups
+            @test all(
+                channel.reaction.reactant == species[group.reactant_index]
+                    for channel in group.channels
+            )
+            for channel in group.channels
+                for (product, product_index) in zip(
+                        channel.reaction.products, channel.product_indices,
+                    )
+                    @test product == species[product_index]
+                end
             end
         end
 

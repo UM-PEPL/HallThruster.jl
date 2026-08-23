@@ -144,17 +144,11 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     grid::Grid1D
     postprocess::Postprocess
     cache::C
-    ei_reactions::Vector{ElectronImpactReaction}
-    ei_reactant_indices::Vector{Int}
-    ei_product_indices::Vector{Vector{Int}}
     reaction_groups::Vector{ElectronImpactGroup}
     excitation_reactions::Vector{ExcitationReaction}
     excitation_reactant_indices::Vector{Int}
     electron_neutral_collisions::Vector{ElasticCollision}
     electron_neutral_indices::Vector{Int}
-    deexcitation_reactions::Vector{DeExcitationReaction}
-    deexcitation_reactant_indices::Vector{Int}
-    deexcitation_product_indices::Vector{Vector{Int}}
     radiative_networks::Vector{RadiativeNetwork}
     radiative_emission_counts::Matrix{Float64}
     radiative_transitions::Vector{RadiativeTransition}

@@ -1,14 +1,12 @@
-# Split into helper method and main method to hopefully
-# reduce precompilation/recompilation time
+# Keep configuration-dependent bookkeeping out of the main allocator to limit
+# specialization and recompilation.
 function allocate_arrays(grid::Grid1D, config)
     ncells = length(grid.cell_centers)
     n_anom_vars = num_anom_variables(config.anom_model)
-    return allocate_arrays(ncells, config.propellants, n_anom_vars)
+    return allocate_arrays(ncells, n_anom_vars)
 end
 
-function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
-    num_species = sum(length(prop.allowed_charges) for prop in propellants)
-
+function allocate_arrays(ncells::Int, n_anom_vars::Int)
     cache = (;
         # Caches for energy solve
         Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
@@ -87,6 +85,8 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         cell_cache_2 = zeros(ncells),
         reaction_rate_indices = zeros(Int, ncells),
         reaction_rate_fractions = zeros(ncells),
+        # Keep this mutable scalar out of the large cache value; storing the Int
+        # inline measurably slows the reaction hot path for large chemistry sets.
         reaction_rate_index_limit = [-1],
         reaction_loss_frequency = zeros(ncells),
 

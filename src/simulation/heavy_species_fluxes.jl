@@ -10,13 +10,6 @@ function update_primitive_velocity!(fluid)
     return nothing
 end
 
-function update_primitive_velocities!(fluids)
-    for fluid in fluids
-        update_primitive_velocity!(fluid)
-    end
-    return nothing
-end
-
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
     Δu_L = uⱼ - uⱼ₋₁
     Δu_R = uⱼ₊₁ - uⱼ

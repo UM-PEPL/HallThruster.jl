@@ -17,7 +17,7 @@ function update_electrons!(params, config, t = 0)
 
     νex .= νex_explicit
     add_lumped_excitation_frequency!(
-        νex, params.cache, params.grid, params.excitation_reactions,
+        νex, params.cache, params.excitation_reactions,
         params.excitation_reactant_indices, params.fluid_array,
     )
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)

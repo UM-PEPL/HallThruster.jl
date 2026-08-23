@@ -1,7 +1,6 @@
 # Trait-based approach to serialization, inspired by StructTypes.jl
 module Serialization
 
-using Base.Iterators: Iterators
 using OrderedCollections: OrderedDict
 
 # Serialization runs only at input/output boundaries. Minimizing compilation here

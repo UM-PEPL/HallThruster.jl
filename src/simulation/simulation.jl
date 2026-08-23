@@ -128,17 +128,11 @@ function setup_simulation(
         # fluid bookkeeping - concretely-typed
         cache,
         # reactions - concretely-typed
-        ei_reactions,
-        ei_reactant_indices,
-        ei_product_indices,
         reaction_groups,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
         electron_neutral_indices,
-        deexcitation_reactions,
-        deexcitation_reactant_indices,
-        deexcitation_product_indices,
         radiative_networks,
         radiative_emission_counts,
         radiative_transitions,

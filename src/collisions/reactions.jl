@@ -57,10 +57,9 @@ function load_rate_coeff_file(path, reaction_type)
         firstline = readline(io)
         if (reaction_type != "elastic") || (':' in firstline)
             energy = parse(Float64, strip(split(firstline, ':')[2]))
-            header = readline(io)
+            readline(io) # column header
         else
             energy = 0.0
-            header = firstline
         end
         rates = readdlm(io)
         energy, rates
@@ -216,150 +215,139 @@ function derive_species_energies(species, reactions)
     return energies
 end
 
-function load_reactions(propellant_config, species, iz_model, ex_model, en_model; directories = String[])
-    if length(propellant_config) > 0 && isfile(propellant_config)
+function _configured_species(species_map, term, reaction)
+    species_string = _species_string(term.species, term.charge, term.excited_level)
+    species = get(species_map, Symbol(species_string), nothing)
+    if isnothing(species) && term.excited_level == 0
+        error("Species '$(species_string)' not found for reaction $(reaction).")
+    end
+    return species
+end
+
+function _configured_heavy_species(side, species_map, reaction)
+    species = Species[]
+    coefficients = UInt8[]
+    for (term, coefficient) in side
+        term.species == "e" && continue
+        configured = _configured_species(species_map, term, reaction)
+        # Reactions involving an excited level omitted from the propellant
+        # configuration are omitted as a whole.
+        isnothing(configured) && return nothing
+        push!(species, configured)
+        push!(coefficients, coefficient)
+    end
+    return species, coefficients
+end
+
+function _load_electron_impact_reaction(reaction, species_map, directories)
+    lhs, rhs = _parse_reaction_equation(reaction["equation"])
+    reactant_data = _configured_heavy_species(lhs, species_map, reaction)
+    product_data = _configured_heavy_species(rhs, species_map, reaction)
+    if isnothing(reactant_data) || isnothing(product_data)
+        return nothing
+    end
+    reactants, reactant_coeffs = reactant_data
+    products, product_coeffs = product_data
+
+    length(reactants) == 1 || error(
+        "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
+    )
+    only(reactant_coeffs) == 1 || error(
+        "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
+    )
+
+    energy, rate_coeffs = _load_configured_rate_coefficients(
+        reaction, "electron_impact", directories,
+    )
+    return ElectronImpactReaction(
+        only(reactants), products, product_coeffs, rate_coeffs, energy,
+    )
+end
+
+function _load_deexcitation_reaction(reaction, species_map)
+    upper = _parse_species_term(reaction["target_species"])
+    reactant = _configured_species(species_map, upper, reaction)
+    isnothing(reactant) && return nothing
+
+    levels = reaction["branches"]
+    half_lives = reaction["half_lives"]
+    length(levels) == length(half_lives) || error(
+        "`branches` and `half_lives` must have equal length in de-excitation reaction $(reaction)."
+    )
+
+    products = Species[]
+    rates = Float64[]
+    for (level, half_life) in zip(levels, half_lives)
+        lower = RxnTerm(upper.species, upper.charge, level)
+        product = _configured_species(species_map, lower, reaction)
+        isnothing(product) && continue
+        push!(products, product)
+        push!(rates, _deexcitation_rate(upper.excited_level, level, half_life, reaction))
+    end
+    isempty(products) && return nothing
+    return DeExcitationReaction(reactant, products, rates)
+end
+
+function _load_target_collision(reaction, type, species_map, directories)
+    target = _parse_species_term(reaction["target_species"])
+    species = _configured_species(species_map, target, reaction)
+    isnothing(species) && return nothing
+    energy, rate_coeffs = _load_configured_rate_coefficients(reaction, type, directories)
+    return type == "excitation" ?
+        ExcitationReaction(energy, species, rate_coeffs) :
+        ElasticCollision(species, rate_coeffs)
+end
+
+function load_reactions(
+        propellant_config, species, iz_model, ex_model, en_model;
+        directories = String[],
+    )
+    if !isempty(propellant_config) && isfile(propellant_config)
         contents = TOML.parsefile(propellant_config)
-
         if haskey(contents, "reactions")
-
             ei_reactions = ElectronImpactReaction[]
             ex_reactions = ExcitationReaction[]
             en_reactions = ElasticCollision[]
             de_reactions = DeExcitationReaction[]
-
             species_map = Dict{Symbol, Species}(s.symbol => s for s in species)
 
             for reaction in contents["reactions"]
-
                 type = reaction["type"]
-
-                # De-excitation is radiative: it has no rate coefficient file. `target_species`
-                # is the upper state, `branches` the lower levels it decays to, and `half_lives`
-                # the per-branch radiative half-lives.
-                if type == "de-excitation"
-                    upper_str = reaction["target_species"]
-                    upper = _parse_species_term(upper_str)
-
-                    reactant_str = _species_string(upper.species, upper.charge, upper.excited_level)
-                    reactant = get(species_map, Symbol(reactant_str), nothing)
-                    if isnothing(reactant)
-                        upper.excited_level > 0 && continue
-                        error("Species '$(upper_str)' not found for de-excitation reaction $(reaction).")
-                    end
-
-                    levels = reaction["branches"]
-                    half_lives = reaction["half_lives"]
-                    if length(levels) != length(half_lives)
-                        error("`branches` and `half_lives` must have equal length in de-excitation reaction $(reaction).")
-                    end
-
-                    products = Species[]
-                    rates = Float64[]
-                    for (level, half_life) in zip(levels, half_lives)
-                        product_str = _species_string(upper.species, upper.charge, level)
-                        product = get(species_map, Symbol(product_str), nothing)
-                        if isnothing(product)
-                            level > 0 && continue
-                            error("Ground-state product species '$(product_str)' not found for de-excitation reaction $(reaction).")
-                        end
-                        rate = _deexcitation_rate(
-                            upper.excited_level, level, half_life, reaction,
-                        )
-                        push!(products, product)
-                        push!(rates, rate)
-                    end
-
-                    isempty(products) && continue
-                    push!(de_reactions, DeExcitationReaction(reactant, products, rates))
-                    continue
-                end
-
                 if type == "electron_impact"
-                    lhs, rhs = _parse_reaction_equation(reaction["equation"])
-
-                    reactants = Species[]
-                    reactant_coeffs = UInt8[]
-                    products = Species[]
-                    product_coeffs = UInt8[]
-                    omitted_excited_species = false
-
-                    for (side, species_arr, coeff_arr) in zip((lhs, rhs), (reactants, products), (reactant_coeffs, product_coeffs))
-                        for (k, v) in side
-                            if k.species == "e"
-                                continue
-                            end
-
-                            target_species_str = _species_string(k.species, k.charge, k.excited_level)
-                            target_species_symbol = Symbol(target_species_str)
-                            target_species = get(species_map, target_species_symbol, nothing)
-
-                            if isnothing(target_species)
-                                if k.excited_level > 0
-                                    omitted_excited_species = true
-                                    break
-                                end
-                                error("Species '$(target_species_str)' not found for reaction $(reaction).")
-                            end
-
-                            push!(species_arr, target_species)
-                            push!(coeff_arr, v)
-                        end
-                        omitted_excited_species && break
-                    end
-                    omitted_excited_species && continue
-
-                    # Do some validation
-                    if length(reactants) > 1
-                        error("More than one reactant (excepting electrons) found for reaction $(reaction). Only single-reactant reactions are supported at present.")
-                    end
-
-                    if reactant_coeffs[1] != 1
-                        error("Leading coefficient of species $(reactants[1]) must be one in reaction $(reaction).")
-                    end
-
-                    energy, rate_coeffs = _load_configured_rate_coefficients(
-                        reaction, type, directories,
+                    configured = _load_electron_impact_reaction(
+                        reaction, species_map, directories,
                     )
-                    reaction = ElectronImpactReaction(reactants[1], products, product_coeffs, rate_coeffs, energy)
-                    push!(ei_reactions, reaction)
-
+                    isnothing(configured) || push!(ei_reactions, configured)
+                elseif type == "de-excitation"
+                    configured = _load_deexcitation_reaction(reaction, species_map)
+                    isnothing(configured) || push!(de_reactions, configured)
                 elseif type == "excitation" || type == "elastic"
-                    configured_target = reaction["target_species"]
-                    target = _parse_species_term(configured_target)
-                    target_species_str = _species_string(
-                        target.species, target.charge, target.excited_level,
+                    configured = _load_target_collision(
+                        reaction, type, species_map, directories,
                     )
-                    target_species = get(species_map, Symbol(target_species_str), nothing)
-
-                    if isnothing(target_species)
-                        target.excited_level > 0 && continue
-                        error("Species '$(configured_target)' not found for reaction $(reaction).")
-                    end
-
-                    energy, rate_coeffs = _load_configured_rate_coefficients(
-                        reaction, type, directories,
-                    )
-                    if type == "excitation"
-                        push!(ex_reactions, ExcitationReaction(energy, target_species, rate_coeffs))
-                    else
-                        push!(en_reactions, ElasticCollision(target_species, rate_coeffs))
+                    if !isnothing(configured)
+                        type == "excitation" ?
+                            push!(ex_reactions, configured) :
+                            push!(en_reactions, configured)
                     end
                 else
-                    error("Invalid reaction type $(type) in propellant config file $(propellant_config):\n$(reaction)")
+                    error(
+                        "Invalid reaction type $(type) in propellant config file " *
+                            "$(propellant_config):\n$(reaction)"
+                    )
                 end
             end
-
             return ei_reactions, ex_reactions, en_reactions, de_reactions
         end
     end
 
-    # If we're here, a file was not specified or there are no reactions in the file.
-    ei_reactions = load_electron_impact_reactions(iz_model, species; directories)
-    ex_reactions = load_excitation_reactions(ex_model, species; directories)
-    en_reactions = load_elastic_collisions(en_model, species; directories)
-    de_reactions = DeExcitationReaction[]
-
-    return ei_reactions, ex_reactions, en_reactions, de_reactions
+    # Without configured reactions, generate the built-in collision set.
+    return (
+        load_electron_impact_reactions(iz_model, species; directories),
+        load_excitation_reactions(ex_model, species; directories),
+        load_elastic_collisions(en_model, species; directories),
+        DeExcitationReaction[],
+    )
 end
 
 function _load_configured_rate_coefficients(reaction, type, directories)

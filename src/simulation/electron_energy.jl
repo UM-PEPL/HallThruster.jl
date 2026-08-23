@@ -204,14 +204,13 @@ end
 Electron energy source terms
 ===============================================================================#
 
-function excitation_losses!(Q, cache, _landmark, grid, reactions, reactant_indices, fluids)
+function excitation_losses!(Q, cache, reactions, reactant_indices, fluids)
     (; ϵ, ne) = cache
-    ncells = length(grid.cell_centers)
 
     for (ind, rxn) in zip(reactant_indices, reactions)
         dens = fluids[ind].density
         inv_m = 1 / fluids[ind].species.element.m
-        @inbounds for i in 2:(ncells - 1)
+        @inbounds for i in interior_cells(Q)
             r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
             Q[i] += ndot * rxn.energy
@@ -222,15 +221,14 @@ function excitation_losses!(Q, cache, _landmark, grid, reactions, reactant_indic
 end
 
 function add_lumped_excitation_frequency!(
-        νex, cache, grid, reactions, reactant_indices, fluids,
+        νex, cache, reactions, reactant_indices, fluids,
     )
-    (; ϵ, ne) = cache
-    ncells = length(grid.cell_centers)
+    (; ϵ) = cache
 
     for (ind, rxn) in zip(reactant_indices, reactions)
         dens = fluids[ind].density
         inv_m = 1 / fluids[ind].species.element.m
-        @inbounds for i in 2:(ncells - 1)
+        @inbounds for i in interior_cells(νex)
             r = rate_coeff(rxn, ϵ[i])
             excitation_frequency = r * dens[i] * inv_m
             νex[i] += excitation_frequency
@@ -241,7 +239,7 @@ function add_lumped_excitation_frequency!(
 end
 
 function ohmic_heating!(Q, cache, landmark)
-    (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
+    (; ne, ue, ∇ϕ, K, νe, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
     if (landmark)
@@ -261,7 +259,7 @@ function ohmic_heating!(Q, cache, landmark)
 end
 
 function source_electron_energy!(Q, params, wall_loss_model)
-    (; cache, landmark, grid, excitation_reactions) = params
+    (; cache, landmark, excitation_reactions) = params
     (; ne, ohmic_heating, wall_losses, inelastic_losses, user_energy_source) = cache
 
     # compute ohmic heating
@@ -269,9 +267,8 @@ function source_electron_energy!(Q, params, wall_loss_model)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, landmark, grid,
-        excitation_reactions, params.excitation_reactant_indices,
-        params.fluid_array
+        inelastic_losses, cache, excitation_reactions,
+        params.excitation_reactant_indices, params.fluid_array,
     )
 
     # compute wall losses

@@ -301,7 +301,7 @@ end
 
     inconsistent_ionization = copy(ionization_reactions)
     inconsistent_ionization[3] = het.ElectronImpactReaction(
-        1.20, ionization_species[2], [ionization_species[3]], zeros(256),
+        1.2, ionization_species[2], [ionization_species[3]], zeros(256),
     )
     @test_throws ErrorException het.derive_species_energies(
         ionization_species, inconsistent_ionization,

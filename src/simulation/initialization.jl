@@ -198,20 +198,12 @@ function initialize_from_restart!(params, frame)
     for (propellant, fluids) in zip(propellants, fluids_by_propellant)
         gas_symbol = string(propellant.gas.formula)
 
-        for fluid in fluids.continuity
+        for fluid in Iterators.flatten((fluids.continuity, fluids.isothermal))
             species = fluid.species
-            state = if is_excited(species)
-                isnothing(excited_states) ? nothing :
-                    get(excited_states, string(species.symbol), nothing)
-            else
-                neutrals = frame["neutrals"]
-                haskey(neutrals, gas_symbol) || throw(ArgumentError(
-                    "Restart output has no ground-state $(gas_symbol) neutral."
-                ))
-                neutrals[gas_symbol]
-            end
+            state = _restart_species_state(frame, excited_states, species, gas_symbol)
             if isnothing(state)
                 fill!(fluid.density, 0.0)
+                fluid.type == _ContinuityOnly || fill!(fluid.momentum, 0.0)
                 continue
             end
             _validate_restart_species!(
@@ -219,51 +211,15 @@ function initialize_from_restart!(params, frame)
             )
             number_density = _restart_field(
                 state, "n", "restart state $(species.symbol)", length(z_frame),
-            )
-            fluid.density .= LinearInterpolation(
-                z_frame, number_density .* species.element.m
-            ).(z)
-        end
-
-        for fluid in fluids.isothermal
-            species = fluid.species
-            state = if is_excited(species)
-                isnothing(excited_states) ? nothing :
-                    get(excited_states, string(species.symbol), nothing)
-            else
-                ions = frame["ions"]
-                haskey(ions, gas_symbol) || throw(ArgumentError(
-                    "Restart output has no ground-state $(gas_symbol) ions."
-                ))
-                ion_states = ions[gas_symbol]
-                ion_states isa AbstractVector || throw(ArgumentError(
-                    "Restart ground-state $(gas_symbol) ions must be an array."
-                ))
-                index = findfirst(ion_states) do ion
-                    ion isa AbstractDict && get(ion, "Z", nothing) == species.Z
-                end
-                isnothing(index) && throw(ArgumentError(
-                    "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
-                ))
-                ion_states[index]
-            end
-            if isnothing(state)
-                fill!(fluid.density, 0.0)
-                fill!(fluid.momentum, 0.0)
-                continue
-            end
-            _validate_restart_species!(
-                state, species, species_energies_eV[species.symbol],
-            )
-            number_density = _restart_field(
-                state, "n", "restart state $(species.symbol)", length(z_frame),
-            )
-            number_flux = _restart_field(
-                state, "nu", "restart state $(species.symbol)", length(z_frame),
             )
             mass = species.element.m
             fluid.density .= LinearInterpolation(z_frame, number_density .* mass).(z)
-            fluid.momentum .= LinearInterpolation(z_frame, number_flux .* mass).(z)
+            if fluid.type != _ContinuityOnly
+                number_flux = _restart_field(
+                    state, "nu", "restart state $(species.symbol)", length(z_frame),
+                )
+                fluid.momentum .= LinearInterpolation(z_frame, number_flux .* mass).(z)
+            end
         end
     end
 
@@ -287,6 +243,35 @@ function initialize_from_restart!(params, frame)
     @. cache.ϕ = phi
 
     return nothing
+end
+
+function _restart_species_state(frame, excited_states, species, gas_symbol)
+    if is_excited(species)
+        return isnothing(excited_states) ? nothing :
+            get(excited_states, string(species.symbol), nothing)
+    elseif species.Z == 0
+        neutrals = frame["neutrals"]
+        haskey(neutrals, gas_symbol) || throw(ArgumentError(
+            "Restart output has no ground-state $(gas_symbol) neutral."
+        ))
+        return neutrals[gas_symbol]
+    end
+
+    ions = frame["ions"]
+    haskey(ions, gas_symbol) || throw(ArgumentError(
+        "Restart output has no ground-state $(gas_symbol) ions."
+    ))
+    ion_states = ions[gas_symbol]
+    ion_states isa AbstractVector || throw(ArgumentError(
+        "Restart ground-state $(gas_symbol) ions must be an array."
+    ))
+    index = findfirst(ion_states) do ion
+        ion isa AbstractDict && get(ion, "Z", nothing) == species.Z
+    end
+    isnothing(index) && throw(ArgumentError(
+        "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
+    ))
+    return ion_states[index]
 end
 
 function _restart_collection(frame, key, context)
