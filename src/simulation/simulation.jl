@@ -40,6 +40,9 @@ function setup_simulation(
     # Get reactant and product indices
     ei_reactant_indices = reactant_indices(ei_reactions, fluid_array)
     ei_product_indices = product_indices(ei_reactions, fluid_array)
+    reaction_groups = build_electron_impact_groups(
+        ei_reactions, ei_reactant_indices, ei_product_indices, fluid_array,
+    )
     excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
     electron_neutral_indices = reactant_indices(electron_neutral_collisions, fluid_array)
     deexcitation_reactant_indices = reactant_indices(deexcitation_reactions, fluid_array)
@@ -54,8 +57,6 @@ function setup_simulation(
         deexcitation_product_indices,
         species_energies_eV,
     )
-    reaction_loss_frequencies = zeros(length(fluid_array), length(first(fluid_array).density))
-
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
     cache = allocate_arrays(grid, config)
@@ -122,6 +123,7 @@ function setup_simulation(
         ei_reactions,
         ei_reactant_indices,
         ei_product_indices,
+        reaction_groups,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
@@ -133,7 +135,6 @@ function setup_simulation(
         radiative_emission_counts,
         radiative_transitions,
         species_energies_eV,
-        reaction_loss_frequencies,
         fluid_containers,
         fluid_array,
         fluids_by_propellant,

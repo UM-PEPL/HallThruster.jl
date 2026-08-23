@@ -1,7 +1,5 @@
 """
-One charge-conserving radiative network. The population propagator and the
-time-integrated population operator are cached for the most recently used
-timestep.
+A single radiative branch and its emitted photon metadata.
 """
 struct RadiativeTransition
     upper::Symbol
@@ -10,6 +8,32 @@ struct RadiativeTransition
     energy_eV::Float64
 end
 
+"""Cached eigendecomposition and workspace for fast propagator updates."""
+struct RadiativeSpectrum
+    eigenvalues::Vector{Float64}
+    eigenvectors::Matrix{Float64}
+    inverse_eigenvectors::Matrix{Float64}
+    workspace::Matrix{Float64}
+end
+
+"""
+One charge-conserving radiative network and its propagation workspaces.
+
+The generator `Q` is stored in `generator`. For a branch from upper state `j`
+to lower state `i` with rate `A`, `Q[i, j] += A` and `Q[j, j] -= A`.
+Consequently, the population vector obeys
+
+```text
+dn/dt = Qn
+n(t + Δt) = exp(QΔt)n(t)
+```
+
+Each column of `Q` sums to zero, so propagation conserves the total population
+while handling branching and multi-step cascades exactly over the timestep.
+
+`spectrum` is `nothing` when the generator requires the dense exponential
+fallback. The propagator and residence operator are cached for `cached_dt`.
+"""
 mutable struct RadiativeNetwork
     fluid_indices::Vector{Int}
     generator::Matrix{Float64}
@@ -17,10 +41,10 @@ mutable struct RadiativeNetwork
     transient_factorization::LU{Float64, Matrix{Float64}, Vector{Int}}
     transition_residence_indices::Vector{Int}
     transition_rates::Vector{Float64}
-    transition_energies_eV::Vector{Float64}
     transition_output_indices::Vector{Int}
     inverse_mass::Float64
     carries_momentum::Bool
+    spectrum::Union{Nothing, RadiativeSpectrum}
     cached_dt::Float64
     propagator::Matrix{Float64}
     residence_operator::Matrix{Float64}
@@ -30,10 +54,48 @@ mutable struct RadiativeNetwork
     accumulated_residence::Matrix{Float64}
 end
 
+"""
+Build a validated real eigendecomposition, or return `nothing` when spectral
+propagation would be unreliable.
+"""
+function radiative_eigendecomposition(generator)
+    num_states = size(generator, 1)
+
+    # A decay graph can have repeated rates and a defective generator. Use the
+    # spectral path only when its basis is sufficiently well conditioned and
+    # reconstructs Q accurately; otherwise the dense exponential remains exact.
+    try
+        decomposition = eigen(generator)
+        all(isreal, decomposition.values) || return nothing
+        all(isreal, decomposition.vectors) || return nothing
+        eigenvalues = Float64.(real.(decomposition.values))
+        eigenvectors = Float64.(real.(decomposition.vectors))
+        basis_condition = cond(eigenvectors)
+        isfinite(basis_condition) && basis_condition <= 1.0e6 || return nothing
+
+        inverse_eigenvectors = inv(eigenvectors)
+        reconstructed = copy(eigenvectors)
+        for column in axes(reconstructed, 2)
+            @views reconstructed[:, column] .*= eigenvalues[column]
+        end
+        reconstructed = reconstructed * inverse_eigenvectors
+        scale = max(norm(generator, Inf), 1.0)
+        norm(reconstructed - generator, Inf) <= 1.0e-10 * scale || return nothing
+
+        return RadiativeSpectrum(
+            eigenvalues, eigenvectors, inverse_eigenvectors,
+            zeros(num_states, num_states),
+        )
+    catch error
+        error isa InterruptException && rethrow()
+        return nothing
+    end
+end
+
+"""Allocate a radiative network and its cell-wise propagation workspaces."""
 function RadiativeNetwork(
         fluid_indices, generator, transition_upper_indices, transition_rates,
-        transition_energies_eV, transition_output_indices, inverse_mass,
-        carries_momentum, num_cells,
+        transition_output_indices, inverse_mass, carries_momentum, num_cells,
     )
     num_states = length(fluid_indices)
     transient_indices = sort!(unique(transition_upper_indices))
@@ -44,6 +106,7 @@ function RadiativeNetwork(
     transition_residence_indices = transient_rows[transition_upper_indices]
     transient_factorization = lu(generator[transient_indices, transient_indices])
     num_transient = length(transient_indices)
+    spectrum = radiative_eigendecomposition(generator)
 
     return RadiativeNetwork(
         fluid_indices,
@@ -52,10 +115,10 @@ function RadiativeNetwork(
         transient_factorization,
         transition_residence_indices,
         transition_rates,
-        transition_energies_eV,
         transition_output_indices,
         inverse_mass,
         carries_momentum,
+        spectrum,
         NaN,
         zeros(num_states, num_states),
         zeros(num_transient, num_states),
@@ -105,7 +168,6 @@ function build_radiative_networks(
         generator = zeros(num_states, num_states)
         transition_upper_indices = Int[]
         transition_rates = Float64[]
-        transition_energies_eV = Float64[]
         transition_output_indices = Int[]
 
         for reaction_index in reaction_ids
@@ -135,7 +197,6 @@ function build_radiative_networks(
                 )
                 push!(transition_upper_indices, upper_local)
                 push!(transition_rates, rate)
-                push!(transition_energies_eV, photon_energy)
                 push!(transition_output_indices, output_index)
             end
         end
@@ -148,7 +209,6 @@ function build_radiative_networks(
                 generator,
                 transition_upper_indices,
                 transition_rates,
-                transition_energies_eV,
                 transition_output_indices,
                 inv(reference_fluid.species.element.m),
                 reference_fluid.type != _ContinuityOnly,
@@ -160,14 +220,36 @@ function build_radiative_networks(
     return networks, emission_counts, transitions
 end
 
+"""
+Update the cached population and residence operators for timestep `dt`.
+
+For transient states, the residence operator `R` satisfies
+`Q_TT * R = exp(Q * dt)_T - I_T`. Thus `R * n` is the time-integrated
+upper-state population, and multiplying its rows by individual branch rates
+gives the corresponding emitted-photon counts.
+"""
 function update_radiative_propagator!(network::RadiativeNetwork, dt)
     dt == network.cached_dt && return nothing
 
-    network.propagator .= network.generator
-    network.propagator .*= dt
-    propagated = exp!(network.propagator)
-    if propagated !== network.propagator
-        network.propagator .= propagated
+    spectrum = network.spectrum
+    if !isnothing(spectrum)
+        spectrum.workspace .= spectrum.eigenvectors
+        for column in axes(spectrum.workspace, 2)
+            multiplier = exp(spectrum.eigenvalues[column] * dt)
+            @views spectrum.workspace[:, column] .*= multiplier
+        end
+        mul!(
+            network.propagator,
+            spectrum.workspace,
+            spectrum.inverse_eigenvectors,
+        )
+    else
+        network.propagator .= network.generator
+        network.propagator .*= dt
+        propagated = exp!(network.propagator)
+        if propagated !== network.propagator
+            network.propagator .= propagated
+        end
     end
 
     # For transient states T, Q_TT R_T = P_T - I_T gives the exact

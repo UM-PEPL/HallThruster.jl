@@ -86,6 +86,7 @@ function allocate_arrays(ncells::Int, propellants, n_anom_vars::Int)
         cell_cache_1 = zeros(ncells),
         cell_cache_2 = zeros(ncells),
         reaction_rate_indices = zeros(Int, ncells),
+        reaction_loss_frequency = zeros(ncells),
 
         # Plume divergence variables
         channel_area = zeros(ncells),       # Area of channel / plume

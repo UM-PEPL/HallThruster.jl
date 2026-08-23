@@ -2,7 +2,7 @@ module HallThruster
 
 
 using DelimitedFiles: readdlm, writedlm
-using LinearAlgebra: LU, exp!, ldiv!, lu, mul!
+using LinearAlgebra: LU, cond, eigen, exp!, ldiv!, lu, mul!, norm
 using TOML: TOML
 
 # External dependencies
@@ -64,7 +64,7 @@ include("simulation/heavy_species_update.jl")
 include("simulation/electron_energy.jl")
 include("simulation/electron_update.jl")
 include("simulation/plume.jl")
-include("simulation/deexcitation_apply.jl")
+include("simulation/deexcitation.jl")
 include("simulation/types.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")

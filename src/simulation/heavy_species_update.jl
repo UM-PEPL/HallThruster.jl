@@ -452,24 +452,32 @@ end
 Heavy species source terms
 ===============================================================================#
 
+"""Precomputed metadata for one electron-impact reaction channel."""
+struct ElectronImpactChannel
+    reaction::ElectronImpactReaction
+    product_indices::Vector{Int}
+    product_mass_ratios::Vector{Float64}
+    is_ionizing::Bool
+    is_excitation::Bool
+end
+
+"""
+Electron-impact channels sharing one reactant and loss-frequency accumulator.
+"""
+struct ElectronImpactGroup
+    reactant_index::Int
+    inverse_reactant_mass::Float64
+    carries_momentum::Bool
+    channels::Vector{ElectronImpactChannel}
+end
+
 function apply_reactions!(fluid_arr, params)
-    (;
-        ei_reactions,
-        ei_reactant_indices,
-        ei_product_indices,
-        cache, landmark, reaction_loss_frequencies,
-    ) = params
-
-    rxns = zip(
-        ei_reactions, ei_reactant_indices, ei_product_indices,
-    )
-
-    return apply_reactions!(
-        fluid_arr, rxns, cache, landmark, reaction_loss_frequencies,
+    return apply_reaction_groups!(
+        fluid_arr, params.reaction_groups, params.cache, params.landmark,
     )
 end
 
-function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequencies)
+function prepare_reaction_state!(fluids, cache, landmark, num_reactions)
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne, K) = cache
 
     # Recompute electron density for the current RK stage. Neutral fluids do not
@@ -493,11 +501,9 @@ function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequenci
         inelastic_losses[i] = 0.0
         ϵ[i] = cache.nϵ[i] / electron_density + (landmark ? 0.0 : K[i])
     end
-    reaction_loss_frequencies .= 0.0
-
     # All lookup tables use the same unit-spaced energy coordinate. With multiple
     # reactions, compute its integer part once per cell instead of once per table.
-    reaction_rate_indices = if length(rxns) > 1 && hasproperty(cache, :reaction_rate_indices)
+    reaction_rate_indices = if num_reactions > 1 && hasproperty(cache, :reaction_rate_indices)
         indices = cache.reaction_rate_indices
         @inbounds @simd for i in eachindex(ϵ)
             energy = ϵ[i]
@@ -507,6 +513,16 @@ function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequenci
     else
         nothing
     end
+
+    return reaction_rate_indices
+end
+
+function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequencies)
+    reaction_rate_indices = prepare_reaction_state!(
+        fluids, cache, landmark, length(rxns),
+    )
+    (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
+    reaction_loss_frequencies .= 0.0
 
     for (rxn, reactant_index, product_index) in rxns
         # Temp storage for reaction calculations
@@ -547,6 +563,119 @@ end
         end
     end
     return false
+end
+
+function build_electron_impact_groups(
+        reactions, reactant_indices, product_indices, fluids,
+    )
+    grouped_channels = OrderedDict{Int, Vector{ElectronImpactChannel}}()
+    for (reaction, reactant_index, products) in zip(
+            reactions, reactant_indices, product_indices,
+        )
+        reactant_mass = fluids[reactant_index].species.element.m
+        product_mass_ratios = [
+            fluids[product_index].species.element.m * coefficient / reactant_mass
+                for (product_index, coefficient) in zip(products, reaction.product_coeffs)
+        ]
+        channel = ElectronImpactChannel(
+            reaction,
+            products,
+            product_mass_ratios,
+            _is_ionizing(fluids, reactant_index, products),
+            _is_electronic_excitation(reaction),
+        )
+        push!(get!(grouped_channels, reactant_index, ElectronImpactChannel[]), channel)
+    end
+
+    return [
+        ElectronImpactGroup(
+            reactant_index,
+            inv(fluids[reactant_index].species.element.m),
+            fluids[reactant_index].type != _ContinuityOnly,
+            channels,
+        ) for (reactant_index, channels) in pairs(grouped_channels)
+    ]
+end
+
+function apply_reaction_groups!(fluids, groups, cache, landmark)
+    num_reactions = sum(length(group.channels) for group in groups; init = 0)
+    reaction_rate_indices = prepare_reaction_state!(
+        fluids, cache, landmark, num_reactions,
+    )
+    loss_frequency = cache.reaction_loss_frequency
+    max_loss_frequency = 0.0
+
+    for group in groups
+        fill!(loss_frequency, 0.0)
+        for channel in group.channels
+            apply_reaction_channel!(
+                fluids, group, channel, cache, landmark,
+                loss_frequency, reaction_rate_indices,
+            )
+        end
+        max_loss_frequency = max(
+            max_loss_frequency, maximum(loss_frequency; init = 0.0),
+        )
+    end
+
+    cache.dt_iz[] = max_loss_frequency > 0 ? inv(max_loss_frequency) : Inf
+    return nothing
+end
+
+function apply_reaction_channel!(
+        fluids, group, channel, cache, landmark,
+        loss_frequency, reaction_rate_indices,
+    )
+    (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
+    reaction = channel.reaction
+    reactant = fluids[group.reactant_index]
+    reactant_velocity = reactant.const_velocity
+    density_loss_cache = cache.cell_cache_1
+    momentum_loss_cache = cache.cell_cache_2
+    ncells = length(density_loss_cache)
+
+    @inbounds @simd for cell in 2:(ncells - 1)
+        rate = if isnothing(reaction_rate_indices)
+            rate_coeff(reaction, ϵ[cell])
+        else
+            rate_coeff(reaction, ϵ[cell], reaction_rate_indices[cell])
+        end
+        reactant_density = reactant.density[cell]
+        destruction_frequency = rate * ne[cell]
+        density_loss = destruction_frequency * reactant_density
+        reaction_frequency = rate * reactant_density * group.inverse_reactant_mass
+
+        density_loss > 0 && (loss_frequency[cell] += destruction_frequency)
+        channel.is_ionizing && (νiz[cell] += reaction_frequency)
+        channel.is_excitation && (νex_explicit[cell] += reaction_frequency)
+        inelastic_losses[cell] +=
+            density_loss * group.inverse_reactant_mass * reaction.energy
+        reactant.dens_ddt[cell] -= density_loss
+        density_loss_cache[cell] = density_loss
+
+        if !landmark
+            if group.carries_momentum
+                reactant_velocity = primitive_velocity(
+                    reactant.momentum[cell], reactant_density,
+                )
+                reactant.mom_ddt[cell] -= density_loss * reactant_velocity
+            end
+            momentum_loss_cache[cell] = density_loss * reactant_velocity
+        else
+            momentum_loss_cache[cell] = 0.0
+        end
+    end
+
+    @inbounds for (product_index, mass_ratio) in zip(
+            channel.product_indices, channel.product_mass_ratios,
+        )
+        product = fluids[product_index]
+        @simd for cell in 2:(ncells - 1)
+            product.dens_ddt[cell] += mass_ratio * density_loss_cache[cell]
+            product.mom_ddt[cell] += mass_ratio * momentum_loss_cache[cell]
+        end
+    end
+    return nothing
 end
 
 function apply_reaction!(

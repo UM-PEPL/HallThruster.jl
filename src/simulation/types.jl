@@ -147,6 +147,7 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     ei_reactions::Vector{ElectronImpactReaction}
     ei_reactant_indices::Vector{Int}
     ei_product_indices::Vector{Vector{Int}}
+    reaction_groups::Vector{ElectronImpactGroup}
     excitation_reactions::Vector{ExcitationReaction}
     excitation_reactant_indices::Vector{Int}
     electron_neutral_collisions::Vector{ElasticCollision}
@@ -158,7 +159,6 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     radiative_emission_counts::Matrix{Float64}
     radiative_transitions::Vector{RadiativeTransition}
     species_energies_eV::OrderedDict{Symbol, Float64}
-    reaction_loss_frequencies::Matrix{Float64}
     fluid_containers::FluidContainerSet
     fluid_array::Vector{FluidContainer}
     fluids_by_propellant::Vector{FluidContainerSet}

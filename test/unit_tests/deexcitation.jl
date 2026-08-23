@@ -29,7 +29,6 @@ using HallThruster: HallThruster as het
     networks, emissions, transitions = het.build_radiative_networks(
         fluid_array, reactions, reactant_indices, product_indices, level_energies,
     )
-    @test only(networks).transition_energies_eV == [2.0, 3.0]
     @test getfield.(transitions, :energy_eV) == [2.0, 3.0]
     @test getfield.(transitions, :frequency) == [rate_21, rate_10]
 
@@ -37,6 +36,7 @@ using HallThruster: HallThruster as het
     # retain rows only for the two transient levels while propagating all three.
     @test size(only(networks).propagator) == (3, 3)
     @test size(only(networks).residence_operator) == (2, 3)
+    @test !isnothing(only(networks).spectrum)
 
     initial_density = 10.0
     mass = propellant.gas.m
@@ -82,6 +82,19 @@ using HallThruster: HallThruster as het
     @test all(iszero, only(networks).accumulated_residence)
 end
 
+@testset "Defective radiative generator fallback" begin
+    # Equal consecutive decay rates produce a Jordan block. Its singular
+    # eigenvector basis must select the dense matrix-exponential fallback.
+    generator = [0.0 2.0 0.0; 0.0 -2.0 2.0; 0.0 0.0 -2.0]
+    network = het.RadiativeNetwork(
+        [1, 2, 3], generator, [2, 3], [2.0, 2.0], [1, 2], 1.0, false, 3,
+    )
+    @test isnothing(network.spectrum)
+
+    het.update_radiative_propagator!(network, 0.5)
+    @test network.propagator ≈ exp(generator * 0.5)
+end
+
 @testset "Radiative branching and ion momentum" begin
     # Exercise competing branches and a downstream cascade in a charged species.
     # The decay should preserve total ion population and axial momentum while
@@ -110,7 +123,6 @@ end
     networks, emissions, transitions = het.build_radiative_networks(
         fluid_array, reactions, reactant_indices, product_indices, level_energies,
     )
-    @test only(networks).transition_energies_eV == [2.0, 5.0, 3.0]
     @test getfield.(transitions, :energy_eV) == [2.0, 5.0, 3.0]
 
     mass = propellant.gas.m
@@ -161,11 +173,18 @@ end
         nϵ = fill(1.0e19, num_grid_cells),
         cell_cache_1 = zeros(num_grid_cells),
         cell_cache_2 = zeros(num_grid_cells),
+        reaction_loss_frequency = zeros(num_grid_cells),
         dt_iz = [Inf],
     )
     loss_frequencies = zeros(length(fluids), num_grid_cells)
+    grouped_fluids = deepcopy(fluids)
+    grouped_cache = deepcopy(cache)
 
     het.apply_reactions!(fluids, rxns, cache, false, loss_frequencies)
+    groups = het.build_electron_impact_groups(
+        reactions, reactant_indices, product_indices, grouped_fluids,
+    )
+    het.apply_reaction_groups!(grouped_fluids, groups, grouped_cache, false)
 
     expected_frequency = (k1 + k2) * 1.0e18
     @test cache.dt_iz[] ≈ inv(expected_frequency)
@@ -177,6 +196,17 @@ end
     expected_energy_loss = 1.0e18 * 2.0e18 * (3.0 * k1 + 5.0 * k2)
     @test all(cache.νex_explicit[2:(end - 1)] .≈ expected_excitation_frequency)
     @test all(cache.inelastic_losses[2:(end - 1)] .≈ expected_energy_loss)
+
+    # The grouped production kernel must match the reaction-by-reaction reference
+    # while obtaining its timestep limit without the full species-by-cell matrix.
+    @test grouped_cache.dt_iz[] ≈ cache.dt_iz[]
+    @test grouped_cache.νiz ≈ cache.νiz
+    @test grouped_cache.νex_explicit ≈ cache.νex_explicit
+    @test grouped_cache.inelastic_losses ≈ cache.inelastic_losses
+    for (grouped, reference) in zip(grouped_fluids, fluids)
+        @test grouped.dens_ddt ≈ reference.dens_ddt
+        @test grouped.mom_ddt ≈ reference.mom_ddt
+    end
 end
 
 @testset "Derived excited-state energies" begin
