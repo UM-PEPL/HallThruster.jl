@@ -88,7 +88,8 @@ function radiative_eigendecomposition(generator)
         )
     catch error
         error isa InterruptException && rethrow()
-        return nothing
+        error isa Union{LAPACKException, SingularException} && return nothing
+        rethrow()
     end
 end
 

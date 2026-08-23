@@ -1,4 +1,4 @@
-function integrate_heavy_species!(fluid_containers, params, user_source, dt)
+function integrate_heavy_species!(fluid_containers, params, user_source::S, dt) where {S}
     # Strang-split the stiff, linear radiative subsystem around the SSPRK update.
     # Each half-step is an exact propagation of all coupled decay cascades.
     half_dt = 0.5 * dt
@@ -39,7 +39,7 @@ y_{n1} = y_n + h * k_{n1}
 k_{n2} = f(t + h, y_{n1})
 y_{n+1} = y_n + 0.5 * h * (k_{n1} + k_{n2})
 
-As written, this requries three intermediate storage variables: k_{n1}, k_{n2}, and y_{n1}
+As written, this requires three intermediate storage variables: k_{n1}, k_{n2}, and y_{n1}
 We can reduce this to two using the following rearrangement
 
 y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
@@ -54,7 +54,7 @@ predictor, `update_second_stage!` combines the cached y_n, y_{n1}, and k_{n2} to
 form the final state. Each kernel also performs its finite-value check during the
 same traversal.
 """
-function step_heavy_species!(fluid_containers, params, source, dt)
+function step_heavy_species!(fluid_containers, params, source::S, dt) where {S}
     # Evaluate k_{n1} at the initial state.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
     params.cache.inelastic_losses_stage .= params.cache.inelastic_losses
@@ -140,7 +140,9 @@ function update_second_stage!(fluid_containers, dt)
 end
 
 # Populate dens_ddt and mom_ddt for all fluid containers
-function compute_heavy_species_derivatives!(fluid_containers, params, source_heavy_species)
+function compute_heavy_species_derivatives!(
+        fluid_containers, params, source_heavy_species::S,
+    ) where {S}
     (; cache, grid, ion_wall_losses, reconstruct) = params
 
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
@@ -517,31 +519,6 @@ function prepare_reaction_state!(fluids, cache, landmark, num_reactions)
     return reaction_rate_indices
 end
 
-function apply_reactions!(fluids, rxns, cache, landmark, reaction_loss_frequencies)
-    reaction_rate_indices = prepare_reaction_state!(
-        fluids, cache, landmark, length(rxns),
-    )
-    (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
-    reaction_loss_frequencies .= 0.0
-
-    for (rxn, reactant_index, product_index) in rxns
-        # Temp storage for reaction calculations
-        rxn_cache = (cache.cell_cache_1, cache.cell_cache_2)
-
-        # Apply single reaction
-        loss_frequency = @view reaction_loss_frequencies[reactant_index, :]
-        apply_reaction!(
-            fluids, reactant_index, product_index, rxn.product_coeffs, rxn_cache,
-            ne, ϵ, rxn, νiz, νex_explicit, inelastic_losses, landmark,
-            loss_frequency, reaction_rate_indices,
-        )
-    end
-
-    max_loss_frequency = maximum(reaction_loss_frequencies; init = 0.0)
-    cache.dt_iz[] = max_loss_frequency > 0 ? inv(max_loss_frequency) : Inf
-    return
-end
-
 # Electronic excitation preserves the gas and charge state while changing its
 # explicitly tracked level. Other charge-conserving reactions may dissociate.
 @inline function _is_electronic_excitation(rxn)
@@ -607,10 +584,17 @@ function apply_reaction_groups!(fluids, groups, cache, landmark)
 
     for group in groups
         fill!(loss_frequency, 0.0)
-        for channel in group.channels
+        isempty(group.channels) && continue
+        # The first channel caches ion velocity; later channels reuse it without
+        # repeating the primitive-variable division for the same reactant.
+        apply_reaction_channel!(
+            fluids, group, first(group.channels), cache, landmark,
+            loss_frequency, reaction_rate_indices, Val(false),
+        )
+        for channel_index in 2:length(group.channels)
             apply_reaction_channel!(
-                fluids, group, channel, cache, landmark,
-                loss_frequency, reaction_rate_indices,
+                fluids, group, group.channels[channel_index], cache, landmark,
+                loss_frequency, reaction_rate_indices, Val(true),
             )
         end
         max_loss_frequency = max(
@@ -624,8 +608,8 @@ end
 
 function apply_reaction_channel!(
         fluids, group, channel, cache, landmark,
-        loss_frequency, reaction_rate_indices,
-    )
+        loss_frequency, reaction_rate_indices, ::Val{REUSE},
+    ) where {REUSE}
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
     reaction = channel.reaction
     reactant = fluids[group.reactant_index]
@@ -644,6 +628,21 @@ function apply_reaction_channel!(
         destruction_frequency = rate * ne[cell]
         density_loss = destruction_frequency * reactant_density
         reaction_frequency = rate * reactant_density * group.inverse_reactant_mass
+        reactant_velocity = if landmark
+            0.0
+        elseif group.carries_momentum
+            if REUSE
+                cache.reactant_velocity[cell]
+            else
+                velocity = primitive_velocity(
+                    reactant.momentum[cell], reactant_density,
+                )
+                cache.reactant_velocity[cell] = velocity
+                velocity
+            end
+        else
+            reactant.const_velocity
+        end
 
         density_loss > 0 && (loss_frequency[cell] += destruction_frequency)
         channel.is_ionizing && (νiz[cell] += reaction_frequency)
@@ -655,9 +654,6 @@ function apply_reaction_channel!(
 
         if !landmark
             if group.carries_momentum
-                reactant_velocity = primitive_velocity(
-                    reactant.momentum[cell], reactant_density,
-                )
                 reactant.mom_ddt[cell] -= density_loss * reactant_velocity
             end
             momentum_loss_cache[cell] = density_loss * reactant_velocity
@@ -666,13 +662,22 @@ function apply_reaction_channel!(
         end
     end
 
-    @inbounds for (product_index, mass_ratio) in zip(
-            channel.product_indices, channel.product_mass_ratios,
-        )
-        product = fluids[product_index]
-        @simd for cell in 2:(ncells - 1)
+    if length(channel.product_indices) == 1
+        product = fluids[only(channel.product_indices)]
+        mass_ratio = only(channel.product_mass_ratios)
+        @inbounds @simd for cell in 2:(ncells - 1)
             product.dens_ddt[cell] += mass_ratio * density_loss_cache[cell]
             product.mom_ddt[cell] += mass_ratio * momentum_loss_cache[cell]
+        end
+    else
+        @inbounds for (product_index, mass_ratio) in zip(
+                channel.product_indices, channel.product_mass_ratios,
+            )
+            product = fluids[product_index]
+            @simd for cell in 2:(ncells - 1)
+                product.dens_ddt[cell] += mass_ratio * density_loss_cache[cell]
+                product.mom_ddt[cell] += mass_ratio * momentum_loss_cache[cell]
+            end
         end
     end
     return nothing

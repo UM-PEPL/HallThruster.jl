@@ -95,32 +95,48 @@ function rate_coeff(rxn::Reaction, energy, ind::Int)
     return lerp(r1, r2, energy - ind)
 end
 
-function reactant_indices(reactions, fluids)
-    indices = zeros(Int, length(reactions))
-    for (i, reaction) in enumerate(reactions)
-        species = reaction.reactant.symbol
-        for (j, fluid) in enumerate(fluids)
-            if fluid.species.symbol == species
-                indices[i] = j
-                break
-            end
+"""Map each unique species symbol to its fluid-array index."""
+function fluid_index_map(fluids)
+    indices = Dict{Symbol, Int}()
+    for (index, fluid) in enumerate(fluids)
+        symbol = fluid.species.symbol
+        if haskey(indices, symbol)
+            throw(ArgumentError("Duplicate fluid species $symbol."))
         end
+        indices[symbol] = index
     end
     return indices
 end
 
-function product_indices(reactions, fluids)
-    indices = [Int[] for _ in eachindex(reactions)]
-    for (i, reaction) in enumerate(reactions)
-        for species in reaction.products
-            for (j, fluid) in enumerate(fluids)
-                if fluid.species.symbol == species.symbol
-                    push!(indices[i], j)
-                end
-            end
-        end
-    end
-    return indices
+function reaction_species_index(fluid_indices, species, role, reaction)
+    index = get(fluid_indices, species.symbol, 0)
+    index > 0 || throw(ArgumentError(
+        "Missing $role species $(species.symbol) for reaction $reaction.",
+    ))
+    return index
+end
+
+reactant_indices(reactions, fluids::AbstractVector) =
+    reactant_indices(reactions, fluid_index_map(fluids))
+
+function reactant_indices(reactions, fluid_indices::AbstractDict)
+    return [
+        reaction_species_index(
+            fluid_indices, reaction.reactant, "reactant", reaction,
+        ) for reaction in reactions
+    ]
+end
+
+product_indices(reactions, fluids::AbstractVector) =
+    product_indices(reactions, fluid_index_map(fluids))
+
+function product_indices(reactions, fluid_indices::AbstractDict)
+    return [
+        [
+            reaction_species_index(fluid_indices, product, "product", reaction)
+                for product in reaction.products
+        ] for reaction in reactions
+    ]
 end
 
 """

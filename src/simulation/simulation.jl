@@ -38,15 +38,22 @@ function setup_simulation(
     )
 
     # Get reactant and product indices
-    ei_reactant_indices = reactant_indices(ei_reactions, fluid_array)
-    ei_product_indices = product_indices(ei_reactions, fluid_array)
+    fluid_indices = fluid_index_map(fluid_array)
+    ei_reactant_indices = reactant_indices(ei_reactions, fluid_indices)
+    ei_product_indices = product_indices(ei_reactions, fluid_indices)
     reaction_groups = build_electron_impact_groups(
         ei_reactions, ei_reactant_indices, ei_product_indices, fluid_array,
     )
-    excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
-    electron_neutral_indices = reactant_indices(electron_neutral_collisions, fluid_array)
-    deexcitation_reactant_indices = reactant_indices(deexcitation_reactions, fluid_array)
-    deexcitation_product_indices = product_indices(deexcitation_reactions, fluid_array)
+    excitation_reactant_indices = reactant_indices(
+        excitation_reactions, fluid_indices,
+    )
+    electron_neutral_indices = reactant_indices(
+        electron_neutral_collisions, fluid_indices,
+    )
+    deexcitation_reactant_indices = reactant_indices(
+        deexcitation_reactions, fluid_indices,
+    )
+    deexcitation_product_indices = product_indices(deexcitation_reactions, fluid_indices)
     species_energies_eV = derive_species_energies(species, ei_reactions)
 
     radiative_networks, radiative_emission_counts, radiative_transitions =

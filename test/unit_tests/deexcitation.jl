@@ -160,7 +160,6 @@ end
     ]
     reactant_indices = het.reactant_indices(reactions, fluids)
     product_indices = het.product_indices(reactions, fluids)
-    rxns = zip(reactions, reactant_indices, product_indices)
 
     num_grid_cells = ncells + 2
     cache = (;
@@ -174,39 +173,66 @@ end
         cell_cache_1 = zeros(num_grid_cells),
         cell_cache_2 = zeros(num_grid_cells),
         reaction_loss_frequency = zeros(num_grid_cells),
+        reactant_velocity = zeros(num_grid_cells),
         dt_iz = [Inf],
     )
-    loss_frequencies = zeros(length(fluids), num_grid_cells)
-    grouped_fluids = deepcopy(fluids)
-    grouped_cache = deepcopy(cache)
-
-    het.apply_reactions!(fluids, rxns, cache, false, loss_frequencies)
     groups = het.build_electron_impact_groups(
-        reactions, reactant_indices, product_indices, grouped_fluids,
+        reactions, reactant_indices, product_indices, fluids,
     )
-    het.apply_reaction_groups!(grouped_fluids, groups, grouped_cache, false)
+    het.apply_reaction_groups!(fluids, groups, cache, false)
 
+    interior = 2:(num_grid_cells - 1)
     expected_frequency = (k1 + k2) * 1.0e18
     @test cache.dt_iz[] ≈ inv(expected_frequency)
-    @test all(
-        loss_frequencies[1, 2:(end - 1)] .≈ expected_frequency
-    )
-    @test all(iszero, loss_frequencies[2:end, :])
     expected_excitation_frequency = (k1 + k2) * 2.0e18
     expected_energy_loss = 1.0e18 * 2.0e18 * (3.0 * k1 + 5.0 * k2)
-    @test all(cache.νex_explicit[2:(end - 1)] .≈ expected_excitation_frequency)
-    @test all(cache.inelastic_losses[2:(end - 1)] .≈ expected_energy_loss)
+    @test all(cache.νiz[interior] .== 0.0)
+    @test all(cache.νex_explicit[interior] .≈ expected_excitation_frequency)
+    @test all(cache.inelastic_losses[interior] .≈ expected_energy_loss)
 
-    # The grouped production kernel must match the reaction-by-reaction reference
-    # while obtaining its timestep limit without the full species-by-cell matrix.
-    @test grouped_cache.dt_iz[] ≈ cache.dt_iz[]
-    @test grouped_cache.νiz ≈ cache.νiz
-    @test grouped_cache.νex_explicit ≈ cache.νex_explicit
-    @test grouped_cache.inelastic_losses ≈ cache.inelastic_losses
-    for (grouped, reference) in zip(grouped_fluids, fluids)
-        @test grouped.dens_ddt ≈ reference.dens_ddt
-        @test grouped.mom_ddt ≈ reference.mom_ddt
+    # Each one-product channel should transfer its reactant loss directly to the
+    # corresponding excited state while preserving neutral momentum.
+    density_sources = mass .* 2.0e36 .* [k1, k2]
+    @test all(fluids[1].dens_ddt[interior] .≈ -sum(density_sources))
+    @test all(fluids[2].dens_ddt[interior] .≈ density_sources[1])
+    @test all(fluids[3].dens_ddt[interior] .≈ density_sources[2])
+    @test all(iszero, fluids[1].mom_ddt)
+    @test all(
+        fluids[2].mom_ddt[interior] .≈
+            density_sources[1] * fluids[1].const_velocity
+    )
+    @test all(
+        fluids[3].mom_ddt[interior] .≈
+            density_sources[2] * fluids[1].const_velocity
+    )
+
+    # Retain coverage for the general multiple-product path used by molecular
+    # dissociation reactions.
+    multi_fluids = deepcopy(fluids)
+    for fluid in multi_fluids
+        fill!(fluid.dens_ddt, 0.0)
+        fill!(fluid.mom_ddt, 0.0)
     end
+    multi_cache = deepcopy(cache)
+    multi_reaction = het.ElectronImpactReaction(
+        4.0, het.Xenon(0), [het.Xenon(0, 1), het.Xenon(0, 2)], fill(k1, 256),
+    )
+    multi_reactions = [multi_reaction]
+    multi_reactants = het.reactant_indices(multi_reactions, multi_fluids)
+    multi_products = het.product_indices(multi_reactions, multi_fluids)
+    multi_groups = het.build_electron_impact_groups(
+        multi_reactions, multi_reactants, multi_products, multi_fluids,
+    )
+    het.apply_reaction_groups!(multi_fluids, multi_groups, multi_cache, false)
+    @test all(multi_fluids[1].dens_ddt[interior] .≈ -density_sources[1])
+    @test all(multi_fluids[2].dens_ddt[interior] .≈ density_sources[1])
+    @test all(multi_fluids[3].dens_ddt[interior] .≈ density_sources[1])
+
+    # Index construction should fail at setup with a useful error instead of
+    # silently producing a zero or incomplete product list.
+    @test_throws ArgumentError het.reactant_indices(reactions, fluids[2:end])
+    @test_throws ArgumentError het.product_indices(reactions, fluids[[1, 3, 4]])
+    @test_throws ArgumentError het.fluid_index_map([fluids[1], fluids[1]])
 end
 
 @testset "Derived excited-state energies" begin
