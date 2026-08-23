@@ -2,6 +2,21 @@
 @inline van_leer_limiter(r) = check_r(r) * (4r / (r + 1)^2)
 @inline primitive_velocity(momentum, density) = density > 0 ? momentum / density : 0.0
 
+"""Refresh one fluid's primitive-velocity cache from its conservative state."""
+function update_primitive_velocity!(fluid)
+    @inbounds @simd for i in eachindex(fluid.vel_prim)
+        fluid.vel_prim[i] = primitive_velocity(fluid.momentum[i], fluid.density[i])
+    end
+    return nothing
+end
+
+function update_primitive_velocities!(fluids)
+    for fluid in fluids
+        update_primitive_velocity!(fluid)
+    end
+    return nothing
+end
+
 @inline function reconstruct(uⱼ₋₁, uⱼ, uⱼ₊₁)
     Δu_L = uⱼ - uⱼ₋₁
     Δu_R = uⱼ₊₁ - uⱼ
@@ -43,7 +58,7 @@ function compute_edge_states_continuity!(fluid, do_reconstruct)
 end
 
 function compute_edge_states_isothermal!(fluid, do_reconstruct)
-    (; density, momentum, dens_L, dens_R, vel_L, vel_R) = fluid
+    (; density, vel_prim, dens_L, dens_R, vel_L, vel_R) = fluid
     N = length(fluid.density)
 
     if do_reconstruct
@@ -57,9 +72,9 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
             dens_R[iL], dens_L[iR] = reconstruct(u₋, uᵢ, u₊)
 
             # Reconstruct velocity as primitive variable instead of momentum density
-            u₋ = primitive_velocity(momentum[i - 1], u₋)
-            uᵢ = primitive_velocity(momentum[i], uᵢ)
-            u₊ = primitive_velocity(momentum[i + 1], u₊)
+            u₋ = vel_prim[i - 1]
+            uᵢ = vel_prim[i]
+            u₊ = vel_prim[i + 1]
             uR, uL = reconstruct(u₋, uᵢ, u₊)
             vel_L[iR] = uL
             vel_R[iL] = uR
@@ -69,7 +84,7 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
             iL, iR = left_edge(i), right_edge(i)
             dens_L[iR] = density[i]
             dens_R[iL] = density[i]
-            velocity = primitive_velocity(momentum[i], density[i])
+            velocity = vel_prim[i]
             vel_L[iR] = velocity
             vel_R[iL] = velocity
         end
@@ -92,12 +107,10 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
     fluid.dens_L[end] = fluid.density[end - 1]
     fluid.dens_R[end] = fluid.density[end]
 
-    fluid.vel_L[1] = primitive_velocity(fluid.momentum[1], fluid.density[1])
-    fluid.vel_R[1] = primitive_velocity(fluid.momentum[2], fluid.density[2])
-    fluid.vel_L[end] = primitive_velocity(
-        fluid.momentum[end - 1], fluid.density[end - 1],
-    )
-    fluid.vel_R[end] = primitive_velocity(fluid.momentum[end], fluid.density[end])
+    fluid.vel_L[1] = vel_prim[1]
+    fluid.vel_R[1] = vel_prim[2]
+    fluid.vel_L[end] = vel_prim[end - 1]
+    fluid.vel_R[end] = vel_prim[end]
 
     return
 end
@@ -170,7 +183,8 @@ function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
         ρi = fluid.density[i]
         ρiui = fluid.momentum[i]
         fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
-        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz - ρiui * primitive_velocity(ρiui, ρi) * dlnA_dz[i]
+        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz -
+            ρiui * fluid.vel_prim[i] * dlnA_dz[i]
     end
 
     return
@@ -185,6 +199,7 @@ function update_convective_terms!(fluid_containers, grid, reconstruct, dlnA_dz)
     end
 
     for fluid in fluid_containers.isothermal
+        update_primitive_velocity!(fluid)
         compute_edge_states_isothermal!(fluid, reconstruct)
         compute_fluxes_isothermal!(fluid, grid)
         update_convective_terms_isothermal!(fluid, grid, dlnA_dz)

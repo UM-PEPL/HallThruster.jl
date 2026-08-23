@@ -173,7 +173,9 @@ end
         cell_cache_1 = zeros(num_grid_cells),
         cell_cache_2 = zeros(num_grid_cells),
         reaction_loss_frequency = zeros(num_grid_cells),
-        reactant_velocity = zeros(num_grid_cells),
+        reaction_rate_indices = zeros(Int, num_grid_cells),
+        reaction_rate_fractions = zeros(num_grid_cells),
+        reaction_rate_index_limit = [254],
         dt_iz = [Inf],
     )
     groups = het.build_electron_impact_groups(

@@ -49,6 +49,11 @@ for energy in (-1.2, 0.0, 19.25, 300.0)
     index = Base.unsafe_trunc(Int, energy)
     @test het.rate_coeff(landmark_rxns[1], energy, index) ==
         het.rate_coeff(landmark_rxns[1], energy)
+
+    clamped_index = clamp(index, 0, length(landmark_rxns[1].rate_coeffs) - 2)
+    fraction = energy - clamped_index
+    @test het.cached_rate_coeff(landmark_rxns[1], clamped_index, fraction) ==
+        het.rate_coeff(landmark_rxns[1], energy)
 end
 
 # Test behavior of general lookup

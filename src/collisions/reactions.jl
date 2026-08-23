@@ -95,6 +95,13 @@ function rate_coeff(rxn::Reaction, energy, ind::Int)
     return lerp(r1, r2, energy - ind)
 end
 
+"""Look up a rate using a previously clamped index and interpolation fraction."""
+@inline function cached_rate_coeff(rxn::Reaction, ind::Int, fraction::Float64)
+    r1 = rxn.rate_coeffs[ind + 1]
+    r2 = rxn.rate_coeffs[ind + 2]
+    return lerp(r1, r2, fraction)
+end
+
 """Map each unique species symbol to its fluid-array index."""
 function fluid_index_map(fluids)
     indices = Dict{Symbol, Int}()

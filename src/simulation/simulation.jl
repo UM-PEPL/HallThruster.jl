@@ -67,6 +67,7 @@ function setup_simulation(
     # Generate grid and allocate state
     grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
     cache = allocate_arrays(grid, config)
+    cache.reaction_rate_index_limit[] = common_rate_index_limit(reaction_groups)
 
     # Set discharge voltage
     cache.Vd[] = config.discharge_voltage

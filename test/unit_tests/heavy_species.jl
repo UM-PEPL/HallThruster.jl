@@ -1,5 +1,17 @@
 using HallThruster: HallThruster as het
 
+@testset "Primitive velocity cache" begin
+    # Primitive velocity is derived once per RK stage and stored with its fluid;
+    # density and momentum remain the authoritative conservative state.
+    propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
+    ion = only(het.allocate_fluids(propellant, 3).isothermal)
+    ion.density .= [0.0, 2.0, 4.0, 5.0, 0.0]
+    ion.momentum .= [1.0, 6.0, -8.0, 0.0, -1.0]
+
+    @test het.update_primitive_velocities!([ion]) === nothing
+    @test ion.vel_prim == [0.0, 3.0, -2.0, 0.0, 0.0]
+end
+
 @testset "Zero-density heavy species" begin
     @test het.primitive_velocity(0.0, 0.0) == 0.0
     @test isfinite(het.primitive_velocity(0.0, 0.0))

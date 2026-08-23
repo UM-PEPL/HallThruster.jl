@@ -21,6 +21,8 @@ struct FluidContainer
     mom_ddt::Vector{Float64}
     dens_cache::Vector{Float64}
     mom_cache::Vector{Float64}
+    """Cell-centered primitive velocity cache, refreshed before each derivative evaluation"""
+    vel_prim::Vector{Float64}
     dens_L::Vector{Float64}
     dens_R::Vector{Float64}
     vel_L::Vector{Float64}
@@ -50,6 +52,7 @@ struct FluidContainer
             zeros(num_cells + 2), zeros(num_cells + 2),
             zeros(num_cells + 2), zeros(num_cells + 2),
             zeros(num_cells + 2), zeros(num_cells + 2),
+            zeros(num_cells + 2),
 
             # Edge states
             zeros(num_cells + 1), zeros(num_cells + 1),
