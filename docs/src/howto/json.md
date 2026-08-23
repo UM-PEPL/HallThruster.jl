@@ -16,6 +16,7 @@ Below, we show an example of this type of JSON input.
 
 ```json
 {
+    "serialization_version": 1,
     "config": {
         "thruster": {
             "name": "SPT-100",
@@ -59,6 +60,7 @@ In the second way, the JSON file has a top level field `input`, with members `co
 
 ```json
 {
+    "serialization_version": 1,
     "input": {
         "config": {...},
         "simulation": {...},
@@ -68,6 +70,10 @@ In the second way, the JSON file has a top level field `input`, with members `co
 ```
 where the contents of these keys are exactly the same as in the first method.
 
+The top-level `serialization_version` identifies the HallThruster JSON schema.
+New files should set it to [`SERIALIZATION_VERSION`](@ref); files without the field are treated as legacy version 0 for backward compatibility.
+HallThruster rejects files written with a newer schema version rather than attempting to interpret an unknown layout.
+
 In both cases, the field names and types of these inputs are exactly the same as in the corresponding `HallThruster` types.
 Note the `"type"` field for `config.anom_model` and `simulation.grid`, which precedes the other fields for that type.
 This pattern is also used for `config.conductivity_model` and `config.wall_loss_model`, should you wish to provide those.
@@ -76,12 +82,13 @@ Note that custom anomalous transport models and propellants are not supported us
 ## Writing output files
 
 If `postprocess` is provided and `postprocess.output_file` is not empty, `HallThruster` will write an output JSON file to that file.
-The output file contains two top-level fields: `input` and `output`.
+The output file contains the top-level schema version along with `input` and `output` fields.
 The `input` field reproduces the inputs used to run the simulation, exactly as described above.
 The `output` field has at most four fields: `retcode`, `error`, `fields`, and `average`, e.g.
 
 ```json
 {
+    "serialization_version": 1,
     "input": {...},
     "output": {
         "retcode": "success",

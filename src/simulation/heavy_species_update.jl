@@ -214,6 +214,14 @@ end
 function update_heavy_species_cache!(fluids, cache, grid, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
+    isempty(fluids.continuity) && throw(ArgumentError(
+        "At least one neutral heavy species is required to update the plasma state."
+    ))
+    isempty(fluids.isothermal) && throw(ArgumentError(
+        "At least one charged heavy species is required to update the plasma state."
+    ))
+    fallback_ion_mass = first(fluids.isothermal).species.element.m
+
     @inbounds @simd for i in eachindex(ne)
         ne[i] = 0.0
         ji[i] = 0.0
@@ -254,13 +262,25 @@ function update_heavy_species_cache!(fluids, cache, grid, landmark)
     end
 
     @inbounds @simd for i in eachindex(ne)
-        avg_neutral_vel[i] /= nn[i]
+        neutral_density = nn[i]
+        avg_neutral_vel[i] = neutral_density > 0 ?
+            avg_neutral_vel[i] / neutral_density : 0.0
         ne[i] = max(ne[i], MIN_NUMBER_DENSITY)
 
-        inv_ion_density = inv(Z_eff[i])
-        avg_ion_vel[i] *= inv_ion_density
-        m_eff[i] *= inv_ion_density
-        Z_eff[i] = ne[i] * inv_ion_density
+        ion_density = Z_eff[i]
+        if ion_density > 0
+            inv_ion_density = inv(ion_density)
+            avg_ion_vel[i] *= inv_ion_density
+            m_eff[i] *= inv_ion_density
+            Z_eff[i] = ne[i] * inv_ion_density
+        else
+            # A zero-density cell can occur in user initial conditions or a
+            # restart before density limiting runs. Keep derived quantities
+            # finite until the normal population floor is applied.
+            avg_ion_vel[i] = 0.0
+            m_eff[i] = fallback_ion_mass
+            Z_eff[i] = 1.0
+        end
 
         ϵ[i] = nϵ[i] / ne[i]
         if !landmark

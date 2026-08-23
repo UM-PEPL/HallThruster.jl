@@ -64,6 +64,32 @@ using HallThruster: HallThruster as het
     @test dt_max ≈ 1.0e-18
 end
 
+@testset "Empty heavy-species populations" begin
+    ncells = 3
+    propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
+    fluids = het.allocate_fluids(propellant, ncells)
+    cache = het.allocate_arrays(length(first(fluids.continuity).density), [propellant], 0)
+
+    # User-provided initial conditions and restarts may contain an empty cell
+    # before the normal density limiter runs; derived plasma fields must stay finite.
+    het.update_heavy_species_cache!(fluids, cache, nothing, false)
+    @test all(isfinite, cache.avg_neutral_vel)
+    @test all(isfinite, cache.avg_ion_vel)
+    @test all(isfinite, cache.m_eff)
+    @test all(isfinite, cache.Z_eff)
+    @test all(iszero, cache.avg_neutral_vel)
+    @test all(iszero, cache.avg_ion_vel)
+    @test all(==(propellant.gas.m), cache.m_eff)
+    @test all(==(1.0), cache.Z_eff)
+
+    # A configuration with no charged fluids cannot provide the ion properties
+    # required by the electron and wall models, so fail with a useful error.
+    neutral_only = (; continuity = fluids.continuity, isothermal = typeof(fluids.isothermal)())
+    @test_throws ArgumentError het.update_heavy_species_cache!(
+        neutral_only, cache, nothing, false,
+    )
+end
+
 @testset "Ion acceleration timestep" begin
     ncells = 3
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 3)

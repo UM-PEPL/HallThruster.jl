@@ -1,4 +1,26 @@
-@public write_to_json, run_simulation
+@public write_to_json, run_simulation, SERIALIZATION_VERSION
+
+"""
+Current version of the top-level HallThruster JSON serialization schema.
+Unversioned documents are treated as legacy version 0.
+"""
+const SERIALIZATION_VERSION = 1
+
+function _validate_serialization_version(document, source = "serialized document")
+    document isa AbstractDict || throw(ArgumentError(
+        "$(source) must contain a JSON object at its top level."
+    ))
+
+    version = get(document, "serialization_version", 0)
+    version isa Integer || throw(ArgumentError(
+        "$(source) has a non-integer `serialization_version`: $(repr(version))."
+    ))
+    version in 0:SERIALIZATION_VERSION || throw(ArgumentError(
+        "$(source) uses unsupported serialization version $(version); " *
+            "this HallThruster release supports versions 0 through $(SERIALIZATION_VERSION)."
+    ))
+    return Int(version)
+end
 
 """
     $(TYPEDSIGNATURES)
@@ -20,6 +42,7 @@ function run_simulation(json_file::String; restart::String = "")
     end
 
     obj = JSON.parsefile(json_file)
+    _validate_serialization_version(obj, "JSON file $(json_file)")
 
     # Read config and sim params from file
     input = get(obj, "input", obj)
@@ -148,6 +171,7 @@ Base.@nospecializeinfer function serialize_sol(
     end
 
     return OrderedDict(
+        "serialization_version" => SERIALIZATION_VERSION,
         "input" => OrderedDict(
             "config" => serialize(sol.config),
             "simulation" => serialize(sol.simulation),

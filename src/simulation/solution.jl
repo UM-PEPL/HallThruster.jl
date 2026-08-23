@@ -135,20 +135,25 @@ function _get_species_states(fluids_by_propellant, species_energies_eV)
 end
 
 function photon_emissions(transitions, emission_counts, interval)
-    return [
-        PhotonEmission(;
+    emissions = Vector{PhotonEmission}(undef, length(transitions))
+    for (i, transition) in enumerate(transitions)
+        # Scale the output copy in place so saving a frame allocates only the
+        # vector retained by the solution, rather than an equally sized temporary.
+        emission_rate = copy_and_remove_ghosts(@view(emission_counts[i, :]))
+        if interval > 0
+            emission_rate ./= interval
+        else
+            fill!(emission_rate, 0.0)
+        end
+        emissions[i] = PhotonEmission(;
             upper = transition.upper,
             lower = transition.lower,
             frequency = transition.frequency,
             energy_eV = transition.energy_eV,
-            emission_rate = if interval > 0
-                copy_and_remove_ghosts(@view(emission_counts[i, :])) ./ interval
-            else
-                zeros(size(emission_counts, 2))
-            end,
+            emission_rate,
         )
-            for (i, transition) in enumerate(transitions)
-    ]
+    end
+    return emissions
 end
 
 """
