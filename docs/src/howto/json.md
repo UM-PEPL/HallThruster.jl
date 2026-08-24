@@ -71,7 +71,8 @@ In the second way, the JSON file has a top level field `input`, with members `co
 where the contents of these keys are exactly the same as in the first method.
 
 The top-level `serialization_version` identifies the HallThruster JSON schema.
-New files should set it to [`SERIALIZATION_VERSION`](@ref); files without the field are treated as legacy version 0 for backward compatibility.
+New files should set it to `SERIALIZATION_VERSION`.
+Files without the field are treated as legacy version 0 for backward compatibility.
 HallThruster rejects files written with a newer schema version rather than attempting to interpret an unknown layout.
 
 In both cases, the field names and types of these inputs are exactly the same as in the corresponding `HallThruster` types.
@@ -112,7 +113,3 @@ You can also manually write a `Solution` to a JSON file using the [`write_to_jso
 
 The frames in the output JSON file are laid out similarly to those in the `Frame` struct, with some additions.
 In addition to plasma properties, each frame also stores its time, as well as thrust, discharge current, and component efficiencies.
-
-## Restarts
-!!! warning "Interface not finalized"
-    The restart interface is not finalized and is subject to change before v1.0.
