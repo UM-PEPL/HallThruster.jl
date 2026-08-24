@@ -28,15 +28,6 @@ CO2 = het.Gas("CO2")
 
 # output
 ERROR: The ratio of specific heats, γ, must be provided for molecules with three or more atoms.
-Stacktrace:
- [1] error(s::String)
-   @ Base ./error.jl:44
- [2] #Gas#13
-   @ ~/src/HallThruster/src/physics/gas.jl:207 [inlined]
- [3] HallThruster.Gas(formula::String)
-   @ HallThruster ~/src/HallThruster/src/physics/gas.jl:197
- [4] top-level scope
-   @ none:1
 ```
 
 ```jldoctest; output = false, setup = :(using HallThruster: HallThruster as het)

@@ -130,10 +130,12 @@ end
     # future versions must be rejected before their frame layout is interpreted.
     future_restart = tempname() * ".json"
     open(future_restart, "w") do io
-        het.JSON.write_json(io, Dict(
-            "serialization_version" => het.SERIALIZATION_VERSION + 1,
-            "output" => Dict("average" => frame),
-        ))
+        het.JSON.write_json(
+            io, Dict(
+                "serialization_version" => het.SERIALIZATION_VERSION + 1,
+                "output" => Dict("average" => frame),
+            )
+        )
     end
     err = try
         het.initialize_from_restart!(first(restart_fixture()), future_restart)
