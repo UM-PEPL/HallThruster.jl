@@ -216,12 +216,16 @@ end
 function update_heavy_species_cache!(fluids, cache, landmark)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
-    isempty(fluids.continuity) && throw(ArgumentError(
-        "At least one neutral heavy species is required to update the plasma state."
-    ))
-    isempty(fluids.isothermal) && throw(ArgumentError(
-        "At least one charged heavy species is required to update the plasma state."
-    ))
+    isempty(fluids.continuity) && throw(
+        ArgumentError(
+            "At least one neutral heavy species is required to update the plasma state."
+        )
+    )
+    isempty(fluids.isothermal) && throw(
+        ArgumentError(
+            "At least one charged heavy species is required to update the plasma state."
+        )
+    )
     fallback_ion_mass = first(fluids.isothermal).species.element.m
 
     @inbounds @simd for i in eachindex(ne)
@@ -588,11 +592,11 @@ function build_electron_impact_groups(
 
     return [
         ElectronImpactGroup(
-            reactant_index,
-            inv(fluids[reactant_index].species.element.m),
-            fluids[reactant_index].type != _ContinuityOnly,
-            channels,
-        ) for (reactant_index, channels) in pairs(grouped_channels)
+                reactant_index,
+                inv(fluids[reactant_index].species.element.m),
+                fluids[reactant_index].type != _ContinuityOnly,
+                channels,
+            ) for (reactant_index, channels) in pairs(grouped_channels)
     ]
 end
 

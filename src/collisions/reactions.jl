@@ -116,9 +116,11 @@ end
 
 function reaction_species_index(fluid_indices, species, role, reaction)
     index = get(fluid_indices, species.symbol, 0)
-    index > 0 || throw(ArgumentError(
-        "Missing $role species $(species.symbol) for reaction $reaction.",
-    ))
+    index > 0 || throw(
+        ArgumentError(
+            "Missing $role species $(species.symbol) for reaction $reaction.",
+        )
+    )
     return index
 end
 
@@ -128,8 +130,8 @@ reactant_indices(reactions, fluids::AbstractVector) =
 function reactant_indices(reactions, fluid_indices::AbstractDict)
     return [
         reaction_species_index(
-            fluid_indices, reaction.reactant, "reactant", reaction,
-        ) for reaction in reactions
+                fluid_indices, reaction.reactant, "reactant", reaction,
+            ) for reaction in reactions
     ]
 end
 
@@ -139,9 +141,9 @@ product_indices(reactions, fluids::AbstractVector) =
 function product_indices(reactions, fluid_indices::AbstractDict)
     return [
         [
-            reaction_species_index(fluid_indices, product, "product", reaction)
+                reaction_species_index(fluid_indices, product, "product", reaction)
                 for product in reaction.products
-        ] for reaction in reactions
+            ] for reaction in reactions
     ]
 end
 

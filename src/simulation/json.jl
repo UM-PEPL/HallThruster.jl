@@ -7,18 +7,24 @@ Unversioned documents are treated as legacy version 0.
 const SERIALIZATION_VERSION = 1
 
 function _validate_serialization_version(document, source = "serialized document")
-    document isa AbstractDict || throw(ArgumentError(
-        "$(source) must contain a JSON object at its top level."
-    ))
+    document isa AbstractDict || throw(
+        ArgumentError(
+            "$(source) must contain a JSON object at its top level."
+        )
+    )
 
     version = get(document, "serialization_version", 0)
-    version isa Integer || throw(ArgumentError(
-        "$(source) has a non-integer `serialization_version`: $(repr(version))."
-    ))
-    version in 0:SERIALIZATION_VERSION || throw(ArgumentError(
-        "$(source) uses unsupported serialization version $(version); " *
-            "this HallThruster release supports versions 0 through $(SERIALIZATION_VERSION)."
-    ))
+    version isa Integer || throw(
+        ArgumentError(
+            "$(source) has a non-integer `serialization_version`: $(repr(version))."
+        )
+    )
+    version in 0:SERIALIZATION_VERSION || throw(
+        ArgumentError(
+            "$(source) uses unsupported serialization version $(version); " *
+                "this HallThruster release supports versions 0 through $(SERIALIZATION_VERSION)."
+        )
+    )
     return Int(version)
 end
 
@@ -132,12 +138,12 @@ Base.@nospecializeinfer function frame_dict(@nospecialize(sol::Solution), frame:
 
     d["photon_emissions"] = [
         OrderedDict(
-            "upper" => emission.upper,
-            "lower" => emission.lower,
-            "frequency" => emission.frequency,
-            "energy_eV" => emission.energy_eV,
-            "emission_rate" => emission.emission_rate,
-        ) for emission in f.photon_emissions
+                "upper" => emission.upper,
+                "lower" => emission.lower,
+                "frequency" => emission.frequency,
+                "energy_eV" => emission.energy_eV,
+                "emission_rate" => emission.emission_rate,
+            ) for emission in f.photon_emissions
     ]
 
     return d

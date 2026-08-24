@@ -251,80 +251,104 @@ function _restart_species_state(frame, excited_states, species, gas_symbol)
             get(excited_states, string(species.symbol), nothing)
     elseif species.Z == 0
         neutrals = frame["neutrals"]
-        haskey(neutrals, gas_symbol) || throw(ArgumentError(
-            "Restart output has no ground-state $(gas_symbol) neutral."
-        ))
+        haskey(neutrals, gas_symbol) || throw(
+            ArgumentError(
+                "Restart output has no ground-state $(gas_symbol) neutral."
+            )
+        )
         return neutrals[gas_symbol]
     end
 
     ions = frame["ions"]
-    haskey(ions, gas_symbol) || throw(ArgumentError(
-        "Restart output has no ground-state $(gas_symbol) ions."
-    ))
+    haskey(ions, gas_symbol) || throw(
+        ArgumentError(
+            "Restart output has no ground-state $(gas_symbol) ions."
+        )
+    )
     ion_states = ions[gas_symbol]
-    ion_states isa AbstractVector || throw(ArgumentError(
-        "Restart ground-state $(gas_symbol) ions must be an array."
-    ))
+    ion_states isa AbstractVector || throw(
+        ArgumentError(
+            "Restart ground-state $(gas_symbol) ions must be an array."
+        )
+    )
     index = findfirst(ion_states) do ion
         ion isa AbstractDict && get(ion, "Z", nothing) == species.Z
     end
-    isnothing(index) && throw(ArgumentError(
-        "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
-    ))
+    isnothing(index) && throw(
+        ArgumentError(
+            "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
+        )
+    )
     return ion_states[index]
 end
 
 function _restart_collection(frame, key, context)
     haskey(frame, key) || throw(ArgumentError("$(context) has no `$(key)` field."))
     collection = frame[key]
-    collection isa AbstractDict || throw(ArgumentError(
-        "Restart field `$(key)` must be a dictionary."
-    ))
+    collection isa AbstractDict || throw(
+        ArgumentError(
+            "Restart field `$(key)` must be a dictionary."
+        )
+    )
     return collection
 end
 
 function _restart_field(container, key, context, expected_length = nothing)
     haskey(container, key) || throw(ArgumentError("$(context) has no `$(key)` field."))
     values = container[key]
-    values isa AbstractVector || throw(ArgumentError(
-        "Field `$(key)` in $(context) must be an array."
-    ))
+    values isa AbstractVector || throw(
+        ArgumentError(
+            "Field `$(key)` in $(context) must be an array."
+        )
+    )
     if !isnothing(expected_length) && length(values) != expected_length
-        throw(ArgumentError(
-            "Field `$(key)` in $(context) has $(length(values)) values; " *
-                "expected $(expected_length)."
-        ))
+        throw(
+            ArgumentError(
+                "Field `$(key)` in $(context) has $(length(values)) values; " *
+                    "expected $(expected_length)."
+            )
+        )
     end
-    all(value -> value isa Real && isfinite(value), values) || throw(ArgumentError(
-        "Field `$(key)` in $(context) must contain only finite numbers."
-    ))
+    all(value -> value isa Real && isfinite(value), values) || throw(
+        ArgumentError(
+            "Field `$(key)` in $(context) must contain only finite numbers."
+        )
+    )
     return values
 end
 
 function _validate_restart_species!(state, species, expected_energy_eV)
-    state isa AbstractDict || throw(ArgumentError(
-        "Restart state $(species.symbol) must be a dictionary."
-    ))
+    state isa AbstractDict || throw(
+        ArgumentError(
+            "Restart state $(species.symbol) must be a dictionary."
+        )
+    )
     for (key, expected) in (("Z", species.Z), ("excited_level", species.excited_level))
         if haskey(state, key) && state[key] != expected
-            throw(ArgumentError(
-                "Restart state $(species.symbol) has $(key)=$(state[key]); expected $(expected)."
-            ))
+            throw(
+                ArgumentError(
+                    "Restart state $(species.symbol) has $(key)=$(state[key]); expected $(expected)."
+                )
+            )
         end
     end
     if haskey(state, "energy_eV")
         restart_energy_eV = state["energy_eV"]
-        restart_energy_eV isa Real && isfinite(restart_energy_eV) || throw(ArgumentError(
-            "Restart state $(species.symbol) has a non-numeric or non-finite energy."
-        ))
+        restart_energy_eV isa Real && isfinite(restart_energy_eV) || throw(
+            ArgumentError(
+                "Restart state $(species.symbol) has a non-numeric or non-finite energy."
+            )
+        )
         if !isapprox(
                 restart_energy_eV, expected_energy_eV;
                 atol = EXCITATION_ENERGY_MERGE_TOLERANCE_EV, rtol = 0,
             )
-            throw(ArgumentError(
-                "Restart state $(species.symbol) has energy $(restart_energy_eV) eV; " *
-                    "the active chemistry uses $(expected_energy_eV) eV."
-            ))
+            throw(
+                ArgumentError(
+                    "Restart state $(species.symbol) has energy $(restart_energy_eV) eV; " *
+                        "the active chemistry uses $(expected_energy_eV) eV."
+                )
+            )
         end
     end
     return nothing
