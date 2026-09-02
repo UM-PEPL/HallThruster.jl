@@ -65,7 +65,8 @@ function test_solution_serialization()
         excited_levels = [1],
         excited_ion_levels = Dict(1 => [2]),
     )
-    excited_fluids = [het.allocate_fluids(excited_propellant, 2)]
+    excited_grid = het.Grid1D(range(0.0, 1.0; length = 3))
+    excited_fluids = [het.allocate_fluids(excited_propellant, excited_grid)]
     energies = het.OrderedDict(
         het.Xenon(0).symbol => 0.0,
         het.Xenon(0, 1).symbol => 8.3,
@@ -84,6 +85,20 @@ function test_solution_serialization()
     @test excited_states[het.Xenon(0, 1).symbol].energy_eV == 8.3
     @test excited_states[het.Xenon(1, 2).symbol].energy_eV == 13.4
     @test excited_states[het.Xenon(1, 2).symbol].excited_level == 2
+
+    profile_grid = het.Grid1D([0.0, 0.04, 0.08])
+    velocity_profile = het.LinearInterpolation([0.0, 0.08], [150.0, 250.0])
+    profiled_propellant = het.Propellant(
+        het.Xenon, 1.0e-6; velocity_m_s = velocity_profile,
+    )
+    profiled_fluids = [het.allocate_fluids(profiled_propellant, profile_grid)]
+    profiled_neutrals, _, _ = het._get_species_states(
+        profiled_fluids, het.OrderedDict(het.Xenon(0).symbol => 0.0, het.Xenon(1).symbol => 12.1),
+    )
+    output_grid = het.copy_and_remove_ghosts(profile_grid.cell_centers)
+    @test profiled_neutrals[:Xe].u ≈ velocity_profile.(output_grid)
+    @test profiled_neutrals[:Xe].nu ≈
+        profiled_neutrals[:Xe].n .* profiled_neutrals[:Xe].u
 
     emission = het.PhotonEmission(;
         upper = het.Xenon(0, 1).symbol,

@@ -8,6 +8,68 @@ include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
     for (name, gas) in pairs(het.propellants_v0_21_7)
         @test het.deserialize(het.Gas, name) == gas
     end
+
+    scalar_propellant = het.Propellant(het.Xenon, 5.0e-6; velocity_m_s = 150.0)
+    scalar_dict = het.serialize(scalar_propellant)
+    @test scalar_dict["velocity_m_s"] == 150.0
+    @test scalar_dict["temperature_K"] == 500.0
+    test_roundtrip(het.Propellant, scalar_propellant)
+
+    profile_propellant = het.Propellant(
+        het.Xenon, 5.0e-6;
+        velocity_m_s = het.LinearInterpolation([0.0, 0.08], [150.0, 300.0]),
+        temperature_K = het.LinearInterpolation([0.0, 0.08], [500.0, 800.0]),
+    )
+    profile_dict = het.serialize(profile_propellant)
+    @test profile_dict["velocity_m_s"] == Dict(
+        "xs" => [0.0, 0.08], "ys" => [150.0, 300.0],
+    )
+    @test profile_dict["temperature_K"] == Dict(
+        "xs" => [0.0, 0.08], "ys" => [500.0, 800.0],
+    )
+    test_roundtrip(het.Propellant, profile_propellant)
+end
+
+@testset "Propellant spatial profiles" begin
+    scalar = het.Propellant(het.Xenon, 5.0e-6; velocity_m_s = 175.0)
+    @test scalar.velocity_m_s isa het.LinearInterpolation
+    @test scalar.temperature_K isa het.LinearInterpolation
+    @test scalar.velocity_m_s.([-1.0, 0.0, 1.0]) == fill(175.0, 3)
+
+    temperature = het.LinearInterpolation([0.0, 0.08], [400.0, 900.0])
+    derived = het.Propellant(het.Xenon, 5.0e-6; temperature_K = temperature)
+    expected_velocity(T) = 0.25 * sqrt(8 * het.kB * T / π / het.Xenon.m)
+    @test derived.velocity_m_s.xs == temperature.xs
+    @test derived.velocity_m_s.ys ≈ expected_velocity.(temperature.ys)
+
+    @test_throws ArgumentError het.Propellant(
+        het.Xenon, 5.0e-6;
+        velocity_m_s = het.LinearInterpolation(Float64[], Float64[]),
+    )
+    @test_throws ArgumentError het.Propellant(
+        het.Xenon, 5.0e-6;
+        velocity_m_s = het.LinearInterpolation([0.0, 0.0], [150.0, 200.0]),
+    )
+
+    grid = het.Grid1D([0.0, 0.04, 0.08])
+    profiled = het.Propellant(
+        het.Xenon, 5.0e-6;
+        velocity_m_s = het.LinearInterpolation([0.0, 0.08], [100.0, 300.0]),
+        temperature_K = het.LinearInterpolation([0.0, 0.08], [400.0, 800.0]),
+        excited_levels = [1],
+    )
+    fluids = het.allocate_fluids(profiled, grid).continuity
+    expected_cell_velocity = [100.0, 150.0, 250.0, 300.0]
+    expected_edge_velocity = [100.0, 200.0, 300.0]
+    expected_edge_temperature = [400.0, 600.0, 800.0]
+    expected_wave_speed = @. expected_edge_velocity +
+        sqrt(het.Xenon.γ * het.R0 / het.Xenon.M * expected_edge_temperature)
+    for fluid in fluids
+        @test fluid.vel_prim ≈ expected_cell_velocity
+        @test fluid.vel_L ≈ expected_edge_velocity
+        @test fluid.vel_R ≈ expected_edge_velocity
+        @test fluid.wave_speed ≈ expected_wave_speed
+    end
 end
 
 @testset "Gas and species" begin
@@ -103,6 +165,7 @@ end
 
 @testset "Excited state allocation" begin
     ncells = 17
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
 
     propellant = het.Propellant(
         het.Xenon, 5.0e-6;
@@ -112,7 +175,7 @@ end
     )
 
     @testset "No excited levels (default, lumped behavior)" begin
-        fluids = het.allocate_fluids(propellant, ncells)
+        fluids = het.allocate_fluids(propellant, grid)
         @test length(fluids.continuity) == 1
         @test length(fluids.isothermal) == 2
         @test isempty(het.excited_fluids(fluids))
@@ -122,7 +185,7 @@ end
 
     @testset "Per-channel excitation" begin
         excited_levels = [2, 1]  # deliberately unsorted
-        fluids = het.allocate_fluids(propellant, ncells; excited_levels)
+        fluids = het.allocate_fluids(propellant, grid; excited_levels)
 
         # One continuity fluid per excited level, plus the ground state
         @test length(fluids.continuity) == 3
@@ -144,8 +207,8 @@ end
             # Excited neutrals are continuity-only and advect with the
             # ground-state neutral background
             @test fluid.type == het._ContinuityOnly
-            @test fluid.const_velocity == propellant.velocity_m_s
-            @test fluid.const_velocity == ground.const_velocity
+            @test all(fluid.vel_prim .== propellant.velocity_m_s(0.0))
+            @test fluid.vel_prim == ground.vel_prim
             @test fluid.sound_speed == ground.sound_speed
 
             # Same element and charge state as the ground neutral
@@ -162,7 +225,7 @@ end
         p = het.Propellant(het.Xenon, 5.0e-6; max_charge = 2, excited_levels = [2, 1])
         @test p.excited_levels == [1, 2]
 
-        fluids = het.allocate_fluids(p, ncells)
+        fluids = het.allocate_fluids(p, grid)
         @test length(fluids.continuity) == 3
         @test fluids.continuity[2].species == het.Xenon(0, 1)
         @test fluids.continuity[3].species == het.Xenon(0, 2)

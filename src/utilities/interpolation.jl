@@ -1,3 +1,5 @@
+@public LinearInterpolation
+
 struct LinearInterpolation{X, Y}
     xs::X
     ys::Y

@@ -331,7 +331,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
                 new_prop = Propellant(
                     prop.gas,
                     flow_rate_kg_s = 0.0,
-                    velocity_m_s = sqrt(max_prop.gas.M / prop.gas.M) * max_prop.velocity_m_s,
+                    velocity_m_s = LinearInterpolation(
+                        copy(max_prop.velocity_m_s.xs),
+                        sqrt(max_prop.gas.M / prop.gas.M) .* max_prop.velocity_m_s.ys,
+                    ),
                     temperature_K = max_prop.temperature_K,
                     ion_temperature_K = max_prop.ion_temperature_K,
                     allowed_charges = prop.allowed_charges,

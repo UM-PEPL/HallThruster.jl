@@ -198,7 +198,7 @@ function test_ion_losses()
 
         config_no_losses = het.Config(; config..., wall_loss_model = het.NoWallLosses())
 
-        fluid_containers = het.allocate_fluids(config_no_losses.propellants[1], 2)
+        fluid_containers = het.allocate_fluids(config_no_losses.propellants[1], grid)
         (; continuity, isothermal) = fluid_containers
         @test length(continuity[1].density) == 4
         @. continuity[1].density = ρn

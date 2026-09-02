@@ -15,7 +15,8 @@ function restart_fixture()
         excited_levels = [2],
     )
     propellants = [xenon, krypton]
-    fluids_by_propellant = [het.allocate_fluids(prop, ncells) for prop in propellants]
+    fluid_grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
+    fluids_by_propellant = [het.allocate_fluids(prop, fluid_grid) for prop in propellants]
     energies = het.OrderedDict(
         het.Xenon(0).symbol => 0.0,
         het.Xenon(0, 1).symbol => 8.3,

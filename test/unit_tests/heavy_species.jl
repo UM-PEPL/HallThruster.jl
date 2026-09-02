@@ -4,12 +4,34 @@ using HallThruster: HallThruster as het
     # Primitive velocity is derived once per RK stage and stored with its fluid;
     # density and momentum remain the authoritative conservative state.
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
-    ion = only(het.allocate_fluids(propellant, 3).isothermal)
+    grid = het.Grid1D(range(0.0, 1.0; length = 4))
+    ion = only(het.allocate_fluids(propellant, grid).isothermal)
     ion.density .= [0.0, 2.0, 4.0, 5.0, 0.0]
     ion.momentum .= [1.0, 6.0, -8.0, 0.0, -1.0]
 
     @test het.update_primitive_velocity!(ion) === nothing
     @test ion.vel_prim == [0.0, 3.0, -2.0, 0.0, 0.0]
+end
+
+@testset "Profiled neutral flux" begin
+    grid = het.Grid1D([0.0, 0.04, 0.08])
+    propellant = het.Propellant(
+        het.Xenon, 5.0e-6;
+        velocity_m_s = het.LinearInterpolation([0.0, 0.08], [100.0, 300.0]),
+        temperature_K = het.LinearInterpolation([0.0, 0.08], [400.0, 800.0]),
+    )
+    neutral = only(het.allocate_fluids(propellant, grid).continuity)
+    neutral.dens_L .= [1.0, 2.0, 3.0]
+    neutral.dens_R .= [4.0, 5.0, 6.0]
+
+    het.compute_fluxes_continuity!(neutral, grid)
+
+    expected_flux = @. 0.5 * (
+        neutral.vel_L * (neutral.dens_L + neutral.dens_R) -
+            neutral.wave_speed * (neutral.dens_R - neutral.dens_L)
+    )
+    @test neutral.flux_dens ≈ expected_flux
+    @test neutral.max_timestep[] ≈ minimum(grid.dz_edge ./ neutral.wave_speed)
 end
 
 @testset "Zero-density heavy species" begin
@@ -19,7 +41,8 @@ end
 
     ncells = 3
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
-    fluids = het.allocate_fluids(propellant, ncells)
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
+    fluids = het.allocate_fluids(propellant, grid)
     fluid_arr = [fluids.continuity[1], fluids.isothermal[1]]
 
     rxn = het.ElectronImpactReaction(0.0, het.Xenon(0), [het.Xenon(1)], ones(256))
@@ -62,7 +85,8 @@ end
 @testset "Empty heavy-species populations" begin
     ncells = 3
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 1)
-    fluids = het.allocate_fluids(propellant, ncells)
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
+    fluids = het.allocate_fluids(propellant, grid)
     cache = het.allocate_arrays(length(first(fluids.continuity).density), 0)
 
     # User-provided initial conditions and restarts may contain an empty cell
@@ -88,7 +112,8 @@ end
 @testset "Ion acceleration timestep" begin
     ncells = 3
     propellant = het.Propellant(het.Xenon, 0.0, max_charge = 3)
-    fluids = het.allocate_fluids(propellant, ncells).isothermal
+    fluid_grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
+    fluids = het.allocate_fluids(propellant, fluid_grid).isothermal
     grid = (; dz_cell = [1.0, 0.4, 0.7, 0.5, 1.0])
     cache = (; ∇ϕ = [0.0, -2.0, 4.0, -8.0, 0.0], dt_E = fill(0.0))
 

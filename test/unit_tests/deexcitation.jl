@@ -9,8 +9,9 @@ using HallThruster: HallThruster as het
     #   n0(t) = N - n1(t) - n2(t).
     # The integrated photon counts are N - n2 for 2 -> 1 and n0 for 1 -> 0.
     ncells = 3
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
     propellant = het.Propellant(het.Xenon, 1.0e-6; excited_levels = [1, 2])
-    fluids = het.allocate_fluids(propellant, ncells).continuity
+    fluids = het.allocate_fluids(propellant, grid).continuity
     fluid_array = collect(fluids)
 
     rate_21 = 2.0
@@ -100,12 +101,13 @@ end
     # The decay should preserve total ion population and axial momentum while
     # recording one photon for every transition that occurs.
     ncells = 1
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
     propellant = het.Propellant(
         het.Xenon, 1.0e-6;
         max_charge = 1,
         excited_ion_levels = Dict(1 => [1, 2]),
     )
-    fluids = het.allocate_fluids(propellant, ncells).isothermal
+    fluids = het.allocate_fluids(propellant, grid).isothermal
     fluid_array = collect(fluids)
     reactions = [
         het.DeExcitationReaction(
@@ -143,10 +145,11 @@ end
     # Two reactions consume the same reactant, so the positivity/CFL constraint
     # must use the sum of their loss frequencies rather than either one alone.
     ncells = 3
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
     propellant = het.Propellant(
         het.Xenon, 1.0e-6; max_charge = 1, excited_levels = [1, 2],
     )
-    fluid_set = het.allocate_fluids(propellant, ncells)
+    fluid_set = het.allocate_fluids(propellant, grid)
     fluids = [fluid_set.continuity; fluid_set.isothermal]
     mass = propellant.gas.m
     fluids[1].density .= mass * 2.0e18
@@ -201,11 +204,11 @@ end
     @test all(iszero, fluids[1].mom_ddt)
     @test all(
         fluids[2].mom_ddt[interior] .≈
-            density_sources[1] * fluids[1].const_velocity
+            density_sources[1] .* fluids[1].vel_prim[interior]
     )
     @test all(
         fluids[3].mom_ddt[interior] .≈
-            density_sources[2] * fluids[1].const_velocity
+            density_sources[2] .* fluids[1].vel_prim[interior]
     )
 
     # Retain coverage for the general multiple-product path used by molecular

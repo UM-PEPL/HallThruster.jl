@@ -29,40 +29,56 @@ struct FluidContainer
     vel_R::Vector{Float64}
     flux_dens::Vector{Float64}
     flux_mom::Vector{Float64}
-    """Constant wave speed used by continuity-only fluids"""
-    wave_speed::Array{Float64, 0}
+    """Edge-local wave speed used by continuity-only fluids"""
+    wave_speed::Vector{Float64}
     """Maximum permissable timestep for this species"""
     max_timestep::Array{Float64, 0}
     """The `Species` whose properties are stored in this struct"""
     species::Species
     """The sound speed for this species"""
     sound_speed::Float64
-    """For neutral species, the constant advection speed of this species"""
-    const_velocity::Float64
     """The type of species (_ContinuityOnly or _IsothermalEuler)"""
     type::ConservationLawType
 
-    function FluidContainer(type, species, num_cells; temp, vel = 0.0)
+    function FluidContainer(type, species, grid; temp, vel = 0.0)
+        num_cells = length(grid.cell_centers)
+        num_edges = length(grid.edges)
         R = R0 / species.element.M
         γ = species.element.γ
-        a = sqrt(γ * R * temp)
+
+        if type == _ContinuityOnly
+            cell_velocity = vel.(grid.cell_centers)
+            edge_velocity = vel.(grid.edges)
+            edge_temperature = temp.(grid.edges)
+            edge_sound_speed = @. sqrt(γ * R * edge_temperature)
+            wave_speed = @. abs(edge_velocity) + edge_sound_speed
+            sound_speed = maximum(edge_sound_speed)
+            vel_L = copy(edge_velocity)
+            vel_R = copy(edge_velocity)
+        else
+            cell_velocity = zeros(num_cells)
+            wave_speed = zeros(num_edges)
+            sound_speed = sqrt(γ * R * temp)
+            vel_L = zeros(num_edges)
+            vel_R = zeros(num_edges)
+        end
 
         return new(
             # Conservative variables, caches, and time derivatives
-            zeros(num_cells + 2), zeros(num_cells + 2),
-            zeros(num_cells + 2), zeros(num_cells + 2),
-            zeros(num_cells + 2), zeros(num_cells + 2),
-            zeros(num_cells + 2),
+            zeros(num_cells), zeros(num_cells),
+            zeros(num_cells), zeros(num_cells),
+            zeros(num_cells), zeros(num_cells),
+            cell_velocity,
 
             # Edge states
-            zeros(num_cells + 1), zeros(num_cells + 1),
-            zeros(num_cells + 1), zeros(num_cells + 1),
+            zeros(num_edges), zeros(num_edges),
+            vel_L, vel_R,
 
             # Fluxes
-            zeros(num_cells + 1), zeros(num_cells + 1),
+            zeros(num_edges), zeros(num_edges),
 
             # Data
-            fill(max(abs(vel + a), abs(vel - a))), fill(0.0), species, a, vel, type
+            wave_speed, fill(0.0), species, sound_speed, type
         )
     end
 end
@@ -92,11 +108,11 @@ All excited-state neutral fluids in the set.
 excited_fluids(fluids::FluidContainerSet) =
     [f for f in fluids.continuity if is_excited(f.species)]
 
-function allocate_fluids(p::Propellant, ncells; excited_levels = p.excited_levels)
+function allocate_fluids(p::Propellant, grid; excited_levels = p.excited_levels)
     # Ground state first, then one fluid per excited level, all advecting with the neutral flow
     continuity = [
         FluidContainer(
-                _ContinuityOnly, p.gas(0, excited_level), ncells;
+                _ContinuityOnly, p.gas(0, excited_level), grid;
                 vel = p.velocity_m_s, temp = p.temperature_K,
             )
             for excited_level in [0; sort!(collect(excited_levels))]
@@ -104,7 +120,7 @@ function allocate_fluids(p::Propellant, ncells; excited_levels = p.excited_level
 
     isothermal = [
         FluidContainer(
-                _IsothermalEuler, p.gas(Z, excited_level), ncells;
+                _IsothermalEuler, p.gas(Z, excited_level), grid;
                 temp = p.ion_temperature_K,
             )
             for Z in p.allowed_charges

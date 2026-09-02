@@ -15,10 +15,12 @@ function setup_simulation(
     # Allocate fluids, reactions, grid, and other arrays
     # ================================================================================
 
+    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
+
     # We arrange the fluid containers in three different structures for convenience.
     # First, an array of (;continuity, isothermal) for each propellant species.
     # This is used in initialization and in computing boundary conditions.
-    fluids_by_propellant = [allocate_fluids(propellant, sim.grid.num_cells) for propellant in config.propellants]
+    fluids_by_propellant = [allocate_fluids(propellant, grid) for propellant in config.propellants]
 
     # Second, a single NamedTuple of (;continuity, isothermal) for all propellants.
     # This is used in the convective update.
@@ -64,8 +66,7 @@ function setup_simulation(
         deexcitation_product_indices,
         species_energies_eV,
     )
-    # Generate grid and allocate state
-    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
+    # Allocate state
     cache = allocate_arrays(grid, config)
     cache.reaction_rate_index_limit[] = common_rate_index_limit(reaction_groups)
 

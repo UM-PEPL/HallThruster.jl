@@ -101,9 +101,11 @@ function _get_species_states(fluids_by_propellant, species_energies_eV)
                 species_energies_eV[species.symbol],
             )
             @. neutral_state.n = continuity.density * inv_m
-            @. neutral_state.u = continuity.const_velocity
+            remove_ghosts!(neutral_state.n)
+            @. neutral_state.u = continuity.vel_prim
+            neutral_state.u[1] = continuity.vel_L[1]
+            neutral_state.u[end] = continuity.vel_L[end]
             @. neutral_state.nu = neutral_state.n * neutral_state.u
-            remove_ghosts!(neutral_state)
             if is_excited(species)
                 excited_states[species.symbol] = neutral_state
             else

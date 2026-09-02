@@ -363,13 +363,18 @@ struct Propellant
     """
     flow_rate_kg_s::Float64
     """
-    Neutral velocity in m/s. **Default:** `$(DEFAULT_NEUTRAL_VELOCITY_M_S)`, or if `neutral_temperature` is set, that parameter is used to compute the velocity using a one-sided maxwellian flux approximation.
+    Neutral velocity in m/s as a `LinearInterpolation` over axial position. Scalar inputs
+    are accepted and stored as constant interpolations. **Default:**
+    `$(DEFAULT_NEUTRAL_VELOCITY_M_S)`, or if `temperature_K` is set, that parameter is
+    used to compute the velocity using a one-sided Maxwellian flux approximation.
     """
-    velocity_m_s::Float64
+    velocity_m_s::LinearInterpolation{Vector{Float64}, Vector{Float64}}
     """
-    Neutral temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_NEUTRAL_TEMPERATURE_K)`.
+    Neutral temperature in Kelvins as a `LinearInterpolation` over axial position. Scalar
+    inputs are accepted and stored as constant interpolations. **Default:**
+    `$(DEFAULT_NEUTRAL_TEMPERATURE_K)`.
     """
-    temperature_K::Float64
+    temperature_K::LinearInterpolation{Vector{Float64}, Vector{Float64}}
     """
     Ion temperature in Kelvins for this propellant. **Default:** `$(DEFAULT_ION_TEMPERATURE_K)`
     """
@@ -402,18 +407,31 @@ struct Propellant
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
             # Use default values
-            velocity_m_s = DEFAULT_NEUTRAL_VELOCITY_M_S
-            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+            velocity_m_s = _normalize_spatial_profile(
+                DEFAULT_NEUTRAL_VELOCITY_M_S, units(:m) / units(:s),
+            )
+            temperature_K = _normalize_spatial_profile(
+                DEFAULT_NEUTRAL_TEMPERATURE_K, units(:K),
+            )
         elseif isnothing(velocity_m_s)
-            # Determine velocity from temperature
-            temperature_K = convert_to_float64(temperature_K, units(:K))
-            velocity_m_s = 0.25 * sqrt(8 * kB * temperature_K / π / gas.m)
+            # Determine velocity pointwise from temperature.
+            temperature_K = _normalize_spatial_profile(temperature_K, units(:K))
+            velocity_m_s = LinearInterpolation(
+                copy(temperature_K.xs),
+                [0.25 * sqrt(8 * kB * T / π / gas.m) for T in temperature_K.ys],
+            )
         elseif isnothing(temperature_K)
-            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
-            temperature_K = DEFAULT_NEUTRAL_TEMPERATURE_K
+            velocity_m_s = _normalize_spatial_profile(
+                velocity_m_s, units(:m) / units(:s),
+            )
+            temperature_K = _normalize_spatial_profile(
+                DEFAULT_NEUTRAL_TEMPERATURE_K, units(:K),
+            )
         else
-            velocity_m_s = convert_to_float64(velocity_m_s, units(:m) / units(:s))
-            temperature_K = convert_to_float64(temperature_K, units(:K))
+            velocity_m_s = _normalize_spatial_profile(
+                velocity_m_s, units(:m) / units(:s),
+            )
+            temperature_K = _normalize_spatial_profile(temperature_K, units(:K))
         end
 
         if isnothing(ion_temperature_K)
@@ -471,6 +489,27 @@ struct Propellant
     end
 end
 
+function _normalize_spatial_profile(value::Number, unit)
+    return LinearInterpolation([0.0], [convert_to_float64(value, unit)])
+end
+
+function _normalize_spatial_profile(profile::LinearInterpolation, unit)
+    isempty(profile.xs) && throw(ArgumentError("spatial profiles must contain at least one point"))
+    xs = [convert_to_float64(x, units(:m)) for x in profile.xs]
+    all(diff(xs) .> 0) || throw(ArgumentError("spatial profile xs must be strictly increasing"))
+    ys = [convert_to_float64(y, unit) for y in profile.ys]
+    return LinearInterpolation(xs, ys)
+end
+
+function _normalize_spatial_profile(profile::AbstractDict, unit)
+    xs = get(profile, "xs", get(profile, :xs, nothing))
+    ys = get(profile, "ys", get(profile, :ys, nothing))
+    (isnothing(xs) || isnothing(ys)) && throw(
+        ArgumentError("spatial profile objects must contain `xs` and `ys`"),
+    )
+    return _normalize_spatial_profile(LinearInterpolation(xs, ys), unit)
+end
+
 Propellant(gas; kwargs...) = Propellant(; gas, kwargs...)
 Propellant(gas, flow_rate_kg_s; kwargs...) = Propellant(; gas, flow_rate_kg_s, kwargs...)
 
@@ -499,6 +538,23 @@ function Serialization.deserialize(::Type{Gas}, d)
     else
         return Gas(d["formula"]; γ = d["gamma"])
     end
+end
+
+function Serialization.serialize(profile::LinearInterpolation)
+    length(profile.xs) == 1 && return Serialization.serialize(only(profile.ys))
+    return OrderedDict(
+        "xs" => Serialization.serialize(profile.xs),
+        "ys" => Serialization.serialize(profile.ys),
+    )
+end
+
+function Serialization.deserialize(::Type{T}, value) where {T <: LinearInterpolation}
+    if value isa Number
+        return LinearInterpolation([0.0], [Float64(value)])
+    end
+    xs = Float64.(value["xs"])
+    ys = Float64.(value["ys"])
+    return LinearInterpolation(xs, ys)
 end
 
 """

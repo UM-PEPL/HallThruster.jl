@@ -241,11 +241,10 @@ function update_heavy_species_cache!(fluids, cache, landmark)
     # Compute neutral number density, summed over all electronic states
     @inbounds for fluid in fluids.continuity
         inv_m = inv(fluid.species.element.m)
-        neutral_velocity = fluid.const_velocity
         @simd for i in eachindex(fluid.density)
             number_density = fluid.density[i] * inv_m
             nn[i] += number_density
-            avg_neutral_vel[i] += number_density * neutral_velocity
+            avg_neutral_vel[i] += number_density * fluid.vel_prim[i]
         end
     end
 
@@ -337,7 +336,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
 
     # Neutral inlet density. Anode flow feeds the ground state only.
     neutral_fluid = ground_neutral(fluids)
-    un = neutral_fluid.const_velocity
+    un = neutral_fluid.vel_L[1]
     neutral_density = (mdot_a + ingestion_flow_rate) / cache.channel_area[1] / un
 
     Vs = 0.0
@@ -672,7 +671,7 @@ function apply_reaction_channel!(
         elseif group.carries_momentum
             reactant.vel_prim[cell]
         else
-            reactant.const_velocity
+            reactant.vel_prim[cell]
         end
 
         positive_loss_frequency = density_loss > 0 ? destruction_frequency : 0.0
@@ -716,7 +715,7 @@ function apply_reaction_channel!(
             @simd for cell in 2:(ncells - 1)
                 mass_source = mass_ratio * density_loss_cache[cell]
                 product.dens_ddt[cell] += mass_source
-                product.mom_ddt[cell] += mass_source * reactant.const_velocity
+                product.mom_ddt[cell] += mass_source * reactant.vel_prim[cell]
             end
         end
     end

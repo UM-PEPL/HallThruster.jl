@@ -26,7 +26,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     mi = propellant.gas.m
     allowed_charges = propellant.allowed_charges
     flow_rate = propellant.flow_rate_kg_s
-    un = propellant.velocity_m_s
+    un = ground_neutral(fluids).vel_L[1]
 
     L_ch = thruster.geometry.channel_length
     z0 = grid.cell_centers[1]
@@ -77,7 +77,9 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     end
 
     # Neutral density at inlet
-    ρn_0 = inlet_neutral_density(propellant, thruster.geometry.channel_area)
+    ρn_0 = inlet_neutral_density(
+        propellant, thruster.geometry.channel_area, grid.edges[1],
+    )
     # add recombined neutrals
     for Z in allowed_charges
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / un

@@ -109,22 +109,21 @@ function compute_edge_states_isothermal!(fluid, do_reconstruct)
 end
 
 function compute_fluxes_continuity!(fluid, grid)
-    (; flux_dens, dens_L, dens_R, wave_speed, const_velocity) = fluid
-    smax = wave_speed[]
+    (; flux_dens, dens_L, dens_R, vel_L, wave_speed) = fluid
 
     # The neutral wave speed and grid never change during a simulation, so its
     # CFL limit only needs to be computed on the first flux update.
     if fluid.max_timestep[] <= 0
         min_timestep = Inf
         @inbounds for i in eachindex(grid.dz_edge)
-            min_timestep = min(min_timestep, grid.dz_edge[i] / smax)
+            min_timestep = min(min_timestep, grid.dz_edge[i] / wave_speed[i])
         end
         fluid.max_timestep[] = min_timestep
     end
 
     return @inbounds for i in eachindex(fluid.dens_L)
         ρ_L, ρ_R = dens_L[i], dens_R[i]
-        flux_dens[i] = 0.5 * (const_velocity * (ρ_L + ρ_R) - smax * (ρ_R - ρ_L))
+        flux_dens[i] = 0.5 * (vel_L[i] * (ρ_L + ρ_R) - wave_speed[i] * (ρ_R - ρ_L))
     end
 end
 
