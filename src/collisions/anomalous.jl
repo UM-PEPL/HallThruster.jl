@@ -22,6 +22,7 @@ Returns a NamedTuple mapping symbols to transport models for all built-in models
         ScaledGaussianBohm,
         LogisticPressureShift,
         SimpleLogisticShift,
+        StepTroughBohm,
     )
 end
 
@@ -31,7 +32,52 @@ end
 Serialization.options(::Type{T}) where {T <: AnomalousTransportModel} = anom_models()
 
 #=============================================================================
- Begin definition of built-in models
+  Validation functions
+==============================================================================#
+function check_finite(var, var_name)
+    isfinite(var) || throw(ArgumentError("`$(var_name)` must be finite. Got: $(var)."))
+    return nothing
+end
+function check_positive(var, var_name)
+    (isfinite(var) && var > 0) || throw(ArgumentError("`$(var_name)` must be positive. Got: $(var)."))
+    return nothing
+end
+function check_nonnegative(var, var_name)
+    (isfinite(var) && var >= 0) || throw(ArgumentError("`$(var_name)` must be nonnegative. Got: $(var)."))
+    return nothing
+end
+function check_in_interval(var, var_name, lb, ub; upper_inclusive = true)
+    valid_upper = upper_inclusive ? var <= ub : var < ub
+    if !(isfinite(var) && var >= lb && valid_upper)
+        right_bracket = upper_inclusive ? "]" : ")"
+        throw(ArgumentError("`$(var_name)` must be in the interval [$(lb), $(ub)$(right_bracket). Got: $(var)."))
+    end
+    return nothing
+end
+
+macro check_finite(var)
+    return :(check_finite($(esc(var)), $(string(var))))
+end
+
+macro check_positive(var)
+    return :(check_positive($(esc(var)), $(string(var))))
+end
+
+macro check_nonnegative(var)
+    return :(check_nonnegative($(esc(var)), $(string(var))))
+end
+
+macro check_in_interval(var, lb, ub, upper_inclusive = true)
+    return :(
+        check_in_interval(
+            $(esc(var)), $(string(var)), $(esc(lb)), $(esc(ub));
+            upper_inclusive = $(esc(upper_inclusive)),
+        )
+    )
+end
+
+#=============================================================================
+ Definition of built-in models
 ==============================================================================#
 
 """
@@ -49,14 +95,22 @@ end
 
 """
     Bohm(c) <: AnomalousTransportModel
-Model where the anomalous collision frequency scales with the electron cyclotron frequency ωce times some scaling factor c
+Model where the anomalous collision frequency scales with the electron cyclotron frequency
+as `νan = c * ωce`.
 
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct Bohm <: AnomalousTransportModel
+struct Bohm <: AnomalousTransportModel
+    """Nonnegative inverse Hall parameter."""
     c::Float64
+    function Bohm(c)
+        c = Float64(c)
+        @check_nonnegative c
+        return new(c)
+    end
 end
+Bohm(; c) = Bohm(c)
 
 function (model::Bohm)(νan, params, ::Float64 = 0.0)
     (; cache, grid) = params
@@ -69,10 +123,10 @@ function (model::Bohm)(νan, params, ::Float64 = 0.0)
 
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
-    for (_, zc) in enumerate(grid.cell_centers)
+    for (i, zc) in enumerate(grid.cell_centers)
         B = B_interp(zc)
         ωce = e * B / me
-        νan = model.c * ωce
+        νan[i] = model.c * ωce
     end
 
     return νan
@@ -80,16 +134,27 @@ end
 
 """
     TwoZoneBohm(c1, c2) <: AnomalousTransportModel
-Model where the anomalous collision frequency has two values: c1 * ωce inside the channel and c2 * ωce outside of the channel.
-Takes two arguments: c1 and c2. The transition between these values is smoothed over `params.transition_length`.
+Model where the anomalous collision frequency has two values: `c1 * ωce` inside
+the channel and `c2 * ωce` outside it. The transition between these values is
+smoothed over `params.transition_length`.
 
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct TwoZoneBohm <: AnomalousTransportModel
+struct TwoZoneBohm <: AnomalousTransportModel
+    """Nonnegative inverse Hall parameter inside the channel."""
     c1::Float64
+    """Nonnegative inverse Hall parameter outside the channel."""
     c2::Float64
+    function TwoZoneBohm(c1, c2)
+        c1 = Float64(c1)
+        c2 = Float64(c2)
+        @check_nonnegative c1
+        @check_nonnegative c2
+        return new(c1, c2)
+    end
 end
+TwoZoneBohm(; c1, c2) = TwoZoneBohm(c1, c2)
 
 function (model::TwoZoneBohm)(νan, params, z_shift::Float64 = 0.0)
     (; c1, c2) = model
@@ -120,7 +185,8 @@ end
 
 """
     MultiLogBohm(zs, cs) <: AnomalousTransportModel
-Model similar to that employed in Hall2De, where the mobility is Bohm-like (i.e. `νan(z) = c(z) * ωce(z)`) and z is in meters.
+Model similar to that employed in Hall2De, where the anomalous collision frequency
+is Bohm-like (i.e. `νan(z) = c(z) * ωce(z)`) and `z` is in meters.
 
 The function `c(z)` is defined by a sequence of nodes `(z, c)` provided by the user. At `z = z[1]`, `c(z) = c[1]`, and so forth.
 
@@ -128,21 +194,30 @@ At `z[i] < z < z[i+1]`, `log(c)` is defined by linearly interpolating between `l
 
 For `z < z[1]`, `c = c[1]` and for `z > z[end]`, `c(z) = c[end]`.
 
-The user may also provide a single array of [z[1], z[2], ..., z[end], c[1], c[2], ..., c[end]]. The number of z values must be equal to the number of c values.
+The `zs` values must be finite and strictly increasing. The `cs` values must be
+finite and positive because their logarithms are interpolated. Both arrays must
+be nonempty and have the same length.
 
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct MultiLogBohm <: AnomalousTransportModel
+struct MultiLogBohm <: AnomalousTransportModel
+    """Finite, strictly increasing axial node positions in meters."""
     zs::Vector{Float64}
+    """Positive inverse Hall parameters at the axial nodes."""
     cs::Vector{Float64}
     function MultiLogBohm(zs, cs)
-        if length(zs) != length(cs)
-            throw(ArgumentError("Number of z values must be equal to number of c values"))
-        end
+        zs = Float64.(zs)
+        cs = Float64.(cs)
+        isempty(zs) && throw(ArgumentError("`zs` and `cs` must be nonempty."))
+        length(zs) == length(cs) || throw(ArgumentError("Number of z values must be equal to number of c values."))
+        all(isfinite, zs) || throw(ArgumentError("All `zs` values must be finite."))
+        all(>(0), diff(zs)) || throw(ArgumentError("`zs` values must be strictly increasing."))
+        all(c -> isfinite(c) && c > 0, cs) || throw(ArgumentError("All `cs` values must be positive and finite."))
         return new(zs, cs)
     end
 end
+MultiLogBohm(; zs, cs) = MultiLogBohm(zs, cs)
 
 function (model::MultiLogBohm)(νan, params, z_shift::Float64 = 0.0)
     (; grid) = params
@@ -168,23 +243,35 @@ end
 
 """
     GaussianBohm(hall_min, hall_max, center, width) <: AnomalousTransportModel
-Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`),
-except in a Gaussian-shaped region defined centered on z = `center`,
-where the collision frequency is lower.
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ωce`),
+with a Gaussian trough centered at `center`. The inverse Hall parameter is
+`hall_max` far from the trough and `hall_min * hall_max` at its center.
 
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct GaussianBohm <: AnomalousTransportModel
-    """the minimum inverse Hall parameter"""
+struct GaussianBohm <: AnomalousTransportModel
+    """Fraction of `hall_max` retained at the trough center; must be in [0, 1]."""
     hall_min::Float64
-    """the maximum inverse Hall parameter"""
+    """Inverse Hall parameter far from the trough; must be positive."""
     hall_max::Float64
-    """the axial position (in meters) of the mean of the Gaussian trough"""
+    """Finite axial position of the center of the Gaussian trough, in meters."""
     center::Float64
-    """the standard deviation (in meters) of the Gaussian trough"""
+    """Positive standard deviation of the Gaussian trough, in meters."""
     width::Float64
+    function GaussianBohm(hall_min, hall_max, center, width)
+        hall_min = Float64(hall_min)
+        hall_max = Float64(hall_max)
+        center = Float64(center)
+        width = Float64(width)
+        @check_in_interval hall_min 0 1
+        @check_positive hall_max
+        @check_finite center
+        @check_positive width
+        return new(hall_min, hall_max, center, width)
+    end
 end
+GaussianBohm(; hall_min, hall_max, center, width) = GaussianBohm(hall_min, hall_max, center, width)
 
 function (model::GaussianBohm)(νan, params, z_shift::Float64 = 0.0)
     (; hall_min, hall_max, center, width) = model
@@ -219,15 +306,29 @@ Reparameterized version of the `GaussianBohm` model to make parameters non-dimen
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct ScaledGaussianBohm <: AnomalousTransportModel
-    """the maximum inverse hall parameter, should be in [0, 1]"""
-    anom_scale::Float64 = 0.0625
-    """the factor by which transport is reduced by the baseline value at the center of the trough, should be in [0,1]. """
-    barrier_scale::Float64 = 0.9
-    """the standard deviation of the Gaussian trough, in channel lengths"""
+struct ScaledGaussianBohm <: AnomalousTransportModel
+    """The maximum inverse hall parameter. Must be positive."""
+    anom_scale::Float64
+    """The factor by which transport is reduced by the baseline value at the center of the trough, must be in [0,1]. """
+    barrier_scale::Float64
+    """The standard deviation of the Gaussian trough, in channel lengths. Must be positive."""
     width::Float64
-    """the axial position of the mean of the Gaussian trough, in channel lengths"""
+    """The axial position of the mean of the Gaussian trough, in channel lengths. Must be positive."""
     center::Float64
+    function ScaledGaussianBohm(anom_scale, barrier_scale, width, center)
+        anom_scale = Float64(anom_scale)
+        barrier_scale = Float64(barrier_scale)
+        width = Float64(width)
+        center = Float64(center)
+        @check_positive anom_scale
+        @check_in_interval barrier_scale 0 1
+        @check_positive width
+        @check_positive center
+        return new(anom_scale, barrier_scale, width, center)
+    end
+end
+function ScaledGaussianBohm(; anom_scale = 0.0625, barrier_scale = 0.9, width, center)
+    return ScaledGaussianBohm(anom_scale, barrier_scale, width, center)
 end
 
 function (model::ScaledGaussianBohm)(νan, params, z_shift::Float64 = 0.0)
@@ -256,6 +357,87 @@ function (model::ScaledGaussianBohm)(νan, params, z_shift::Float64 = 0.0)
     return νan
 end
 
+"""
+    StepTroughBohm(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent) <: AnomalousTransportModel
+Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`),
+with a shape function defined by a product of a logistic "step" function and an inverted generalized Gaussian near the exit plane.
+Parameterization is similar to the ScaledGaussianBohm, with all quantities chosen to be O(1).
+
+
+# Fields
+$(TYPEDFIELDS)
+"""
+struct StepTroughBohm <: AnomalousTransportModel
+    """The maximum inverse Hall parameter; must be positive."""
+    anom_scale::Float64
+    """The axial position of the co-located center of the generalized Gaussian trough and logistic step, in channel lengths; must be positive."""
+    anom_center::Float64
+    """The size of the logistic step. Zero removes the step; one makes its upstream limit zero. Must be in [0, 1]."""
+    step_scale::Float64
+    """Dimensionless logistic sharpness parameter. The step sharpens as this approaches zero. Must be in (0, 1)."""
+    step_width::Float64
+    """Fraction of the baseline transport retained at the trough center; must be in [0, 1]."""
+    trough_floor::Float64
+    """Positive generalized-Gaussian width relative to `anom_center`."""
+    trough_width::Float64
+    """Scaled generalized-Gaussian exponent. It maps 0 to 1 and 0.5 to 2, and approaches infinity as it approaches 1. Must be in [0, 1)."""
+    trough_exponent::Float64
+
+    function StepTroughBohm(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+        anom_scale = Float64(anom_scale)
+        anom_center = Float64(anom_center)
+        step_scale = Float64(step_scale)
+        step_width = Float64(step_width)
+        trough_floor = Float64(trough_floor)
+        trough_width = Float64(trough_width)
+        trough_exponent = Float64(trough_exponent)
+        @check_positive anom_scale
+        @check_positive anom_center
+        @check_in_interval step_scale 0 1
+        @check_in_interval step_width 0 1 false
+        @check_positive step_width
+        @check_in_interval trough_floor 0 1
+        @check_positive trough_width
+        @check_in_interval trough_exponent 0 1 false
+        return new(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+    end
+end
+
+function StepTroughBohm(; anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+    return StepTroughBohm(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+end
+
+function (model::StepTroughBohm)(νan::Vector{Float64}, z::Vector{Float64}, B::Vector{Float64}, L_ch::Float64 = 1.0, z_shift::Float64 = 0.0)
+    (; anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent) = model
+
+    @inbounds for i in eachindex(νan)
+        z0 = (z[i] - z_shift) / L_ch
+        z_aux = (z0 / anom_center) - 1
+
+        # logistic part
+        step = (1 - step_scale) + step_scale / (1 + exp(-z_aux * (1 - step_width) / step_width))
+
+        # exponential part
+        trough = 1 - (1 - trough_floor) * exp(-abs(z_aux / trough_width)^(1 / (1 - trough_exponent)))
+
+        # result
+        inverse_hall = anom_scale * step * trough
+        ωce = e * B[i] / me
+        νan[i] = inverse_hall * ωce
+    end
+    return νan
+end
+
+function (model::StepTroughBohm)(νan::Vector{Float64}, params, z_shift::Float64 = 0.0)
+    (; cache, grid, thruster) = params
+    return model(νan, grid.cell_centers, cache.B, thruster.geometry.channel_length, z_shift)
+end
+
+
+#=============================================================================
+ Begin definition of built-in models
+==============================================================================#
+
 abstract type PressureShift <: AnomalousTransportModel end
 
 pressure_shift(model::AnomalousTransportModel, ::Any, ::Any) = 0.0
@@ -273,27 +455,41 @@ The displacement/shift of the transport profile follows a logistic curve.
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
+struct LogisticPressureShift{A <: AnomalousTransportModel} <: PressureShift
     """
     An anomalous transport model
     """
     model::A
     """
-    the center of the shift at 0 background pressure
+    Dimensionless shift offset, scaled by the channel length. Must be finite.
     """
     z0::Float64
     """
-    the total pressure shift across (0, Inf) background pressure
+    The shift amplitude, scaled by the channel length. Must be finite.
     """
     dz::Float64
     """
-    the "turning point" pressure
+    The positive pressure scale in Torr.
     """
     pstar::Float64
     """
-    the slope of the pressure-displacement response curve
+    Shape parameter for the pressure-displacement response curve; must be greater than 1.
     """
     alpha::Float64
+    function LogisticPressureShift(model::A, z0, dz, pstar, alpha) where {A <: AnomalousTransportModel}
+        z0 = Float64(z0)
+        dz = Float64(dz)
+        pstar = Float64(pstar)
+        alpha = Float64(alpha)
+        @check_finite z0
+        @check_finite dz
+        @check_positive pstar
+        (isfinite(alpha) && alpha > 1) || throw(ArgumentError("`alpha` must be finite and greater than 1. Got: $(alpha)."))
+        return new{A}(model, z0, dz, pstar, alpha)
+    end
+end
+function LogisticPressureShift(; model, z0, dz, pstar, alpha)
+    return LogisticPressureShift(model, z0, dz, pstar, alpha)
 end
 
 function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_length::Float64)
@@ -304,7 +500,7 @@ function pressure_shift(model::LogisticPressureShift, pB::Float64, channel_lengt
 end
 
 """
-    SimpleLogisticShift(model, z0, dz, pstar, alpha)
+    SimpleLogisticShift(model, shift_length, midpoint_pressure, slope)
 A wrapper model that allows a transport profile to shift axially in response to changes in background pressure.
 As with LogisticPressureShift, the displacement/shift of the transport profile follows a logistic curve.
 However, the parameterization is different, so that the shift is zero when
@@ -314,26 +510,39 @@ As such, it does not have a z0 parameter.
 # Fields
 $(TYPEDFIELDS)
 """
-@kwdef struct SimpleLogisticShift{A <: AnomalousTransportModel} <: PressureShift
+struct SimpleLogisticShift{A <: AnomalousTransportModel} <: PressureShift
     """
     An AnomalousTransportModel
     """
     model::A
     """
-    The maximum displacement in response to increasing pressure, scaled by the discharge channel length.
-    This should be positive.
+    Scale of the upstream displacement in response to increasing pressure, relative to
+    the discharge channel length. The asymptotic displacement magnitude is
+    `shift_length / (1 + exp(-slope))`. Must be positive.
     """
     shift_length::Float64
     """
     The pressure at the midpoint of the shift, in Torr.
     Defaults to 25e-6 Torr, which gives good fits for the H9 and SPT-100.
     """
-    midpoint_pressure::Float64 = 25.0e-6
+    midpoint_pressure::Float64
     """
     The slope of the pressure response curve.
     Defaults to 2, which gives good fits for the H9 and SPT-100.
     """
-    slope::Float64 = 2.0
+    slope::Float64
+    function SimpleLogisticShift(model::A, shift_length, midpoint_pressure, slope) where {A <: AnomalousTransportModel}
+        shift_length = Float64(shift_length)
+        midpoint_pressure = Float64(midpoint_pressure)
+        slope = Float64(slope)
+        @check_positive shift_length
+        @check_positive midpoint_pressure
+        @check_positive slope
+        return new{A}(model, shift_length, midpoint_pressure, slope)
+    end
+end
+function SimpleLogisticShift(; model, shift_length, midpoint_pressure = 25.0e-6, slope = 2.0)
+    return SimpleLogisticShift(model, shift_length, midpoint_pressure, slope)
 end
 
 function pressure_shift(model::SimpleLogisticShift, pB::Float64, channel_length::Float64)

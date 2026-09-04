@@ -18,6 +18,11 @@ function test_config_serialization()
 
         test_roundtrip(het.Config, cfg)
 
+        step_trough_bohm = het.StepTroughBohm(0.05, 1.0, 0.8, 0.5, 0.1, 0.2, 0.5)
+        serialized_model = het.serialize(step_trough_bohm)
+        @test serialized_model["trough_floor"] == 0.1
+        test_subtype(het.AnomalousTransportModel, step_trough_bohm)
+
         profiled_cfg = het.Config(;
             thruster = het.SPT_100,
             discharge_voltage = 300.0,

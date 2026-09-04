@@ -7,6 +7,7 @@ EditURL = "NEWS.md"
 ## 0.23.0
 ### New features
 - Neutral velocity and temperature may be supplied as axial `LinearInterpolation` profiles in Julia, JSON, and propellant TOML inputs. Scalar inputs remain supported and are still serialized as scalars
+- Added flexible `StepTroughBohm` anomalous transport model.
 
 ## 0.22.0
 ### New features
