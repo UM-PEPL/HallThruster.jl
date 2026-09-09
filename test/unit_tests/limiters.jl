@@ -46,4 +46,25 @@ function test_slope_limiters()
     end
 end
 
+function test_reconstruction()
+    return @testset "Van Leer reconstruction" begin
+        states = (
+            (-1.0, 0.0, 2.0),
+            (2.0, 0.0, -1.0),
+            (0.0, 1.0, 0.0),
+            (1.0, 1.0, 2.0),
+            (1.0, 1.0, 1.0),
+        )
+
+        for (u₋, u, u₊) in states
+            r = (u₊ - u) / (u - u₋)
+            slope = 0.25 * het.van_leer_limiter(r) * (u₊ - u₋)
+            actual = het.reconstruct(u₋, u, u₊)
+            expected = (u - slope, u + slope)
+            @test all(isapprox.(actual, expected; rtol = 2eps()))
+        end
+    end
+end
+
 test_slope_limiters()
+test_reconstruction()

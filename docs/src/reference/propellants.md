@@ -39,6 +39,25 @@ Users wishing to implement their own propellant should read [Adding a new propel
 ## `Propellant`
 When specifying the propellant to use in a simulation, you use the `Propellant` struct. This takes both a `Gas` and a flow rate, as well as the neutral gas temperature and/or velocity at the anode.
 
+Neutral velocity and temperature may be scalars or axial profiles. Profile coordinates are
+in meters, values outside the supplied coordinate range clamp to the nearest endpoint, and
+the profiles are sampled onto the simulation grid during setup.
+
+```julia
+velocity = LinearInterpolation([0.0, 0.04, 0.08], [150.0, 225.0, 300.0])
+temperature = LinearInterpolation([0.0, 0.08], [500.0, 800.0])
+
+propellant = Propellant(
+    Xenon, 5.0e-6;
+    velocity_m_s = velocity,
+    temperature_K = temperature,
+)
+```
+
+The equivalent JSON fields accept either their traditional scalar values or profile objects
+such as `{"xs": [0.0, 0.08], "ys": [150.0, 300.0]}`. Propellant TOML files accept the
+same shape as an inline table.
+
 ```@docs
 Propellant
 ```

@@ -4,6 +4,12 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## 0.23.0
+### New features
+- [BETA] Implemented the ability to explicitly track excited neutral and ion states and the photon emission resulting from their de-excitation. The user must supply their own reaction sets, however.
+- Neutral velocity and temperature may be supplied as axial `LinearInterpolation` profiles in Julia, JSON, and propellant TOML inputs. Scalar inputs remain supported and are still serialized as scalars
+- Added flexible `StepTroughBohm1` and `StepTroughBohm2` anomalous transport models.
+
 ## 0.22.0
 ### New features
 - Overhaul of how propellant gases are handled. This makes it possible to serialize and deserialize arbitrary gases and reduces the amount of information needed to be provided by the user. Chemical formulae are parsed and the molecular weight is computed. The long name of a gas is no longer included in the `Gas` structure, making this a breaking change.

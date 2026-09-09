@@ -179,10 +179,12 @@ function run_landmark(
     )
 
 
-    @time sol = het.run_simulation(
-        config; duration, grid = het.EvenGrid(ncells), nsave,
-        dt, dtmin = dt / 100, dtmax = dt * 10, adaptive = true, CFL, verbose = false,
+    simulation = het.SimParams(;
+        duration, grid = het.EvenGrid(ncells), num_save = nsave,
+        dt, min_dt = dt / 100, max_dt = dt * 10, adaptive = true, CFL,
+        verbose = false,
     )
+    @time sol = het.run_simulation(config, simulation)
 
     return sol
 end

@@ -18,6 +18,33 @@ function test_config_serialization()
 
         test_roundtrip(het.Config, cfg)
 
+        step_trough_bohm = het.StepTroughBohm1(0.05, 1.0, 0.8, 0.5, 0.1, 0.2, 0.5)
+        serialized_model = het.serialize(step_trough_bohm)
+        @test serialized_model["trough_floor"] == 0.1
+        test_subtype(het.AnomalousTransportModel, step_trough_bohm)
+
+        profiled_cfg = het.Config(;
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.08),
+            propellants = [
+                het.Propellant(
+                    het.Xenon, 5.0e-6;
+                    velocity_m_s = het.LinearInterpolation(
+                        [0.0, 0.08], [150.0, 300.0],
+                    ),
+                    temperature_K = het.LinearInterpolation(
+                        [0.0, 0.08], [500.0, 800.0],
+                    ),
+                ),
+            ],
+        )
+        profiled_dict = het.serialize(profiled_cfg)
+        @test profiled_dict["propellants"][1]["velocity_m_s"] == Dict(
+            "xs" => [0.0, 0.08], "ys" => [150.0, 300.0],
+        )
+        test_roundtrip(het.Config, profiled_cfg)
+
         OD = het.Serialization.OrderedDict
         d = OD(
             "thruster" => het.serialize(het.SPT_100),
@@ -47,6 +74,18 @@ function test_configuration()
         )
     )
 
+    legacy_profile = het.LinearInterpolation([0.0, 0.05], [150.0, 250.0])
+    legacy_profile_config = het.Config(;
+        discharge_voltage = 200.0,
+        anode_mass_flow_rate = 5.0e-6,
+        thruster = het.SPT_100,
+        domain = (0.0, 0.05),
+        neutral_velocity = legacy_profile,
+    )
+    legacy_config_velocity = only(legacy_profile_config.propellants).velocity_m_s
+    @test legacy_config_velocity.xs == legacy_profile.xs
+    @test legacy_config_velocity.ys == legacy_profile.ys
+
     ncells = 100
 
     simparams = het.SimParams(
@@ -63,7 +102,8 @@ function test_configuration()
 
         neutral_fluid = params.fluid_containers.continuity[1]
         @test length(params.fluid_containers.continuity) == 1
-        @test neutral_fluid.const_velocity == config.propellants[1].velocity_m_s
+        @test neutral_fluid.vel_prim ==
+            config.propellants[1].velocity_m_s.(params.grid.cell_centers)
 
         # Check array sizes
         (;
@@ -148,13 +188,19 @@ function test_multiple_propellants()
         # Number of ionization reactions should be the Nth triangular number, where N is the maximum charge
         triangular(n::T) where {T <: Integer} = T(n * (n + 1) // 2)
 
-        (; ei_reactions, ei_reactant_indices, ei_product_indices) = params
-
-        @test length(ei_reactions) == triangular(length(Kr.allowed_charges)) + triangular(length(Xe.allowed_charges))
-        for (rxn, reactant_ind, prod_ind) in zip(ei_reactions, ei_reactant_indices, ei_product_indices)
-            @test rxn.reactant == species[reactant_ind]
-            for (i, _prod_ind) in enumerate(prod_ind)
-                @test rxn.products[i] == species[_prod_ind]
+        @test sum(length(group.channels) for group in params.reaction_groups) ==
+            triangular(length(Kr.allowed_charges)) + triangular(length(Xe.allowed_charges))
+        for group in params.reaction_groups
+            @test all(
+                channel.reaction.reactant == species[group.reactant_index]
+                    for channel in group.channels
+            )
+            for channel in group.channels
+                for (product, product_index) in zip(
+                        channel.reaction.products, channel.product_indices,
+                    )
+                    @test product == species[product_index]
+                end
             end
         end
 
@@ -281,7 +327,23 @@ function test_TOML_Read()
             )
             props = het.load_propellant_config(file)
             @test collect(props[1].allowed_charges) == [1]
+        end
 
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                symbol = "Xe"
+                flow_rate_kg_s = 5.0e-6
+                velocity_m_s = { xs = [0.0, 0.08], ys = [150.0, 300.0] }
+                temperature_K = { xs = [0.0, 0.08], ys = [500.0, 800.0] }
+                """
+            )
+            propellant = only(het.load_propellant_config(file))
+            @test propellant.velocity_m_s.xs == [0.0, 0.08]
+            @test propellant.velocity_m_s.ys == [150.0, 300.0]
+            @test propellant.temperature_K.ys == [500.0, 800.0]
         end
     end
 
@@ -289,6 +351,110 @@ function test_TOML_Read()
 end
 
 test_TOML_Read()
+
+function test_propellant_config_overrides()
+    @testset "Propellant chemistry inheritance" begin
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                symbol = "Xe"
+                max_charge = 3
+                excited_levels = [1, 2]
+                excited_ion_levels = { 1 = [1], 2 = [1, 2], 3 = [1] }
+                """
+            )
+
+            config_args = (;
+                thruster = het.SPT_100,
+                domain = (0.0, 0.08),
+                discharge_voltage = 300.0,
+                propellant_config = file,
+            )
+
+            # Physical overrides retain chemistry options omitted from Propellant.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant("Xe"; flow_rate_kg_s = 5.0e-6, velocity_m_s = 150.0),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.flow_rate_kg_s == 5.0e-6
+            @test propellant.velocity_m_s(0.0) == 150.0
+            @test propellant.allowed_charges == [1, 2, 3]
+            @test propellant.excited_levels == [1, 2]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2], 3 => [1])
+
+            # Specifying only max_charge still inherits both excited-state collections.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant("Xe"; flow_rate_kg_s = 5.0e-6, max_charge = 3),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.excited_levels == [1, 2]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2], 3 => [1])
+
+            # Non-default chemistry values override the file; inherited ion levels
+            # are restricted to the explicitly allowed charge states.
+            config = het.Config(;
+                config_args...,
+                propellants = [
+                    het.Propellant(
+                        "Xe"; flow_rate_kg_s = 5.0e-6, max_charge = 2,
+                        excited_levels = [4],
+                    ),
+                ],
+            )
+            propellant = only(config.propellants)
+            @test propellant.allowed_charges == [1, 2]
+            @test propellant.excited_levels == [4]
+            @test propellant.excited_ion_levels == Dict(1 => [1], 2 => [1, 2])
+        end
+
+
+        mktempdir() do dir
+            file = joinpath(dir, "propellant.toml")
+            write(
+                file, """
+                [[species]]
+                symbol = "Xe"
+                max_charge = 1
+
+                [[species]]
+                symbol = "Kr"
+                max_charge = 1
+                """
+            )
+            xenon_velocity = het.LinearInterpolation(
+                [0.0, 0.08], [150.0, 300.0],
+            )
+            config = het.Config(;
+                thruster = het.SPT_100,
+                domain = (0.0, 0.08),
+                discharge_voltage = 300.0,
+                propellant_config = file,
+                propellants = [
+                    het.Propellant(
+                        het.Xenon, 5.0e-6; velocity_m_s = xenon_velocity,
+                    ),
+                ],
+            )
+            krypton = only(filter(p -> p.gas == het.Krypton, config.propellants))
+            scale = sqrt(het.Xenon.M / het.Krypton.M)
+            @test krypton.flow_rate_kg_s == 0.0
+            @test krypton.velocity_m_s.xs == xenon_velocity.xs
+            @test krypton.velocity_m_s.ys ≈ scale .* xenon_velocity.ys
+        end
+    end
+    return
+end
+
+test_propellant_config_overrides()
+
 function test_allowed_charges_initialization()
     @testset "Allowed charges initialization" begin
         Xe_default = het.Propellant(

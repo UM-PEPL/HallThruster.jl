@@ -1,4 +1,32 @@
-@public write_to_json, run_simulation
+@public write_to_json, run_simulation, SERIALIZATION_VERSION
+
+"""
+Current version of the top-level HallThruster JSON serialization schema.
+Unversioned documents are treated as legacy version 0.
+"""
+const SERIALIZATION_VERSION = 1
+
+function _validate_serialization_version(document, source = "serialized document")
+    document isa AbstractDict || throw(
+        ArgumentError(
+            "$(source) must contain a JSON object at its top level."
+        )
+    )
+
+    version = get(document, "serialization_version", 0)
+    version isa Integer || throw(
+        ArgumentError(
+            "$(source) has a non-integer `serialization_version`: $(repr(version))."
+        )
+    )
+    version in 0:SERIALIZATION_VERSION || throw(
+        ArgumentError(
+            "$(source) uses unsupported serialization version $(version); " *
+                "this HallThruster release supports versions 0 through $(SERIALIZATION_VERSION)."
+        )
+    )
+    return Int(version)
+end
 
 """
     $(TYPEDSIGNATURES)
@@ -20,6 +48,7 @@ function run_simulation(json_file::String; restart::String = "")
     end
 
     obj = JSON.parsefile(json_file)
+    _validate_serialization_version(obj, "JSON file $(json_file)")
 
     # Read config and sim params from file
     input = get(obj, "input", obj)
@@ -46,7 +75,7 @@ end
     $(TYPEDSIGNATURES)
 Convert one frame of a `Solution` to an `OrderedDict`
 """
-function frame_dict(sol::Solution, frame::Integer)
+Base.@nospecializeinfer function frame_dict(@nospecialize(sol::Solution), frame::Integer)
     f = sol.frames[frame]
     d = OrderedDict{String, Any}()
     d["thrust"] = thrust(sol, frame)
@@ -74,34 +103,48 @@ function frame_dict(sol::Solution, frame::Integer)
     d["mobility"] = f.mobility
     d["channel_area"] = f.channel_area
 
-    if length(sol.config.propellants) == 1
-        symbol = sol.config.propellants[1].gas.formula
-        d["nn"] = f.neutrals[symbol].n
-        d["ni"] = [ion.n for ion in f.ions[symbol]]
-        d["ui"] = [ion.u for ion in f.ions[symbol]]
-        d["niui"] = [ion.nu for ion in f.ions[symbol]]
-    end
-
     d["neutrals"] = OrderedDict(
         symbol => OrderedDict(
-                "n" => neutral.n,
-                "u" => neutral.u,
-                "nu" => neutral.nu,
-            ) for (symbol, neutral) in pairs(f.neutrals)
+            "n" => neutral.n,
+            "u" => neutral.u,
+            "nu" => neutral.nu,
+        ) for (symbol, neutral) in pairs(f.neutrals)
     )
 
     d["ions"] = OrderedDict(
         symbol => [
-                OrderedDict(
-                    "n" => ion.n,
-                    "u" => ion.u,
-                    "nu" => ion.nu,
-                    "Z" => ion.Z,
-                )
+            OrderedDict(
+                "n" => ion.n,
+                "u" => ion.u,
+                "nu" => ion.nu,
+                "Z" => ion.Z,
+            )
                 for ion in ions
-            ]
+        ]
             for (symbol, ions) in pairs(f.ions)
     )
+
+    d["excited_states"] = OrderedDict(
+        symbol => OrderedDict(
+            "n" => state.n,
+            "u" => state.u,
+            "nu" => state.nu,
+            "m" => state.m,
+            "Z" => state.Z,
+            "excited_level" => state.excited_level,
+            "energy_eV" => state.energy_eV,
+        ) for (symbol, state) in pairs(f.excited_states)
+    )
+
+    d["photon_emissions"] = [
+        OrderedDict(
+            "upper" => emission.upper,
+            "lower" => emission.lower,
+            "frequency" => emission.frequency,
+            "energy_eV" => emission.energy_eV,
+            "emission_rate" => emission.emission_rate,
+        ) for emission in f.photon_emissions
+    ]
 
     return d
 end
@@ -112,8 +155,9 @@ Convert `sol` to an `OrderedDict`, containing both the inputs used to run the si
 and any requested outputs.
 This function is used to convert a `Solution` to a format suitable for writing to an output file.
 """
-function serialize_sol(
-        sol::Solution; average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,
+Base.@nospecializeinfer function serialize_sol(
+        @nospecialize(sol::Solution);
+        average_start_time::AbstractFloat = -1, save_time_resolved::Bool = true,
     )
     output = OrderedDict{String, Any}()
     output["retcode"] = string(sol.retcode)
@@ -133,6 +177,7 @@ function serialize_sol(
     end
 
     return OrderedDict(
+        "serialization_version" => SERIALIZATION_VERSION,
         "input" => OrderedDict(
             "config" => serialize(sol.config),
             "simulation" => serialize(sol.simulation),
@@ -154,8 +199,8 @@ Write `sol` to `file`, if `file` is a JSON file. Any NaN or Inf values in the so
 - `average_start_time` = -1: the time at which averaging begins. If < 0, no averaged output is written.
 - `save_time_resolved` = true: Whether to save all frames of the simulation. If `false`, no time-resolved output is written.
 """
-function write_to_json(
-        file::String, sol::Solution;
+Base.@nospecializeinfer function write_to_json(
+        file::String, @nospecialize(sol::Solution);
         average_start_time::AbstractFloat = -1.0, save_time_resolved::Bool = true,
     )
 

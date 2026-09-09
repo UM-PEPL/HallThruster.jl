@@ -19,10 +19,8 @@ function update_electron_energy!(params, wall_loss_model, user_source_energy!, d
     # Solve equation system using the Thomas algorithm
     tridiagonal_solve!(nϵ, Aϵ, bϵ)
 
-    # Make sure Tev is positive, limit if below minumum electron temperature
-    limit_energy!(nϵ, ne, params.min_Te)
-    update_temperature!(Tev, nϵ, ne, params.min_Te)
-    update_pressure!(pe, nϵ, landmark)
+    # Limit energy and update temperature and pressure in one state traversal.
+    update_energy_state!(Tev, nϵ, ne, pe, params.min_Te, landmark)
     update_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     return
@@ -157,20 +155,19 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
     return
 end
 
-function limit_energy!(nϵ, ne, min_Te)
-    @inbounds for i in interior_cells(nϵ)
-        if !isfinite(nϵ[i]) || nϵ[i] < 1.5 * min_Te * ne[i]
-            nϵ[i] = 1.5 * min_Te * ne[i]
+function update_energy_state!(Tev, nϵ, ne, pe, min_Te, landmark)
+    pe_factor = landmark ? 1.0 : 2.0 / 3.0
+    @inbounds @simd for i in eachindex(Tev)
+        energy = nϵ[i]
+        temperature = if isfinite(energy)
+            max(min_Te, energy / ne[i] / 1.5)
+        else
+            min_Te
         end
-    end
-    return
-end
-
-function update_temperature!(Tev, nϵ, ne, min_Te)
-    @inbounds for i in eachindex(Tev)
-        # Calc electron temp and update electron energy if changed
-        Tev[i] = max(min_Te, nϵ[i] / ne[i] / 1.5)
-        nϵ[i] = 1.5 * ne[i] * Tev[i]
+        energy = 1.5 * ne[i] * temperature
+        Tev[i] = temperature
+        nϵ[i] = energy
+        pe[i] = pe_factor * energy
     end
     return
 end
@@ -207,19 +204,34 @@ end
 Electron energy source terms
 ===============================================================================#
 
-function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indices, fluids)
-    (; νex, ϵ, ne, K) = cache
-    ncells = length(grid.cell_centers)
+function excitation_losses!(Q, cache, reactions, reactant_indices, fluids)
+    (; ϵ, ne) = cache
 
-    @. νex = 0.0
     for (ind, rxn) in zip(reactant_indices, reactions)
         dens = fluids[ind].density
         inv_m = 1 / fluids[ind].species.element.m
-        @inbounds for i in 2:(ncells - 1)
+        @inbounds for i in interior_cells(Q)
             r = rate_coeff(rxn, ϵ[i])
             ndot = reaction_rate(r, ne[i], dens[i] * inv_m)
-            νex[i] += ndot / ne[i]
-            Q[i] += ndot * (rxn.energy - !landmark * K[i])
+            Q[i] += ndot * rxn.energy
+        end
+    end
+
+    return nothing
+end
+
+function add_lumped_excitation_frequency!(
+        νex, cache, reactions, reactant_indices, fluids,
+    )
+    (; ϵ) = cache
+
+    for (ind, rxn) in zip(reactant_indices, reactions)
+        dens = fluids[ind].density
+        inv_m = 1 / fluids[ind].species.element.m
+        @inbounds for i in interior_cells(νex)
+            r = rate_coeff(rxn, ϵ[i])
+            excitation_frequency = r * dens[i] * inv_m
+            νex[i] += excitation_frequency
         end
     end
 
@@ -227,7 +239,7 @@ function excitation_losses!(Q, cache, landmark, grid, reactions, reactant_indice
 end
 
 function ohmic_heating!(Q, cache, landmark)
-    (; ne, ue, ∇ϕ, K, νe, ue, ∇pe) = cache
+    (; ne, ue, ∇ϕ, K, νe, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
     if (landmark)
@@ -247,7 +259,7 @@ function ohmic_heating!(Q, cache, landmark)
 end
 
 function source_electron_energy!(Q, params, wall_loss_model)
-    (; cache, landmark, grid, excitation_reactions) = params
+    (; cache, landmark, excitation_reactions) = params
     (; ne, ohmic_heating, wall_losses, inelastic_losses, user_energy_source) = cache
 
     # compute ohmic heating
@@ -255,9 +267,8 @@ function source_electron_energy!(Q, params, wall_loss_model)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
-        inelastic_losses, cache, landmark, grid,
-        excitation_reactions, params.excitation_reactant_indices,
-        params.fluid_array
+        inelastic_losses, cache, excitation_reactions,
+        params.excitation_reactant_indices, params.fluid_array,
     )
 
     # compute wall losses

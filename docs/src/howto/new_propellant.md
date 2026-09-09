@@ -27,7 +27,7 @@ The mass can still be computed from the chemical formula.
 CO2 = het.Gas("CO2")
 
 # output
-ERROR: The ratio of specific heats,
+ERROR: The ratio of specific heats, γ, must be provided for molecules with three or more atoms.
 ```
 
 ```jldoctest; output = false, setup = :(using HallThruster: HallThruster as het)
@@ -100,7 +100,10 @@ See [Configuration](@ref) for more details about these options.
 
 Hallthruster.jl also supports molecular propellants.
 These are handled through a `propellant_config` TOML file passed to the `Config`.
-This replaces the `propellants` argument and disables the automatic filename-based reaction rate lookup described above.
+This disables the automatic filename-based reaction rate lookup described above. A matching
+entry in `propellants` may override operating properties such as flow rate and velocity;
+default charge (`[1]`) and empty excited-state options are inherited from
+`propellant_config`, while non-default values override the file.
 The `propellant_config` file is a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
 We suport three types of reactions: elastic/momentum transfer collisions, excitation reactions, and electron-impact reactions.
 These latter include dissociation, ionization, and dissociative ionization.

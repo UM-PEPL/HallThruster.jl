@@ -1,8 +1,11 @@
 # Trait-based approach to serialization, inspired by StructTypes.jl
 module Serialization
 
-using Base.Iterators: Iterators
 using OrderedCollections: OrderedDict
+
+# Serialization runs only at input/output boundaries. Minimizing compilation here
+# avoids specializing reflective traversal for every concrete simulation type.
+Base.Experimental.@compiler_options compile = min optimize = 0 infer = false
 
 abstract type SType end
 struct Null <: SType end
@@ -72,11 +75,12 @@ end
 # Fallback for Any
 deserialize(::S, ::Type{Any}, x::T) where {S <: SType, T} = deserialize(T, x)
 
-function serialize(::Struct, x::T) where {T}
-    return OrderedDict(
-        string(field) => serialize(getfield(x, field))
-            for (field, _) in iterate_fields(T)
-    )
+Base.@nospecializeinfer function serialize(::Struct, @nospecialize(x))
+    output = OrderedDict{String, Any}()
+    for (field, _) in iterate_fields(typeof(x))
+        output[string(field)] = serialize(getfield(x, field))
+    end
+    return output
 end
 
 function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
@@ -84,14 +88,14 @@ function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
 
     typed_pairs = (
         let key = Symbol(field)
-                key => deserialize(fieldtype(T, key), dict[field])
+            key => deserialize(fieldtype(T, key), dict[field])
         end
             for field in keys(dict) if Symbol(field) in valid_fields
     )
 
     extra_pairs = (
         let key = Symbol(field)
-                key => dict[field]
+            key => dict[field]
         end
             for field in keys(dict) if !(Symbol(field) in valid_fields)
     )
@@ -100,15 +104,16 @@ function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
     return T(; args...)
 end
 
-function serialize(::TaggedUnion, x::T) where {T}
+Base.@nospecializeinfer function serialize(::TaggedUnion, @nospecialize(x))
+    T = typeof(x)
     opts = options(T)
     for k in keys(opts)
         if T <: opts[k]
-            pairs = (
-                string(field) => serialize(getfield(x, field))
-                    for (field, _) in iterate_fields(T)
-            )
-            return OrderedDict(typetag(T) => string(k), pairs...)
+            output = OrderedDict{String, Any}(typetag(T) => string(k))
+            for (field, _) in iterate_fields(T)
+                output[string(field)] = serialize(getfield(x, field))
+            end
+            return output
         end
     end
     throw(ArgumentError("Invalid type $(T). Valid options are $(keys(opts))"))
@@ -121,7 +126,7 @@ function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
 
     args = NamedTuple(
         let key = Symbol(field)
-                key => deserialize(fieldtype(subtype, key), dict[field])
+            key => deserialize(fieldtype(subtype, key), dict[field])
         end
             for field in keys(dict) if field != tag
     )

@@ -15,10 +15,12 @@ function setup_simulation(
     # Allocate fluids, reactions, grid, and other arrays
     # ================================================================================
 
+    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
+
     # We arrange the fluid containers in three different structures for convenience.
     # First, an array of (;continuity, isothermal) for each propellant species.
     # This is used in initialization and in computing boundary conditions.
-    fluids_by_propellant = [allocate_fluids(propellant, sim.grid.num_cells) for propellant in config.propellants]
+    fluids_by_propellant = [allocate_fluids(propellant, grid) for propellant in config.propellants]
 
     # Second, a single NamedTuple of (;continuity, isothermal) for all propellants.
     # This is used in the convective update.
@@ -31,21 +33,42 @@ function setup_simulation(
     species = unique([fl.species for fl in fluid_array])
 
     # Load reactions and collisions either from file or generate from species list
-    ei_reactions, excitation_reactions, electron_neutral_collisions = load_reactions(
+    ei_reactions, excitation_reactions, electron_neutral_collisions, deexcitation_reactions = load_reactions(
         config.propellant_config, species,
         config.ionization_model, config.excitation_model, config.electron_neutral_model;
         directories = config.reaction_rate_directories
     )
 
     # Get reactant and product indices
-    ei_reactant_indices = reactant_indices(ei_reactions, fluid_array)
-    ei_product_indices = product_indices(ei_reactions, fluid_array)
-    excitation_reactant_indices = reactant_indices(excitation_reactions, fluid_array)
-    electron_neutral_indices = reactant_indices(electron_neutral_collisions, fluid_array)
+    fluid_indices = fluid_index_map(fluid_array)
+    ei_reactant_indices = reactant_indices(ei_reactions, fluid_indices)
+    ei_product_indices = product_indices(ei_reactions, fluid_indices)
+    reaction_groups = build_electron_impact_groups(
+        ei_reactions, ei_reactant_indices, ei_product_indices, fluid_array,
+    )
+    excitation_reactant_indices = reactant_indices(
+        excitation_reactions, fluid_indices,
+    )
+    electron_neutral_indices = reactant_indices(
+        electron_neutral_collisions, fluid_indices,
+    )
+    deexcitation_reactant_indices = reactant_indices(
+        deexcitation_reactions, fluid_indices,
+    )
+    deexcitation_product_indices = product_indices(deexcitation_reactions, fluid_indices)
+    species_energies_eV = derive_species_energies(species, ei_reactions)
 
-    # Generate grid and allocate state
-    grid = generate_grid(sim.grid, config.thruster.geometry, config.domain)
+    radiative_networks, radiative_emission_counts, radiative_transitions =
+        build_radiative_networks(
+        fluid_array,
+        deexcitation_reactions,
+        deexcitation_reactant_indices,
+        deexcitation_product_indices,
+        species_energies_eV,
+    )
+    # Allocate state
     cache = allocate_arrays(grid, config)
+    cache.reaction_rate_index_limit[] = common_rate_index_limit(reaction_groups)
 
     # Set discharge voltage
     cache.Vd[] = config.discharge_voltage
@@ -72,16 +95,6 @@ function setup_simulation(
     dt = sim.dt
     if sim.adaptive
         dt = 100 * eps() # small initial timestep to initialize everything
-
-        # force the CFL to be no higher than 0.799 for adaptive timestepping
-        # this limit is mainly due to empirical testing, but there
-        # may be an analytical reason the ionization timestep cannot use a CFL >= 0.8
-        if sim.CFL >= 0.8
-            if sim.print_errors
-                @warn("CFL for adaptive timestepping set higher than stability limit of 0.8. Setting CFL to 0.799.")
-            end
-            sim.CFL = 0.799
-        end
     end
 
     cache.dt .= dt
@@ -98,7 +111,7 @@ function setup_simulation(
     # Except for `sim`, nothing in this struct should have type parameters.
     # For convenience, the method `params_from_config` copies concretely-typed
     # values from `config` and reinserts them into params.
-    params = (;
+    params = SimulationParameters(;
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
@@ -106,6 +119,7 @@ function setup_simulation(
         # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
+        last_wall_cell = 0,
         grid,
         postprocess = if isnothing(postprocess)
             Postprocess()
@@ -115,13 +129,15 @@ function setup_simulation(
         # fluid bookkeeping - concretely-typed
         cache,
         # reactions - concretely-typed
-        ei_reactions,
-        ei_reactant_indices,
-        ei_product_indices,
+        reaction_groups,
         excitation_reactions,
         excitation_reactant_indices,
         electron_neutral_collisions,
         electron_neutral_indices,
+        radiative_networks,
+        radiative_emission_counts,
+        radiative_transitions,
+        species_energies_eV,
         fluid_containers,
         fluid_array,
         fluids_by_propellant,
@@ -234,23 +250,5 @@ Returns a `Solution` object.
 """
 function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
     params = setup_simulation(config, sim; postprocess, restart, kwargs...)
-    return run_from_setup(params, config)
-end
-
-"""
-    $(TYPEDSIGNATURES)
-**Deprecated**. Please use `run_simulation(::Config, ::SimParams; kwargs...)`
-
-Run a Hall thruster simulation using the provided Config object.
-
-## Arguments
-- `config`: a `Config` containing simulation parameters.
-- `dt`: The timestep, in seconds. Typical values are O(10 ns) (1e-8 seconds).
-- `duration`: How long to run the simulation, in seconds (simulation time, not wall time). Typical runtimes are O(1 ms) (1e-3 seconds).
-- `ncells`: How many cells to use. Typical values are 100 - 1000 cells.
-- `nsave`: How many frames to save.
-"""
-function run_simulation(config::Config; kwargs...)
-    params = setup_simulation(config; kwargs...)
     return run_from_setup(params, config)
 end

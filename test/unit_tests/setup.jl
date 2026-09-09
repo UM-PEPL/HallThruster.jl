@@ -33,6 +33,15 @@ config = het.Config(
 @test config.propellants[1].flow_rate_kg_s ≈ 5.0e-6
 @test config.discharge_voltage ≈ 300.0
 
+profiled_propellant = het.Propellant(
+    het.Xenon, 5.0u"mg/s";
+    velocity_m_s = het.LinearInterpolation([0.0u"cm", 8.0u"cm"], [150.0u"m/s", 300.0u"m/s"]),
+    temperature_K = het.LinearInterpolation([0.0u"cm", 8.0u"cm"], [500.0u"K", 800.0u"K"]),
+)
+@test profiled_propellant.velocity_m_s.xs == [0.0, 0.08]
+@test profiled_propellant.velocity_m_s.ys == [150.0, 300.0]
+@test profiled_propellant.temperature_K.ys == [500.0, 800.0]
+
 solution = het.run_simulation(config, simparams)
 avg = het.time_average(solution, 0.5u"ms")  # units are supported too, if Unitful or DynamicQuantities loaded
 @test length(avg.frames) == 1

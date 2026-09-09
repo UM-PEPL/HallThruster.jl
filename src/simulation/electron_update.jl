@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νew_momentum, κ, pe, ∇pe) = params.cache
+    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update collision frequencies
@@ -15,6 +15,11 @@ function update_electrons!(params, config, t = 0)
         freq_electron_neutral!(νen, coll, neutral, Tev)
     end
 
+    νex .= νex_explicit
+    add_lumped_excitation_frequency!(
+        νex, params.cache, params.excitation_reactions,
+        params.excitation_reactant_indices, params.fluid_array,
+    )
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
     update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
@@ -24,7 +29,7 @@ function update_electrons!(params, config, t = 0)
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)
 
-    # update the thermal conductivity
+    # Update thermal conductivity.
     conductivity_model(κ, params)
 
     # Update the electron energy density,  temperature and pressure
@@ -34,17 +39,12 @@ function update_electrons!(params, config, t = 0)
 end
 
 function update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
-    (; thruster, grid, transition_length) = params
-    L_ch = thruster.geometry.channel_length
-
     freq_electron_wall!(radial_loss_frequency, wall_loss_model, params)
 
     # Update wall collisions
     @inbounds for i in eachindex(radial_loss_frequency)
-        # Compute wall collision frequency, with transition function to force no momentum wall collisions in plume
-        νew_momentum[i] = radial_loss_frequency[i] * linear_transition(
-            grid.cell_centers[i], L_ch, transition_length, 1.0, 0.0,
-        )
+        # Force no momentum wall collisions in the plume.
+        νew_momentum[i] = radial_loss_frequency[i] * params.cache.wall_transition[i]
     end
     return nothing
 end

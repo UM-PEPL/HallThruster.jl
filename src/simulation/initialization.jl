@@ -26,7 +26,7 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     mi = propellant.gas.m
     allowed_charges = propellant.allowed_charges
     flow_rate = propellant.flow_rate_kg_s
-    un = propellant.velocity_m_s
+    un = ground_neutral(fluids).vel_L[1]
 
     L_ch = thruster.geometry.channel_length
     z0 = grid.cell_centers[1]
@@ -77,7 +77,9 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     end
 
     # Neutral density at inlet
-    ρn_0 = inlet_neutral_density(propellant, thruster.geometry.channel_area)
+    ρn_0 = inlet_neutral_density(
+        propellant, thruster.geometry.channel_area, grid.edges[1],
+    )
     # add recombined neutrals
     for Z in allowed_charges
         ρn_0 -= ion_velocity_function(0.0, Z) * ion_density_function(0.0, Z) / un
@@ -88,14 +90,21 @@ function initialize_gas!(propellant, fluids, params; max_ion_density, min_ion_de
     # Tanh function steps between inlet and outlet densities
     neutral_function(z) = smooth_if(z - z0, L_ch / 2, ρn_0, ρn_1, L_ch / 6)
 
-    # Fill the fluid containers
-    @inbounds for fluid in fluids.continuity
-        @. fluid.density = neutral_function(grid.cell_centers)
+    # Only the ground-state neutral carries the neutral density at t=0; excited states
+    # start empty and fill via excitation reactions.
+    @inbounds for (i, fluid) in enumerate(fluids.continuity)
+        if i == 1
+            @. fluid.density = neutral_function(grid.cell_centers)
+        else
+            @. fluid.density = 1.0e-10 * neutral_function(grid.cell_centers)  # floor, ~0
+        end
     end
 
+    # Excited ions start near zero to avoid duplicating the initial charge density.
     @inbounds for fluid in fluids.isothermal
         Z = fluid.species.Z
-        @. fluid.density = ion_density_function(grid.cell_centers, Z)
+        excitation_fraction = is_excited(fluid.species) ? 1.0e-10 : 1.0
+        @. fluid.density = excitation_fraction * ion_density_function(grid.cell_centers, Z)
         @. fluid.momentum = fluid.density * ion_velocity_function(grid.cell_centers, Z)
     end
 
@@ -157,8 +166,8 @@ end
 Initialize fluid containers and other plasma variables form a restart
 """
 function initialize_from_restart!(params, restart_file::String)
-    # TODO: multiple propellants
     restart = JSON.parsefile(restart_file)
+    _validate_serialization_version(restart, "Restart file $(restart_file)")
 
     if haskey(restart, "output")
         restart = restart["output"]
@@ -176,38 +185,173 @@ function initialize_from_restart!(params, restart_file::String)
 end
 
 function initialize_from_restart!(params, frame)
-    # TODO: multiple propellants
-    (; grid, cache, propellants) = params
-    mi = propellants[1].gas.m
-    allowed = propellants[1].allowed_charges
-    ncharge_restart = length(frame["ni"])
-
-    # load ion properties, interpolated from restart grid to grid in params
+    (; grid, cache, propellants, fluids_by_propellant, species_energies_eV) = params
     z = grid.cell_centers
+    z_frame = _restart_field(frame, "z", "restart frame")
 
-    z_frame = frame["z"]
-    nn = LinearInterpolation(z_frame, frame["nn"] .* mi).(z)
-    params.fluid_containers.continuity[1].density .= nn
+    _restart_collection(frame, "neutrals", "restart frame")
+    _restart_collection(frame, "ions", "restart frame")
+    excited_states = get(frame, "excited_states", nothing)
+    if !isnothing(excited_states) && !(excited_states isa AbstractDict)
+        throw(ArgumentError("Restart field `excited_states` must be a dictionary."))
+    end
 
-    for Z in allowed
-        if Z <= ncharge_restart
-            fluid = params.fluid_containers.isothermal[Z]
-            fluid.density .= LinearInterpolation(z_frame, frame["ni"][Z] .* mi).(z)
-            fluid.momentum .= LinearInterpolation(z_frame, frame["niui"][Z] .* mi).(z)
+    # Restore every configured ground or excited fluid from the structured species output.
+    for (propellant, fluids) in zip(propellants, fluids_by_propellant)
+        gas_symbol = string(propellant.gas.formula)
+
+        for fluid in Iterators.flatten((fluids.continuity, fluids.isothermal))
+            species = fluid.species
+            state = _restart_species_state(frame, excited_states, species, gas_symbol)
+            if isnothing(state)
+                fill!(fluid.density, 0.0)
+                fluid.type == _ContinuityOnly || fill!(fluid.momentum, 0.0)
+                continue
+            end
+            _validate_restart_species!(
+                state, species, species_energies_eV[species.symbol],
+            )
+            number_density = _restart_field(
+                state, "n", "restart state $(species.symbol)", length(z_frame),
+            )
+            mass = species.element.m
+            fluid.density .= LinearInterpolation(z_frame, number_density .* mass).(z)
+            if fluid.type != _ContinuityOnly
+                number_flux = _restart_field(
+                    state, "nu", "restart state $(species.symbol)", length(z_frame),
+                )
+                fluid.momentum .= LinearInterpolation(z_frame, number_flux .* mass).(z)
+            end
         end
     end
 
-    cache.ne .= LinearInterpolation(z_frame, frame["ne"]).(z)
+    ne = _restart_field(frame, "ne", "restart frame", length(z_frame))
+    cache.ne .= LinearInterpolation(z_frame, ne).(z)
 
     # load electron properties
-    Te = LinearInterpolation(z_frame, frame["Tev"]).(z)
-    phi = LinearInterpolation(z_frame, frame["potential"]).(z)
-    E = LinearInterpolation(z_frame, frame["E"]).(z)
+    Te = LinearInterpolation(
+        z_frame, _restart_field(frame, "Tev", "restart frame", length(z_frame)),
+    ).(z)
+    phi = LinearInterpolation(
+        z_frame, _restart_field(frame, "potential", "restart frame", length(z_frame)),
+    ).(z)
+    E = LinearInterpolation(
+        z_frame, _restart_field(frame, "E", "restart frame", length(z_frame)),
+    ).(z)
 
     @. cache.nϵ = 1.5 * cache.ne * Te
     @. cache.Tev = Te
     @. cache.∇ϕ = -E
     @. cache.ϕ = phi
 
+    return nothing
+end
+
+function _restart_species_state(frame, excited_states, species, gas_symbol)
+    if is_excited(species)
+        return isnothing(excited_states) ? nothing :
+            get(excited_states, string(species.symbol), nothing)
+    elseif species.Z == 0
+        neutrals = frame["neutrals"]
+        haskey(neutrals, gas_symbol) || throw(
+            ArgumentError(
+                "Restart output has no ground-state $(gas_symbol) neutral."
+            )
+        )
+        return neutrals[gas_symbol]
+    end
+
+    ions = frame["ions"]
+    haskey(ions, gas_symbol) || throw(
+        ArgumentError(
+            "Restart output has no ground-state $(gas_symbol) ions."
+        )
+    )
+    ion_states = ions[gas_symbol]
+    ion_states isa AbstractVector || throw(
+        ArgumentError(
+            "Restart ground-state $(gas_symbol) ions must be an array."
+        )
+    )
+    index = findfirst(ion_states) do ion
+        ion isa AbstractDict && get(ion, "Z", nothing) == species.Z
+    end
+    isnothing(index) && throw(
+        ArgumentError(
+            "Restart output has no $(species.Z)-charged ground-state $(gas_symbol) ions."
+        )
+    )
+    return ion_states[index]
+end
+
+function _restart_collection(frame, key, context)
+    haskey(frame, key) || throw(ArgumentError("$(context) has no `$(key)` field."))
+    collection = frame[key]
+    collection isa AbstractDict || throw(
+        ArgumentError(
+            "Restart field `$(key)` must be a dictionary."
+        )
+    )
+    return collection
+end
+
+function _restart_field(container, key, context, expected_length = nothing)
+    haskey(container, key) || throw(ArgumentError("$(context) has no `$(key)` field."))
+    values = container[key]
+    values isa AbstractVector || throw(
+        ArgumentError(
+            "Field `$(key)` in $(context) must be an array."
+        )
+    )
+    if !isnothing(expected_length) && length(values) != expected_length
+        throw(
+            ArgumentError(
+                "Field `$(key)` in $(context) has $(length(values)) values; " *
+                    "expected $(expected_length)."
+            )
+        )
+    end
+    all(value -> value isa Real && isfinite(value), values) || throw(
+        ArgumentError(
+            "Field `$(key)` in $(context) must contain only finite numbers."
+        )
+    )
+    return values
+end
+
+function _validate_restart_species!(state, species, expected_energy_eV)
+    state isa AbstractDict || throw(
+        ArgumentError(
+            "Restart state $(species.symbol) must be a dictionary."
+        )
+    )
+    for (key, expected) in (("Z", species.Z), ("excited_level", species.excited_level))
+        if haskey(state, key) && state[key] != expected
+            throw(
+                ArgumentError(
+                    "Restart state $(species.symbol) has $(key)=$(state[key]); expected $(expected)."
+                )
+            )
+        end
+    end
+    if haskey(state, "energy_eV")
+        restart_energy_eV = state["energy_eV"]
+        restart_energy_eV isa Real && isfinite(restart_energy_eV) || throw(
+            ArgumentError(
+                "Restart state $(species.symbol) has a non-numeric or non-finite energy."
+            )
+        )
+        if !isapprox(
+                restart_energy_eV, expected_energy_eV;
+                atol = EXCITATION_ENERGY_MERGE_TOLERANCE_EV, rtol = 0,
+            )
+            throw(
+                ArgumentError(
+                    "Restart state $(species.symbol) has energy $(restart_energy_eV) eV; " *
+                        "the active chemistry uses $(expected_energy_eV) eV."
+                )
+            )
+        end
+    end
     return nothing
 end

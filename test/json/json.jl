@@ -36,6 +36,7 @@ outfile = "output.json"
 @test ispath(outfile)
 
 out = JSON.parsefile(outfile)
+@test out["serialization_version"] == het.SERIALIZATION_VERSION
 @test haskey(out, "input")
 input = out["input"]
 @test haskey(input, "config")
@@ -48,12 +49,14 @@ output = out["output"]
 @test haskey(output, "average")
 @test haskey(output, "frames")
 avg = output["average"]
-@test haskey(avg, "ni")
-@test haskey(avg, "niui")
-@test haskey(avg, "ui")
-@test haskey(avg, "nn")
+@test !haskey(avg, "ni")
+@test !haskey(avg, "niui")
+@test !haskey(avg, "ui")
+@test !haskey(avg, "nn")
 @test haskey(avg, "ions")
 @test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
 
 # Test that reading the output file produces the same inputs we originally ran the simulation with
 new_sol = het.run_simulation(outfile)
@@ -66,6 +69,30 @@ new_sol = het.run_simulation(outfile)
 # since it runs for an additional `duration`
 restart = het.run_simulation(outfile, restart = outfile)
 @test !isapprox(new_sol.frames[end].discharge_current[], restart.frames[end].discharge_current[])
+
+# Existing input files have no version marker and remain valid as legacy version 0.
+@test !haskey(JSON.parsefile(json_path), "serialization_version")
+
+# Versioned documents reject malformed markers and versions written by a newer,
+# potentially incompatible serialization schema.
+for invalid_version in ("1", het.SERIALIZATION_VERSION + 1)
+    invalid_input = JSON.parsefile(json_path)
+    invalid_input["serialization_version"] = invalid_version
+    invalid_file = tempname() * ".json"
+    open(invalid_file, "w") do io
+        JSON.write_json(io, invalid_input)
+    end
+    err = try
+        het.run_simulation(invalid_file)
+        nothing
+    catch exception
+        exception
+    end
+    @test err isa ArgumentError
+    @test occursin("serialization_version", sprint(showerror, err)) ||
+        occursin("serialization version", sprint(showerror, err))
+    rm(invalid_file)
+end
 
 #==============================================================================
     Multiple propellants
@@ -86,6 +113,8 @@ out = JSON.parsefile(outfile);
 avg = out["output"]["average"]
 @test haskey(avg, "ions")
 @test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
 @test !haskey(avg, "nn")
 @test !haskey(avg, "ni")
 @test !haskey(avg, "niui")

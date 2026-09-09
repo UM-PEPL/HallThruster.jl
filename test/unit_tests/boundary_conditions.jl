@@ -42,7 +42,7 @@ function test_boundaries()
     prop = config.propellants[1]
     mi = prop.gas.m
     Ti = prop.ion_temperature_K
-    un = prop.velocity_m_s
+    un = prop.velocity_m_s(0.0)
     mdot_a = prop.flow_rate_kg_s
 
     ni_1 = 1.0e17
@@ -56,7 +56,9 @@ function test_boundaries()
     anode_bc = params.anode_bc
     prop = config.propellants[1]
 
-    inlet_density = het.inlet_neutral_density(prop, config.thruster.geometry.channel_area)
+    inlet_density = het.inlet_neutral_density(
+        prop, config.thruster.geometry.channel_area, params.grid.edges[1],
+    )
     nn_B = het.background_neutral_density(prop, config)
     un_B = het.background_neutral_velocity(prop, config)
 

@@ -55,7 +55,7 @@
     "verbose": false
   },
   "postprocess": {
-    "output_file": "__output.json",
+    "output_file": "",
     "average_start_time": 0.0005,
     "save_time_resolved": true
   }
