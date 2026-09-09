@@ -56,6 +56,17 @@ for energy in (-1.2, 0.0, 19.25, 300.0)
         het.rate_coeff(landmark_rxns[1], energy)
 end
 
+# High-energy linear extrapolation must not produce unphysical negative rates.
+decreasing_rates = collect(range(2.0, 1.0; length = 256))
+decreasing_rxn = het.ElectronImpactReaction(0.0, Xe_0, [Xe_I], decreasing_rates)
+high_energy = 511.0
+last_index = length(decreasing_rates) - 2
+@test het.rate_coeff(decreasing_rxn, high_energy) == 0.0
+@test het.rate_coeff(decreasing_rxn, high_energy, Base.unsafe_trunc(Int, high_energy)) == 0.0
+@test het.cached_rate_coeff(
+    decreasing_rxn, last_index, high_energy - last_index,
+) == 0.0
+
 # Test behavior of general lookup
 @test_throws ArgumentError het.load_electron_impact_reactions(:Lookup, [Bi_0, Bi_I])
 @test_throws ArgumentError het.load_electron_impact_reactions(
