@@ -14,7 +14,7 @@ end
 function test_refinements(verification_func, refinements, norm_orders)
     norms = [
         let results = verification_func(ncells)
-                [Lp_norm(res.sim .- res.exact, p) for res in results, p in norm_orders]
+            [Lp_norm(res.sim .- res.exact, p) for res in results, p in norm_orders]
         end
             for ncells in refinements
     ] |> unzip

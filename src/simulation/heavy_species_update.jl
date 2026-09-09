@@ -591,11 +591,11 @@ function build_electron_impact_groups(
 
     return [
         ElectronImpactGroup(
-                reactant_index,
-                inv(fluids[reactant_index].species.element.m),
-                fluids[reactant_index].type != _ContinuityOnly,
-                channels,
-            ) for (reactant_index, channels) in pairs(grouped_channels)
+            reactant_index,
+            inv(fluids[reactant_index].species.element.m),
+            fluids[reactant_index].type != _ContinuityOnly,
+            channels,
+        ) for (reactant_index, channels) in pairs(grouped_channels)
     ]
 end
 

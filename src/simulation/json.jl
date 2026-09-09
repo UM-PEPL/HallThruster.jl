@@ -105,45 +105,45 @@ Base.@nospecializeinfer function frame_dict(@nospecialize(sol::Solution), frame:
 
     d["neutrals"] = OrderedDict(
         symbol => OrderedDict(
-                "n" => neutral.n,
-                "u" => neutral.u,
-                "nu" => neutral.nu,
-            ) for (symbol, neutral) in pairs(f.neutrals)
+            "n" => neutral.n,
+            "u" => neutral.u,
+            "nu" => neutral.nu,
+        ) for (symbol, neutral) in pairs(f.neutrals)
     )
 
     d["ions"] = OrderedDict(
         symbol => [
-                OrderedDict(
-                    "n" => ion.n,
-                    "u" => ion.u,
-                    "nu" => ion.nu,
-                    "Z" => ion.Z,
-                )
+            OrderedDict(
+                "n" => ion.n,
+                "u" => ion.u,
+                "nu" => ion.nu,
+                "Z" => ion.Z,
+            )
                 for ion in ions
-            ]
+        ]
             for (symbol, ions) in pairs(f.ions)
     )
 
     d["excited_states"] = OrderedDict(
         symbol => OrderedDict(
-                "n" => state.n,
-                "u" => state.u,
-                "nu" => state.nu,
-                "m" => state.m,
-                "Z" => state.Z,
-                "excited_level" => state.excited_level,
-                "energy_eV" => state.energy_eV,
-            ) for (symbol, state) in pairs(f.excited_states)
+            "n" => state.n,
+            "u" => state.u,
+            "nu" => state.nu,
+            "m" => state.m,
+            "Z" => state.Z,
+            "excited_level" => state.excited_level,
+            "energy_eV" => state.energy_eV,
+        ) for (symbol, state) in pairs(f.excited_states)
     )
 
     d["photon_emissions"] = [
         OrderedDict(
-                "upper" => emission.upper,
-                "lower" => emission.lower,
-                "frequency" => emission.frequency,
-                "energy_eV" => emission.energy_eV,
-                "emission_rate" => emission.emission_rate,
-            ) for emission in f.photon_emissions
+            "upper" => emission.upper,
+            "lower" => emission.lower,
+            "frequency" => emission.frequency,
+            "energy_eV" => emission.energy_eV,
+            "emission_rate" => emission.emission_rate,
+        ) for emission in f.photon_emissions
     ]
 
     return d

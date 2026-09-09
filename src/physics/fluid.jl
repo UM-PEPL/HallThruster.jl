@@ -112,17 +112,17 @@ function allocate_fluids(p::Propellant, grid; excited_levels = p.excited_levels)
     # Ground state first, then one fluid per excited level, all advecting with the neutral flow
     continuity = [
         FluidContainer(
-                _ContinuityOnly, p.gas(0, excited_level), grid;
-                vel = p.velocity_m_s, temp = p.temperature_K,
-            )
+            _ContinuityOnly, p.gas(0, excited_level), grid;
+            vel = p.velocity_m_s, temp = p.temperature_K,
+        )
             for excited_level in [0; sort!(collect(excited_levels))]
     ]
 
     isothermal = [
         FluidContainer(
-                _IsothermalEuler, p.gas(Z, excited_level), grid;
-                temp = p.ion_temperature_K,
-            )
+            _IsothermalEuler, p.gas(Z, excited_level), grid;
+            temp = p.ion_temperature_K,
+        )
             for Z in p.allowed_charges
             for excited_level in [0; get(p.excited_ion_levels, Z, Int[])]
     ]

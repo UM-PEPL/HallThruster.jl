@@ -130,8 +130,8 @@ reactant_indices(reactions, fluids::AbstractVector) =
 function reactant_indices(reactions, fluid_indices::AbstractDict)
     return [
         reaction_species_index(
-                fluid_indices, reaction.reactant, "reactant", reaction,
-            ) for reaction in reactions
+            fluid_indices, reaction.reactant, "reactant", reaction,
+        ) for reaction in reactions
     ]
 end
 
@@ -141,9 +141,9 @@ product_indices(reactions, fluids::AbstractVector) =
 function product_indices(reactions, fluid_indices::AbstractDict)
     return [
         [
-                reaction_species_index(fluid_indices, product, "product", reaction)
+            reaction_species_index(fluid_indices, product, "product", reaction)
                 for product in reaction.products
-            ] for reaction in reactions
+        ] for reaction in reactions
     ]
 end
 

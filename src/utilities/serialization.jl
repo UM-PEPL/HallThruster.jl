@@ -88,14 +88,14 @@ function deserialize(::Struct, ::Type{T}, dict::AbstractDict) where {T}
 
     typed_pairs = (
         let key = Symbol(field)
-                key => deserialize(fieldtype(T, key), dict[field])
+            key => deserialize(fieldtype(T, key), dict[field])
         end
             for field in keys(dict) if Symbol(field) in valid_fields
     )
 
     extra_pairs = (
         let key = Symbol(field)
-                key => dict[field]
+            key => dict[field]
         end
             for field in keys(dict) if !(Symbol(field) in valid_fields)
     )
@@ -126,7 +126,7 @@ function deserialize(::TaggedUnion, ::Type{T}, dict::AbstractDict) where {T}
 
     args = NamedTuple(
         let key = Symbol(field)
-                key => deserialize(fieldtype(subtype, key), dict[field])
+            key => deserialize(fieldtype(subtype, key), dict[field])
         end
             for field in keys(dict) if field != tag
     )
