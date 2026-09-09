@@ -487,11 +487,11 @@ function StepTroughBohm2(; anom_scale, anom_center, anom_width, anode_scale, tro
     return StepTroughBohm2(anom_scale, anom_center, anom_width, anode_scale, trough_floor, trough_roundness, trough_exponent)
 end
 
-function smootherstep(x::T) where T <: AbstractFloat
+function smootherstep(x::T) where {T <: AbstractFloat}
     return x <= 0 ? zero(T) : x >= 1 ? oneunit(T) : 6 * x^5 - 15 * x^4 + 10 * x^3
 end
 
-function bump_function(x::T, roundness, exponent) where T <: AbstractFloat
+function bump_function(x::T, roundness, exponent) where {T <: AbstractFloat}
     p = 1 / (1 - exponent)
     r = 1 / (1 - roundness)
     return abs(x) >= 1 ? zero(T) : (1 - abs(x)^p)^r
