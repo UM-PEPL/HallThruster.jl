@@ -4,6 +4,10 @@ EditURL = "NEWS.md"
 
 # Release notes
 
+## 0.23.1
+### Bug fixes
+- Increase reaction energy merge tolerance from 0.01 to 0.05 eV
+
 ## 0.23.0
 ### New features
 - [BETA] Implemented the ability to explicitly track excited neutral and ion states and the photon emission resulting from their de-excitation. The user must supply their own reaction sets, however.

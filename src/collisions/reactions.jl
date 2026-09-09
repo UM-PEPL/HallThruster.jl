@@ -1,6 +1,6 @@
 abstract type Reaction end
 
-const EXCITATION_ENERGY_MERGE_TOLERANCE_EV = 1.0e-2
+const EXCITATION_ENERGY_MERGE_TOLERANCE_EV = 0.05
 
 struct DeExcitationReaction <: Reaction
     reactant::Species
