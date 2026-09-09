@@ -141,8 +141,8 @@ model2 = Model2()
         @test_throws ArgumentError make_model()
     end
 
-    step_trough = het.StepTroughBohm(0.05, 1, 0.8, 0.5, 0.1, 0.2, 0.5)
-    @test step_trough == het.StepTroughBohm(
+    step_trough_1 = het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0.2, 0.5)
+    @test step_trough_1 == het.StepTroughBohm1(
         anom_scale = 0.05,
         anom_center = 1,
         step_scale = 0.8,
@@ -151,26 +151,55 @@ model2 = Model2()
         trough_width = 0.2,
         trough_exponent = 0.5,
     )
-    invalid_seven_param_models = (
-        () -> het.StepTroughBohm(0, 1, 0.8, 0.5, 0.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 0, 0.8, 0.5, 0.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, -0.1, 0.5, 0.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 0, 0.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 1, 0.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 0.5, 1.1, 0.2, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 0.5, 0.1, 0, 0.5),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 0.5, 0.1, 0.2, 1),
-        () -> het.StepTroughBohm(0.05, 1, 0.8, 0.5, 0.1, 0.2, NaN),
+    invalid_step_trough_1 = (
+        () -> het.StepTroughBohm1(0, 1, 0.8, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 0, 0.8, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, -0.1, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 0, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 1, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 1.1, 0.2, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0, 0.5),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0.2, 1),
+        () -> het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0.2, NaN),
     )
-    for make_model in invalid_seven_param_models
+    for make_model in invalid_step_trough_1
         @test_throws ArgumentError make_model()
     end
     trough_floor_error = try
-        het.StepTroughBohm(0.05, 1, 0.8, 0.5, -0.1, 0.2, 0.5)
+        het.StepTroughBohm1(0.05, 1, 0.8, 0.5, -0.1, 0.2, 0.5)
     catch error
         error
     end
     @test occursin("`trough_floor`", sprint(showerror, trough_floor_error))
+
+    step_trough_2 = het.StepTroughBohm2(0.05, 1, 0.5, 0.8, 0.1, 0.2, 0.5)
+    @test step_trough_2 == het.StepTroughBohm2(
+        anom_scale = 0.05,
+        anom_center = 1,
+        anom_width = 0.5,
+        anode_scale = 0.8,
+        trough_floor = 0.1,
+        trough_roundness = 0.2,
+        trough_exponent = 0.5,
+    )
+    invalid_step_trough_2 = (
+        () -> het.StepTroughBohm2(-0.1, 1, 0.8, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, -1, 0.8, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, 1, -0.8, 0.5, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, 1, 0.8, -1.2, 0.1, 0.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, 1, 0.8, 0.5, -1.1, 0.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, 1, 0.8, 0.5, 0.1, 1.2, 0.5),
+        () -> het.StepTroughBohm2(0.05, 1, 0.8, 0.5, 0.1, 0.2, -0.2),
+    )
+    for make_model in invalid_step_trough_2
+        @test_throws ArgumentError make_model()
+    end
+    step_scale_error = try
+        het.StepTroughBohm2(0.05, 1, 0.8, -0.1, 0.1, 0.2, 0.5)
+    catch error
+        error
+    end
+    @test occursin("`anode_scale`", sprint(showerror, step_scale_error))
 
     shifted = het.LogisticPressureShift(het.Bohm(0.1), 0, 1, 1.0e-5, 3)
     simple_shifted = het.SimpleLogisticShift(model = het.Bohm(0.1), shift_length = 1)
@@ -202,7 +231,7 @@ end
     gaussian(νan, params_landmark)
     @test νan[1] ≈ 0.1 * 0.05 * het.e * B / het.me
 
-    step_trough = het.StepTroughBohm(0.05, 1, 0.8, 0.5, 0.1, 0.2, 0.5)
+    step_trough = het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0.2, 0.5)
     step_trough(νan, [1.0], [B])
     @test νan[1] ≈ 0.05 * (1 - 0.8 / 2) * 0.1 * het.e * B / het.me
 
