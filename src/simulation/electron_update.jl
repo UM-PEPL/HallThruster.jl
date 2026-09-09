@@ -148,7 +148,7 @@ function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
         f2_R = integrand_2[i + 1]
 
         # account for boundary cells
-        if i == 1 || i == length(grid.edges)
+        if i == 1
             zL = z_edge
         elseif i == length(grid.edges)
             zR = z_edge

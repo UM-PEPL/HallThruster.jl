@@ -130,7 +130,7 @@ end
 function compute_fluxes_isothermal!(fluid, grid)
     (; flux_dens, flux_mom, dens_L, dens_R, vel_L, vel_R) = fluid
     a = fluid.sound_speed
-    RT = a^2 / fluid.species.element.γ
+    RT = a^2
 
     min_timestep = Inf
 

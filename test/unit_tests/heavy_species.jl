@@ -34,6 +34,41 @@ end
     @test neutral.max_timestep[] ≈ minimum(grid.dz_edge ./ neutral.wave_speed)
 end
 
+@testset "Isothermal ion flux" begin
+    grid = het.Grid1D([0.0, 0.4, 1.0])
+    temperature = 900.0
+    propellant = het.Propellant(
+        het.Xenon, 0.0; max_charge = 1, ion_temperature_K = temperature,
+    )
+    ion = only(het.allocate_fluids(propellant, grid).isothermal)
+    RT = het.R0 / het.Xenon.M * temperature
+
+    # For p = ρRT, both the pressure flux and the eigenspeeds must use the
+    # isothermal sound speed sqrt(RT), without an adiabatic gamma factor.
+    @test ion.sound_speed ≈ sqrt(RT)
+
+    ion.dens_L .= [1.0, 2.0, 3.0]
+    ion.dens_R .= [1.5, 2.5, 3.5]
+    ion.vel_L .= [-2.0, 1.0, 4.0]
+    ion.vel_R .= [-1.0, 3.0, 2.0]
+    het.compute_fluxes_isothermal!(ion, grid)
+
+    smax = @. max(abs(ion.vel_L), abs(ion.vel_R)) + sqrt(RT)
+    expected_density_flux = @. 0.5 * (
+        ion.dens_L * ion.vel_L + ion.dens_R * ion.vel_R -
+            smax * (ion.dens_R - ion.dens_L)
+    )
+    expected_momentum_flux = @. 0.5 * (
+        ion.dens_L * (ion.vel_L^2 + RT) +
+            ion.dens_R * (ion.vel_R^2 + RT) -
+            smax * (ion.dens_R * ion.vel_R - ion.dens_L * ion.vel_L)
+    )
+
+    @test ion.flux_dens ≈ expected_density_flux
+    @test ion.flux_mom ≈ expected_momentum_flux
+    @test ion.max_timestep[] ≈ minimum(grid.dz_edge ./ smax)
+end
+
 @testset "Zero-density heavy species" begin
     @test het.primitive_velocity(0.0, 0.0) == 0.0
     @test isfinite(het.primitive_velocity(0.0, 0.0))

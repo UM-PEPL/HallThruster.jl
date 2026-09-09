@@ -256,7 +256,8 @@ end
     @test energies[species[3].symbol] == 5.0
 
     # Independently derived paths may differ slightly because reaction-header
-    # energies are rounded; differences below 0.01 eV should merge cleanly.
+    # energies are rounded; differences within the configured tolerance should
+    # merge cleanly.
     rounded_reactions = [
         het.ElectronImpactReaction(10.0, species[1], [species[2]], zeros(256)),
         het.ElectronImpactReaction(10.9016, species[1], [species[3]], zeros(256)),
@@ -267,8 +268,10 @@ end
 
     # Larger disagreement still indicates inconsistent reaction metadata.
     inconsistent_reactions = copy(rounded_reactions)
-    inconsistent_reactions[3] =
-        het.ElectronImpactReaction(0.92, species[2], [species[3]], zeros(256))
+    inconsistent_energy = 0.9016 + 2 * het.EXCITATION_ENERGY_MERGE_TOLERANCE_EV
+    inconsistent_reactions[3] = het.ElectronImpactReaction(
+        inconsistent_energy, species[2], [species[3]], zeros(256),
+    )
     @test_throws ErrorException het.derive_species_energies(
         species, inconsistent_reactions,
     )
@@ -303,8 +306,14 @@ end
     )[ionization_species[2].symbol] == 10.9015
 
     inconsistent_ionization = copy(ionization_reactions)
+    inconsistent_threshold = 12.13 - (
+        10.9015 + 2 * het.EXCITATION_ENERGY_MERGE_TOLERANCE_EV
+    )
     inconsistent_ionization[3] = het.ElectronImpactReaction(
-        1.2, ionization_species[2], [ionization_species[3]], zeros(256),
+        inconsistent_threshold,
+        ionization_species[2],
+        [ionization_species[3]],
+        zeros(256),
     )
     @test_throws ErrorException het.derive_species_energies(
         ionization_species, inconsistent_ionization,

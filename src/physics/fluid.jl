@@ -58,7 +58,11 @@ struct FluidContainer
         else
             cell_velocity = zeros(num_cells)
             wave_speed = zeros(num_edges)
-            sound_speed = sqrt(γ * R * temp)
+            # The ion equations use the isothermal closure p = ρRT, whose
+            # characteristic speed is sqrt(∂p/∂ρ) = sqrt(RT).  The
+            # adiabatic factor belongs to the neutral thermal-speed estimate
+            # above, not to the isothermal Euler eigensystem.
+            sound_speed = sqrt(R * temp)
             vel_L = zeros(num_edges)
             vel_R = zeros(num_edges)
         end

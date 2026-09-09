@@ -1,5 +1,41 @@
 using HallThruster: HallThruster as het
 
+@testset "Discharge-current integration boundaries" begin
+    grid = het.Grid1D([0.0, 0.4, 1.0])
+    n = length(grid.cell_centers)
+    cache = (;
+        ∇pe = [1.0, 2.0, 4.0, 7.0],
+        μ = ones(n),
+        ne = ones(n),
+        ji = zeros(n),
+        channel_area = ones(n),
+        avg_neutral_vel = zeros(n),
+        avg_ion_vel = zeros(n),
+        νei = zeros(n),
+        νen = zeros(n),
+        νan = zeros(n),
+        cell_cache_1 = zeros(n),
+        cell_cache_2 = zeros(n),
+    )
+
+    current = het.integrate_discharge_current(grid, cache, 0.0, 0.0, false)
+
+    # Reproduce the documented trapezoidal integration from each physical
+    # boundary to the neighboring cell center and between interior centers.
+    f = copy(cache.∇pe)
+    f[1] = 0.5 * (f[1] + f[2])
+    f[end] = 0.5 * (f[end - 1] + f[end])
+    z = copy(grid.cell_centers)
+    z[1] = first(grid.edges)
+    z[end] = last(grid.edges)
+    int1 = sum(
+        0.5 * (z[i + 1] - z[i]) * (f[i] + f[i + 1]) for i in 1:(n - 1)
+    )
+    int2 = (last(grid.edges) - first(grid.edges)) / het.e
+
+    @test current ≈ int1 / int2
+end
+
 function test_boundaries()
     e = het.e
 

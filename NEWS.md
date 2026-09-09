@@ -7,6 +7,8 @@ EditURL = "NEWS.md"
 ## 0.23.1
 ### Bug fixes
 - Increase reaction energy merge tolerance from 0.01 to 0.05 eV
+- Fix incorrect isothermal wavespeed
+- Fix incorrect indexing in last cell during trapezoidal integration of discharge current 
 
 ## 0.23.0
 ### New features
