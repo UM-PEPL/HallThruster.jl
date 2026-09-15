@@ -14,7 +14,7 @@ function integrate_heavy_species!(fluid_containers, params, user_source::S, dt) 
         params.radiative_networks,
         half_dt,
     )
-    limit_heavy_species!(fluid_containers)
+    limit_heavy_species!(fluid_containers, params.min_number_density)
     # Update properties that interface with electrons
     update_heavy_species!(params)
     return false
@@ -62,7 +62,7 @@ function step_heavy_species!(fluid_containers, params, source::S, dt) where {S}
     # Cache y_n, form the Euler predictor y_{n1}, and validate it in one pass.
     update_first_stage!(fluid_containers, dt) && return true
     # The second derivative evaluation must see a physically admissible predictor.
-    limit_heavy_species!(fluid_containers)
+    limit_heavy_species!(fluid_containers, params.min_number_density)
 
     # Evaluate k_{n2} at y_{n1}, reusing the derivative arrays that held k_{n1}.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
@@ -75,7 +75,7 @@ function step_heavy_species!(fluid_containers, params, source::S, dt) where {S}
 
     # Combine cached y_n with y_{n1} and k_{n2}, validating the result in one pass.
     update_second_stage!(fluid_containers, dt) && return true
-    limit_heavy_species!(fluid_containers)
+    limit_heavy_species!(fluid_containers, params.min_number_density)
 
     return false
 end
@@ -176,16 +176,16 @@ function compute_heavy_species_derivatives!(
     return
 end
 
-function limit_heavy_species!(fluid_containers)
+function limit_heavy_species!(fluid_containers, min_number_density)
     @inbounds for fluid in fluid_containers.continuity
-        min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
+        min_density = min_number_density * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             fluid.density[i] = max(fluid.density[i], min_density)
         end
     end
 
     @inbounds for fluid in fluid_containers.isothermal
-        min_density = MIN_NUMBER_DENSITY * fluid.species.element.m
+        min_density = min_number_density * fluid.species.element.m
         @simd for i in eachindex(fluid.density)
             if fluid.density[i] < min_density
                 fluid.density[i] = min_density
@@ -197,23 +197,28 @@ function limit_heavy_species!(fluid_containers)
 end
 
 function update_heavy_species!(params)
-    (; cache, propellants, anode_bc, ingestion_flow_rates) = params
+    (; cache, propellants, anode_bc, ingestion_flow_rates, min_number_density) = params
 
     # Apply left boundary conditions per-propellant
     for (i, (propellant, fluids)) in enumerate(zip(propellants, params.fluids_by_propellant))
-        apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rates[i], params.landmark)
+        apply_left_boundary!(
+            fluids, propellant, cache, anode_bc, ingestion_flow_rates[i],
+            params.landmark, min_number_density,
+        )
     end
 
     # Apply right boundary conditions for all propellants
-    apply_right_boundary!(params.fluid_containers)
+    apply_right_boundary!(params.fluid_containers, min_number_density)
 
     # Update ion variables as seen by electrons
-    update_heavy_species_cache!(params.fluid_containers, cache, params.landmark)
+    update_heavy_species_cache!(
+        params.fluid_containers, cache, params.landmark, min_number_density,
+    )
 
     return
 end
 
-function update_heavy_species_cache!(fluids, cache, landmark)
+function update_heavy_species_cache!(fluids, cache, landmark, min_number_density)
     (; nn, ne, Z_eff, ji, ϵ, nϵ, K, m_eff, avg_ion_vel, avg_neutral_vel) = cache
 
     isempty(fluids.continuity) && throw(
@@ -270,7 +275,7 @@ function update_heavy_species_cache!(fluids, cache, landmark)
         neutral_density = nn[i]
         avg_neutral_vel[i] = neutral_density > 0 ?
             avg_neutral_vel[i] / neutral_density : 0.0
-        ne[i] = max(ne[i], MIN_NUMBER_DENSITY)
+        ne[i] = max(ne[i], min_number_density)
 
         ion_density = Z_eff[i]
         if ion_density > 0
@@ -300,7 +305,10 @@ end
 Boundary conditions
 ===============================================================================#
 
-function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark = false)
+function apply_left_boundary!(
+        fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark,
+        min_number_density,
+    )
     Te_L = cache.Tev[2]                  # eV
     Ti = propellant.ion_temperature_K    # K
     mdot_a = propellant.flow_rate_kg_s
@@ -369,7 +377,7 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
             # Electronegativity correction enters via Te_eff_factor.
             sound_speed = sqrt((kTi_J + Z * kTe_J * Te_eff_factor) / mi)
             boundary_velocity = -bohm_factor * sound_speed
-            interior_density_safe = max(interior_density, MIN_NUMBER_DENSITY * mi)
+            interior_density_safe = max(interior_density, min_number_density * mi)
 
             if interior_velocity <= -sound_speed
                 # Supersonic outflow → pure Neumann
@@ -417,18 +425,18 @@ function apply_left_boundary!(fluids, propellant, cache, anode_bc, ingestion_flo
     end
 
     nm = neutral_fluid.species.element.m
-    neutral_fluid.density[1] = max(neutral_density, MIN_NUMBER_DENSITY * nm)
+    neutral_fluid.density[1] = max(neutral_density, min_number_density * nm)
 
     # Excited states have no anode inflow, so clamp their ghost cells to the floor
     @inbounds for fluid in fluids.continuity
         is_excited(fluid.species) || continue
-        fluid.density[1] = MIN_NUMBER_DENSITY * fluid.species.element.m
+        fluid.density[1] = min_number_density * fluid.species.element.m
     end
 
     return
 end
 
-function apply_right_boundary!(fluids)
+function apply_right_boundary!(fluids, min_number_density)
     @inbounds for fluid in fluids.continuity
         fluid.density[end] = fluid.density[end - 1]
     end
@@ -445,8 +453,8 @@ function apply_right_boundary!(fluids)
             fluid.momentum[end] = interior_flux
         else
             # inflow clamp
-            fluid.density[end] = MIN_NUMBER_DENSITY * mi
-            fluid.momentum[end] = MIN_NUMBER_DENSITY * mi * interior_velocity
+            fluid.density[end] = min_number_density * mi
+            fluid.momentum[end] = min_number_density * mi * interior_velocity
         end
     end
 
@@ -464,6 +472,7 @@ struct ElectronImpactChannel
     product_mass_ratios::Vector{Float64}
     is_ionizing::Bool
     is_excitation::Bool
+    is_ground_to_singly_charged::Bool
 end
 
 """
@@ -479,6 +488,7 @@ end
 function apply_reactions!(fluid_arr, params)
     return apply_reaction_groups!(
         fluid_arr, params.reaction_groups, params.cache, params.landmark,
+        params.min_number_density, params.ion_production_cost_multiplier,
     )
 end
 
@@ -499,7 +509,7 @@ function common_rate_index_limit(groups)
     return limit
 end
 
-function prepare_reaction_state!(fluids, cache, landmark)
+function prepare_reaction_state!(fluids, cache, landmark, min_number_density)
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne, K) = cache
 
     # Recompute electron density for the current RK stage. Neutral fluids do not
@@ -516,7 +526,7 @@ function prepare_reaction_state!(fluids, cache, landmark)
 
     # Initialize reaction outputs and electron energy in the same traversal.
     @inbounds @simd for i in eachindex(ne)
-        electron_density = max(ne[i], MIN_NUMBER_DENSITY)
+        electron_density = max(ne[i], min_number_density)
         ne[i] = electron_density
         νiz[i] = 0.0
         νex_explicit[i] = 0.0
@@ -567,6 +577,11 @@ end
     return false
 end
 
+@inline function _is_ground_to_singly_charged(rxn)
+    return rxn.reactant.Z == 0 && rxn.reactant.excited_level == 0 &&
+        any(product -> product.Z == 1, rxn.products)
+end
+
 function build_electron_impact_groups(
         reactions, reactant_indices, product_indices, fluids,
     )
@@ -585,6 +600,7 @@ function build_electron_impact_groups(
             product_mass_ratios,
             _is_ionizing(fluids, reactant_index, products),
             _is_electronic_excitation(reaction),
+            _is_ground_to_singly_charged(reaction),
         )
         push!(get!(grouped_channels, reactant_index, ElectronImpactChannel[]), channel)
     end
@@ -599,8 +615,11 @@ function build_electron_impact_groups(
     ]
 end
 
-function apply_reaction_groups!(fluids, groups, cache, landmark)
-    prepare_reaction_state!(fluids, cache, landmark)
+function apply_reaction_groups!(
+        fluids, groups, cache, landmark, min_number_density,
+        ion_production_cost_multiplier,
+    )
+    prepare_reaction_state!(fluids, cache, landmark, min_number_density)
     cache_lookup_coordinates = cache.reaction_rate_index_limit[] >= 0
     reaction_rate_indices = cache_lookup_coordinates ? cache.reaction_rate_indices : nothing
     reaction_rate_fractions = cache_lookup_coordinates ? cache.reaction_rate_fractions : nothing
@@ -614,24 +633,28 @@ function apply_reaction_groups!(fluids, groups, cache, landmark)
             group_max = apply_reaction_channel!(
                 fluids, group, first(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
+                ion_production_cost_multiplier,
                 Val(true), Val(true),
             )
         else
             apply_reaction_channel!(
                 fluids, group, first(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
+                ion_production_cost_multiplier,
                 Val(true), Val(false),
             )
             for channel_index in 2:(last_channel - 1)
                 apply_reaction_channel!(
                     fluids, group, group.channels[channel_index], cache, landmark,
                     loss_frequency, reaction_rate_indices, reaction_rate_fractions,
+                    ion_production_cost_multiplier,
                     Val(false), Val(false),
                 )
             end
             group_max = apply_reaction_channel!(
                 fluids, group, last(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
+                ion_production_cost_multiplier,
                 Val(false), Val(true),
             )
         end
@@ -645,6 +668,7 @@ end
 function apply_reaction_channel!(
         fluids, group, channel, cache, landmark,
         loss_frequency, reaction_rate_indices, reaction_rate_fractions,
+        ion_production_cost_multiplier,
         ::Val{FIRST}, ::Val{LAST},
     ) where {FIRST, LAST}
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
@@ -653,6 +677,15 @@ function apply_reaction_channel!(
     density_loss_cache = cache.cell_cache_1
     ncells = length(density_loss_cache)
     group_max = 0.0
+    energy_cost_multiplier = if channel.is_ground_to_singly_charged
+        get(
+            ion_production_cost_multiplier,
+            reaction.reactant.element.formula,
+            1.0,
+        )
+    else
+        1.0
+    end
 
     @inbounds @simd for cell in 2:(ncells - 1)
         rate = if isnothing(reaction_rate_indices)
@@ -683,7 +716,8 @@ function apply_reaction_channel!(
         channel.is_ionizing && (νiz[cell] += reaction_frequency)
         channel.is_excitation && (νex_explicit[cell] += reaction_frequency)
         inelastic_losses[cell] +=
-            density_loss * group.inverse_reactant_mass * reaction.energy
+            density_loss * group.inverse_reactant_mass * reaction.energy *
+            energy_cost_multiplier
         reactant.dens_ddt[cell] -= density_loss
 
         if !landmark

@@ -95,7 +95,7 @@ function update_electrical_vars!(params)
     Vd[] = update_circuit(params.filter_circuit, params.discharge_voltage, Id[], params.dt[])
 
     # Compute electric field and potential
-    update_electric_field!(∇ϕ, cache, apply_drag)
+    update_electric_field!(∇ϕ, cache, apply_drag, params.min_number_density)
     integrate_potential!(ϕ, ∇ϕ, grid, V_L)
 
     # Compute the electron velocity and electron kinetic energy

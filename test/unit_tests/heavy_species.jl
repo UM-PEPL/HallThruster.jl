@@ -100,7 +100,7 @@ end
         dt_iz = [Inf],
     )
 
-    het.apply_reaction_groups!(fluid_arr, groups, cache, false)
+    het.apply_reaction_groups!(fluid_arr, groups, cache, false, 1.0, Dict())
 
     @test cache.dt_iz[] == Inf
     @test all(isfinite, cache.νiz)
@@ -113,8 +113,74 @@ end
 
     # A populated reactant produces the expected grouped chemistry timestep.
     fluid_arr[1].density[2:(end - 1)] .= propellant.gas.m
-    het.apply_reaction_groups!(fluid_arr, groups, cache, false)
+    het.apply_reaction_groups!(fluid_arr, groups, cache, false, 1.0, Dict())
     @test cache.dt_iz[] ≈ 1.0e-18
+end
+
+@testset "Ion production cost multiplier" begin
+    ncells = 3
+    propellant = het.Propellant(
+        het.Xenon, 0.0; max_charge = 2, excited_levels = [1],
+    )
+    grid = het.Grid1D(range(0.0, 1.0; length = ncells + 1))
+    fluid_set = het.allocate_fluids(propellant, grid)
+    fluids = [fluid_set.continuity; fluid_set.isothermal]
+    mass = propellant.gas.m
+
+    ground_neutral = findfirst(fluid -> fluid.species == het.Xenon(0), fluids)
+    excited_neutral = findfirst(fluid -> fluid.species == het.Xenon(0, 1), fluids)
+    singly_charged = findfirst(fluid -> fluid.species == het.Xenon(1), fluids)
+    doubly_charged = findfirst(fluid -> fluid.species == het.Xenon(2), fluids)
+
+    fluids[ground_neutral].density .= 2.0 * mass
+    fluids[singly_charged].density .= 3.0 * mass
+    fluids[doubly_charged].density .= mass
+
+    reactions = [
+        het.ElectronImpactReaction(
+            2.0, het.Xenon(0), [het.Xenon(1)], ones(256),
+        ),
+        het.ElectronImpactReaction(
+            3.0, het.Xenon(0), [het.Xenon(0, 1)], ones(256),
+        ),
+        het.ElectronImpactReaction(
+            5.0, het.Xenon(1), [het.Xenon(2)], ones(256),
+        ),
+    ]
+    groups = het.build_electron_impact_groups(
+        reactions, het.reactant_indices(reactions, fluids),
+        het.product_indices(reactions, fluids), fluids,
+    )
+
+    num_grid_cells = ncells + 2
+    cache = (;
+        inelastic_losses = zeros(num_grid_cells),
+        νiz = zeros(num_grid_cells),
+        νex_explicit = zeros(num_grid_cells),
+        ϵ = zeros(num_grid_cells),
+        ne = zeros(num_grid_cells),
+        K = zeros(num_grid_cells),
+        nϵ = fill(50.0, num_grid_cells),
+        cell_cache_1 = zeros(num_grid_cells),
+        reaction_loss_frequency = zeros(num_grid_cells),
+        reaction_rate_indices = zeros(Int, num_grid_cells),
+        reaction_rate_fractions = zeros(num_grid_cells),
+        reaction_rate_index_limit = [254],
+        dt_iz = [Inf],
+    )
+
+    # ne = 5: ground -> Xe+ costs 5 * 2 * 2, excitation costs 5 * 2 * 3,
+    # and Xe+ -> Xe2+ costs 5 * 3 * 5. Only the first term is multiplied.
+    interior = 2:(num_grid_cells - 1)
+    multipliers = Dict(:Xe => 4.0, :Kr => 100.0)
+    het.apply_reaction_groups!(fluids, groups, cache, false, 1.0, multipliers)
+    @test all(cache.inelastic_losses[interior] .== 185.0)
+
+    # An absent Xe entry falls back to one; another species' value is not used.
+    het.apply_reaction_groups!(
+        fluids, groups, cache, false, 1.0, Dict(:Kr => 100.0),
+    )
+    @test all(cache.inelastic_losses[interior] .== 125.0)
 end
 
 @testset "Empty heavy-species populations" begin
@@ -126,7 +192,7 @@ end
 
     # User-provided initial conditions and restarts may contain an empty cell
     # before the normal density limiter runs; derived plasma fields must stay finite.
-    het.update_heavy_species_cache!(fluids, cache, false)
+    het.update_heavy_species_cache!(fluids, cache, false, 3.0)
     @test all(isfinite, cache.avg_neutral_vel)
     @test all(isfinite, cache.avg_ion_vel)
     @test all(isfinite, cache.m_eff)
@@ -135,12 +201,13 @@ end
     @test all(iszero, cache.avg_ion_vel)
     @test all(==(propellant.gas.m), cache.m_eff)
     @test all(==(1.0), cache.Z_eff)
+    @test all(==(3.0), cache.ne)
 
     # A configuration with no charged fluids cannot provide the ion properties
     # required by the electron and wall models, so fail with a useful error.
     neutral_only = (; continuity = fluids.continuity, isothermal = typeof(fluids.isothermal)())
     @test_throws ArgumentError het.update_heavy_species_cache!(
-        neutral_only, cache, false,
+        neutral_only, cache, false, 3.0,
     )
 end
 

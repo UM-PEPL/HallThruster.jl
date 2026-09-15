@@ -184,7 +184,7 @@ end
     groups = het.build_electron_impact_groups(
         reactions, reactant_indices, product_indices, fluids,
     )
-    het.apply_reaction_groups!(fluids, groups, cache, false)
+    het.apply_reaction_groups!(fluids, groups, cache, false, 1.0, Dict())
 
     interior = 2:(num_grid_cells - 1)
     expected_frequency = (k1 + k2) * 1.0e18
@@ -228,7 +228,9 @@ end
     multi_groups = het.build_electron_impact_groups(
         multi_reactions, multi_reactants, multi_products, multi_fluids,
     )
-    het.apply_reaction_groups!(multi_fluids, multi_groups, multi_cache, false)
+    het.apply_reaction_groups!(
+        multi_fluids, multi_groups, multi_cache, false, 1.0, Dict(),
+    )
     @test all(multi_fluids[1].dens_ddt[interior] .≈ -density_sources[1])
     @test all(multi_fluids[2].dens_ddt[interior] .≈ density_sources[1])
     @test all(multi_fluids[3].dens_ddt[interior] .≈ density_sources[1])

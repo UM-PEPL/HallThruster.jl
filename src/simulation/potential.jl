@@ -1,8 +1,8 @@
-function update_electric_field!(∇ϕ, cache, apply_drag)
+function update_electric_field!(∇ϕ, cache, apply_drag, min_number_density)
     (; ji, Id, ne, μ, ∇pe, channel_area, νei, νen, νan, avg_ion_vel, avg_neutral_vel) = cache
 
     @inbounds for i in eachindex(∇ϕ)
-        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], MIN_NUMBER_DENSITY)
+        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
 
         if (apply_drag)
             ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e

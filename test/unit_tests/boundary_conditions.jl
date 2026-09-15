@@ -41,7 +41,7 @@ function test_boundaries()
 
     V_d = 300.0
     V_cc = 20.0
-    MIN_NUMBER_DENSITY = 1.0
+    min_number_density = 2.0
 
     config = het.Config(
         ncharge = 2,
@@ -60,9 +60,11 @@ function test_boundaries()
         background_temperature_K = 150.0,
         neutral_ingestion_multiplier = 1.5,
         cathode_coupling_voltage = V_cc,
+        min_number_density = min_number_density,
     )
 
     params = het.setup_simulation(config, het.SimParams(duration = 1.0e-3, grid = het.EvenGrid(20)))
+    @test params.min_number_density == min_number_density
 
     # Check boundary handling of electron temperature solver
     # (electron temperature is solved, including boundaries, during setup)
@@ -109,8 +111,11 @@ function test_boundaries()
     @. isothermal[2].density = ni_2 * mi
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 / 2
 
-    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
-    het.apply_right_boundary!(params.fluid_containers)
+    het.apply_left_boundary!(
+        params.fluid_containers, prop, params.cache, anode_bc,
+        ingestion_flow_rate, false, min_number_density,
+    )
+    het.apply_right_boundary!(params.fluid_containers, min_number_density)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
@@ -135,8 +140,8 @@ function test_boundaries()
             fluid.density[end] = interior_density
             fluid.momentum[end] = interior_flux
         else
-            fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
-            fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+            fluid.density[end] = min_number_density * fluid.species.element.m
+            fluid.momentum[end] = min_number_density * fluid.species.element.m * interior_velocity
         end
     end
 
@@ -151,8 +156,11 @@ function test_boundaries()
     @. isothermal[2].density = ni_2 * mi
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 * 2
 
-    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
-    het.apply_right_boundary!(params.fluid_containers)
+    het.apply_left_boundary!(
+        params.fluid_containers, prop, params.cache, anode_bc,
+        ingestion_flow_rate, false, min_number_density,
+    )
+    het.apply_right_boundary!(params.fluid_containers, min_number_density)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
     boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
@@ -177,8 +185,8 @@ function test_boundaries()
             fluid.density[end] = interior_density
             fluid.momentum[end] = interior_flux
         else
-            fluid.density[end] = MIN_NUMBER_DENSITY * fluid.species.element.m
-            fluid.momentum[end] = MIN_NUMBER_DENSITY * fluid.species.element.m * interior_velocity
+            fluid.density[end] = min_number_density * fluid.species.element.m
+            fluid.momentum[end] = min_number_density * fluid.species.element.m * interior_velocity
         end
     end
 

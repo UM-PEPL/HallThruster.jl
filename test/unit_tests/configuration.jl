@@ -9,6 +9,8 @@ function test_config_serialization()
             discharge_voltage = 300.0,
             domain = (0.0, 0.8),
             anode_mass_flow_rate = 5.0e-6,
+            min_number_density = 4.2e10,
+            ion_production_cost_multiplier = Dict(:Xe => 2.5, :Kr => 1.25),
         )
 
         d = het.serialize(cfg)
@@ -17,6 +19,8 @@ function test_config_serialization()
         end
 
         test_roundtrip(het.Config, cfg)
+        @test cfg.min_number_density == 4.2e10
+        @test cfg.ion_production_cost_multiplier == Dict(:Xe => 2.5, :Kr => 1.25)
 
         step_trough_bohm = het.StepTroughBohm1(0.05, 1.0, 0.8, 0.5, 0.1, 0.2, 0.5)
         serialized_model = het.serialize(step_trough_bohm)
@@ -121,6 +125,11 @@ function test_configuration()
         @test length(Aϵ.dl) == ncells + 1
         @test length(Aϵ.d) == ncells + 2
         @test length(Aϵ.du) == ncells + 1
+        @test config.min_number_density == 1.0
+        @test params.min_number_density == config.min_number_density
+        @test isempty(config.ion_production_cost_multiplier)
+        @test params.ion_production_cost_multiplier ==
+            config.ion_production_cost_multiplier
     end
 
     @testset "Anom initialization" begin
@@ -237,7 +246,7 @@ function test_multiple_propellants()
                         max_ni_Kr = if haskey(avg.frames[].ions, :Kr)
                             maximum(avg.frames[].ions[:Kr][1].n)
                         else
-                            het.MIN_NUMBER_DENSITY
+                            config.min_number_density
                         end,
                     )
                 )

@@ -169,6 +169,14 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     min_Te::Float64
     """
+    Minimum allowed number density for plasma and neutral species, in m⁻³. **Default:** `1.0`.
+    """
+    min_number_density::Float64
+    """
+    Multipliers applied to the energy cost of producing singly charged ions from ground-state neutrals, keyed by propellant symbol. Species not present in the dictionary use `1.0`. **Default:** `Dict{Symbol, Float64}()`.
+    """
+    ion_production_cost_multiplier::Dict{Symbol, Float64}
+    """
     How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
@@ -249,6 +257,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             # Alternate propellant specification through a file
             propellant_config::String = "",
             min_Te = 1.5,
+            min_number_density = 1.0,
+            ion_production_cost_multiplier = Dict{Symbol, Float64}(),
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
@@ -361,6 +371,13 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Pa))
 
         transition_length = convert_to_float64(transition_length, units(:m))
+        min_number_density = convert_to_float64(min_number_density, units(:m)^(-3))
+        ion_production_cost_multiplier =
+            Dict{Symbol, Float64}(ion_production_cost_multiplier)
+
+        min_number_density > 0 || throw(
+            ArgumentError("Minimum number density must be positive. Got: $(min_number_density)")
+        )
 
         if anode_boundary_condition ∉ [:sheath, :dirichlet]
             throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
@@ -397,6 +414,8 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             propellant_config,
             filter_circuit === nothing ? CircuitModel(:NoCircuit) : filter_circuit,
             min_Te,
+            min_number_density,
+            ion_production_cost_multiplier,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -480,6 +499,8 @@ function params_from_config(config)
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
         min_Te = config.min_Te,
+        min_number_density = config.min_number_density,
+        ion_production_cost_multiplier = config.ion_production_cost_multiplier,
         background_pressure_Torr = config.background_pressure_Torr,
     )
 end
