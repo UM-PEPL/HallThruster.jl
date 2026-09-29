@@ -109,7 +109,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     ion_wall_losses::Bool
     """
-    The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
+    The pressure of the background neutrals, in Torr. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
     """
     background_pressure_Torr::Float64
     """
@@ -368,7 +368,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         )
 
         background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
-        background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Pa))
+        background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Torr))
 
         transition_length = convert_to_float64(transition_length, units(:m))
         min_number_density = convert_to_float64(min_number_density, units(:m)^(-3))
