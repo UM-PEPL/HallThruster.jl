@@ -71,11 +71,18 @@ function (model::Bohm)(νan, params, config)
     z_shift = pressure_shift(config.anom_model, config.background_pressure_Torr, L_ch)
     B_interp = LinearInterpolation(grid.cell_centers, B)
 
-    for (_, zc) in enumerate(grid.cell_centers)
+    #for (_, zc) in enumerate(grid.cell_centers)
+    #    z = zc - z_shift
+    #    B = B_interp(zc)
+    #    ωce = e * B / me
+    #    νan = model.c * ωce
+    #end
+
+    for (i, zc) in enumerate(grid.cell_centers)
         z = zc - z_shift
         B = B_interp(zc)
         ωce = e * B / me
-        νan = model.c * ωce
+        νan[i] = model.c * ωce
     end
 
     return νan

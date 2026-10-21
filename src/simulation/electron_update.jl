@@ -97,7 +97,7 @@ function update_electrical_vars!(params)
         # compute sheath drops on each face (plasma minus metal potential)
 
         # metal potential of the IE (electrode)
-        V_IE_wall = V_L - params.discharge_voltage_IE # e.g. discharge 500 V, discharge_voltage_IE 100 -> IE metal at 400 V
+        V_IE_wall = params.discharge_voltage - params.discharge_voltage_IE # e.g. discharge 500 V, discharge_voltage_IE 100 -> IE metal at 400 V
 
         # plasma-side potentials adjacent to the IE on left and right
         use_ie_sheath = false

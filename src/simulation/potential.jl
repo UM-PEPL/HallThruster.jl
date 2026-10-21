@@ -154,8 +154,8 @@ function ie_sheath_potential(cache, ie_index, side::Symbol)
         idxEnd = ie_index
         jd = Id_L_IE[] / channel_area[idxStart]
     elseif side === :R
-        idxStart = ie_index
-        idxEnd = ie_index + 1
+        idxStart = ie_index + 1
+        idxEnd = ie_index + 2
         jd = Id_IE_R[] / channel_area[idxStart]
     end
 
