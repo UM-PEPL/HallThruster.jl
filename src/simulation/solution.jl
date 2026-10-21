@@ -678,6 +678,9 @@ function solve(params, config, tspan; num_save = -1)
         end
     end
 
+    # If the simulation stopped early, drop the unused save times so t and frames stay aligned
+    resize!(times, length(frames))
+
     return Solution(
         times,
         frames,

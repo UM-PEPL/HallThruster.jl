@@ -14,6 +14,8 @@ using PrecompileTools: @compile_workload
 include("vendor/jsonx.jl")
 using .JSONX: JSONX as JSON
 
+using Printf
+
 # path to the HallThruster directory
 const PACKAGE_ROOT = joinpath(splitpath(@__DIR__)[1:(end - 1)]...)
 const REACTION_FOLDER = joinpath(PACKAGE_ROOT, "reactions")

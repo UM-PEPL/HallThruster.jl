@@ -133,6 +133,8 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     last_wall_cell::Int
     anom_smoothing_iters::Int
     discharge_voltage::Float64
+    discharge_voltage_IE::Float64
+    IE_position::Float64
     filter_circuit::CircuitModel
     cathode_coupling_voltage::Float64
     electron_ion_collisions::Bool
