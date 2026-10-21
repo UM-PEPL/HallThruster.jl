@@ -129,7 +129,9 @@ function update_electrical_vars!(params)
         cell_range_B = ie_index:length(grid.cell_centers)
         Id_IE_R[] = integrate_discharge_current(grid, cache, V_IEp_R, V_R, "right", apply_drag, cell_range_B)
         
-        Id[] = NaN
+        # The discharge current is the current collected at the anode (I_d = I_cat + I_int),
+        # i.e. the current in the anode-to-IE region. Used for output, current limiting and circuit models.
+        Id[] = Id_L_IE[]
     else
         Id_L_IE[] = NaN
         Id_IE_R[] = NaN
