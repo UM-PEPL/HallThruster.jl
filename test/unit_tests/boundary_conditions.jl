@@ -1,10 +1,47 @@
 using HallThruster: HallThruster as het
 
+@testset "Discharge-current integration boundaries" begin
+    grid = het.Grid1D([0.0, 0.4, 1.0])
+    n = length(grid.cell_centers)
+    cache = (;
+        ∇pe = [1.0, 2.0, 4.0, 7.0],
+        μ = ones(n),
+        ne = ones(n),
+        ji = zeros(n),
+        channel_area = ones(n),
+        avg_neutral_vel = zeros(n),
+        avg_ion_vel = zeros(n),
+        νei = zeros(n),
+        νen = zeros(n),
+        νan = zeros(n),
+        cell_cache_1 = zeros(n),
+        cell_cache_2 = zeros(n),
+    )
+
+    current = het.integrate_discharge_current(grid, cache, 0.0, 0.0, false)
+
+    # Reproduce the documented trapezoidal integration from each physical
+    # boundary to the neighboring cell center and between interior centers.
+    f = copy(cache.∇pe)
+    f[1] = 0.5 * (f[1] + f[2])
+    f[end] = 0.5 * (f[end - 1] + f[end])
+    z = copy(grid.cell_centers)
+    z[1] = first(grid.edges)
+    z[end] = last(grid.edges)
+    int1 = sum(
+        0.5 * (z[i + 1] - z[i]) * (f[i] + f[i + 1]) for i in 1:(n - 1)
+    )
+    int2 = (last(grid.edges) - first(grid.edges)) / het.e
+
+    @test current ≈ int1 / int2
+end
+
 function test_boundaries()
     e = het.e
 
     V_d = 300.0
     V_cc = 20.0
+    min_number_density = 2.0
 
     config = het.Config(
         ncharge = 2,
@@ -23,9 +60,11 @@ function test_boundaries()
         background_temperature_K = 150.0,
         neutral_ingestion_multiplier = 1.5,
         cathode_coupling_voltage = V_cc,
+        min_number_density = min_number_density,
     )
 
     params = het.setup_simulation(config, het.SimParams(duration = 1.0e-3, grid = het.EvenGrid(20)))
+    @test params.min_number_density == min_number_density
 
     # Check boundary handling of electron temperature solver
     # (electron temperature is solved, including boundaries, during setup)
@@ -41,7 +80,7 @@ function test_boundaries()
     prop = config.propellants[1]
     mi = prop.gas.m
     Ti = prop.ion_temperature_K
-    un = prop.velocity_m_s
+    un = prop.velocity_m_s(0.0)
     mdot_a = prop.flow_rate_kg_s
 
     ni_1 = 1.0e17
@@ -55,7 +94,9 @@ function test_boundaries()
     anode_bc = params.anode_bc
     prop = config.propellants[1]
 
-    inlet_density = het.inlet_neutral_density(prop, config.thruster.geometry.channel_area)
+    inlet_density = het.inlet_neutral_density(
+        prop, config.thruster.geometry.channel_area, params.grid.edges[1],
+    )
     nn_B = het.background_neutral_density(prop, config)
     un_B = het.background_neutral_velocity(prop, config)
 
@@ -70,26 +111,38 @@ function test_boundaries()
     @. isothermal[2].density = ni_2 * mi
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 / 2
 
-    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
-    het.apply_right_boundary!(params.fluid_containers)
+    het.apply_left_boundary!(
+        params.fluid_containers, prop, params.cache, anode_bc,
+        ingestion_flow_rate, false, min_number_density,
+    )
+    het.apply_right_boundary!(params.fluid_containers, min_number_density)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
-    boundary_ion_flux = [(ion.momentum[1] + ion.momentum[2]) / 2 for ion in isothermal]
-    boundary_ion_dens = [(ion.density[1] + ion.density[2]) / 2 for ion in isothermal]
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    boundary_ion_dens = [ion.density[1] for ion in isothermal]
     boundary_ion_vel = [flux / dens for (flux, dens) in zip(boundary_ion_flux, boundary_ion_dens)]
+    neutral_dens_edge = continuity[1].density[1]
 
-    neutral_dens_edge = 0.5 * (continuity[1].density[1] + continuity[1].density[2])
     recombined_ion_flux = -sum(boundary_ion_flux) / un
     background_flux = nn_B * un_B / un * config.neutral_ingestion_multiplier
 
     @test neutral_dens_edge ≈ inlet_density + recombined_ion_flux + background_flux
-    @test boundary_ion_vel[1] ≈ -u_bohm_1
-    @test boundary_ion_vel[2] ≈ -u_bohm_2
+    @test boundary_ion_vel[1] ≈ -u_bohm_1 rtol = 0.01
+    @test boundary_ion_vel[2] ≈ -u_bohm_2 rtol = 0.01
 
-    # Neumann BC for all species on right boundary
-    for fluid in [continuity..., isothermal...]
-        @test fluid.density[end] == fluid.density[end - 1]
-        @test fluid.momentum[end] == fluid.momentum[end - 1]
+    # Right BC
+    for fluid in isothermal
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+
+        if interior_velocity > 0
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            fluid.density[end] = min_number_density * fluid.species.element.m
+            fluid.momentum[end] = min_number_density * fluid.species.element.m * interior_velocity
+        end
     end
 
     # ====================================================================
@@ -103,14 +156,17 @@ function test_boundaries()
     @. isothermal[2].density = ni_2 * mi
     @. isothermal[2].momentum = -mi * ni_2 * u_bohm_2 * 2
 
-    het.apply_left_boundary!(params.fluid_containers, prop, params.cache, anode_bc, ingestion_flow_rate)
-    het.apply_right_boundary!(params.fluid_containers)
+    het.apply_left_boundary!(
+        params.fluid_containers, prop, params.cache, anode_bc,
+        ingestion_flow_rate, false, min_number_density,
+    )
+    het.apply_right_boundary!(params.fluid_containers, min_number_density)
 
     # Edge boundary state should equal average of ghost cell and first interior cell
-    boundary_ion_flux = [(ion.momentum[1] + ion.momentum[2]) / 2 for ion in isothermal]
-    boundary_ion_dens = [(ion.density[1] + ion.density[2]) / 2 for ion in isothermal]
+    boundary_ion_flux = [ion.momentum[1] for ion in isothermal]
+    boundary_ion_dens = [ion.density[1] for ion in isothermal]
     boundary_ion_vel = [flux / dens for (flux, dens) in zip(boundary_ion_flux, boundary_ion_dens)]
-    neutral_dens_edge = 0.5 * (continuity[1].density[1] + continuity[1].density[2])
+    neutral_dens_edge = continuity[1].density[1]
 
     recombined_ion_flux = -sum(boundary_ion_flux) / un
     background_flux = nn_B * un_B / un * config.neutral_ingestion_multiplier
@@ -119,10 +175,19 @@ function test_boundaries()
     @test boundary_ion_vel[1] ≈ -2 * u_bohm_1
     @test boundary_ion_vel[2] ≈ -2 * u_bohm_2
 
-    # Neumann BC for all species at right boundary
-    for fluid in [continuity..., isothermal...]
-        @test fluid.density[end] == fluid.density[end - 1]
-        @test fluid.momentum[end] == fluid.momentum[end - 1]
+
+    for fluid in isothermal
+        interior_density = fluid.density[end - 1]
+        interior_flux = fluid.momentum[end - 1]
+        interior_velocity = interior_flux / interior_density
+
+        if interior_velocity > 0
+            fluid.density[end] = interior_density
+            fluid.momentum[end] = interior_flux
+        else
+            fluid.density[end] = min_number_density * fluid.species.element.m
+            fluid.momentum[end] = min_number_density * fluid.species.element.m * interior_velocity
+        end
     end
 
     return

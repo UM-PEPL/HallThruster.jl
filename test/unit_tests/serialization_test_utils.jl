@@ -40,7 +40,7 @@ function test_subtype(::Type{T}, subtype::S; show_js = false) where {T, S <: T}
     @test dict["type"] == string(nameof(S))
     @test length(keys(dict)) == fieldcount(S) + 1
     if show_js
-        js.json(dict, pretty = true)
+        js.json(dict)
         println()
     end
 

@@ -6,7 +6,7 @@ using DynamicQuantities: uconvert, ustrip, Quantity, @us_str
 const __units = (;
     K = us"K",
     V = us"V",
-    Pa = us"Pa",
+    Torr = us"Torr",
     m = us"m",
     s = us"s",
     A = us"A",

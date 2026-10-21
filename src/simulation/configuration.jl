@@ -1,3 +1,49 @@
+function _complete_propellant(
+        propellant;
+        allowed_charges = propellant.allowed_charges,
+        excited_levels = propellant.excited_levels,
+        excited_ion_levels = propellant.excited_ion_levels,
+    )
+    return Propellant(;
+        gas = propellant.gas,
+        flow_rate_kg_s = propellant.flow_rate_kg_s,
+        velocity_m_s = propellant.velocity_m_s,
+        temperature_K = propellant.temperature_K,
+        ion_temperature_K = propellant.ion_temperature_K,
+        allowed_charges,
+        excited_levels,
+        excited_ion_levels,
+    )
+end
+
+function _merge_propellant_chemistry(propellant, file_propellant)
+    allowed_charges = if propellant.allowed_charges == [1]
+        file_propellant.allowed_charges
+    else
+        propellant.allowed_charges
+    end
+
+    excited_levels = if isempty(propellant.excited_levels)
+        file_propellant.excited_levels
+    else
+        propellant.excited_levels
+    end
+
+    excited_ion_levels = if isempty(propellant.excited_ion_levels)
+        # A user-provided charge override also limits inherited excited-ion levels.
+        Dict(
+            charge => levels for (charge, levels) in file_propellant.excited_ion_levels
+                if charge in allowed_charges
+        )
+    else
+        propellant.excited_ion_levels
+    end
+
+    return _complete_propellant(
+        propellant; allowed_charges, excited_levels, excited_ion_levels,
+    )
+end
+
 """
 $(TYPEDEF)
 Hall thruster configuration struct. Only four mandatory fields: `discharge_voltage`, `thruster`, `anode_mass_flow_rate`, and `domain`.
@@ -74,7 +120,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     ion_wall_losses::Bool
     """
-    The pressure of the background neutrals, in Pascals. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
+    The pressure of the background neutrals, in Torr. These background neutrals are injected at the anode to simulate the ingestion of facility neutrals. **Default:** `0.0`
     """
     background_pressure_Torr::Float64
     """
@@ -126,7 +172,23 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     propellant_config::String
     """
-     How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
+    Discharge filter circuit. Set to `nothing` if not used.
+    """
+    filter_circuit::CircuitModel
+    """
+    Minimum allowed electron temperature. Defaults to 1.5 eV
+    """
+    min_Te::Float64
+    """
+    Minimum allowed number density for plasma and neutral species, in m⁻³. **Default:** `1.0`.
+    """
+    min_number_density::Float64
+    """
+    Multipliers applied to the energy cost of producing singly charged ions from ground-state neutrals, keyed by propellant symbol. Species not present in the dictionary use `1.0`. **Default:** `Dict{Symbol, Float64}()`.
+    """
+    ion_production_cost_multiplier::Dict{Symbol, Float64}
+    """
+    How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
     # Verification and validation options
@@ -144,7 +206,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     ionization_model::Symbol
     """
-    Model for excitation reactions. **Default:** `:Lookup`. 
+    Model for excitation reactions. **Default:** `:Lookup`.
     """
     excitation_model::Symbol
     """
@@ -156,7 +218,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     source_heavy_species::S_HS
     """
-    Extra source term for electron energy equation. **Default:** `nothing`. 
+    Extra source term for electron energy equation. **Default:** `nothing`.
     """
     source_energy::S_E
 
@@ -190,6 +252,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             initial_condition::IC = DefaultInitialization(),
             implicit_energy = 1.0,
             reaction_rate_directories = String[],
+            filter_circuit = nothing,
             anom_smoothing_iters = 0,
             LANDMARK = false,
             ionization_model = :Lookup,
@@ -206,6 +269,9 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             ncharge = 1,
             # Alternate propellant specification through a file
             propellant_config::String = "",
+            min_Te = 1.5,
+            min_number_density = 1.0,
+            ion_production_cost_multiplier = Dict{Symbol, Float64}(),
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
@@ -213,14 +279,18 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             IC <: InitialCondition,
         }
 
-        # Set up propellants
+        # Read the propellant config file, if it exists
+        if length(propellant_config) > 0
+            props_from_file = load_propellant_config(propellant_config; directories = reaction_rate_directories)
+        else
+            props_from_file = Propellant[]
+        end
+
+        # Next, read the propellants specified in the config struct
         if isnothing(propellants)
-            if isnothing(anode_mass_flow_rate) && length(propellant_config) == 0
+            if isnothing(anode_mass_flow_rate) && length(props_from_file) == 0
                 error("Must supply one of:\n- A vector of propellants\n- A single `propellant` an `anode_mass_flow_rate`\nA `propellant_config` file.")
-            end
-            if length(propellant_config) > 0
-                propellants = load_propellant_config(propellant_config; directories = reaction_rate_directories)
-            else
+            elseif length(props_from_file) == 0
                 prop = Propellant(
                     propellant, anode_mass_flow_rate;
                     max_charge = ncharge, velocity_m_s = neutral_velocity,
@@ -230,7 +300,76 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             end
         end
 
-        # Convert to Float64 if using Unitful
+        # Finally, merge the two sets of information
+        if isnothing(propellants)
+            # First, if no propellant information is provided in the config struct, we take the info in the file.
+            @assert length(props_from_file) > 0
+            propellants = _complete_propellant.(props_from_file)
+        else
+            # Explicit physical properties override file values. Default charge and
+            # excitation values inherit from a matching file species; non-default values
+            # supplied on the Propellant override the file.
+            propellants = collect(propellants)
+            for (i, propellant) in pairs(propellants)
+                file_index = findfirst(
+                    p -> p.gas.formula == propellant.gas.formula, props_from_file,
+                )
+                propellants[i] = if isnothing(file_index)
+                    _complete_propellant(propellant)
+                else
+                    _merge_propellant_chemistry(propellant, props_from_file[file_index])
+                end
+            end
+
+            # We set the flow rate to 0.0 kg/s for all species without specified flow rates
+            # The neutral and ion temperature are taken from the propellant with the highest flow rate.
+            # The neutral velocity is scaled based on the ratio of masses from the propellant with the highest flow rate.
+            max_flow_rate = -Inf
+            max_prop = nothing
+
+            # Find prop with the highest flow rate
+            for prop in propellants
+                if prop.flow_rate_kg_s > max_flow_rate
+                    max_flow_rate = prop.flow_rate_kg_s
+                    max_prop = prop
+                end
+            end
+
+            # Add propellants from the file which are not in the config struct to the list
+            for prop in props_from_file
+                # Look for the prop in the main list
+                # These numbers are small so a linear search is fine
+                present = false
+                for _prop in propellants
+                    if prop.gas.formula == _prop.gas.formula
+                        present = true
+                        break
+                    end
+                end
+
+                if present
+                    continue
+                end
+
+                new_prop = Propellant(
+                    prop.gas,
+                    flow_rate_kg_s = 0.0,
+                    velocity_m_s = LinearInterpolation(
+                        copy(max_prop.velocity_m_s.xs),
+                        sqrt(max_prop.gas.M / prop.gas.M) .* max_prop.velocity_m_s.ys,
+                    ),
+                    temperature_K = max_prop.temperature_K,
+                    ion_temperature_K = max_prop.ion_temperature_K,
+                    allowed_charges = prop.allowed_charges,
+                    excited_levels = prop.excited_levels,
+                    excited_ion_levels = prop.excited_ion_levels,
+                )
+
+                push!(propellants, new_prop)
+            end
+        end
+
+        # Convert inputs to Float64 if using Unitful
         discharge_voltage = convert_to_float64(discharge_voltage, units(:V))
         discharge_voltage_IE = convert_to_float64(discharge_voltage_IE, units(:V))
 
@@ -244,9 +383,16 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         )
 
         background_temperature_K = convert_to_float64(background_temperature_K, units(:K))
-        background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Pa))
+        background_pressure_Torr = convert_to_float64(background_pressure_Torr, units(:Torr))
 
         transition_length = convert_to_float64(transition_length, units(:m))
+        min_number_density = convert_to_float64(min_number_density, units(:m)^(-3))
+        ion_production_cost_multiplier =
+            Dict{Symbol, Float64}(ion_production_cost_multiplier)
+
+        min_number_density > 0 || throw(
+            ArgumentError("Minimum number density must be positive. Got: $(min_number_density)")
+        )
 
         if anode_boundary_condition ∉ [:sheath, :dirichlet]
             throw(ArgumentError("Anode boundary condition must be one of [:sheath, :dirichlet]. Got: $(anode_boundary_condition)"))
@@ -283,6 +429,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             implicit_energy,
             reaction_rate_directories,
             propellant_config,
+            filter_circuit === nothing ? CircuitModel(:NoCircuit) : filter_circuit,
+            min_Te,
+            min_number_density,
+            ion_production_cost_multiplier,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -294,7 +444,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     end
 end
 
-function load_propellant_config(propellant_config; directories = String[], verbose = false)
+function load_propellant_config(propellant_config; directories = String[], verbose = false, default_neutral_temp = nothing, default_ion_temp = nothing)
     propellant_config_path = find_file_in_dirs(propellant_config, directories)
     if isnothing(propellant_config_path)
         error("Propellant config file $(propellant_config) not found in current directory or any of the provided directories ($(directories))")
@@ -308,30 +458,24 @@ function load_propellant_config(propellant_config; directories = String[], verbo
     props = Propellant[]
 
     for gas_dict in species
-        name = gas_dict["name"]
         symbol = gas_dict["symbol"]
-        mass = get(gas_dict, "mass", nothing)
-
-        gas = nothing
-        for builtin in GASES
-            if builtin.short_name == Symbol(symbol) && (isnothing(mass) || mass ≈ builtin.M)
-                gas = builtin
-                verbose && println("Found gas $(builtin) ($(symbol)) in built-in gases.")
-                break
-            end
+        M = get(gas_dict, "mass", nothing)
+        γ = get(gas_dict, "γ", nothing)
+        if isnothing(γ)
+            γ = get(gas_dict, "gamma", nothing)
         end
 
-        if isnothing(gas)
-            gas = Gas(name, symbol, γ = gas_dict["gamma"], M = gas_dict["mass"])
-        end
-
+        gas = Gas(symbol; γ, M)
         velocity_m_s = get(gas_dict, "velocity_m_s", nothing)
-        temperature_K = get(gas_dict, "temperature_K", nothing)
-        ion_temperature_K = get(gas_dict, "ion_temperature_K", nothing)
-        max_charge = get(gas_dict, "max_charge", 1)
+        temperature_K = get(gas_dict, "temperature_K", default_neutral_temp)
+        ion_temperature_K = get(gas_dict, "ion_temperature_K", default_ion_temp)
+        allowed_charges = get(gas_dict, "allowed_charges", nothing)
+        max_charge = get(gas_dict, "max_charge", nothing)
+        excited_levels = get(gas_dict, "excited_levels", nothing)
+        excited_ion_levels = get(gas_dict, "excited_ion_levels", nothing)
         flow_rate_kg_s = get(gas_dict, "flow_rate_kg_s", 0.0)
 
-        push!(props, Propellant(; gas, max_charge, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
+        push!(props, Propellant(; gas, allowed_charges, max_charge, excited_levels, excited_ion_levels, flow_rate_kg_s, temperature_K, velocity_m_s, ion_temperature_K))
     end
 
     return props
@@ -370,8 +514,13 @@ function params_from_config(config)
         discharge_voltage = config.discharge_voltage,
         discharge_voltage_IE = config.discharge_voltage_IE,
         IE_position = config.IE_position,
+        filter_circuit = config.filter_circuit,
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
+        min_Te = config.min_Te,
+        min_number_density = config.min_number_density,
+        ion_production_cost_multiplier = config.ion_production_cost_multiplier,
+        background_pressure_Torr = config.background_pressure_Torr,
     )
 end
 
@@ -388,7 +537,7 @@ function Serialization.deserialize(::Type{C}, x) where {C <: Config}
     d = copy(x)
     # Handle configs from older versions
     if !haskey(d, "propellants")
-        gas = get(d, "propellant", Xenon)
+        gas = deserialize(Gas, get(d, "propellant", "Xenon"))
         max_charge = get(d, "ncharge", 1)
         velocity_m_s = get(d, "neutral_velocity", nothing)
         temperature_K = get(d, "neutral_temperature_K", nothing)

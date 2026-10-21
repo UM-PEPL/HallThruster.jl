@@ -60,13 +60,14 @@ std(x) = sqrt(var(x))
 @inline left_edge(i) = i - 1
 @inline right_edge(i) = i
 
-@inline function inlet_neutral_density(propellant, channel_area)
-    return propellant.flow_rate_kg_s / (propellant.velocity_m_s * channel_area)
+@inline function inlet_neutral_density(propellant, channel_area, z)
+    return propellant.flow_rate_kg_s / (propellant.velocity_m_s(z) * channel_area)
 end
 
 # TODO: multiple gases + fluid containers
 @inline function background_neutral_density(propellant, config)
-    return propellant.gas.m * config.background_pressure_Torr / kB / config.background_temperature_K
+    torr_to_pa = 101325 / 760
+    return propellant.gas.m * config.background_pressure_Torr * torr_to_pa / kB / config.background_temperature_K
 end
 
 # TODO: multiple gases + fluid containers

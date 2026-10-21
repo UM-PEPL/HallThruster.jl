@@ -1,4 +1,4 @@
-@public Solution, SpeciesState, alternate_field_names, field_names
+@public Solution, SpeciesState, PhotonEmission, alternate_field_names, field_names
 
 """
 $(TYPEDEF)
@@ -19,10 +19,42 @@ $(TYPEDFIELDS)
     m::Float64
     """Charge number"""
     Z::Int8
+    """Explicit excitation-level index; zero denotes the ground state"""
+    excited_level::Int8 = Int8(0)
+    """Species energy relative to the neutral ground state (eV)"""
+    energy_eV::Float64 = 0.0
 end
 
-function SpeciesState(n::Int, m::Float64, Z::Integer)
-    return SpeciesState(zeros(n), zeros(n), zeros(n), m, Int8(Z))
+function SpeciesState(
+        n::Int, m::Float64, Z::Integer, excited_level::Integer = 0,
+        energy_eV::Real = 0.0,
+    )
+    return SpeciesState(
+        zeros(n), zeros(n), zeros(n), m, Int8(Z), Int8(excited_level),
+        Float64(energy_eV),
+    )
+end
+
+"""
+$(TYPEDEF)
+
+Photon emission from one radiative transition, averaged over the interval
+since the preceding saved frame.
+
+# Fields
+$(TYPEDFIELDS)
+"""
+@kwdef struct PhotonEmission
+    """Upper-state species symbol"""
+    upper::Symbol
+    """Lower-state species symbol"""
+    lower::Symbol
+    """Spontaneous de-excitation frequency (1/s)"""
+    frequency::Float64
+    """Emitted photon energy (eV)"""
+    energy_eV::Float64
+    """Volumetric photon emission rate (1/m^3/s)"""
+    emission_rate::Vector{Float64}
 end
 
 function remove_ghosts!(arr)
@@ -52,45 +84,88 @@ function copy_and_remove_ghosts(arr)
     return copied
 end
 
-function _get_species_states(fluids_by_propellant)
+function _get_species_states(fluids_by_propellant, species_energies_eV)
     neutrals = OrderedDict{Symbol, SpeciesState}()
     ions = OrderedDict{Symbol, Vector{SpeciesState}}()
+    excited_states = OrderedDict{Symbol, SpeciesState}()
 
     for fluids in fluids_by_propellant
-        continuity = fluids.continuity[1]
-        m = continuity.species.element.m
+        m = fluids.continuity[1].species.element.m
         inv_m = 1 / m
+        gas_symbol = fluids.continuity[1].species.element.formula
 
-        symbol = continuity.species.element.short_name
-        neutral_state = SpeciesState(length(continuity.density), m, 0)
-        @. neutral_state.n = continuity.density * inv_m
-        @. neutral_state.u = continuity.const_velocity
-        @. neutral_state.nu = neutral_state.n * neutral_state.u
-        remove_ghosts!(neutral_state)
-        neutrals[symbol] = neutral_state
+        for continuity in fluids.continuity
+            species = continuity.species
+            neutral_state = SpeciesState(
+                length(continuity.density), m, species.Z, species.excited_level,
+                species_energies_eV[species.symbol],
+            )
+            @. neutral_state.n = continuity.density * inv_m
+            remove_ghosts!(neutral_state.n)
+            @. neutral_state.u = continuity.vel_prim
+            neutral_state.u[1] = continuity.vel_L[1]
+            neutral_state.u[end] = continuity.vel_L[end]
+            @. neutral_state.nu = neutral_state.n * neutral_state.u
+            if is_excited(species)
+                excited_states[species.symbol] = neutral_state
+            else
+                neutrals[gas_symbol] = neutral_state
+            end
+        end
 
         ion_states = SpeciesState[]
         for ion in fluids.isothermal
-            ion_state = SpeciesState(length(ion.density), m, ion.species.Z)
+            species = ion.species
+            ion_state = SpeciesState(
+                length(ion.density), m, species.Z, species.excited_level,
+                species_energies_eV[species.symbol],
+            )
             @. ion_state.n = ion.density * inv_m
             @. ion_state.nu = ion.momentum * inv_m
-            @. ion_state.u = ion.momentum / ion.density
+            @. ion_state.u = primitive_velocity(ion.momentum, ion.density)
             remove_ghosts!(ion_state)
-            push!(ion_states, ion_state)
+            if is_excited(species)
+                excited_states[species.symbol] = ion_state
+            else
+                push!(ion_states, ion_state)
+            end
         end
-        ions[symbol] = ion_states
+        ions[gas_symbol] = ion_states
     end
 
-    return neutrals, ions
+    return neutrals, ions, excited_states
+end
+
+function photon_emissions(transitions, emission_counts, interval)
+    emissions = Vector{PhotonEmission}(undef, length(transitions))
+    for (i, transition) in enumerate(transitions)
+        # Scale the output copy in place so saving a frame allocates only the
+        # vector retained by the solution, rather than an equally sized temporary.
+        emission_rate = copy_and_remove_ghosts(@view(emission_counts[i, :]))
+        if interval > 0
+            emission_rate ./= interval
+        else
+            fill!(emission_rate, 0.0)
+        end
+        emissions[i] = PhotonEmission(;
+            upper = transition.upper,
+            lower = transition.lower,
+            frequency = transition.frequency,
+            energy_eV = transition.energy_eV,
+            emission_rate,
+        )
+    end
+    return emissions
 end
 
 """
 $(TYPEDEF)
 
 A snapshot of the simulation state at a single time, obtained by indexing the `frames` field of a `Solution` object.
-Both neutral and ion species properties are stored as [`SpeciesState`](@ref) objects in a dictionary.
-To access one of these objects, index by the symbol of that propellant and (if an ion species) the charge state.
-For example, the number density of doubly-charged Xenon would be accessed as `frame.ions[:Xe][1].n`.
+Ground-state neutral and ion properties are stored as [`SpeciesState`](@ref)
+objects in `neutrals` and `ions`. Explicit levels are keyed by their full
+species symbol in `excited_states`. Radiative output is stored in
+`photon_emissions` as [`PhotonEmission`](@ref) objects.
 
 # Fields
 $(TYPEDFIELDS)
@@ -100,6 +175,10 @@ $(TYPEDFIELDS)
     neutrals::OrderedDict{Symbol, SpeciesState}
     """Dictionary containing ion species. Indexed by the species' symbol, followed by charge state."""
     ions::OrderedDict{Symbol, Vector{SpeciesState}}
+    """Explicitly tracked excited species, indexed by full species symbol."""
+    excited_states::OrderedDict{Symbol, SpeciesState} = OrderedDict{Symbol, SpeciesState}()
+    """Radiative photon emissions during the preceding output interval."""
+    photon_emissions::Vector{PhotonEmission} = PhotonEmission[]
     """Magnetic field strength (T)"""
     B::Vector{Float64}
     """Plasma density (1/m^3)"""
@@ -148,15 +227,26 @@ $(TYPEDFIELDS)
     anom_multiplier::Array{Float64, 0}
     """Discharge current (A)"""
     discharge_current::Array{Float64, 0}
-    """SImulation timestep (s)"""
+    """ Discharge voltage (V)"""
+    discharge_voltage::Array{Float64, 0} = fill(0.0) # need to provide default value for backwards compatibility when loading
+    """Simulation timestep (s)"""
     dt::Array{Float64, 0}
 end
 
-function Frame(fluids_by_propellant, cache)
-    neutrals, ions = _get_species_states(fluids_by_propellant)
+function Frame(
+        fluids_by_propellant, cache, species_energies_eV,
+        radiative_transitions, radiative_emission_counts, emission_interval,
+    )
+    neutrals, ions, excited_states = _get_species_states(
+        fluids_by_propellant, species_energies_eV,
+    )
     return Frame(;
         neutrals,
         ions,
+        excited_states,
+        photon_emissions = photon_emissions(
+            radiative_transitions, radiative_emission_counts, emission_interval,
+        ),
         B = copy_and_remove_ghosts(cache.B),
         ne = copy_and_remove_ghosts(cache.ne),
         ue = copy_and_remove_ghosts(cache.ue),
@@ -181,7 +271,22 @@ function Frame(fluids_by_propellant, cache)
         anom_variables = [copy_and_remove_ghosts(var) for var in cache.anom_variables],
         anom_multiplier = fill(cache.anom_multiplier[]),
         discharge_current = fill(cache.Id[]),
+        discharge_voltage = fill(cache.Vd[]),
         dt = fill(cache.dt[]),
+    )
+end
+
+function Frame(params, emission_interval)
+    materialize_radiative_emissions!(
+        params.radiative_emission_counts, params.radiative_networks,
+    )
+    return Frame(
+        params.fluids_by_propellant,
+        params.cache,
+        params.species_energies_eV,
+        params.radiative_transitions,
+        params.radiative_emission_counts,
+        emission_interval,
     )
 end
 
@@ -388,7 +493,7 @@ function valid_fields()
     return (
         :z,
         fieldnames(Frame)...,
-        :E, :ωce, :cyclotron_freq, :ni, :ui, :niui, :nn,
+        :E, :ωce, :cyclotron_freq,
         keys(alternate_field_names())...,
     )
 end
@@ -399,11 +504,8 @@ $(TYPEDSIGNATURES)
 Return plasma data indicated by the `field` for every frame in `sol`.
 Type of returned data depends on the specific `field`.
 A list of valid fiels can be found by calling `HallThruster.valid_fields()`.
-Most of these return a vector of vectors, i.e. `[[field at time 0], [field at time 1], ...]`
-
-For ion quantities, this method does not select a specific charge state.
-Calling `sol[:ni]` returns a vector of `ncharge x ncells` matrices, each of which contains the density of ions on the grid for every charge state.
-To get a specific charge, call `sol[:ni, Z]` where `1 <= Z <= ncharge` and `ncharge` is the maximum charge state of the simulation.
+Most of these return a vector of values, one for each saved frame. Heavy-species
+states are available through `:neutrals`, `:ions`, and `:excited_states`.
 
 There are some special-cased convenience fields as well, which may return different values.
 - `:B`: returns the magnetic field in each grid cell. Always returns a vector rather than vector of vectors, as the magnetic field is static.
@@ -434,57 +536,11 @@ function Base.getindex(sol::Solution, field::Symbol)
         return sol.grid
     end
 
-    # Heavy species properties (backwards compatibility)
-    # Only allow if one ion species present
-    if length(sol.config.propellants) > 1
-        throw(ArgumentError("Cannot index by :nn, :ni, :niui, or :ui when more than one propellant species present. Instead, please index by the specific propellant species."))
-    end
-    symbol = sol.config.propellants[1].gas.short_name
-    allowed = sol.config.propellants[1].allowed_charges
-
-    ncells = length(sol.grid)
-
-    if field == :nn
-        return [frame.neutrals[symbol].n for frame in sol.frames]
-    elseif field == :ni
-        return [[frame.ions[symbol][Z].n[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
-    elseif field == :niui
-        return [[frame.ions[symbol][Z].nu[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
-    elseif field == :ui
-        return [[frame.ions[symbol][Z].u[i] for Z in eachindex(allowed), i in 1:ncells] for frame in sol.frames]
-    end
-
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
 end
 
-"""
-$(TYPEDSIGNATURES)
 
-For ion quantities (`:ni`, `:ui`, and `:niui`), indexing as `sol[field, charge]` returns a vector of vectors with the field for `charge`-charged ions.
-As an example, `sol[:ui, 1]` returns the velocity of singly-charged ions for every frame in `sol.frames`.
-For non-ion quantities, passing an integer as a second index causes an error.
-"""
-function Base.getindex(sol::Solution, field::Symbol, charge::Integer)
-    is_ion_quantity = field in (:ni, :ui, :niui)
-
-    if !is_ion_quantity
-        throw(ArgumentError("Indexing a `solution` by `[field::Symbol, ::Integer]` is only supported for ion \
-                            quantities. To access a quantity at a specific frame, call `sol.frames[frame].field`."))
-    end
-
-    if !in(charge, allowed)
-        throw(
-            ArgumentError(
-                "Invalid charge state $charge. Allowed charge states: $allowed."
-            )
-        )
-    end
-
-    return [frame[field][charge, :] for frame in sol.frames]
-end
-
-
-function solve(params, config, tspan; saveat)
+function solve(params, config, tspan; num_save = -1)
     # Initialize starting time and iterations
     iteration = params.iteration
     t = tspan[1]
@@ -498,8 +554,12 @@ function solve(params, config, tspan; saveat)
     retcode = :success
 
     # Frame saving setup
+    saveat = range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save)
     save_ind = 2
-    frames = [Frame(params.fluids_by_propellant, params.cache)]
+    frames = [Frame(params, 0.0)]
+    times = zeros(length(saveat))
+    times[1] = t
+    last_save_time = t
 
     # Parameters for adaptive timestep escape hatch
     small_step_count = 0
@@ -511,8 +571,73 @@ function solve(params, config, tspan; saveat)
     (; source_heavy_species) = config
 
     try
-        while t < tspan[2]
-            # compute new timestep
+        while true
+            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
+
+            if any_nan
+                if sim.print_errors
+                    # Find which fluids/cells have NaN or Inf
+                    for (i, fluid) in enumerate(params.fluid_array)
+                        nan_density = findall(x -> !isfinite(x), fluid.density)
+                        nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
+                        if !isempty(nan_density)
+                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
+                        end
+                        if !isempty(nan_momentum)
+                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
+                        end
+                    end
+                    # Report timestep and time context
+                    @warn(
+                        "NaN/Inf detected in heavy species solver",
+                        time = t,
+                        dt = params.dt[],
+                        iteration = params.iteration[],
+                    )
+                end
+                retcode = :failure
+                break
+            end
+
+            # Update electron quantities
+            update_electrons!(params, config, t)
+
+            # Update plume geometry
+            config.solve_plume && update_plume_geometry!(params)
+
+            # Update the current iteration and time
+            iteration[] += 1
+            t += params.dt[]
+
+            # Allow for system interrupts at pre-determined intervals
+            if iteration[] % yield_interval == 0
+                yield()
+            end
+
+            #====
+            Save the current simulation state if we jumped over or landed on a checkpoint time.
+            This should always be a direct hit, but just in case we allow for a miss.
+            ====#
+            if t >= saveat[save_ind]
+                push!(frames, Frame(params, t - last_save_time))
+                reset_radiative_emissions!(
+                    params.radiative_emission_counts, params.radiative_networks,
+                )
+                times[save_ind] = t
+                last_save_time = t
+                save_ind += 1
+            end
+
+            t >= saveat[end] && break
+
+            #====
+            Compute the new timestep
+            If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
+            minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
+            (see below).
+            We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
+            so that we land on it exactly.
+            ====#
             if sim.adaptive
                 if uniform_steps
                     params.dt[] = sim.dt
@@ -522,7 +647,9 @@ function solve(params, config, tspan; saveat)
                 end
             end
 
-            t += params.dt[]
+            if t + params.dt[] > saveat[save_ind]
+                params.dt[] = saveat[save_ind] - t
+            end
 
             #====
             Count how many times we've taken the minimum allowable timestep.
@@ -542,40 +669,6 @@ function solve(params, config, tspan; saveat)
                 uniform_steps = false
             end
 
-            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
-
-            # Check for NaNs or Infs in heavy species solve and terminate if necessary
-            if any_nan
-                if sim.print_errors
-                    @warn("NaN or Inf detected in heavy species solver at time $(t)")
-                end
-                retcode = :failure
-                break
-            end
-
-            # Update electron quantities
-            update_electrons!(params, config, t)
-
-            # Update plume geometry
-            if config.solve_plume
-                update_plume_geometry!(params)
-            end
-
-            # Update the current iteration
-            iteration[] += 1
-
-            # Allow for system interrupts
-            if iteration[] % yield_interval == 0
-                yield()
-            end
-
-            # # Save values at designated intervals
-            # # TODO interpolate these to exact times
-            if t > saveat[save_ind]
-                push!(frames, Frame(params.fluids_by_propellant, params.cache))
-                save_ind += 1
-            end
-
         end
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
@@ -585,11 +678,9 @@ function solve(params, config, tspan; saveat)
         end
     end
 
-    ind = min(save_ind, length(frames) + 1) - 1
-
     return Solution(
-        saveat[1:ind],
-        frames[1:ind],
+        times,
+        frames,
         copy_and_remove_ghosts(params.grid.cell_centers),
         config,
         params.simulation,

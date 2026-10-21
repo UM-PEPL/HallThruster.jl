@@ -176,7 +176,8 @@ end
 The electron source term has the following signature.
 
 ```julia
-source_electrons(params, i) -> Float64
+source_electrons(Q, params)::Nothing
 ```
 
-Here, `i` is a cell index. This function computes the energy source term for a single cell and returns it, as opposed to modifying a buffer.
+Here, `Q` is the source vector.
+This function computes the energy source term for a each cell, modifying the vector `Q` in place.

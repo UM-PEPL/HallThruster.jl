@@ -29,21 +29,24 @@ function time_average(sol::Solution, start_frame::Integer = 1)
             for j in 1:num_anom_variables(sol.config.anom_model)
                 avg[j] .= 0.0
             end
-        elseif f == :neutrals
-            for prop in sol.config.propellants
-                symbol = prop.gas.short_name
-                avg[symbol].n .= 0.0
-                avg[symbol].nu .= 0.0
-                avg[symbol].u .= 0.0
+        elseif f == :neutrals || f == :excited_states
+            for state in values(avg)
+                state.n .= 0.0
+                state.nu .= 0.0
+                state.u .= 0.0
             end
         elseif f == :ions
             for prop in sol.config.propellants
-                symbol = prop.gas.short_name
+                symbol = prop.gas.formula
                 for ion in avg[symbol]
                     ion.n .= 0.0
                     ion.nu .= 0.0
                     ion.u .= 0.0
                 end
+            end
+        elseif f == :photon_emissions
+            for emission in avg
+                emission.emission_rate .= 0.0
             end
         else
             avg .= 0.0
@@ -61,21 +64,24 @@ function time_average(sol::Solution, start_frame::Integer = 1)
                 for j in 1:num_anom_variables(sol.config.anom_model)
                     avg[j] .+= field[j] ./ dt
                 end
-            elseif f == :neutrals
-                for prop in sol.config.propellants
-                    symbol = prop.gas.short_name
+            elseif f == :neutrals || f == :excited_states
+                for symbol in keys(avg)
                     avg[symbol].n .+= field[symbol].n ./ dt
                     avg[symbol].nu .+= field[symbol].nu ./ dt
                     avg[symbol].u .+= field[symbol].u ./ dt
                 end
             elseif f == :ions
                 for prop in sol.config.propellants
-                    symbol = prop.gas.short_name
+                    symbol = prop.gas.formula
                     for (j, ion) in enumerate(avg[symbol])
                         ion.n .+= field[symbol][j].n ./ dt
                         ion.nu .+= field[symbol][j].nu ./ dt
                         ion.u .+= field[symbol][j].u ./ dt
                     end
+                end
+            elseif f == :photon_emissions
+                for (emission_avg, emission) in zip(avg, field)
+                    emission_avg.emission_rate .+= emission.emission_rate ./ dt
                 end
             else
                 avg .+= field ./ dt
@@ -95,6 +101,8 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     )
 end
 
+@inline ion_momentum_flux(m, n, nu) = n > 0 ? m * nu^2 / n : 0.0
+
 """
     $(TYPEDSIGNATURES)
 Compute the thrust at a specific frame of a `Solution`.
@@ -107,8 +115,8 @@ function thrust(sol::Solution, frame::Integer)
 
     for ions in values(f.ions)
         for ion in ions
-            thrust += right_area * ion.m * ion.nu[end]^2 / ion.n[end]
-            thrust -= left_area * ion.m * ion.nu[begin]^2 / ion.n[begin]
+            thrust += right_area * ion_momentum_flux(ion.m, ion.n[end], ion.nu[end])
+            thrust -= left_area * ion_momentum_flux(ion.m, ion.n[begin], ion.nu[begin])
         end
     end
 

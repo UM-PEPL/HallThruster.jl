@@ -1,4 +1,4 @@
-function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag)
+function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag, min_number_density)
     # ∇ϕ : mutable array of electric field values (discrete potential gradient over domain)
     #         updated in place. convention in this code: ∇ϕ[i] = -E where E is electric field.
     #         E is calculated from Ohm's law
@@ -24,9 +24,9 @@ function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag)
         # calculate E assuming intermediate electrode
         @inbounds for i in eachindex(∇ϕ)
             if i < ie_idx
-                E = ((Id_L_IE[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+                E = ((Id_L_IE[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
             else
-                E = ((Id_IE_R[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+                E = ((Id_IE_R[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
             end
 
             if (apply_drag)
@@ -41,7 +41,7 @@ function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag)
         @printf("  calculating E in single mode\n")
         # calcualte E assuming no intermediate electrode (default case)
         @inbounds for i in eachindex(∇ϕ)
-            E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / ne[i]
+            E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
 
             if (apply_drag)
                 ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
@@ -90,7 +90,7 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IEp_R, ie_idx)
         cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
     end
 
-    # Extrapolate potential to ghost cells
+    #Extrapolate potential to ghost cells
     ϕ[1] = ϕ[1] + (ϕ[1] - ϕ[2])
     ϕ[end] = ϕ[end] + (ϕ[end] - ϕ[end - 1])
 
@@ -114,24 +114,22 @@ function anode_sheath_potential(params)
 
     # Compute anode sheath potential
     @inbounds if anode_bc == :sheath
+        # Sheath edge properties use the values at the first cell center
+        Te_sheath_edge = Tev[2]
+        ne_sheath_edge = ne[2]
+        ji_sheath_edge = ji[2]
 
-        # use average of the first two cells to estimate sheath edge conditions
-        Te_sheath_edge = 0.5 * (Tev[1] + Tev[2]) # electron temperature at sheath edge
-        ne_sheath_edge = 0.5 * (ne[1] + ne[2]) # electron density at sheath edge
-        ce = sqrt(8 * e * Te_sheath_edge / π / me) # characteristic (mean thermal) speed of electrons at sheath edge (https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/0bd5cd04b2040f2324f3d6a78e8fb15b_MIT16_522S15_Lecture9.pdf)
-        je_sheath = e * ne_sheath_edge * ce / 4 # thermal electron current density at sheath edge
-        #   QUESTION: boltzman exponential term goes to zero since potential at the wall is zero (confirm this)?
+        # Thermal flux
+        ce = sqrt(8 * e * Te_sheath_edge / π / me)
+        je_sheath = e * ne_sheath_edge * ce / 4
 
-        # total discharge current density [A/m^2]
+        # Convective flux
         if params.discharge_voltage_IE > 0
             jd = Id_L_IE[] / channel_area[1] # use current on left side of IE if IE is present, since anode sheath is on left side of domain
         else
             jd = Id[] / channel_area[1]
         end
-
-        # current densities at sheath edge
-        ji_sheath_edge = 0.5 * (ji[1] + ji[2]) # ion current density at sheath edge
-        je_sheath_edge = jd - ji_sheath_edge # electron current density at sheath edge from current continuity (total current density = ion current density + electron current density)
+        je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath
         if current_ratio ≤ 0.0

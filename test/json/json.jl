@@ -1,5 +1,4 @@
-using JSON: JSON
-using HallThruster: HallThruster as het
+using HallThruster: HallThruster as het, JSON
 
 include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
@@ -36,22 +35,28 @@ config = sol.config
 outfile = "output.json"
 @test ispath(outfile)
 
-out = JSON.parse(read(outfile), allownan = true)
+out = JSON.parsefile(outfile)
+@test out["serialization_version"] == het.SERIALIZATION_VERSION
 @test haskey(out, "input")
-@test haskey(out.input, "config")
-@test haskey(out.input, "simulation")
-@test haskey(out.input, "postprocess")
+input = out["input"]
+@test haskey(input, "config")
+@test haskey(input, "simulation")
+@test haskey(input, "postprocess")
 @test haskey(out, "output")
-@test haskey(out.output, "error")
-@test haskey(out.output, "retcode")
-@test haskey(out.output, "average")
-@test haskey(out.output, "frames")
-@test haskey(out.output.average, "ni")
-@test haskey(out.output.average, "niui")
-@test haskey(out.output.average, "ui")
-@test haskey(out.output.average, "nn")
-@test haskey(out.output.average, "ions")
-@test haskey(out.output.average, "neutrals")
+output = out["output"]
+@test haskey(output, "error")
+@test haskey(output, "retcode")
+@test haskey(output, "average")
+@test haskey(output, "frames")
+avg = output["average"]
+@test !haskey(avg, "ni")
+@test !haskey(avg, "niui")
+@test !haskey(avg, "ui")
+@test !haskey(avg, "nn")
+@test haskey(avg, "ions")
+@test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
 
 # Test that reading the output file produces the same inputs we originally ran the simulation with
 new_sol = het.run_simulation(outfile)
@@ -64,6 +69,30 @@ new_sol = het.run_simulation(outfile)
 # since it runs for an additional `duration`
 restart = het.run_simulation(outfile, restart = outfile)
 @test !isapprox(new_sol.frames[end].discharge_current[], restart.frames[end].discharge_current[])
+
+# Existing input files have no version marker and remain valid as legacy version 0.
+@test !haskey(JSON.parsefile(json_path), "serialization_version")
+
+# Versioned documents reject malformed markers and versions written by a newer,
+# potentially incompatible serialization schema.
+for invalid_version in ("1", het.SERIALIZATION_VERSION + 1)
+    invalid_input = JSON.parsefile(json_path)
+    invalid_input["serialization_version"] = invalid_version
+    invalid_file = tempname() * ".json"
+    open(invalid_file, "w") do io
+        JSON.write_json(io, invalid_input)
+    end
+    err = try
+        het.run_simulation(invalid_file)
+        nothing
+    catch exception
+        exception
+    end
+    @test err isa ArgumentError
+    @test occursin("serialization_version", sprint(showerror, err)) ||
+        occursin("serialization version", sprint(showerror, err))
+    rm(invalid_file)
+end
 
 #==============================================================================
     Multiple propellants
@@ -80,19 +109,21 @@ prop2 = config.propellants[2]
 outfile = "output.json"
 @test ispath(outfile)
 
-out = JSON.parse(read(outfile));
-output = out.output
-@test haskey(output.average, "ions")
-@test haskey(output.average, "neutrals")
-@test !haskey(output.average, "nn")
-@test !haskey(output.average, "ni")
-@test !haskey(output.average, "niui")
-@test !haskey(output.average, "ui")
+out = JSON.parsefile(outfile);
+avg = out["output"]["average"]
+@test haskey(avg, "ions")
+@test haskey(avg, "neutrals")
+@test haskey(avg, "excited_states")
+@test haskey(avg, "photon_emissions")
+@test !haskey(avg, "nn")
+@test !haskey(avg, "ni")
+@test !haskey(avg, "niui")
+@test !haskey(avg, "ui")
 for prop in config.propellants
-    prop_str = string(prop.gas.short_name)
-    @test haskey(output.average.ions, prop_str)
-    @test haskey(output.average.neutrals, prop_str)
-    @test length(output.average.ions[prop_str]) == length(prop.allowed_charges)
+    prop_str = string(prop.gas.formula)
+    @test haskey(avg["ions"], prop_str)
+    @test haskey(avg["neutrals"], prop_str)
+    @test length(avg["ions"][prop_str]) == length(prop.allowed_charges)
 end
 
 rm(outfile, force = true)

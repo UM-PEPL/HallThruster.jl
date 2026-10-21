@@ -1,13 +1,19 @@
 module HallThruster
 
-using DocStringExtensions
 
 using DelimitedFiles: readdlm, writedlm
+using LinearAlgebra: LAPACKException, LU, SingularException, cond, eigen, exp!, ldiv!, lu, mul!, norm
+using TOML: TOML
+
+# External dependencies
+using DocStringExtensions
+using OrderedCollections
 using PrecompileTools: @compile_workload
 
-using JSON
-using OrderedCollections
-using TOML: TOML
+# Vendored dependencies
+include("vendor/jsonx.jl")
+using .JSONX: JSONX as JSON
+
 using Printf
 
 # path to the HallThruster directory
@@ -28,15 +34,11 @@ include("utilities/finite_differences.jl")
 using .Serialization: serialize, deserialize
 
 include("physics/constants.jl")
+include("physics/elements.jl")
 include("physics/gas.jl")
 include("physics/fluid.jl")
 include("physics/thermal_conductivity.jl")
-
-include("walls/materials.jl")
-include("walls/wall_losses.jl")
-include("walls/no_wall_losses.jl")
-include("walls/constant_sheath_potential.jl")
-include("walls/wall_sheath.jl")
+include("physics/wall_losses.jl")
 
 include("collisions/anomalous.jl")
 include("collisions/reactions.jl")
@@ -53,6 +55,7 @@ include("thruster/spt100.jl")
 include("grid/gridspec.jl")
 include("grid/grid.jl")
 
+include("simulation/circuits.jl")
 include("simulation/current_control.jl")
 include("simulation/initialization.jl")
 include("simulation/configuration.jl")
@@ -63,11 +66,13 @@ include("simulation/heavy_species_update.jl")
 include("simulation/electron_energy.jl")
 include("simulation/electron_update.jl")
 include("simulation/plume.jl")
+include("simulation/deexcitation.jl")
 include("simulation/types.jl")
 include("simulation/solution.jl")
 include("simulation/simulation.jl")
 include("simulation/postprocess.jl")
 include("simulation/json.jl")
+
 
 @public PYTHON_PATH
 
@@ -86,6 +91,11 @@ const PYTHON_PATH = joinpath(PACKAGE_ROOT, "python")
 # this is an example simulation that we can run to exercise all parts of the code. this helps to make sure most relevant
 # routines are compiled at pre-compile time
 function example_simulation(; ncells, duration, dt, nsave)
+    simulation(; adaptive = false, CFL = 0.799) = SimParams(;
+        grid = EvenGrid(ncells), duration, dt, num_save = nsave,
+        adaptive, CFL, verbose = false,
+    )
+
     config_1 = Config(;
         thruster = HallThruster.SPT_100,
         domain = (0.0, 0.08),
@@ -94,9 +104,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         wall_loss_model = WallSheath(BoronNitride),
         neutral_temperature_K = 500,
     )
-    sol_1 = run_simulation(
-        config_1; ncells, duration, dt, nsave, verbose = false,
-    )
+    sol_1 = run_simulation(config_1, simulation())
 
     if sol_1.retcode != :success
         error()
@@ -116,9 +124,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         solve_plume = true,
     )
 
-    sol_2 = run_simulation(
-        config_2; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
-    )
+    sol_2 = run_simulation(config_2, simulation(; adaptive = true, CFL = 0.75))
 
     if sol_2.retcode != :success
         error()
@@ -139,9 +145,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         solve_plume = false,
     )
 
-    sol_3 = run_simulation(
-        config_3; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
-    )
+    sol_3 = run_simulation(config_3, simulation(; adaptive = true, CFL = 0.75))
 
     if sol_3.retcode != :success
         error()
@@ -160,9 +164,7 @@ function example_simulation(; ncells, duration, dt, nsave)
         solve_plume = false,
     )
 
-    sol_4 = run_simulation(
-        config_4; ncells, duration, dt, nsave, adaptive = true, CFL = 0.75, verbose = false,
-    )
+    sol_4 = run_simulation(config_4, simulation(; adaptive = true, CFL = 0.75))
 
     if sol_4.retcode != :success
         error()
@@ -180,7 +182,8 @@ end
 
 # Precompile statements to improve load time
 @compile_workload begin
-    #example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    sol = example_simulation(; ncells = 20, duration = 1.0e-7, dt = 1.0e-8, nsave = 2)
+    write_to_json("_output.json", sol; average_start_time = 0.0, save_time_resolved = false)
 
     for file in readdir(joinpath(TEST_DIR, "precompile"), join = true)
         if splitext(file)[2] != ".json"
@@ -188,7 +191,8 @@ end
         end
         sol = run_simulation(file)
     end
-    rm("__output.json", force = true)
+    # Remove precompile output
+    rm("_output.json", force = true)
 end
 
 end # module

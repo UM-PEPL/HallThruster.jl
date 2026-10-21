@@ -19,7 +19,7 @@ Serialization.SType(::Type{T}) where {T <: CurrentController} = Serialization.Ta
 function Serialization.options(::Type{T}) where {T <: CurrentController}
     return (; NoController, PIDController)
 end
-Serialization.exclude(::Type{T}) where {T <: CurrentController} = (:errors, :smoothed_val)
+Serialization.exclude(::Type{T}) where {T <: CurrentController} = (:errors, :smoothed_value)
 
 #=============================================================================
  Definitions

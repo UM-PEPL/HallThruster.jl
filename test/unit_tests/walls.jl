@@ -109,12 +109,13 @@ function test_electron_losses()
         Δz = grid.edges[2] - grid.edges[1]
         V_cell = A_ch * Δz
 
-        @test het.freq_electron_wall(no_losses, params, idx_in) == 0.0
-        @test het.freq_electron_wall(no_losses, params, idx_out) == 0.0
+        het.freq_electron_wall!(cache.radial_loss_frequency, no_losses, params)
+        @test cache.radial_loss_frequency[idx_in] == 0.0
+        @test cache.radial_loss_frequency[idx_out] == 0.0
 
-        @test het.freq_electron_wall(landmark_losses, params, idx_in) == 1.0e7
-        @test het.freq_electron_wall(landmark_losses, params, idx_out) *
-            het.linear_transition(
+        het.freq_electron_wall!(cache.radial_loss_frequency, landmark_losses, params)
+        @test cache.radial_loss_frequency[idx_in] == 1.0e7
+        @test cache.radial_loss_frequency[idx_out] * het.linear_transition(
             grid.cell_centers[idx_out], L_ch, config.transition_length, 1.0, 0.0,
         ) == 0.0e7
 
@@ -127,15 +128,12 @@ function test_electron_losses()
         params.cache.νew_momentum[(idx_in + 1):end] .= 0.0
         params.cache.radial_loss_frequency[:] .= νew
 
-        Iew = het.wall_electron_current(sheath_model, params, idx_in)
-        @test Iew ≈ νew * het.e * V_cell * ne
-
-        @test het.freq_electron_wall(sheath_model, params, idx_in) *
-            het.linear_transition(
+        het.freq_electron_wall!(cache.radial_loss_frequency, sheath_model, params)
+        @test cache.radial_loss_frequency[idx_in] * het.linear_transition(
             grid.cell_centers[idx_in], L_ch, config.transition_length, 1.0, 0.0,
         ) ≈ νew
 
-        @test het.freq_electron_wall(sheath_model, params, idx_out) *
+        @test cache.radial_loss_frequency[idx_out] *
             het.linear_transition(
             grid.cell_centers[idx_out], L_ch, config.transition_length, 1.0, 0.0,
         ) ≈ 0.0
@@ -185,6 +183,11 @@ function test_ion_losses()
             Z_eff = [1.0, 1.0, 1.0, 1.0], ni = [ni_1 ni_1 ni_1 ni_1; ni_2 ni_2 ni_2 ni_2],
             γ_SEE = [0.0, 0.0, 0.0, 0.0],
             νew_momentum = [νew, νew, 0.0, 0.0],
+            wall_transition = [
+                het.linear_transition(z, L_ch, config.transition_length, 1.0, 0.0)
+                    for z in grid.cell_centers
+            ],
+            cell_cache_1 = zeros(4),
         )
 
         ρn = 10 * ne * mi
@@ -195,7 +198,7 @@ function test_ion_losses()
 
         config_no_losses = het.Config(; config..., wall_loss_model = het.NoWallLosses())
 
-        fluid_containers = het.allocate_fluids(config_no_losses.propellants[1], 2)
+        fluid_containers = het.allocate_fluids(config_no_losses.propellants[1], grid)
         (; continuity, isothermal) = fluid_containers
         @test length(continuity[1].density) == 4
         @. continuity[1].density = ρn
@@ -206,7 +209,10 @@ function test_ion_losses()
         fluids = [continuity..., isothermal...]
 
         γ_SEE_max = 1 - 8.3 * sqrt(het.me / mi)
-        base_params = (; cache, grid, γ_SEE_max, fluid_containers = (; continuity, isothermal))
+        base_params = (;
+            cache, grid, γ_SEE_max, last_wall_cell = 2,
+            fluid_containers = (; continuity, isothermal),
+        )
 
         params_no_losses = (; base_params..., het.params_from_config(config_no_losses)...)
 
@@ -257,9 +263,6 @@ function test_ion_losses()
             @test ion.dens_ddt[out_index] ≈ 0.0
             @test ion.mom_ddt[out_index] ≈ 0.0
         end
-
-        # No wall current outside of channel
-        @test het.wall_electron_current(constant_sheath, params_constant_sheath, out_index) == 0.0
 
         # Test 3: Self-consistent wall sheath
         for fluid in fluids
