@@ -66,7 +66,8 @@ end
 
 # TODO: multiple gases + fluid containers
 @inline function background_neutral_density(propellant, config)
-    return propellant.gas.m * config.background_pressure_Torr / kB / config.background_temperature_K
+    torr_to_pa = 101325 / 760
+    return propellant.gas.m * config.background_pressure_Torr * torr_to_pa / kB / config.background_temperature_K
 end
 
 # TODO: multiple gases + fluid containers

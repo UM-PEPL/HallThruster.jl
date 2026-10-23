@@ -6,7 +6,7 @@ using Unitful: uconvert, ustrip, Quantity, @u_str
 const __units = (;
     K = u"K",
     V = u"V",
-    Pa = u"Pa",
+    Torr = u"Torr",
     m = u"m",
     s = u"s",
     A = u"A",
