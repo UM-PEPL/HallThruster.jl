@@ -100,7 +100,10 @@ end
         dt_iz = [Inf],
     )
 
-    het.apply_reaction_groups!(fluid_arr, groups, cache, false, 1.0, Dict())
+    het.apply_reaction_groups!(
+        fluid_arr, groups, cache, false, 1.0,
+        het.excitation_runtime(het.ExcitationLookup()),
+    )
 
     @test cache.dt_iz[] == Inf
     @test all(isfinite, cache.νiz)
@@ -113,7 +116,10 @@ end
 
     # A populated reactant produces the expected grouped chemistry timestep.
     fluid_arr[1].density[2:(end - 1)] .= propellant.gas.m
-    het.apply_reaction_groups!(fluid_arr, groups, cache, false, 1.0, Dict())
+    het.apply_reaction_groups!(
+        fluid_arr, groups, cache, false, 1.0,
+        het.excitation_runtime(het.ExcitationLookup()),
+    )
     @test cache.dt_iz[] ≈ 1.0e-18
 end
 
@@ -160,6 +166,7 @@ end
         ϵ = zeros(num_grid_cells),
         ne = zeros(num_grid_cells),
         K = zeros(num_grid_cells),
+        Tev = fill(2.0, num_grid_cells),
         nϵ = fill(50.0, num_grid_cells),
         cell_cache_1 = zeros(num_grid_cells),
         reaction_loss_frequency = zeros(num_grid_cells),
@@ -173,12 +180,44 @@ end
     # and Xe+ -> Xe2+ costs 5 * 3 * 5. Only the first term is multiplied.
     interior = 2:(num_grid_cells - 1)
     multipliers = Dict(:Xe => 4.0, :Kr => 100.0)
-    het.apply_reaction_groups!(fluids, groups, cache, false, 1.0, multipliers)
-    @test all(cache.inelastic_losses[interior] .== 185.0)
-
-    # An absent Xe entry falls back to one; another species' value is not used.
+    effective_cost = het.excitation_runtime(
+        het.EffectiveProductionCost(
+            multipliers;
+            A = Dict(:Xe => 0.5, :Kr => 100.0),
+            B = Dict(:Xe => 0.25, :Kr => 100.0),
+        ),
+    )
     het.apply_reaction_groups!(
-        fluids, groups, cache, false, 1.0, Dict(:Kr => 100.0),
+        fluids, groups, cache, false, 1.0, effective_cost,
+    )
+    xe_multiplier = het.effective_production_cost_multiplier(
+        2.0, 2.0, 0.5, 0.25, 4.0,
+    )
+    @test all(cache.inelastic_losses[interior] .≈ 20.0 * xe_multiplier + 105.0)
+
+    # Absent Xe entries use all three Xenon defaults; another species' values
+    # are not used.
+    het.apply_reaction_groups!(
+        fluids, groups, cache, false, 1.0,
+        het.excitation_runtime(
+            het.EffectiveProductionCost(
+                Dict(:Kr => 100.0);
+                A = Dict(:Kr => 100.0), B = Dict(:Kr => 100.0),
+            )
+        ),
+    )
+    default_multiplier = het.effective_production_cost_multiplier(
+        2.0, 2.0,
+        het.FIFE_XENON_PRODUCTION_COST_A,
+        het.FIFE_XENON_PRODUCTION_COST_B,
+        het.FIFE_XENON_PRODUCTION_COST_C,
+    )
+    @test all(cache.inelastic_losses[interior] .≈ 20.0 * default_multiplier + 105.0)
+
+    # The dictionary has no effect when lookup-based excitation is selected.
+    het.apply_reaction_groups!(
+        fluids, groups, cache, false, 1.0,
+        het.excitation_runtime(het.ExcitationLookup()),
     )
     @test all(cache.inelastic_losses[interior] .== 125.0)
 end

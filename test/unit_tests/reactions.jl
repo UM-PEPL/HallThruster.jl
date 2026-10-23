@@ -109,8 +109,15 @@ lookup_2_rxns_Xe = het.load_electron_impact_reactions(
 ex_1 = het.ExcitationReaction(0.0, Xe_0, r)
 @test repr(ex_1) == "e(-) + Xe -> e(-) + Xe(*)"
 
-@test isempty(het.load_excitation_reactions(:Lookup, [Bi_0]))
-ex_rxns = het.load_excitation_reactions(:Lookup, [Xe_0])
+@test isempty(het.load_excitation_reactions(het.ExcitationLookup(), [Bi_0]))
+@test isempty(het.load_excitation_reactions(het.EffectiveProductionCost(), [Xe_0]))
+@test het.load_excitation_reactions(:Lookup, [Bi_0]) ==
+    het.load_excitation_reactions(het.ExcitationLookup(), [Bi_0])
+@test typeof(het.excitation_runtime(het.ExcitationLookup())) ==
+    typeof(het.excitation_runtime(het.EffectiveProductionCost()))
+@test het.effective_production_cost_multiplier(12.12, 12.12, 0.254, 0.677, 2.0) ≈
+    0.254 * exp(0.677) + 2.0
+ex_rxns = het.load_excitation_reactions(het.ExcitationLookup(), [Xe_0])
 @test length(ex_rxns) == 1
 @test ex_rxns[1].energy == 8.32
 @test het.rate_coeff(ex_rxns[1], 10.0) ≈ 2.358251483e-14
@@ -120,7 +127,7 @@ ex_rxns = het.load_excitation_reactions(:Lookup, [Bi_0]; directories)
 @test ex_rxns[1].energy == 10.0
 @test het.rate_coeff(ex_rxns[1], 1.0) |> abs < eps(Float64)
 
-ex_landmark_rxn = het.load_excitation_reactions(:Landmark, [Xe_0])[1]
+ex_landmark_rxn = het.load_excitation_reactions(het.LandmarkExcitationLookup(), [Xe_0])[1]
 @test ex_landmark_rxn.energy == 8.32
 
 landmark_table = readdlm(

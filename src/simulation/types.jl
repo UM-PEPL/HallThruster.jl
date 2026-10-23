@@ -138,7 +138,7 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     electron_ion_collisions::Bool
     min_Te::Float64
     min_number_density::Float64
-    ion_production_cost_multiplier::Dict{Symbol, Float64}
+    excitation::ExcitationRuntime
     background_pressure_Torr::Float64
     simulation::S
     iteration::Vector{Int}

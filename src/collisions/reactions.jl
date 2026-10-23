@@ -304,6 +304,8 @@ function load_reactions(
         propellant_config, species, iz_model, ex_model, en_model;
         directories = String[],
     )
+    ex_model isa Symbol && (ex_model = excitation_model_from_symbol(ex_model))
+
     if !isempty(propellant_config) && isfile(propellant_config)
         contents = TOML.parsefile(propellant_config)
         if haskey(contents, "reactions")
@@ -324,6 +326,9 @@ function load_reactions(
                     configured = _load_deexcitation_reaction(reaction, species_map)
                     isnothing(configured) || push!(de_reactions, configured)
                 elseif type == "excitation" || type == "elastic"
+                    if type == "excitation" && is_effective_production_cost(ex_model)
+                        continue
+                    end
                     configured = _load_target_collision(
                         reaction, type, species_map, directories,
                     )

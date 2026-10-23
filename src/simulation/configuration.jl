@@ -173,10 +173,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     min_number_density::Float64
     """
-    Multipliers applied to the energy cost of producing singly charged ions from ground-state neutrals, keyed by propellant symbol. Species not present in the dictionary use `1.0`. **Default:** `Dict{Symbol, Float64}()`.
-    """
-    ion_production_cost_multiplier::Dict{Symbol, Float64}
-    """
     How many times to smooth the anomalous transport profile. Only useful for transport models that depend on the plasma properties. **Default:** `0`
 
     ---
@@ -195,9 +191,9 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     ionization_model::Symbol
     """
-    Model for excitation reactions. **Default:** `:Lookup`.
+    Model for excitation losses. `ExcitationLookup()` loads excitation rate coefficients, while `EffectiveProductionCost()` uses Fife's effective ion production cost fit. **Default:** `ExcitationLookup()`.
     """
-    excitation_model::Symbol
+    excitation_model::ExcitationModel
     """
     Model for elastic scattering collisions between electrons and neutral atoms. **Default:** `:Lookup`.
     """
@@ -243,7 +239,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             anom_smoothing_iters = 0,
             LANDMARK = false,
             ionization_model = :Lookup,
-            excitation_model = :Lookup,
+            excitation_model = ExcitationLookup(),
             electron_neutral_model = :Lookup,
             source_heavy_species = Returns(0.0),
             source_energy = Returns(0.0),
@@ -258,7 +254,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             propellant_config::String = "",
             min_Te = 1.5,
             min_number_density = 1.0,
-            ion_production_cost_multiplier = Dict{Symbol, Float64}(),
         ) where {
             A <: AnomalousTransportModel,
             TC <: ThermalConductivityModel,
@@ -372,8 +367,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
 
         transition_length = convert_to_float64(transition_length, units(:m))
         min_number_density = convert_to_float64(min_number_density, units(:m)^(-3))
-        ion_production_cost_multiplier =
-            Dict{Symbol, Float64}(ion_production_cost_multiplier)
+        excitation_model = normalize_excitation_model(excitation_model)
 
         min_number_density > 0 || throw(
             ArgumentError("Minimum number density must be positive. Got: $(min_number_density)")
@@ -415,7 +409,6 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             filter_circuit === nothing ? CircuitModel(:NoCircuit) : filter_circuit,
             min_Te,
             min_number_density,
-            ion_production_cost_multiplier,
             anom_smoothing_iters,
             LANDMARK,
             ionization_model,
@@ -500,7 +493,7 @@ function params_from_config(config)
         electron_ion_collisions = config.electron_ion_collisions,
         min_Te = config.min_Te,
         min_number_density = config.min_number_density,
-        ion_production_cost_multiplier = config.ion_production_cost_multiplier,
+        excitation = excitation_runtime(config.excitation_model),
         background_pressure_Torr = config.background_pressure_Torr,
     )
 end
@@ -534,5 +527,12 @@ function Serialization.deserialize(::Type{C}, x) where {C <: Config}
         end
         d["propellants"] = [prop_dict]
     end
+
+    # Excitation models were previously serialized as symbols.
+    if haskey(d, "excitation_model") && d["excitation_model"] isa AbstractString
+        model = normalize_excitation_model(Symbol(d["excitation_model"]))
+        d["excitation_model"] = serialize(model)
+    end
+
     return deserialize(Serialization.Struct(), C, d)
 end

@@ -59,12 +59,14 @@ This accounts for single ionization of Xenon only using the lookup table provide
 
 ## Excitation
 
-As with ionization, HallThruster.jl provides two models out of the box. These are
+HallThruster.jl provides four excitation models out of the box. These are
 
 | Model                   | Supported species                                            | Description                                                  |
 | ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `ExcitationLookup`         | `Xenon`, `Krypton` (out of the box. With user-provided tables, can support any species) | Excitation look-up table for species provided with HallThruster.jl. By default, the tables are stored in the `reactions` subfolder of the HallThruster.jl directory, but the user may provide additional directories in which to look for tables. |
 | `LandmarkExcitationLookup` | `Xenon`                                                      | Lookup table provided for the LANDMARK benchmark. Table is stored in the `landmark` subfolder of the HallThruster.jl directory. |
+| `EffectiveProductionCost` | Any species with an ionization model                          | Replaces lookup-based excitation losses with Fife's fit to Dugan's effective ion production cost model. |
+| `NoExcitation`             | Any species                                                   | Disables excitation losses.                                  |
 
 Unlike ionization, which will throw an error if rate coefficients up to the specified charge state are not provided, HallThruster.jl will just not apply excitation reactions if they are not present.
 
@@ -74,10 +76,10 @@ Unlike ionization, which will throw an error if rate coefficients up to the spec
 This is the default excitation model. To use the `ExcitationLookup` model, initialize it as follows:
 
 ```julia
-excitation_model = ExcitationLookup([directories::Vector{AbstractString = String[]}])
+excitation_model = ExcitationLookup()
 ```
 
-This functions nearly identically to the `IonizationLookup`, with the exception that, since excitation reactions do not change the charge state, the product is the same `Species` as the reactant and thus is not included in the filename. The filename for excitation reactions is thus:
+Additional lookup directories are supplied through `Config.reaction_rate_directories`. Excitation lookup functions nearly identically to `IonizationLookup`, with the exception that, since excitation reactions do not change the charge state, the product is the same `Species` as the reactant and thus is not included in the filename. The filename for excitation reactions is thus:
 
 `excitation_$(reactant.symbol).dat`
 
@@ -99,7 +101,39 @@ Energy (eV)	Rate coefficient (m3/s)
 9.0	1.9316662863621785e-14
 ```
 
-### `LandmarkIonizationLookup`
+### Effective ion production cost
+
+Use `EffectiveProductionCost` to replace lookup-based excitation losses with Fife's fit to Dugan's effective ion production cost model:
+
+```math
+M = A \exp(B / z) + C, \qquad z = T_e / E_{iz},
+```
+
+where ``M`` multiplies the ionization energy cost of ground-state neutral to singly charged ion reactions. The ``A``, ``B``, and ``C`` coefficients may all be supplied per species. An omitted coefficient uses Fife's Xenon value: ``A = 0.254``, ``B = 0.677``, and ``C = 2.0``. The high-temperature limit of the fit is ``A + C``.
+
+```julia
+config = Config(
+    # Other options...
+    excitation_model = EffectiveProductionCost(
+        Dict(
+            :Xe => 2.0,
+            :Ar => 1.75,
+        );
+        A = Dict(
+            :Xe => 0.254,
+            :Ar => 0.188,
+        ),
+        B = Dict(
+            :Xe => 0.677,
+            :Ar => 0.624,
+        ),
+    ),
+)
+```
+
+The Argon and Xenon coefficients above are the fits reported by [Fife](https://electricrocket.org/IEPC/IEPC1995-240.pdf). This model changes only the electron energy cost. It does not change ionization rates or the costs of higher ionization stages.
+
+### `LandmarkExcitationLookup`
 
 This accounts for excitation of Xenon only using the lookup table provided by test case 3 of the [LANDMARK benchmark](https://www.landmark-plasma.com/test-case-3). It reads from the file `landmark/landmark_rates.csv`.  Useful mostly for replicating the LANDMARK benchmark. LANDMARK does explicitly provide excitation rates, and instead gives an energy loss coefficient. However, using the provided ionization rate coefficients, we can back out the excitation rate coefficients. These are then used to construct an `ExcitationReaction`.
 

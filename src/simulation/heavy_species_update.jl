@@ -488,7 +488,7 @@ end
 function apply_reactions!(fluid_arr, params)
     return apply_reaction_groups!(
         fluid_arr, params.reaction_groups, params.cache, params.landmark,
-        params.min_number_density, params.ion_production_cost_multiplier,
+        params.min_number_density, params.excitation,
     )
 end
 
@@ -617,7 +617,7 @@ end
 
 function apply_reaction_groups!(
         fluids, groups, cache, landmark, min_number_density,
-        ion_production_cost_multiplier,
+        excitation,
     )
     prepare_reaction_state!(fluids, cache, landmark, min_number_density)
     cache_lookup_coordinates = cache.reaction_rate_index_limit[] >= 0
@@ -633,28 +633,28 @@ function apply_reaction_groups!(
             group_max = apply_reaction_channel!(
                 fluids, group, first(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
-                ion_production_cost_multiplier,
+                excitation,
                 Val(true), Val(true),
             )
         else
             apply_reaction_channel!(
                 fluids, group, first(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
-                ion_production_cost_multiplier,
+                excitation,
                 Val(true), Val(false),
             )
             for channel_index in 2:(last_channel - 1)
                 apply_reaction_channel!(
                     fluids, group, group.channels[channel_index], cache, landmark,
                     loss_frequency, reaction_rate_indices, reaction_rate_fractions,
-                    ion_production_cost_multiplier,
+                    excitation,
                     Val(false), Val(false),
                 )
             end
             group_max = apply_reaction_channel!(
                 fluids, group, last(group.channels), cache, landmark,
                 loss_frequency, reaction_rate_indices, reaction_rate_fractions,
-                ion_production_cost_multiplier,
+                excitation,
                 Val(false), Val(true),
             )
         end
@@ -668,7 +668,7 @@ end
 function apply_reaction_channel!(
         fluids, group, channel, cache, landmark,
         loss_frequency, reaction_rate_indices, reaction_rate_fractions,
-        ion_production_cost_multiplier,
+        excitation,
         ::Val{FIRST}, ::Val{LAST},
     ) where {FIRST, LAST}
     (; inelastic_losses, νiz, νex_explicit, ϵ, ne) = cache
@@ -677,14 +677,21 @@ function apply_reaction_channel!(
     density_loss_cache = cache.cell_cache_1
     ncells = length(density_loss_cache)
     group_max = 0.0
-    energy_cost_multiplier = if channel.is_ground_to_singly_charged
-        get(
-            ion_production_cost_multiplier,
-            reaction.reactant.element.formula,
-            1.0,
+    use_effective_production_cost =
+        excitation.use_effective_production_cost &&
+        channel.is_ground_to_singly_charged
+    production_cost_A = FIFE_XENON_PRODUCTION_COST_A
+    production_cost_B = FIFE_XENON_PRODUCTION_COST_B
+    production_cost_C = FIFE_XENON_PRODUCTION_COST_C
+    if use_effective_production_cost
+        symbol = reaction.reactant.element.formula
+        production_cost_A = get(excitation.A, symbol, production_cost_A)
+        production_cost_B = get(excitation.B, symbol, production_cost_B)
+        production_cost_C = get(
+            excitation.production_cost_multipliers,
+            symbol,
+            production_cost_C,
         )
-    else
-        1.0
     end
 
     @inbounds @simd for cell in 2:(ncells - 1)
@@ -715,9 +722,16 @@ function apply_reaction_channel!(
         end
         channel.is_ionizing && (νiz[cell] += reaction_frequency)
         channel.is_excitation && (νex_explicit[cell] += reaction_frequency)
-        inelastic_losses[cell] +=
-            density_loss * group.inverse_reactant_mass * reaction.energy *
-            energy_cost_multiplier
+        energy_cost_multiplier = if use_effective_production_cost
+            effective_production_cost_multiplier(
+                cache.Tev[cell], reaction.energy,
+                production_cost_A, production_cost_B, production_cost_C,
+            )
+        else
+            1.0
+        end
+        inelastic_losses[cell] += density_loss * group.inverse_reactant_mass *
+            reaction.energy * energy_cost_multiplier
         reactant.dens_ddt[cell] -= density_loss
 
         if !landmark

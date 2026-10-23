@@ -10,7 +10,11 @@ function test_config_serialization()
             domain = (0.0, 0.8),
             anode_mass_flow_rate = 5.0e-6,
             min_number_density = 4.2e10,
-            ion_production_cost_multiplier = Dict(:Xe => 2.5, :Kr => 1.25),
+            excitation_model = het.EffectiveProductionCost(
+                Dict(:Xe => 2.5, :Kr => 1.25);
+                A = Dict(:Xe => 0.254, :Kr => 0.21),
+                B = Dict(:Xe => 0.677, :Kr => 0.65),
+            ),
         )
 
         d = het.serialize(cfg)
@@ -20,7 +24,28 @@ function test_config_serialization()
 
         test_roundtrip(het.Config, cfg)
         @test cfg.min_number_density == 4.2e10
-        @test cfg.ion_production_cost_multiplier == Dict(:Xe => 2.5, :Kr => 1.25)
+        @test cfg.excitation_model.production_cost_multipliers ==
+            Dict(:Xe => 2.5, :Kr => 1.25)
+        @test cfg.excitation_model.A == Dict(:Xe => 0.254, :Kr => 0.21)
+        @test cfg.excitation_model.B == Dict(:Xe => 0.677, :Kr => 0.65)
+        test_subtype(het.ExcitationModel, cfg.excitation_model)
+
+        legacy = het.serialize(cfg)
+        legacy["excitation_model"] = "EffectiveProductionCost"
+        migrated = het.deserialize(het.Config, legacy)
+        @test migrated.excitation_model isa het.EffectiveProductionCost
+        @test isempty(migrated.excitation_model.production_cost_multipliers)
+        @test isempty(migrated.excitation_model.A)
+        @test isempty(migrated.excitation_model.B)
+
+        lookup_cfg = het.Config(;
+            thruster = het.SPT_100,
+            discharge_voltage = 300.0,
+            domain = (0.0, 0.8),
+            anode_mass_flow_rate = 5.0e-6,
+            excitation_model = het.ExcitationLookup(),
+        )
+        @test typeof(lookup_cfg) == typeof(cfg)
 
         step_trough_bohm = het.StepTroughBohm1(0.05, 1.0, 0.8, 0.5, 0.1, 0.2, 0.5)
         serialized_model = het.serialize(step_trough_bohm)
@@ -127,9 +152,9 @@ function test_configuration()
         @test length(Aϵ.du) == ncells + 1
         @test config.min_number_density == 1.0
         @test params.min_number_density == config.min_number_density
-        @test isempty(config.ion_production_cost_multiplier)
-        @test params.ion_production_cost_multiplier ==
-            config.ion_production_cost_multiplier
+        @test config.excitation_model isa het.ExcitationLookup
+        @test !params.excitation.use_effective_production_cost
+        @test isempty(params.excitation.production_cost_multipliers)
     end
 
     @testset "Anom initialization" begin
