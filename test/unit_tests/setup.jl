@@ -9,12 +9,12 @@ using HallThruster: HallThruster as het
             fill!(Q, 0.0)
             return nothing
         end
-        config = het.Config(
+        config = het.Config(;
             thruster = het.SPT_100, domain = (0.0, 0.08),
             discharge_voltage = 300.0, anode_mass_flow_rate = 5e-6,
             source_energy,
         )
-        sim = het.SimParams(
+        sim = het.SimParams(;
             grid = het.EvenGrid(20), dt, duration = 1e-12,
             adaptive = false, num_save = 2, verbose = false,
         )
