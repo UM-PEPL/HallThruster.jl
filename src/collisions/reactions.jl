@@ -252,16 +252,19 @@ function _load_electron_impact_reaction(reaction, species_map, directories)
     reactants, reactant_coeffs = reactant_data
     products, product_coeffs = product_data
 
-    if length(reactants) == 1
-        "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
-    end
+    length(reactants) == 1 || throw(
+        ArgumentError(
+            "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
+        )
+    )
+    only(reactant_coeffs) == 1 || throw(
+        ArgumentError(
+            "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
+        )
+    )
 
-    if only(reactant_coeffs) == 1
-        "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
-    end
 
-
-    energy, rate_coeffs = _load_configured_rate_coefficients( reaction, "electron_impact", directories)
+    energy, rate_coeffs = _load_configured_rate_coefficients(reaction, "electron_impact", directories)
 
     return ElectronImpactReaction(
         only(reactants), products, product_coeffs, rate_coeffs, energy,

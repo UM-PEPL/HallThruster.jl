@@ -244,6 +244,9 @@ function initialize_from_restart!(params, frame)
     @. cache.∇ϕ = -E
     @. cache.ϕ = phi
 
+    update_pressure!(cache.pe, cache.nϵ, params.landmark)
+    update_pressure_gradient!(cache.∇pe, cache.pe, z)
+
     return nothing
 end
 

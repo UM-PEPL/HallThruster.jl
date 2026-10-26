@@ -56,7 +56,18 @@ function time_average(sol::Solution, start_frame::Integer = 1)
     # Sum over all timesteps to get average
     tstamps = length(sol.t)
     dt = (tstamps - start_frame + 1)
+    # Emission rates describe preceding intervals, rather than point samples.
+    # The initial frame has no interval; a single-frame solution is already averaged.
+    emission_duration = tstamps == 1 ? 1.0 :
+        sol.t[end] - sol.t[max(1, start_frame - 1)]
     for i in start_frame:length(sol.t)
+        emission_weight = if tstamps == 1
+            1.0
+        elseif i == 1 || emission_duration == 0
+            0.0
+        else
+            (sol.t[i] - sol.t[i - 1]) / emission_duration
+        end
         for f in fields
             avg = getfield(avg_frame, f)
             field = getfield(sol.frames[i], f)
@@ -81,7 +92,7 @@ function time_average(sol::Solution, start_frame::Integer = 1)
                 end
             elseif f == :photon_emissions
                 for (emission_avg, emission) in zip(avg, field)
-                    emission_avg.emission_rate .+= emission.emission_rate ./ dt
+                    emission_avg.emission_rate .+= emission.emission_rate .* emission_weight
                 end
             else
                 avg .+= field ./ dt
@@ -174,6 +185,7 @@ anode_eff(sol::Solution) = [anode_eff(sol, frame) for frame in eachindex(sol.fra
 """
     $(TYPEDSIGNATURES)
 Compute the voltage/acceleration efficiency at a specific frame of a `Solution`.
+Only includes positive ions.
 """
 function voltage_eff(sol::Solution, frame::Integer)
     Vd = sol.config.discharge_voltage
@@ -181,14 +193,15 @@ function voltage_eff(sol::Solution, frame::Integer)
     ni_end = 0.0
     niV_end = 0.0
 
-    for ion in values(f.ions)
-        ui = ion[1].u[end]
-        ni = ion[1].n[end]
+    for ion in ion_states(f)
+        ion.Z > 0 || continue
+        ui = ion.u[end]
+        ni = ion.n[end]
         ni_end += ni
-        niV_end += ni * (0.5 * ion[1].m * ui^2 / e)
+        niV_end += ni * (0.5 * ion.m * ui^2 / (ion.Z * e))
     end
 
-    V_accel = niV_end / ni_end
+    V_accel = ni_end > 0 ? niV_end / ni_end : 0.0
     return V_accel / Vd
 end
 

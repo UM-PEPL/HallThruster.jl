@@ -27,11 +27,14 @@ config = het.Config(
     discharge_voltage = 300.0u"V",
     anode_mass_flow_rate = 5.0u"mg/s",
     propellant = het.Xenon,
+    cathode_Tev = 2000.0u"meV",
 )
 
 @test config.domain == (0.0, 0.08)
 @test config.propellants[1].flow_rate_kg_s ≈ 5.0e-6
 @test config.discharge_voltage ≈ 300.0
+@test config.anode_Tev ≈ 2.0
+@test config.cathode_Tev ≈ 2.0
 
 profiled_propellant = het.Propellant(
     het.Xenon, 5.0u"mg/s";

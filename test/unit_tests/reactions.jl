@@ -17,6 +17,15 @@ rxn_I_III = het.ElectronImpactReaction(0.0, Xe_I, [Xe_III], r)
 @test repr(rxn_0_III) == "e(-) + Xe -> 4e(-) + Xe(3+)"
 @test repr(rxn_I_III) == "e(-) + Xe(+) -> 3e(-) + Xe(3+)"
 
+@testset "Unsupported reactant format" begin
+    species_map = Dict(species.symbol => species for species in [Xe_0, Xe_I])
+    for equation in ("2Xe + e -> 2Xe(+) + 3e", "Xe + Xe(+) + e -> 2Xe(+) + 2e")
+        @test_throws ArgumentError het._load_electron_impact_reaction(
+            Dict("equation" => equation), species_map, String[],
+        )
+    end
+end
+
 @test het.rate_coeff_filename(Xe_0, Xe_II, "ionization") ==
     joinpath(het.REACTION_FOLDER, "ionization_Xe_Xe2+.dat")
 @test het.rate_coeff_filename(Xe_0, Xe_II, "excitation") ==

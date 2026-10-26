@@ -32,6 +32,8 @@ function restart_fixture()
         Tev = zeros(length(z)),
         ∇ϕ = zeros(length(z)),
         ϕ = zeros(length(z)),
+        pe = zeros(length(z)),
+        ∇pe = zeros(length(z)),
     )
     params = (;
         grid = (; cell_centers = z),
@@ -39,6 +41,7 @@ function restart_fixture()
         propellants,
         fluids_by_propellant,
         species_energies_eV = energies,
+        landmark = false,
     )
 
     state(n, nu = n; kwargs...) = Dict(
@@ -73,6 +76,7 @@ end
 
 @testset "Explicit-state restart handling" begin
     params, frame = restart_fixture()
+    frame["Tev"] .= 10 .+ frame["z"]
     het.initialize_from_restart!(params, frame)
 
     xenon_fluids, krypton_fluids = params.fluids_by_propellant
@@ -91,6 +95,8 @@ end
     @test params.cache.Tev == frame["Tev"]
     @test params.cache.ϕ == frame["potential"]
     @test params.cache.∇ϕ == .-frame["E"]
+    @test params.cache.pe ≈ frame["ne"] .* frame["Tev"]
+    @test params.cache.∇pe ≈ fill(10.0, length(frame["z"]))
 
     # Missing required ground states and incompatible excited-state metadata
     # should identify the offending species rather than surface a KeyError.

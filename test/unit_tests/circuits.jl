@@ -38,6 +38,19 @@ include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
         filter_circuit = het.CircuitModel(:ParallelRL; R = 2.0, L = 0.01),
     )
     test_roundtrip(het.Config, config)
+
+    sim = het.SimParams(
+        grid = het.EvenGrid(2),
+        current_control = het.PIDController(target_value = 4.0),
+    )
+    first_run = het.setup_simulation(config, sim)
+    first_run.filter_circuit.elements[2].I = 123.0
+    first_run.simulation.current_control.errors = (99.0, 99.0, 99.0)
+    second_run = het.setup_simulation(config, sim)
+    @test config.filter_circuit.elements[2].dI_dt == 0.0
+    @test sim.current_control.errors == (0.0, 0.0, 0.0)
+    @test second_run.filter_circuit.elements[2].I == 0.0
+    @test second_run.simulation.current_control.errors == (4.0, 0.0, 0.0)
 end
 
 @testset "Parallel RL voltage" begin

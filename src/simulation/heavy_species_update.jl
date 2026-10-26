@@ -796,7 +796,7 @@ function apply_mutual_neutralization!(params)
                     m_pos = pos_fluid.species.element.m
                     inv_m_pos = inv(m_pos)
 
-                    for i in eachindex(neg_fluid.dens_ddt)
+                    for i in interior_cells(neg_fluid.dens_ddt)
                         ρ_neg = neg_fluid.density[i]
                         ρ_pos = pos_fluid.density[i]
                         n_neg = ρ_neg * inv_m_neg
@@ -849,6 +849,16 @@ function apply_associative_detachment!(params)
     propellant_groups = params.fluids_by_propellant
     cache = params.cache
 
+    any(group -> any(fluid -> fluid.species.Z < 0, group.isothermal), propellant_groups) ||
+        return nothing
+
+    # Neutral populations change between RK stages, just as the ion populations do.
+    fill!(cache.nn, 0.0)
+    for group in propellant_groups, fluid in group.continuity
+        inv_m = inv(fluid.species.element.m)
+        @. cache.nn += fluid.density * inv_m
+    end
+
     dt_max = Inf
 
     @inbounds for neg_group in propellant_groups
@@ -858,7 +868,7 @@ function apply_associative_detachment!(params)
             m_neg = neg_fluid.species.element.m
             inv_m_neg = inv(m_neg)
 
-            for i in eachindex(neg_fluid.dens_ddt)
+            for i in interior_cells(neg_fluid.dens_ddt)
                 ρ_neg = neg_fluid.density[i]
                 n_neg = ρ_neg * inv_m_neg
                 n_n = cache.nn[i]            # total neutral number density

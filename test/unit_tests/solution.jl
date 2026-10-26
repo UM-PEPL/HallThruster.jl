@@ -24,6 +24,8 @@ function test_solution_serialization()
 
     sol = het.run_simulation(config, simparams)
     avg = het.time_average(sol)
+    @test sol[:nu_anom] == sol[:nu_an]
+    @test sol[:B] === sol.frames[1].B
 
     # The deprecated single-propellant accessors and Config-only entry point are gone.
     @test all(field -> field ∉ het.valid_fields(), (:nn, :ni, :ui, :niui))
@@ -61,7 +63,7 @@ function test_solution_serialization()
         metrics_sol = deepcopy(avg)
         metrics_frame = only(metrics_sol.frames)
         ground_ion = metrics_frame.ions[:Xe][1]
-        metrics = (het.thrust, het.mass_eff, het.anode_eff)
+        metrics = (het.thrust, het.mass_eff, het.anode_eff, het.voltage_eff)
         baseline = [metric(metrics_sol, 1) for metric in metrics]
 
         excited_ion = het.SpeciesState(;
@@ -150,6 +152,14 @@ function test_solution_serialization()
         emission_rate = fill(4.0e18, 4),
     )
     test_roundtrip(het.PhotonEmission, het.serialize(emission))
+
+    emission_sol = deepcopy(sol[[1, end]])
+    for (i, frame) in enumerate(emission_sol.frames)
+        push!(frame.photon_emissions, deepcopy(emission))
+        frame.photon_emissions[1].emission_rate .= i == 1 ? 0.0 : 4.0e18
+    end
+    @test only(het.time_average(emission_sol).frames).photon_emissions[1].emission_rate == fill(4.0e18, 4)
+    @test only(het.time_average(emission_sol[2]).frames).photon_emissions[1].emission_rate == fill(4.0e18, 4)
 
     return
 end

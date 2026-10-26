@@ -109,7 +109,7 @@ function setup_simulation(
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
-        simulation = sim,
+        simulation = deepcopy(sim),
         # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
@@ -246,5 +246,10 @@ Returns a `Solution` object.
 """
 function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
     params = setup_simulation(config, sim; postprocess, restart, kwargs...)
-    return run_from_setup(params, config)
+    sol = run_from_setup(params, config)
+    if !isempty(params.postprocess.output_file)
+        (; output_file, average_start_time, save_time_resolved) = params.postprocess
+        write_to_json(output_file, sol; average_start_time, save_time_resolved)
+    end
+    return sol
 end

@@ -472,7 +472,7 @@ $(alternate_field_names())
     ϕ = :potential,
     ∇pe = :grad_pe,
     νan = :nu_an,
-    nu_anom = :nu_a,
+    nu_anom = :nu_an,
     νc = :nu_class,
     νei = :nu_ei,
     νen = :nu_en,
@@ -524,10 +524,6 @@ function Base.getindex(sol::Solution, field::Symbol)
         field = alts[field]
     end
 
-    if field in fieldnames(Frame)
-        return [getproperty(frame, field) for frame in sol.frames]
-    end
-
     # Special cases
     if field == :B
         return sol.frames[1].B
@@ -535,6 +531,10 @@ function Base.getindex(sol::Solution, field::Symbol)
         return @. e * sol.frames[1].B / me
     elseif field == :z
         return sol.grid
+    end
+
+    if field in fieldnames(Frame)
+        return [getproperty(frame, field) for frame in sol.frames]
     end
 
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))

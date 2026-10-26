@@ -1,5 +1,6 @@
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 import subprocess
 import tempfile
@@ -35,8 +36,17 @@ def run_simulation(
     if isinstance(input, str | Path):
         with open(input, 'r') as fp:
             json_input = json.load(fp)
+        # Julia receives a temporary JSON file, so retain the original resource path.
+        config = json_input.get('input', json_input).get('config', {})
+        field = config.get('thruster', {}).get('magnetic_field', {})
+        if field.get('file'):
+            magnetic_file = Path(field['file'])
+            if not magnetic_file.is_absolute():
+                if not magnetic_file.is_file():
+                    magnetic_file = Path(input).resolve().parent / magnetic_file
+                field['file'] = str(magnetic_file.resolve())
     else:
-        json_input = input
+        json_input = deepcopy(input)
 
     tempfile_args = dict(suffix=".json", prefix="hallthruster_jl_", mode="w", delete=False, encoding="utf-8")
 

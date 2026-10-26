@@ -102,7 +102,7 @@ end
         @test_throws ArgumentError het.SolverState(params; tspan = invalid_tspan)
     end
     @test_throws ArgumentError het.SolverState(params; tspan = (1.0, nextfloat(1.0)), num_save = 3)
-    sim.num_save = 1
+    params.simulation.num_save = 1
     @test_throws ArgumentError het.SolverState(params; tspan)
 end
 
@@ -138,7 +138,7 @@ end
     end
 
     # Fixed stepping ignores the previous actual step and the adaptive limit.
-    sim.adaptive = false
+    params.simulation.adaptive = false
     params.dt[] = 1e-15
     het.select_timestep!(params, solver)
     @test params.dt[] == sim.dt

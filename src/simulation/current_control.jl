@@ -61,10 +61,14 @@ function apply_controller(pid::PIDController, present_value, control_value, dt)
             K_i e(t) dt +
             K_d (e(t) - 2 e(t-dt) _ e(t-2dt))/dt.
     =#
-    K_smooth = exp(-dt * pid.smoothing_frequency)
-    pid.smoothed_value = K_smooth * present_value + (1 - K_smooth) * pid.smoothed_value
+    pid.smoothed_value = if pid.smoothing_frequency > 0
+        K_smooth = exp(-dt * pid.smoothing_frequency)
+        K_smooth * pid.smoothed_value + (-expm1(-dt * pid.smoothing_frequency)) * present_value
+    else
+        present_value
+    end
 
-    pid.errors = (pid.target_value - present_value, pid.errors[1], pid.errors[2])
+    pid.errors = (pid.target_value - pid.smoothed_value, pid.errors[1], pid.errors[2])
 
     P = pid.proportional_constant * (pid.errors[1] - pid.errors[2])
     I = pid.integral_constant * pid.errors[1] * dt

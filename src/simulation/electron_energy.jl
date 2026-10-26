@@ -156,14 +156,11 @@ function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
 end
 
 function update_energy_state!(Tev, nϵ, ne, pe, min_Te, landmark)
+    all(isfinite, nϵ) || throw(DomainError(nϵ, "Nonfinite electron energy after the energy solve."))
     pe_factor = landmark ? 1.0 : 2.0 / 3.0
     @inbounds @simd for i in eachindex(Tev)
         energy = nϵ[i]
-        temperature = if isfinite(energy)
-            max(min_Te, energy / ne[i] / 1.5)
-        else
-            min_Te
-        end
+        temperature = max(min_Te, energy / ne[i] / 1.5)
         energy = 1.5 * ne[i] * temperature
         Tev[i] = temperature
         nϵ[i] = energy

@@ -1,6 +1,13 @@
 using HallThruster: HallThruster as het
 using Test
 
+@testset "PID measurement smoothing" begin
+    pid = het.PIDController(target_value = 0.0, smoothing_frequency = log(2.0))
+    control = het.apply_controller(pid, 4.0, 0.0, 1.0)
+    @test control ≈ -2.0
+    @test het.apply_controller(pid, 4.0, control, 1.0) ≈ -3.0
+end
+
 include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
 function test_controller_serialization()
