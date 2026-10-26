@@ -31,3 +31,6 @@ params = het.setup_simulation(
     ),
 )
 @test params.simulation.CFL == 0.9
+
+# Invalid solved energy must still be rejected rather than silently floored.
+@test_throws DomainError het.update_energy_state!(zeros(3), [1.0, NaN, 1.0], ones(3), zeros(3), 1.5, false)

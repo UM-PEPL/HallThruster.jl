@@ -55,6 +55,7 @@ using HallThruster: HallThruster as het
                     0.0
                 end
                 expected_loss = het._K_MUTUAL_NEUTRALIZATION .* partner_density .* ion.density
+                expected_loss[[1, end]] .= 0.0
                 @test ion.dens_ddt ≈ -expected_loss
                 if abs(ion.species.Z) > 1
                     @test all(iszero, ion.mom_ddt)

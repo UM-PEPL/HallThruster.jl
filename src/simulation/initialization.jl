@@ -142,8 +142,9 @@ function initialize_electrons_default!(params, anode_Tev, cathode_Tev, discharge
     energy_function(z) = 1.5 * (Te_baseline(z) + (Te_max - base_Te) * exp(-(((z - z0) - L_ch) / Te_width)^2))
 
     for (i, z) in enumerate(grid.cell_centers)
-        cache.nϵ[i] = cache.ne[i] * energy_function(z)
-        cache.Tev[i] = energy_function(z) / 1.5
+        cache.ne[i] = max(cache.ne[i], params.min_number_density)
+        cache.Tev[i] = max(params.min_Te, energy_function(z) / 1.5)
+        cache.nϵ[i] = 1.5 * cache.ne[i] * cache.Tev[i]
     end
 
     return

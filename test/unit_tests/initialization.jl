@@ -1,5 +1,21 @@
 using HallThruster: HallThruster as het
 
+@testset "Electron initialization floors" begin
+    grid = het.Grid1D([0.0, 0.05])
+    cache = (; ne = zeros(3), nϵ = zeros(3), Tev = zeros(3))
+    params = (; grid, cache, thruster = het.SPT_100, min_Te = 1.5, min_number_density = 2.0)
+    het.initialize_electrons_default!(params, 40.0, 36.0, 0.0)
+    @test cache.Tev[2] == params.min_Te
+    @test cache.ne == fill(params.min_number_density, 3)
+    @test cache.nϵ ≈ 1.5 .* cache.ne .* cache.Tev
+
+    config = het.Config(
+        thruster = het.SPT_100, domain = (0.0, 0.05),
+        discharge_voltage = 0.0, anode_mass_flow_rate = 0.0,
+    )
+    @test het.params_from_config(config).ingestion_flow_rates == [0.0]
+end
+
 function restart_fixture()
     ncells = 3
     z = collect(0.0:(ncells + 1))

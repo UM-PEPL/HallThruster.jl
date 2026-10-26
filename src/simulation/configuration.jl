@@ -474,7 +474,8 @@ function params_from_config(config)
     for (i, prop) in enumerate(config.propellants)
         # Number density fraction of a species == its number flow ratio through the anode
         ndot_a = prop.flow_rate_kg_s / prop.gas.m
-        ρn_B = background_neutral_density(prop, config) * ndot_a / ndot_anode
+        ρn_B = iszero(ndot_anode) ? 0.0 :
+            background_neutral_density(prop, config) * ndot_a / ndot_anode
         un_B = background_neutral_velocity(prop, config)
         ingestion_flow_rates[i] = fn * ρn_B * un_B * channel_area
     end
