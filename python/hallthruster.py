@@ -28,6 +28,8 @@ def run_simulation(
     :returns: `dict` of `Hallthruster.jl` outputs. The specific outputs depend on the settings
               provided in the `postprocess` dict in the input. If `postprocess['output_file']` is present,
               this function will also write the requested outputs and restart information to that file.
+    :raises subprocess.CalledProcessError: if Julia exits with a nonzero status, including when
+              `check=False` is passed. Failed runs never return an existing output file.
     """
     # Read JSON input from file if path provided
     if isinstance(input, str | Path):
@@ -74,31 +76,33 @@ def run_simulation(
         cmd = ['julia', '--startup-file=no', '--',
                str(Path(jl_script).resolve()), input_file]
 
-    if jl_env is not None:
-        if Path(jl_env).exists():
-            cmd.insert(1, f'--project={Path(jl_env).resolve()}')
-        else:
-            raise ValueError(f"Could not find Julia environment {jl_env}. Please create it first. "
-                             f"See https://github.com/JANUS-Institute/HallThrusterPEM/blob/main/scripts/install_hallthruster.py")
-
     try:
-        subprocess.run(cmd, **kwargs)
+        if jl_env is not None:
+            if Path(jl_env).exists():
+                cmd.insert(1, f'--project={Path(jl_env).resolve()}')
+            else:
+                raise ValueError(f"Could not find Julia environment {jl_env}. Please create it first. "
+                                 f"See https://github.com/JANUS-Institute/HallThrusterPEM/blob/main/scripts/install_hallthruster.py")
+
+        completed = subprocess.run(cmd, **kwargs)
+        completed.check_returncode()
+
+        # Read results only after Julia has exited successfully.
+        with open(output_file, 'r') as fp:
+            output_data = json.load(fp)
+
+        if temp_out:
+            if d := output_data.get('postprocess'):
+                if 'output_file' in d:
+                    del d['output_file']
+            if d := output_data.get('input'):
+                if d2 := d.get('postprocess'):
+                    if 'output_file' in d2:
+                        del d2['output_file']
+
+        return output_data
     finally:
-        # Delete temporary input file
+        # Clean up wrapper-owned files on both success and failure.
         os.unlink(input_file)
-
-    # Load output data
-    with open(output_file, 'r') as fp:
-        output_data = json.load(fp)
-
-    if temp_out:
-        os.unlink(output_file)
-        if d := output_data.get('postprocess'):
-            if 'output_file' in d:
-                del d['output_file']
-        if d := output_data.get('input'):
-            if d2 := d.get('postprocess'):
-                if 'output_file' in d2:
-                    del d2['output_file']
-
-    return output_data
+        if temp_out:
+            output_file.unlink(missing_ok=True)
