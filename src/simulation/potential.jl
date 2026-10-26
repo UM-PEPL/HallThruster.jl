@@ -1,22 +1,62 @@
-function update_electric_field!(∇ϕ, cache, apply_drag, min_number_density)
-    (; ji, Id, ne, μ, ∇pe, channel_area, νei, νen, νan, avg_ion_vel, avg_neutral_vel) = cache
+function update_electric_field!(∇ϕ, ie_idx, cache, apply_drag, min_number_density)
+    # ∇ϕ : mutable array of electric field values (discrete potential gradient over domain)
+    #         updated in place. convention in this code: ∇ϕ[i] = -E where E is electric field.
+    #         E is calculated from Ohm's law
+    # ie_idx : index of the intermediate electrode
+    # cache : named tuple with cached plasma fields (cell-centered arrays + scalar discharge current)
+    #    ji             : ion current density array (A/m^2)
+    #    Id             : discharge current scalar (Ref{Float64}, A)
+    #    ne             : electron density array (m^-3)
+    #    μ              : electron mobility array (m^2/V/s)
+    #    ∇pe            : electron pressure gradient array (Pa/m or appropriate unit)
+    #    channel_area   : channel cross-section area array (m^2)
+    #    νei            : electron-ion collision frequency array (s^-1)
+    #    νen            : electron-neutral collision frequency array (s^-1)
+    #    νan            : anomalous collision frequency array (s^-1)
+    #    avg_ion_vel    : mean ion velocity array (m/s)
+    #    avg_neutral_vel: mean neutral velocity array (m/s)
+    # apply_drag : Bool; if true include drag corrections from ion/neutrals in E-field update.
 
-    @inbounds for i in eachindex(∇ϕ)
-        E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
+    (; ji, Id, Id_L_IE, Id_IE_R, ne, μ, ∇pe, channel_area, νei, νen, νan, avg_ion_vel, avg_neutral_vel) = cache
 
-        if (apply_drag)
-            ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
-            neutral_drag = avg_neutral_vel[i] * νen[i] * me / e
-            E += ion_drag + neutral_drag
+    if ie_idx > 0
+        @printf("  calculating E in double mode\n")
+        # calculate E assuming intermediate electrode
+        @inbounds for i in eachindex(∇ϕ)
+            if i < ie_idx
+                E = ((Id_L_IE[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
+            else
+                E = ((Id_IE_R[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
+            end
+
+            if (apply_drag)
+                ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
+                neutral_drag = avg_neutral_vel[i] * νen[i] * me / e
+                E += ion_drag + neutral_drag
+            end
+
+            ∇ϕ[i] = -E # electric field, E is the negative gradient of the electrostatic potential
         end
+    else
+        @printf("  calculating E in single mode\n")
+        # calcualte E assuming no intermediate electrode (default case)
+        @inbounds for i in eachindex(∇ϕ)
+            E = ((Id[] / channel_area[i] - ji[i]) / e / μ[i] - ∇pe[i]) / max(ne[i], min_number_density)
 
-        ∇ϕ[i] = -E
+            if (apply_drag)
+                ion_drag = avg_ion_vel[i] * (νei[i] + νan[i]) * me / e
+                neutral_drag = avg_neutral_vel[i] * νen[i] * me / e
+                E += ion_drag + neutral_drag
+            end
+
+            ∇ϕ[i] = -E
+        end
     end
 
     return ∇ϕ
 end
 
-function integrate_potential!(ϕ, ∇ϕ, grid, V_L)
+function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IEp_R, ie_idx)
     # We need to make sure the potential is integrated from the left edge to the right edge,
     # rather than from the left ghost cell center to the right ghost cell center
 
@@ -27,19 +67,45 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L)
     grid.cell_centers[1] = grid.edges[1]
     grid.cell_centers[end] = grid.edges[end]
 
-    ∇ϕ[1] = 0.5 * (EL + ∇ϕ[2])
+    # Since the ghost-cell change upstream (214bc008), index 1 of the heavy species holds the anode
+    # edge (boundary) state rather than a ghost-cell value, so Ohm's law evaluated there is not a
+    # ghost-cell field. Averaging it with the first cell gives a spurious edge field when the anode
+    # boundary state is depleted (e.g. a starved first stage in two-stage runs). Use the first
+    # interior cell's field at the anode edge instead.
+    ∇ϕ[1] = ∇ϕ[2]
     ∇ϕ[end] = 0.5 * (ER + ∇ϕ[end - 1])
 
     # Integrate potential from left to right edge
-    cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
+    if ie_idx > 0 && !isnan(V_IEp_R)
+        # Left region: integrate from V_L, up to and including ie_idx
+        cumtrapz!(
+            view(ϕ, 1:ie_idx-1),
+            view(grid.cell_centers, 1:ie_idx-1),
+            view(∇ϕ, 1:ie_idx-1),
+            V_L,
+        )
+        # Right region: restart from V_IE at the IE boundary
+        cumtrapz!(
+            view(ϕ, ie_idx:length(ϕ)),
+            view(grid.cell_centers, ie_idx:length(grid.cell_centers)),
+            view(∇ϕ, ie_idx:length(∇ϕ)),
+            V_IEp_R,
+        )
+    else
+        cumtrapz!(ϕ, grid.cell_centers, ∇ϕ, V_L)
+    end
 
     #Extrapolate potential to ghost cells
     ϕ[1] = ϕ[1] + (ϕ[1] - ϕ[2])
     ϕ[end] = ϕ[end] + (ϕ[end] - ϕ[end - 1])
 
-    # Replace electric field and cell center values
+    # Replace electric field and cell center with original values
     grid.cell_centers[1], grid.cell_centers[end] = zL, zR
     ∇ϕ[1], ∇ϕ[end] = EL, ER
+
+    # debug printout
+    @printf("  EL: %.3f V/m, ER: %.3f V/m, zL: %.3f cm, zR: %.3f cm\n", EL, ER, zL*100, zR*100)
+
     return
 end
 
@@ -49,7 +115,7 @@ function anode_sheath_potential(params)
         return 0.0
     end
     (; anode_bc, cache) = params
-    (; ne, ji, channel_area, Tev, Id) = cache
+    (; ne, ji, channel_area, Tev, Id, Id_L_IE) = cache
 
     # Compute anode sheath potential
     @inbounds if anode_bc == :sheath
@@ -63,7 +129,11 @@ function anode_sheath_potential(params)
         je_sheath = e * ne_sheath_edge * ce / 4
 
         # Convective flux
-        jd = Id[] / channel_area[1]
+        if params.discharge_voltage_IE > 0
+            jd = Id_L_IE[] / channel_area[1] # use current on left side of IE if IE is present, since anode sheath is on left side of domain
+        else
+            jd = Id[] / channel_area[1]
+        end
         je_sheath_edge = jd - ji_sheath_edge
 
         current_ratio = je_sheath_edge / je_sheath
@@ -75,6 +145,34 @@ function anode_sheath_potential(params)
     else
         Vs = 0.0
     end
+
+    return Vs
+end
+
+function ie_sheath_potential(cache, ie_index, side::Symbol)
+    (; ne, ji, channel_area, Tev, Id_L_IE, Id_IE_R) = cache
+
+    if side === :L
+        idxStart = ie_index - 1
+        idxEnd = ie_index
+        jd = Id_L_IE[] / channel_area[idxStart]
+    elseif side === :R
+        idxStart = ie_index + 1
+        idxEnd = ie_index + 2
+        jd = Id_IE_R[] / channel_area[idxStart]
+    end
+
+    Te_sheath_edge = 0.5 * (Tev[idxStart] + Tev[idxEnd])
+    ne_sheath_edge = 0.5 * (ne[idxStart]  + ne[idxEnd])
+
+    ce = sqrt(8 * e * Te_sheath_edge / π / me)
+    je_sheath  = e * ne_sheath_edge * ce / 4
+
+    ji_sheath_edge = 0.5 * (ji[idxStart]  + ji[idxEnd])
+    je_sheath_edge = jd - ji_sheath_edge
+
+    # Compute the sheath potential at the intermediate electrode
+    Vs = (je_sheath_edge <= 0.0) ? 0.0 : -Te_sheath_edge * log(min(1.0, je_sheath_edge / je_sheath))
 
     return Vs
 end

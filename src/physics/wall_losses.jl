@@ -124,6 +124,22 @@ const wall_materials = (; Alumina, BoronNitride, SiliconDioxide, BNSiO2, Silicon
 Serialization.SType(::Type{WallMaterial}) = Serialization.EnumType()
 Serialization.options(::Type{WallMaterial}) = wall_materials
 
+# Built-in materials are written by name. A custom WallMaterial is written with all of its fields,
+# so user-defined materials (e.g. a tuned ϵ_star) can be saved to and restored from JSON.
+function Serialization.serialize(::Serialization.EnumType, x::WallMaterial)
+    for (k, v) in pairs(wall_materials)
+        v == x && return k
+    end
+    return OrderedDict{String, Any}("name" => x.name, "ϵ_star" => x.ϵ_star, "σ₀" => x.σ₀)
+end
+
+function Serialization.deserialize(::Serialization.EnumType, ::Type{WallMaterial}, x)
+    if x isa AbstractDict
+        return WallMaterial(name = string(x["name"]), ϵ_star = Float64(x["ϵ_star"]), σ₀ = Float64(x["σ₀"]))
+    end
+    return getfield(wall_materials, Symbol(x))
+end
+
 #=============================================================================
 # WallSheath
 ==============================================================================#
