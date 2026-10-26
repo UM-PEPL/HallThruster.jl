@@ -145,6 +145,12 @@ function compute_heavy_species_derivatives!(
     ) where {S}
     (; cache, grid, ion_wall_losses, reconstruct) = params
 
+    # A reflected ghost must mirror the current RK-stage state, not the state
+    # at the beginning of the timestep, or the predictor can leak through it.
+    for fluid in fluid_containers.isothermal
+        fluid.species.Z < 0 || continue
+        apply_negative_ion_anode_boundary!(fluid, cache.Vs[])
+    end
     update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
@@ -232,6 +238,8 @@ function update_heavy_species_cache!(fluids, cache, landmark, min_number_density
         )
     )
     fallback_ion_mass = first(fluids.isothermal).species.element.m
+    ion_number_density = cache.cell_cache_2
+    fill!(ion_number_density, 0.0)
 
     @inbounds @simd for i in eachindex(ne)
         ne[i] = 0.0
@@ -257,7 +265,7 @@ function update_heavy_species_cache!(fluids, cache, landmark, min_number_density
     # Update plasma quantities
     @inbounds for fluid in fluids.isothermal
         inv_m = inv(fluid.species.element.m)
-        Z = fluid.species.Z
+        Z = Int(fluid.species.Z)
 
         @simd for i in eachindex(fluid.density)
             _ni = fluid.density[i] * inv_m
@@ -265,8 +273,10 @@ function update_heavy_species_cache!(fluids, cache, landmark, min_number_density
             ne[i] += Z * _ni
             ji[i] += Z * e * _niui
             avg_ion_vel[i] += _niui
-            # First pass, store total ion mass density in m_eff and ion number density in Z_eff
-            Z_eff[i] += _ni
+            # Keep number weighting for ion mass/velocity separate from the
+            # charge-squared moment required by electron transport.
+            ion_number_density[i] += _ni
+            Z_eff[i] += Z^2 * _ni
             m_eff[i] += fluid.density[i]
         end
     end
@@ -277,12 +287,12 @@ function update_heavy_species_cache!(fluids, cache, landmark, min_number_density
             avg_neutral_vel[i] / neutral_density : 0.0
         ne[i] = max(ne[i], min_number_density)
 
-        ion_density = Z_eff[i]
+        ion_density = ion_number_density[i]
         if ion_density > 0
             inv_ion_density = inv(ion_density)
             avg_ion_vel[i] *= inv_ion_density
             m_eff[i] *= inv_ion_density
-            Z_eff[i] = ne[i] * inv_ion_density
+            Z_eff[i] /= ne[i]
         else
             # A zero-density cell can occur in user initial conditions or a
             # restart before density limiting runs. Keep derived quantities
@@ -404,20 +414,8 @@ function apply_left_boundary!(
             neutral_density -= boundary_flux / un
 
         else
-            KE = 0.5 * mi * interior_velocity^2
-            barrier = abs(Z) * e * Vs
-
-            if KE >= barrier
-                # Ion reaches anode with reduced speed
-                KE_boundary = KE - barrier
-                boundary_velocity = -sqrt(2 * KE_boundary / mi)  # toward anode
-                boundary_density = interior_density
-                boundary_flux = boundary_density * boundary_velocity
-            else
-                # Reflected
-                boundary_density = interior_density
-                boundary_flux = 0.0
-            end
+            apply_negative_ion_anode_boundary!(fluid, Vs)
+            continue
         end
 
         fluid.density[1] = boundary_density
@@ -434,6 +432,25 @@ function apply_left_boundary!(
     end
 
     return
+end
+
+function apply_negative_ion_anode_boundary!(fluid, sheath_potential)
+    mass = fluid.species.element.m
+    density = fluid.density[2]
+    momentum = fluid.momentum[2]
+    velocity = primitive_velocity(momentum, density)
+    kinetic_energy = 0.5 * mass * velocity^2
+    barrier = abs(Int(fluid.species.Z)) * e * sheath_potential
+    fluid.density[1] = density
+    if kinetic_energy >= barrier
+        # Transmitted ions reach the anode with reduced kinetic energy.
+        boundary_velocity = -sqrt(2 * (kinetic_energy - barrier) / mass)
+        fluid.momentum[1] = density * boundary_velocity
+    else
+        # Mirroring velocity makes the Rusanov mass flux exactly zero.
+        fluid.momentum[1] = -momentum
+    end
+    return nothing
 end
 
 function apply_right_boundary!(fluids, min_number_density)

@@ -11,6 +11,8 @@ function allocate_arrays(ncells::Int, n_anom_vars::Int)
         # Caches for energy solve
         Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
         bϵ = zeros(ncells),
+        energy_flux_left = zeros(ncells - 1),
+        energy_flux_right = zeros(ncells - 1),
         # Collision frequencies
         νan_base = zeros(ncells),
         νan = zeros(ncells),

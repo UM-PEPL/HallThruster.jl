@@ -193,6 +193,9 @@ function freq_electron_wall!(νew::Vector{Float64}, model::WallSheath, params)
     # Accumulate the ion current with species constants outside the cell loop.
     @inbounds for fluid in params.fluid_containers.isothermal
         Z = fluid.species.Z
+        # Negative ions are repelled, as in the ion wall-loss model. They
+        # cannot subtract from the positive-ion flux balancing wall electrons.
+        Z > 0 || continue
         inv_mi = inv(fluid.species.element.m)
         coeff = Z * model.loss_scale * h * inv_mi * sqrt(abs(Z) * e * inv_mi)
         @simd for i in eachindex(νew)

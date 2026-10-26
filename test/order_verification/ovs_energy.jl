@@ -24,7 +24,8 @@ ui = sin_wave(x / L, amplitude = 13000, phase = π / 4, nwaves = 0.75, offset = 
 ∇ϕ = Dx(ϕ)
 nϵ = ne * ϵ
 ue = μ * (∇ϕ - Dx(nϵ) / ne)
-κ = 10 / 9 * μ * nϵ
+# Physical conductivity against ∇Te; the manufactured flux below uses ∇ϵ.
+κ = 5 / 3 * μ * nϵ
 
 ϕ_func = eval(build_function(ϕ, [x]))
 ne_func = eval(build_function(ne, [x]))

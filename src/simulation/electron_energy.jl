@@ -26,113 +26,62 @@ function update_electron_energy!(params, wall_loss_model, user_source_energy!, d
     return
 end
 
-function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
-    (; ne, ue, κ, ji, channel_area, dA_dz, nϵ) = cache
+# One pair of coefficients per face is shared by both adjacent cells. κ is
+# defined against temperature; the unknown nϵ/ne is mean energy = 3/2 Tev.
+function energy_flux_coefficients!(grid, cache, anode_bc)
+    (; ne, ue, κ, nϵ, energy_flux_left, energy_flux_right) = cache
+    @inbounds for face in eachindex(grid.edges)
+        left, right = face, face + 1
+        distance = grid.dz_edge[face]
+        weight = (grid.edges[face] - grid.cell_centers[left]) / distance
+        velocity = lerp(ue[left], ue[right], weight)
+        conductivity = (2 / 3) * lerp(κ[left], κ[right], weight)
+        energy_flux_left[face] = (5 / 3) * max(velocity, 0.0) +
+            conductivity / (distance * ne[left])
+        energy_flux_right[face] = (5 / 3) * min(velocity, 0.0) -
+            conductivity / (distance * ne[right])
+    end
 
-    explicit = 1.0 - implicit
+    if anode_bc == :sheath && ue[2] <= 0
+        # Maxwellian electrons carry 2 Tev + Vs out of the sheath edge.
+        temperature = (2 / 3) * nϵ[2] / ne[2]
+        energy_flux_left[1] = 0.0
+        energy_flux_right[1] = (4 / 3) * ue[2] *
+            (1 + cache.Vs[] / (2 * temperature))
+    end
+    return nothing
+end
+
+@inline function energy_face_area(grid, area, face)
+    weight = (grid.edges[face] - grid.cell_centers[face]) / grid.dz_edge[face]
+    return lerp(area[face], area[face + 1], weight)
+end
+
+function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
+    (; channel_area, nϵ, energy_flux_left, energy_flux_right) = cache
+    energy_flux_coefficients!(grid, cache, anode_bc)
     Q = cache.cell_cache_1
 
     @inbounds for i in interior_cells(grid.cell_centers)
-        # Get properties in neighboring cells:
+        left, right = left_edge(i), right_edge(i)
+        volume = channel_area[i] * grid.dz_cell[i]
+        left_scale = energy_face_area(grid, channel_area, left) / volume
+        right_scale = energy_face_area(grid, channel_area, right) / volume
 
-        # Electron density
-        neL = ne[i - 1]
-        ne0 = ne[i]
-        neR = ne[i + 1]
+        # A^-1 ∂z(A F) for the entire flux, including heat conduction. Sharing
+        # face areas and fluxes makes internal transfers cancel exactly.
+        lower = -left_scale * energy_flux_left[left]
+        diagonal = right_scale * energy_flux_left[right] -
+            left_scale * energy_flux_right[left]
+        upper = right_scale * energy_flux_right[right]
+        divergence = lower * nϵ[i - 1] + diagonal * nϵ[i] + upper * nϵ[i + 1]
 
-        # Electron energy density
-        nϵL = nϵ[i - 1]
-        nϵ0 = nϵ[i]
-        nϵR = nϵ[i + 1]
-
-        # Electron velocity
-        ueL = ue[i - 1]
-        ue0 = ue[i]
-        ueR = ue[i + 1]
-
-        # Thermal conductivity
-        κL = κ[i - 1]
-        κ0 = κ[i]
-        κR = κ[i + 1]
-
-        ΔzL = grid.dz_edge[left_edge(i)]
-        ΔzR = grid.dz_edge[right_edge(i)]
-        Δz = grid.dz_cell[i]
-
-        # Weighted average of the electron velocities in the three stencil cells
-        ue_avg = 0.25 * (ΔzL * (ueL + ue0) + ΔzR * (ue0 + ueR)) / Δz
-
-        # Upwind differences
-        if ue_avg > 0
-            FR_factor_L = 0.0
-            FR_factor_C = 5 / 3 * ue0 + κ0 / ΔzR / ne0
-            FR_factor_R = -κ0 / ΔzR / neR
-
-            FL_factor_L = 5 / 3 * ueL + κL / ΔzL / neL
-            FL_factor_C = -κL / ΔzL / ne0
-            FL_factor_R = 0.0
-        else
-            if i == 2 && anode_bc == :sheath
-                # left flux is sheath heat flux
-                Te0 = 2 / 3 * nϵ0 / ne0
-
-                # discharge current density
-                # channel area is constant inside channel so [1] is an OK index.
-                jd = cache.Id[] / channel_area[1]
-
-                # current densities at sheath edge
-                ji_sheath_edge = ji[2]
-                je_sheath_edge = jd - ji_sheath_edge
-
-                ne_sheath_edge = ne[2]
-                ue_sheath_edge = -je_sheath_edge / ne_sheath_edge / e
-
-                FL_factor_L = 0.0
-                FL_factor_C = 4 / 3 * ue_sheath_edge * (1 + cache.Vs[] / Te0)
-                FL_factor_R = 0.0
-            elseif i == 2
-                # central differences at left boundary for compatibility with dirichlet BC
-                FL_factor_L = 5 / 3 * ueL + κL / ΔzL / neL
-                FL_factor_C = -κL / ΔzL / ne0
-                FL_factor_R = 0.0
-            else
-                # Upwind differences
-                FL_factor_L = κ0 / ΔzL / neL
-                FL_factor_C = 5 / 3 * ue0 - κ0 / ΔzL / ne0
-                FL_factor_R = 0.0
-            end
-
-            FR_factor_L = 0.0
-            FR_factor_C = κR / ΔzR / ne0
-            FR_factor_R = 5 / 3 * ueR - κR / ΔzR / neR
-        end
-
-        # Fluxes at left and right boundary
-        FL = FL_factor_L * nϵL + FL_factor_C * nϵ0 + FL_factor_R * nϵR
-        FR = FR_factor_L * nϵL + FR_factor_C * nϵ0 + FR_factor_R * nϵR
-
-        # Contribution to implicit part from fluxes
-        Aϵ.d[i] = (FR_factor_C - FL_factor_C) / Δz
-        Aϵ.dl[i - 1] = (FR_factor_L - FL_factor_L) / Δz
-        Aϵ.du[i] = (FR_factor_R - FL_factor_R) / Δz
-
-        # Contribution to implicit part from timestepping
-        Aϵ.d[i] = 1.0 + implicit * dt * Aϵ.d[i]
-        Aϵ.dl[i - 1] = implicit * dt * Aϵ.dl[i - 1]
-        Aϵ.du[i] = implicit * dt * Aϵ.du[i]
-
-        # Explicit flux
-        F_explicit = (FR - FL) / Δz
-
-        # Term to allow for changing area
-        dlnA_dz = dA_dz[i] / channel_area[i]
-        flux = 5 / 3 * nϵ0 * ue0
-
-        # Explicit right-hand-side
-        bϵ[i] = nϵ[i] + dt * (Q[i] - explicit * F_explicit)
-        bϵ[i] -= dt * flux * dlnA_dz
+        Aϵ.dl[i - 1] = implicit * dt * lower
+        Aϵ.d[i] = 1.0 + implicit * dt * diagonal
+        Aϵ.du[i] = implicit * dt * upper
+        bϵ[i] = nϵ[i] + dt * (Q[i] - (1 - implicit) * divergence)
     end
-    return
+    return nothing
 end
 
 function energy_boundary_conditions!(Aϵ, bϵ, Te_L, Te_R, ne, ue, anode_bc)
