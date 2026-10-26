@@ -167,7 +167,7 @@ function compute_heavy_species_derivatives!(
     # The empirical 0.799 stability limit applies to chemistry. Transport and
     # acceleration can use a higher user-specified CFL independently.
     chemistry_CFL = min(CFL, 0.799)
-    cache.dt[] = min(
+    cache.dt_limit[] = min(
         chemistry_CFL * cache.dt_iz[],
         sqrt(CFL) * cache.dt_E[],
         CFL * min_dt_u,

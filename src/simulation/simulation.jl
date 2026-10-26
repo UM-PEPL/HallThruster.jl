@@ -91,13 +91,7 @@ function setup_simulation(
     # ================================================================================
     # Timestep setup
     # ================================================================================
-    # Make the adaptive timestep independent of input condition
-    dt = sim.dt
-    if sim.adaptive
-        dt = 100 * eps() # small initial timestep to initialize everything
-    end
-
-    cache.dt .= dt
+    dt = initial_timestep(sim)
 
     # ================================================================================
     # Setup simulation parameters

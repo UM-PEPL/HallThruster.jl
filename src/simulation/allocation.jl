@@ -105,7 +105,7 @@ function allocate_arrays(ncells::Int, n_anom_vars::Int)
 
         # Timesteps
         dt_iz = zeros(1),
-        dt = zeros(1),
+        dt_limit = [Inf],
         dt_E = zeros(1),
     )
 

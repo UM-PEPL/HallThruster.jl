@@ -23,6 +23,7 @@ using HallThruster: HallThruster as het
     end
 
     @test Aϵ isa het.Tridiagonal
+    @test cache.dt_limit[] == Inf
     @test size(reaction_rate_indices) == (ncells + 2,)
     @test eltype(reaction_rate_indices) == Int
 end

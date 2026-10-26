@@ -272,11 +272,13 @@ function test_integral_current_control_bohmlike()
         solver = het.SolverState(params; tspan = (0.0, sim.duration))
 
         for _ in 1:50
-            expected_log_multiplier = log(params.cache.anom_multiplier[]) +
-                controller.integral_constant *
-                (controller.target_value - params.cache.Id[]) * params.dt[]
+            previous_log_multiplier = log(params.cache.anom_multiplier[])
+            previous_current = params.cache.Id[]
 
             @test het.step_solver!(params, config, solver)
+            expected_log_multiplier = previous_log_multiplier +
+                controller.integral_constant *
+                (controller.target_value - previous_current) * params.dt[]
             multiplier = params.cache.anom_multiplier[]
             @test isfinite(multiplier) && multiplier > 0
             @test log(multiplier) ≈ expected_log_multiplier atol = 1e-14

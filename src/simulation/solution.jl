@@ -229,13 +229,13 @@ $(TYPEDFIELDS)
     discharge_current::Array{Float64, 0}
     """ Discharge voltage (V)"""
     discharge_voltage::Array{Float64, 0} = fill(0.0) # need to provide default value for backwards compatibility when loading
-    """Simulation timestep (s)"""
+    """Simulation timestep used in the last step before this frame (s)"""
     dt::Array{Float64, 0}
 end
 
 function Frame(
         fluids_by_propellant, cache, species_energies_eV,
-        radiative_transitions, radiative_emission_counts, emission_interval,
+        radiative_transitions, radiative_emission_counts, emission_interval, dt,
     )
     neutrals, ions, excited_states = _get_species_states(
         fluids_by_propellant, species_energies_eV,
@@ -272,11 +272,11 @@ function Frame(
         anom_multiplier = fill(cache.anom_multiplier[]),
         discharge_current = fill(cache.Id[]),
         discharge_voltage = fill(cache.Vd[]),
-        dt = fill(cache.dt[]),
+        dt = fill(dt),
     )
 end
 
-function Frame(params, emission_interval)
+function Frame(params, emission_interval; dt = params.dt[])
     materialize_radiative_emissions!(
         params.radiative_emission_counts, params.radiative_networks,
     )
@@ -287,6 +287,7 @@ function Frame(params, emission_interval)
         params.radiative_transitions,
         params.radiative_emission_counts,
         emission_interval,
+        dt,
     )
 end
 
@@ -542,49 +543,90 @@ end
 mutable struct SolverState
     t::Float64
     saveat::Vector{Float64}
-    save_ind::Int
     frames::Vector{Frame}
     times::Vector{Float64}
-    last_save_time::Float64
-    small_step_count::Int
-    uniform_steps::Bool
+    small_steps::Int
+    fallback_steps_remaining::Int
     retcode::Symbol
 
     function SolverState(params; tspan, num_save = -1)
         # Initialize starting time and iterations
-        t = tspan[1]
+        t, t_end = Float64.(tspan)
+        isfinite(t) && isfinite(t_end) && t_end > t || throw(
+            ArgumentError("tspan must have finite, strictly increasing endpoints.")
+        )
 
         # Error handling
         retcode = :success
 
         # Frame saving setup
-        saveat = collect(range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save))
-        save_ind = 2
-        frames = [Frame(params, 0.0)]
-        times = zeros(length(saveat))
-        times[1] = t
-        last_save_time = t
-
-        # Parameters for adaptive timestep escape hatch
-        small_step_count = 0
-        uniform_steps = false
+        num_frames = num_save == -1 ? params.simulation.num_save : num_save
+        num_frames >= 2 || throw(ArgumentError("num_save must be at least 2, including the initial and final frames."))
+        saveat = collect(range(t, t_end, length = num_frames))
+        all(i -> saveat[i] > saveat[i - 1], 2:num_frames) || throw(
+            ArgumentError("Save times must be distinct; reduce num_save or increase tspan.")
+        )
+        frames = [Frame(params, 0.0; dt = 0.0)]
+        times = [t]
 
         return new(
             t,
             saveat,
-            save_ind,
             frames,
             times,
-            last_save_time,
-            small_step_count,
-            uniform_steps,
+            0,
+            0,
             retcode,
         )
     end
 end
 
+function select_timestep!(params, solver::SolverState)
+    sim = params.simulation
+    first_step = params.iteration[] == 1
+    using_adaptive_limit = sim.adaptive && !first_step && solver.fallback_steps_remaining == 0
+    candidate = if !sim.adaptive || solver.fallback_steps_remaining > 0
+        sim.dt
+    elseif first_step
+        initial_timestep(sim)
+    else
+        clamp(params.cache.dt_limit[], sim.min_dt, sim.max_dt)
+    end
+
+    next_save_time = solver.saveat[length(solver.times) + 1]
+    time_to_save = next_save_time - solver.t
+    dt = min(candidate, time_to_save)
+    isfinite(dt) && dt > 0 || throw(ArgumentError("Selected timestep must be positive and finite; got $dt."))
+    params.dt[] = dt
+
+    return (;
+        next_save_time,
+        reaches_save = dt == time_to_save,
+        at_minimum = using_adaptive_limit && candidate == sim.min_dt && dt == candidate,
+    )
+end
+
+function save_checkpoint!(params, solver::SolverState)
+    next_save_index = length(solver.times) + 1
+    next_save_index > length(solver.saveat) && return nothing
+    solver.t < solver.saveat[next_save_index] && return nothing
+
+    frame = Frame(params, solver.t - solver.times[end])
+    push!(solver.frames, frame)
+    push!(solver.times, solver.t)
+    reset_radiative_emissions!(
+        params.radiative_emission_counts, params.radiative_networks,
+    )
+    return nothing
+end
+
 function step_solver!(params, config, solver::SolverState)
-    any_nan = integrate_heavy_species!(params.fluid_containers, params, config.source_heavy_species, params.dt[])
+    solver.retcode != :success && return false
+    length(solver.times) == length(solver.saveat) && return false
+
+    selection = select_timestep!(params, solver)
+    step_dt = params.dt[]
+    any_nan = integrate_heavy_species!(params.fluid_containers, params, config.source_heavy_species, step_dt)
     sim = params.simulation
 
     if any_nan
@@ -620,74 +662,36 @@ function step_solver!(params, config, solver::SolverState)
 
     # Update the current iteration and time
     params.iteration[] += 1
-    solver.t += params.dt[]
+    # Assign checkpoint times directly to avoid an extra roundoff-sized step.
+    solver.t = selection.reaches_save ? selection.next_save_time : solver.t + step_dt
 
     # Allow for system interrupts at pre-determined intervals
     if params.iteration[] % 100 == 0
         yield()
     end
 
-    #====
-    Save the current simulation state if we jumped over or landed on a checkpoint time.
-    This should always be a direct hit, but just in case we allow for a miss.
-    ====#
-    if solver.t >= solver.saveat[solver.save_ind]
-        push!(solver.frames, Frame(params, solver.t - solver.last_save_time))
-        reset_radiative_emissions!(
-            params.radiative_emission_counts, params.radiative_networks,
-        )
-        solver.times[solver.save_ind] = solver.t
-        solver.last_save_time = solver.t
-        solver.save_ind += 1
-    end
-
-    solver.t >= solver.saveat[end] && return false
-
-    #====
-    Compute the new timestep
-    If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
-    minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
-    (see below).
-    We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
-    so that we land on it exactly.
-    ====#
+    # Count completed minimum-sized adaptive steps independently of the fallback
+    # countdown. Startup and checkpoint-shortened steps cannot trigger fallback.
     if sim.adaptive
-        if solver.uniform_steps
-            params.dt[] = sim.dt
-            solver.small_step_count -= 1
+        if solver.fallback_steps_remaining > 0
+            solver.fallback_steps_remaining -= 1
+        elseif selection.at_minimum
+            solver.small_steps += 1
+            if solver.small_steps >= sim.max_small_steps
+                solver.fallback_steps_remaining = sim.max_small_steps
+                solver.small_steps = 0
+            end
         else
-            params.dt[] = clamp(params.cache.dt[], sim.min_dt, sim.max_dt)
+            solver.small_steps = 0
         end
     end
 
-    # TODO: check this over for bugs
-    if solver.t + params.dt[] > solver.saveat[solver.save_ind]
-        params.dt[] = solver.saveat[solver.save_ind] - solver.t
-    end
-
-    #====
-    Count how many times we've taken the minimum allowable timestep.
-    If we exceed the threshold, then start taking longer uniform steps for a bit.
-    This helps break out of cases where adaptive timestepping gets stuck ---
-    either by resolving the situation or by causing the simulation to fail fast
-    ====#
-    if params.dt[] == sim.min_dt
-        solver.small_step_count += 1
-    elseif !solver.uniform_steps
-        solver.small_step_count = 0
-    end
-
-    if solver.small_step_count >= sim.max_small_steps
-        solver.uniform_steps = true
-    elseif solver.small_step_count == 0
-        solver.uniform_steps = false
-    end
-
-    return true
+    save_checkpoint!(params, solver)
+    return length(solver.times) < length(solver.saveat)
 end
 
 function solve(params, config, tspan; num_save = -1)
-    # Initialze solver state
+    # Initialize solver state
     solver = SolverState(params; tspan, num_save)
     errstring = ""
 
