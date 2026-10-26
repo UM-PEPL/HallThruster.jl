@@ -103,6 +103,14 @@ end
 
 @inline ion_momentum_flux(m, n, nu) = n > 0 ? m * nu^2 / n : 0.0
 
+# Excited neutrals share the excited-state collection with excited ions.
+function ion_states(frame::Frame)
+    return Iterators.flatten((
+        Iterators.flatten(values(frame.ions)),
+        (state for state in values(frame.excited_states) if state.Z != 0),
+    ))
+end
+
 """
     $(TYPEDSIGNATURES)
 Compute the thrust at a specific frame of a `Solution`.
@@ -113,11 +121,9 @@ function thrust(sol::Solution, frame::Integer)
     right_area = f.channel_area[end]
     thrust = 0.0
 
-    for ions in values(f.ions)
-        for ion in ions
-            thrust += right_area * ion_momentum_flux(ion.m, ion.n[end], ion.nu[end])
-            thrust -= left_area * ion_momentum_flux(ion.m, ion.n[begin], ion.nu[begin])
-        end
+    for ion in ion_states(f)
+        thrust += right_area * ion_momentum_flux(ion.m, ion.n[end], ion.nu[end])
+        thrust -= left_area * ion_momentum_flux(ion.m, ion.n[begin], ion.nu[begin])
     end
 
     # Multiply by sqrt of divergence efficiency to model loss of ions in radial direction
@@ -260,10 +266,8 @@ function mass_eff(sol::Solution, frame)
     mdot = sum(prop.flow_rate_kg_s for prop in sol.config.propellants)
     mdot_i = 0.0
 
-    for ions in values(f.ions)
-        for ion in ions
-            mdot_i += ion.m * ion.nu[end] * right_area
-        end
+    for ion in ion_states(f)
+        mdot_i += ion.m * ion.nu[end] * right_area
     end
 
     return mdot_i / mdot

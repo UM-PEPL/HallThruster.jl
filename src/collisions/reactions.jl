@@ -306,9 +306,15 @@ function load_reactions(
         propellant_config, species, iz_model, ex_model, en_model;
         directories = String[],
     )
-    if !isempty(propellant_config) && isfile(propellant_config)
-        contents = TOML.parsefile(propellant_config)
+    if !isempty(propellant_config)
+        propellant_config_path = find_file_in_dirs(propellant_config, directories)
+        isnothing(propellant_config_path) && error(
+            "Propellant config file $(propellant_config) not found in current directory " *
+            "or any of the provided directories ($(directories))"
+        )
+        contents = TOML.parsefile(propellant_config_path)
         if haskey(contents, "reactions")
+            configured_directories = [directories; dirname(abspath(propellant_config_path))]
             ei_reactions = ElectronImpactReaction[]
             ex_reactions = ExcitationReaction[]
             en_reactions = ElasticCollision[]
@@ -319,7 +325,7 @@ function load_reactions(
                 type = reaction["type"]
                 if type == "electron_impact"
                     configured = _load_electron_impact_reaction(
-                        reaction, species_map, directories,
+                        reaction, species_map, configured_directories,
                     )
                     isnothing(configured) || push!(ei_reactions, configured)
                 elseif type == "de-excitation"
@@ -327,7 +333,7 @@ function load_reactions(
                     isnothing(configured) || push!(de_reactions, configured)
                 elseif type == "excitation" || type == "elastic"
                     configured = _load_target_collision(
-                        reaction, type, species_map, directories,
+                        reaction, type, species_map, configured_directories,
                     )
                     if !isnothing(configured)
                         type == "excitation" ?

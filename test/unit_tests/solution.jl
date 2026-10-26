@@ -57,6 +57,48 @@ function test_solution_serialization()
     test_roundtrip(het.Frame, frame)
     test_roundtrip(het.Solution, avg)
 
+    @testset "Excited ions in performance metrics" begin
+        metrics_sol = deepcopy(avg)
+        metrics_frame = only(metrics_sol.frames)
+        ground_ion = metrics_frame.ions[:Xe][1]
+        metrics = (het.thrust, het.mass_eff, het.anode_eff)
+        baseline = [metric(metrics_sol, 1) for metric in metrics]
+
+        excited_ion = het.SpeciesState(;
+            n = 0.5 .* ground_ion.n,
+            nu = 0.5 .* ground_ion.nu,
+            u = copy(ground_ion.u),
+            m = ground_ion.m,
+            Z = ground_ion.Z,
+            excited_level = 1,
+            energy_eV = 13.4,
+        )
+        metrics_frame.excited_states[het.Xenon(1, 1).symbol] = excited_ion
+        ground_ion.n .*= 0.5
+        ground_ion.nu .*= 0.5
+
+        # Excited neutrals must not contribute to ion performance metrics,
+        # even when they have a substantial density and flux.
+        metrics_frame.excited_states[het.Xenon(0, 1).symbol] = het.SpeciesState(;
+            n = 100 .* excited_ion.n,
+            nu = 100 .* excited_ion.nu,
+            u = copy(excited_ion.u),
+            m = excited_ion.m,
+            Z = 0,
+            excited_level = 1,
+            energy_eV = 8.3,
+        )
+        @test [metric(metrics_sol, 1) for metric in metrics] ≈ baseline
+
+        # The same total ion beam can reside entirely in an excited state.
+        excited_ion.n .+= ground_ion.n
+        excited_ion.nu .+= ground_ion.nu
+        ground_ion.n .= 0.0
+        ground_ion.nu .= 0.0
+        ground_ion.u .= 0.0
+        @test [metric(metrics_sol, 1) for metric in metrics] ≈ baseline
+    end
+
     # Explicitly tracked neutral and ion levels are emitted separately from the
     # ground-state collections and retain their derived energies.
     excited_propellant = het.Propellant(

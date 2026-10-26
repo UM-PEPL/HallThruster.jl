@@ -23,6 +23,20 @@ function CircuitElement(type::Char, value::Float64)
     return CircuitElement(value, 0.0, 0.0, 0.0, 0.0, type)
 end
 
+function Serialization.serialize(element::CircuitElement)
+    return OrderedDict("type" => string(element.type), "value" => element.value)
+end
+
+function Serialization.deserialize(::Type{CircuitElement}, dict)
+    type = dict["type"]
+    type isa AbstractString && length(type) == 1 || throw(
+        ArgumentError("Circuit element type must be a single character: R, L, or C.")
+    )
+    # Circuit configuration excludes transient currents and voltages. The
+    # validated constructor initializes those fields to zero on reload.
+    return CircuitElement(only(type), deserialize(Float64, dict["value"]))
+end
+
 """
 $(TYPEDEF)
 
@@ -99,7 +113,7 @@ function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float
         inductor.dI_dt = R * (Id - inductor.I) / L
 
         # Update discharge voltage
-        Vd = V0 - L * inductor.I
+        Vd = V0 - L * inductor.dI_dt
 
     elseif model.type == :ParallelRC
         resistor, capacitor = model.elements
