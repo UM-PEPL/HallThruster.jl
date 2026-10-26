@@ -199,8 +199,10 @@ function integrate_discharge_current(grid, cache, V_L, V_R, edgeSide, apply_drag
 
     # Replace values at edges of the cell range being integrated over
     if (edgeSide == "left" || edgeSide == "both")
-        integrand_1[first(cell_range)] = 0.5 * (integrand_1[first(cell_range)] + integrand_1[first(cell_range)+1])
-        integrand_2[first(cell_range)] = 0.5 * (integrand_2[first(cell_range)] + integrand_2[first(cell_range)+1])
+        # Anode edge: index 1 holds the heavy-species boundary state (see integrate_potential!),
+        # so use the first interior cell's integrands at the edge instead of averaging with it
+        integrand_1[first(cell_range)] = integrand_1[first(cell_range)+1]
+        integrand_2[first(cell_range)] = integrand_2[first(cell_range)+1]
     end
     if (edgeSide == "right" || edgeSide == "both")
         integrand_1[last(cell_range)]  = 0.5 * (integrand_1[last(cell_range)-1] + integrand_1[last(cell_range)])

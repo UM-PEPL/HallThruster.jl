@@ -67,7 +67,12 @@ function integrate_potential!(ϕ, ∇ϕ, grid, V_L, V_IEp_R, ie_idx)
     grid.cell_centers[1] = grid.edges[1]
     grid.cell_centers[end] = grid.edges[end]
 
-    ∇ϕ[1] = 0.5 * (EL + ∇ϕ[2])
+    # Since the ghost-cell change upstream (214bc008), index 1 of the heavy species holds the anode
+    # edge (boundary) state rather than a ghost-cell value, so Ohm's law evaluated there is not a
+    # ghost-cell field. Averaging it with the first cell gives a spurious edge field when the anode
+    # boundary state is depleted (e.g. a starved first stage in two-stage runs). Use the first
+    # interior cell's field at the anode edge instead.
+    ∇ϕ[1] = ∇ϕ[2]
     ∇ϕ[end] = 0.5 * (ER + ∇ϕ[end - 1])
 
     # Integrate potential from left to right edge
