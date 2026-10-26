@@ -768,7 +768,9 @@ const _K_MUTUAL_NEUTRALIZATION = 1.0e-12   # m^3/s
 # Aggregated neutral-induced detachment rate (A^- + N -> A + N + e^-); n_e-independent, dominates the cold shoulder where MN is weak.
 const _K_NEUTRAL_DETACHMENT = 1.0e-12   # m^3/s
 
-# Apply mutual neutralization A^- + B^+ -> neutral A + neutral B: the dominant n_e-independent negative-ion sink that bounds α = n_-/n_e; added as a direct source term since the electron-impact framework can't express it.
+# Apply mutual neutralization A^- + B^+ -> neutral A + neutral B:
+# the dominant n_e-independent negative-ion sink that bounds α = n_-/n_e;
+# added as a direct source term since the electron-impact framework can't express it.
 function apply_mutual_neutralization!(params)
     k_MN = _K_MUTUAL_NEUTRALIZATION
     propellant_groups = params.fluids_by_propellant

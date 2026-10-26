@@ -154,6 +154,7 @@ Derive species energies in eV from one-to-one electron-impact reactions. The
 neutral ground state defines zero energy for each gas. Reaction header energies
 provide differences between levels, including ionization thresholds connecting
 different charge-state manifolds.
+TODO: This should be replaced with explicit level energy specification in a future version.
 """
 function derive_species_energies(species, reactions)
     adjacency = Dict{Symbol, Vector{Tuple{Symbol, Float64}}}(
@@ -251,16 +252,17 @@ function _load_electron_impact_reaction(reaction, species_map, directories)
     reactants, reactant_coeffs = reactant_data
     products, product_coeffs = product_data
 
-    length(reactants) == 1 || error(
+    if length(reactants) == 1
         "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
-    )
-    only(reactant_coeffs) == 1 || error(
-        "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
-    )
+    end
 
-    energy, rate_coeffs = _load_configured_rate_coefficients(
-        reaction, "electron_impact", directories,
-    )
+    if only(reactant_coeffs) == 1
+        "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
+    end
+
+
+    energy, rate_coeffs = _load_configured_rate_coefficients( reaction, "electron_impact", directories)
+
     return ElectronImpactReaction(
         only(reactants), products, product_coeffs, rate_coeffs, energy,
     )
