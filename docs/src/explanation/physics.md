@@ -332,7 +332,7 @@ Mutual neutralization, ``A^- + B^+ \rightarrow A + B``, is modeled at rate
     R_{\mathrm{MN}} = k_{\mathrm{MN}}\, n_-\, n_+.
 ```
 
-It removes one positive and one negative ion, returning their mass and directed momentum to the parent neutral fluids. Because the rate depends on ion densities rather than ``n_e``, it stays active in strongly electronegative regions and self-limits as ``n_-`` grows.
+It removes one positive and one negative ion, returning their mass and directed momentum to the parent neutral fluids. This built-in channel applies only to singly charged reactants (``Z=-1`` and ``Z=+1``), including their explicitly tracked excited levels. Multiply charged ions do not participate in this channel. Because the rate depends on ion densities rather than ``n_e``, it stays active in strongly electronegative regions and self-limits as ``n_-`` grows.
 
 ### Associative detachment
 

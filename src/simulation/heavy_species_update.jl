@@ -771,6 +771,8 @@ const _K_NEUTRAL_DETACHMENT = 1.0e-12   # m^3/s
 # Apply mutual neutralization A^- + B^+ -> neutral A + neutral B:
 # the dominant n_e-independent negative-ion sink that bounds α = n_-/n_e;
 # added as a direct source term since the electron-impact framework can't express it.
+# This built-in channel only models singly charged reactants. Neutral products
+# would violate charge balance for pairs such as A^- + B^2+.
 function apply_mutual_neutralization!(params)
     k_MN = _K_MUTUAL_NEUTRALIZATION
     propellant_groups = params.fluids_by_propellant
@@ -782,7 +784,7 @@ function apply_mutual_neutralization!(params)
         # Ground-state neutral that receives the neutralized negative ion (e.g. H^- -> H).
         neutral_neg = ground_neutral(neg_group)
         for neg_fluid in neg_group.isothermal
-            neg_fluid.species.Z < 0 || continue
+            neg_fluid.species.Z == -1 || continue
             m_neg = neg_fluid.species.element.m
             inv_m_neg = inv(m_neg)
 
@@ -790,7 +792,7 @@ function apply_mutual_neutralization!(params)
                 # Ground-state neutral that receives the neutralized positive ion (e.g. H2O^+ -> H2O).
                 neutral_pos = ground_neutral(pos_group)
                 for pos_fluid in pos_group.isothermal
-                    pos_fluid.species.Z > 0 || continue
+                    pos_fluid.species.Z == 1 || continue
                     m_pos = pos_fluid.species.element.m
                     inv_m_pos = inv(m_pos)
 

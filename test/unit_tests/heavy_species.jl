@@ -1,5 +1,93 @@
 using HallThruster: HallThruster as het
 
+@testset "Mutual neutralization charge conservation" begin
+    grid = het.Grid1D([0.0, 0.04, 0.08])
+    cases = (
+        ([-1], [1]),
+        ([-1], [2]),
+        ([-2], [1]),
+        ([-2], [2]),
+        ([-2, -1], [1, 2, 3]),
+    )
+
+    for (negative_charges, positive_charges) in cases,
+            same_gas in (false, true), excited in (false, true)
+        @testset "$(negative_charges), $(positive_charges), same gas=$(same_gas), excited=$(excited)" begin
+            make_propellant(gas, charges) = het.Propellant(
+                gas, 0.0; allowed_charges = charges,
+                excited_ion_levels = Dict(Z => [1] for Z in charges if excited),
+            )
+            propellants = if same_gas
+                [make_propellant(het.Xenon, [negative_charges; positive_charges])]
+            else
+                [
+                    make_propellant(het.Xenon, negative_charges),
+                    make_propellant(het.Krypton, positive_charges),
+                ]
+            end
+            groups = [het.allocate_fluids(propellant, grid) for propellant in propellants]
+            ions = [fluid for group in groups for fluid in group.isothermal]
+            fluids = [fluid for group in groups for fluid in [group.continuity; group.isothermal]]
+
+            for ion in ions
+                n = 1.0e16 * (1 + abs(ion.species.Z) + ion.species.excited_level)
+                ion.density .= n * ion.species.element.m
+                ion.momentum .= ion.density .* (ion.species.Z < 0 ? -200.0 : 300.0)
+            end
+            negative_density = sum(
+                ion.density[2] / ion.species.element.m for ion in ions
+                    if ion.species.Z == -1; init = 0.0,
+            )
+            positive_density = sum(
+                ion.density[2] / ion.species.element.m for ion in ions
+                    if ion.species.Z == 1; init = 0.0,
+            )
+            cache = (; dt_iz = fill(Inf))
+            params = (; fluids_by_propellant = groups, cache)
+            het.apply_mutual_neutralization!(params)
+
+            for ion in ions
+                partner_density = if ion.species.Z == -1
+                    positive_density
+                elseif ion.species.Z == 1
+                    negative_density
+                else
+                    0.0
+                end
+                expected_loss = het._K_MUTUAL_NEUTRALIZATION .* partner_density .* ion.density
+                @test ion.dens_ddt ≈ -expected_loss
+                if abs(ion.species.Z) > 1
+                    @test all(iszero, ion.mom_ddt)
+                end
+            end
+
+            for cell in eachindex(grid.cell_centers)
+                charge_sources = [
+                    ion.species.Z * ion.dens_ddt[cell] / ion.species.element.m
+                        for ion in ions
+                ]
+                mass_sources = [fluid.dens_ddt[cell] for fluid in fluids]
+                @test abs(sum(charge_sources)) <= 1.0e-12 * sum(abs, charge_sources)
+                @test abs(sum(mass_sources)) <= 1.0e-12 * sum(abs, mass_sources)
+            end
+
+            # Each parent gas gains exactly the mass removed from its ions.
+            for group in groups
+                expected_neutral_source = zeros(grid.num_cells)
+                for ion in group.isothermal
+                    expected_neutral_source .-= ion.dens_ddt
+                end
+                @test het.ground_neutral(group).dens_ddt ≈ expected_neutral_source
+            end
+            if negative_density == 0 || positive_density == 0
+                @test cache.dt_iz[] == Inf
+            else
+                @test isfinite(cache.dt_iz[])
+            end
+        end
+    end
+end
+
 @testset "Primitive velocity cache" begin
     # Primitive velocity is derived once per RK stage and stored with its fluid;
     # density and momentum remain the authoritative conservative state.
