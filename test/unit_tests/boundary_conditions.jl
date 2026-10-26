@@ -1,5 +1,61 @@
 using HallThruster: HallThruster as het
 
+@testset "Mixture-wide anode electronegativity" begin
+    grid = het.Grid1D([0.0, 0.04, 0.08])
+    propellants = [
+        het.Propellant(het.Xenon, 4e-6; ion_temperature_K = 800.0),
+        het.Propellant(het.Krypton, 1e-6; ion_temperature_K = 1200.0),
+        het.Propellant(het.Hydrogen, 0.0; allowed_charges = [-1], ion_temperature_K = 300.0),
+    ]
+    groups = [het.allocate_fluids(prop, grid) for prop in propellants]
+    densities = (2e17, 1e17, 1e17)
+    for (group, prop, density) in zip(groups, propellants, densities)
+        only(group.isothermal).density .= prop.gas.m * density
+    end
+    fluids = het.FluidContainerSet(
+        vcat([group.continuity for group in groups]...),
+        vcat([group.isothermal for group in groups]...),
+    )
+    cache = het.allocate_arrays(grid.num_cells, 0)
+    cache.Tev .= 10.0
+    params = (;
+        cache, propellants, fluids_by_propellant = groups, fluid_containers = fluids,
+        anode_bc = :sheath, ingestion_flow_rates = zeros(3), landmark = false,
+        min_number_density = 1.0,
+    )
+    negative_temperature_eV = het.kB * propellants[3].ion_temperature_K / het.e
+    # There is one common electron density, 3e17 - 1e17, despite the three gases.
+    expected_factor = 3e17 / (2e17 + 10.0 * 1e17 / negative_temperature_eV)
+    @test het.anode_electron_temperature_factor(
+        propellants, groups, 10.0, 1.0,
+    ) ≈ expected_factor
+    het.update_heavy_species!(params)
+    for i in 1:2
+        ion = only(groups[i].isothermal)
+        expected_speed = sqrt(
+            (het.kB * propellants[i].ion_temperature_K + het.e * 10.0 * expected_factor) /
+                propellants[i].gas.m,
+        )
+        @test ion.momentum[1] / ion.density[1] ≈ -expected_speed
+    end
+
+    # With no negative ions the correction is exactly unity for every gas.
+    only(groups[3].isothermal).density .= 0.0
+    @test het.anode_electron_temperature_factor(propellants, groups, 10.0, 1.0) == 1.0
+
+    # Equal-temperature, singly charged species recover (1 + α)/(1 + γ α).
+    single_propellant = het.Propellant(
+        het.Xenon, 5e-6; allowed_charges = [-1, 1], ion_temperature_K = 500.0,
+    )
+    single_group = het.allocate_fluids(single_propellant, grid)
+    single_group.isothermal[1].density .= single_propellant.gas.m * 1e17
+    single_group.isothermal[2].density .= single_propellant.gas.m * 3e17
+    gamma = het.e * 10.0 / (het.kB * 500.0)
+    @test het.anode_electron_temperature_factor(
+        [single_propellant], [single_group], 10.0, 1.0,
+    ) ≈ 1.5 / (1 + gamma * 0.5)
+end
+
 @testset "Discharge-current integration boundaries" begin
     grid = het.Grid1D([0.0, 0.4, 1.0])
     n = length(grid.cell_centers)

@@ -1,5 +1,68 @@
 using HallThruster: HallThruster as het
 
+@testset "Competing destruction channels share a timestep budget" begin
+    limits = Float64[]
+    for positive_states in (1, 3)
+        grid = het.Grid1D([0.0, 0.04, 0.08])
+        propellant = het.Propellant(
+            het.Xenon, 5e-6; allowed_charges = [-1, 1],
+            excited_ion_levels = Dict(1 => collect(1:(positive_states - 1))),
+        )
+        group = het.allocate_fluids(propellant, grid)
+        fluids = [group.continuity; group.isothermal]
+        neutral = het.ground_neutral(group)
+        negative = first(group.isothermal)
+        positives = group.isothermal[2:end]
+        neutral.density .= propellant.gas.m * 4e17
+        negative.density .= propellant.gas.m * 1e15
+        for positive in positives
+            positive.density .= propellant.gas.m * 3e17 / positive_states
+        end
+        cache = het.allocate_arrays(grid.num_cells, 0)
+        ne = 3e17 - 1e15
+        cache.nϵ .= 10.0 * ne
+        k_ei = 2e-13
+        reactions = [het.ElectronImpactReaction(
+            0.7, propellant.gas(-1), [propellant.gas(0)], fill(k_ei, 256),
+        )]
+        reaction_groups = het.build_electron_impact_groups(
+            reactions, het.reactant_indices(reactions, fluids),
+            het.product_indices(reactions, fluids), fluids,
+        )
+        cache.reaction_rate_index_limit[] = het.common_rate_index_limit(reaction_groups)
+        params = (; cache, fluids_by_propellant = [group])
+        ei_loss = k_ei * ne
+        mn_loss = het._K_MUTUAL_NEUTRALIZATION * 3e17
+        ad_loss = het._K_NEUTRAL_DETACHMENT * 4e17
+
+        # Repeating the stage must reset its budget rather than accumulate it.
+        for _ in 1:2
+            for fluid in fluids
+                fill!(fluid.dens_ddt, 0.0)
+                fill!(fluid.mom_ddt, 0.0)
+            end
+            het.apply_reaction_groups!(fluids, reaction_groups, cache, false, 1.0, Dict())
+            @test cache.dt_iz[] ≈ inv(ei_loss)
+            het.apply_mutual_neutralization!(params)
+            @test cache.dt_iz[] ≈ inv(ei_loss + mn_loss)
+            het.apply_associative_detachment!(params)
+            @test cache.dt_iz[] ≈ inv(ei_loss + mn_loss + ad_loss)
+            @test negative.loss_frequency[2] ≈ ei_loss + mn_loss + ad_loss
+            @test negative.loss_frequency[[1, end]] == [0.0, 0.0]
+        end
+        push!(limits, cache.dt_iz[])
+
+        # Wall losses also compete with volume reactions for the same ions.
+        wall_frequency = 1e6
+        wall_base = fill(wall_frequency * sqrt(propellant.gas.m), grid.num_cells)
+        het.apply_ion_wall_losses!(group, wall_base, het.interior_cells(neutral.density))
+        het.update_reaction_timestep!(cache, fluids)
+        @test cache.dt_iz[] ≈ inv(wall_frequency + het._K_MUTUAL_NEUTRALIZATION * 1e15)
+    end
+    # Partitioning a fixed ion population into excited levels changes no rates.
+    @test limits[1] ≈ limits[2]
+end
+
 @testset "Mutual neutralization charge conservation" begin
     grid = het.Grid1D([0.0, 0.04, 0.08])
     cases = (

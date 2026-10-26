@@ -161,6 +161,7 @@ function compute_heavy_species_derivatives!(
 
     if ion_wall_losses
         apply_ion_wall_losses!(params)
+        update_reaction_timestep!(cache, params.fluid_array)
     end
 
     # Update maximum allowable timestep
@@ -205,11 +206,16 @@ end
 function update_heavy_species!(params)
     (; cache, propellants, anode_bc, ingestion_flow_rates, min_number_density) = params
 
+    # All positive ions see the same electron and negative-ion populations.
+    Te_eff_factor = params.landmark ? 1.0 : anode_electron_temperature_factor(
+        propellants, params.fluids_by_propellant, cache.Tev[2], min_number_density,
+    )
+
     # Apply left boundary conditions per-propellant
     for (i, (propellant, fluids)) in enumerate(zip(propellants, params.fluids_by_propellant))
         apply_left_boundary!(
             fluids, propellant, cache, anode_bc, ingestion_flow_rates[i],
-            params.landmark, min_number_density,
+            params.landmark, min_number_density; Te_eff_factor,
         )
     end
 
@@ -315,9 +321,34 @@ end
 Boundary conditions
 ===============================================================================#
 
+function anode_electron_temperature_factor(propellants, fluid_sets, Tev, min_number_density)
+    positive_charge = 0.0
+    negative_charge = 0.0
+    negative_response = 0.0
+    for (propellant, fluids) in zip(propellants, fluid_sets)
+        for fluid in fluids.isothermal
+            Z = Int(fluid.species.Z)
+            n = fluid.density[2] / fluid.species.element.m
+            if Z > 0
+                positive_charge += Z * n
+            elseif Z < 0 && n > 0
+                negative_charge += abs(Z) * n
+                # Sum the Boltzmann charge response using each negative
+                # species' temperature, independently of the positive ions.
+                negative_response += Z^2 * n / (kB * propellant.ion_temperature_K / e)
+            end
+        end
+    end
+    ne = max(positive_charge - negative_charge, min_number_density)
+    return (ne + negative_charge) / (ne + Tev * negative_response)
+end
+
 function apply_left_boundary!(
         fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark,
-        min_number_density,
+        min_number_density;
+        Te_eff_factor = landmark ? 1.0 : anode_electron_temperature_factor(
+            (propellant,), (fluids,), cache.Tev[2], min_number_density,
+        ),
     )
     Te_L = cache.Tev[2]                  # eV
     Ti = propellant.ion_temperature_K    # K
@@ -325,32 +356,6 @@ function apply_left_boundary!(
 
     kTe_J = e * Te_L      # electron energy in Joules
     kTi_J = kB * Ti       # ion thermal energy in Joules
-
-    if !landmark
-        γ = kTe_J / kTi_J
-
-        # Sheath-edge electronegativity
-        # Use first interior cell (index 2) as the sheath-edge estimate.
-        n_pos_charge = 0.0
-        n_neg_charge = 0.0
-        @inbounds for fluid in fluids.isothermal
-            Z = fluid.species.Z
-            n = fluid.density[2]
-            if Z > 0
-                n_pos_charge += Z * n
-            elseif Z < 0
-                n_neg_charge += abs(Z) * n
-            end
-        end
-        n_e_edge = max(n_pos_charge - n_neg_charge, eps(Float64))
-        αs = n_neg_charge / n_e_edge
-
-        # Electronegative correction factor from Ridenti et al (2025) Eq. (18)
-        # Collapses to 1.0 when αs = 0 (no negative ions → classical Bohm)
-        Te_eff_factor = (1 + αs) / (1 + γ * αs)
-    else
-        Te_eff_factor = 1.0
-    end
 
     # Neutral inlet density. Anode flow feeds the ground state only.
     neutral_fluid = ground_neutral(fluids)
@@ -533,6 +538,7 @@ function prepare_reaction_state!(fluids, cache, landmark, min_number_density)
     # contribute, which becomes increasingly useful with multiple propellants.
     fill!(ne, 0.0)
     @inbounds for fluid in fluids
+        fill!(fluid.loss_frequency, 0.0)
         Z = fluid.species.Z
         iszero(Z) && continue
         charge_to_mass = Z / fluid.species.element.m
@@ -640,11 +646,11 @@ function apply_reaction_groups!(
     cache_lookup_coordinates = cache.reaction_rate_index_limit[] >= 0
     reaction_rate_indices = cache_lookup_coordinates ? cache.reaction_rate_indices : nothing
     reaction_rate_fractions = cache_lookup_coordinates ? cache.reaction_rate_fractions : nothing
-    loss_frequency = cache.reaction_loss_frequency
     max_loss_frequency = 0.0
 
     for group in groups
         isempty(group.channels) && continue
+        loss_frequency = fluids[group.reactant_index].loss_frequency
         last_channel = length(group.channels)
         if last_channel == 1
             group_max = apply_reaction_channel!(
@@ -795,7 +801,7 @@ function apply_mutual_neutralization!(params)
     propellant_groups = params.fluids_by_propellant
     cache = params.cache
 
-    dt_max = Inf
+    max_loss_frequency = 0.0
 
     @inbounds for neg_group in propellant_groups
         # Ground-state neutral that receives the neutralized negative ion (e.g. H^- -> H).
@@ -836,12 +842,13 @@ function apply_mutual_neutralization!(params)
                         neg_fluid.mom_ddt[i] -= ρdot_neg * u_neg
                         pos_fluid.mom_ddt[i] -= ρdot_pos * u_pos
 
-                        # CFL: dt < density / |destruction rate| per species.
-                        if ρdot_neg > eps()
-                            dt_max = min(dt_max, ρ_neg / ρdot_neg)
-                        end
-                        if ρdot_pos > eps()
-                            dt_max = min(dt_max, ρ_pos / ρdot_pos)
+                        if R > 0
+                            neg_fluid.loss_frequency[i] += k_MN * n_pos
+                            pos_fluid.loss_frequency[i] += k_MN * n_neg
+                            max_loss_frequency = max(
+                                max_loss_frequency,
+                                neg_fluid.loss_frequency[i], pos_fluid.loss_frequency[i],
+                            )
                         end
                     end
                 end
@@ -850,7 +857,7 @@ function apply_mutual_neutralization!(params)
     end
 
     # Tighten the chemistry CFL with the MN destruction-rate constraint.
-    cache.dt_iz[] = min(cache.dt_iz[], dt_max)
+    cache.dt_iz[] = min(cache.dt_iz[], inv(max_loss_frequency))
 
     return nothing
 end
@@ -876,7 +883,7 @@ function apply_associative_detachment!(params)
         @. cache.nn += fluid.density * inv_m
     end
 
-    dt_max = Inf
+    max_loss_frequency = 0.0
 
     @inbounds for neg_group in propellant_groups
         neutral_neg = ground_neutral(neg_group)
@@ -900,15 +907,27 @@ function apply_associative_detachment!(params)
                 u_neg = neg_fluid.momentum[i] / max(ρ_neg, eps())
                 neg_fluid.mom_ddt[i] -= ρdot * u_neg
 
-                if ρdot > eps()
-                    dt_max = min(dt_max, ρ_neg / ρdot)
+                if ρdot > 0
+                    neg_fluid.loss_frequency[i] += k_AD * n_n
+                    max_loss_frequency = max(max_loss_frequency, neg_fluid.loss_frequency[i])
                 end
             end
         end
     end
 
-    cache.dt_iz[] = min(cache.dt_iz[], dt_max)
+    cache.dt_iz[] = min(cache.dt_iz[], inv(max_loss_frequency))
 
+    return nothing
+end
+
+function update_reaction_timestep!(cache, fluids)
+    max_loss_frequency = 0.0
+    for fluid in fluids
+        @inbounds for i in interior_cells(fluid.loss_frequency)
+            max_loss_frequency = max(max_loss_frequency, fluid.loss_frequency[i])
+        end
+    end
+    cache.dt_iz[] = inv(max_loss_frequency)
     return nothing
 end
 
@@ -999,6 +1018,7 @@ function apply_ion_wall_losses!(fluid_containers, wall_loss_base, wall_cells)
 
             density_loss = ion_fluid.density[i] * νiw
             momentum_loss = ion_fluid.momentum[i] * νiw
+            density_loss > 0 && (ion_fluid.loss_frequency[i] += νiw)
 
             # Neutrals gain density due to ion recombination at the walls
             neutral_fluid.dens_ddt[i] += density_loss

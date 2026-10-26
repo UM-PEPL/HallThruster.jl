@@ -8,6 +8,8 @@ struct NoController <: CurrentController end
     integral_constant::Float64 = 0.0
     derivative_constant::Float64 = 0.0
     errors::NTuple{3, Float64} = (0.0, 0.0, 0.0)
+    previous_dt::Float64 = 0.0
+    previous_error_slope::Float64 = 0.0
     smoothing_frequency::Float64 = 0.0
     smoothed_value::Float64 = 0.0
 end
@@ -19,7 +21,8 @@ Serialization.SType(::Type{T}) where {T <: CurrentController} = Serialization.Ta
 function Serialization.options(::Type{T}) where {T <: CurrentController}
     return (; NoController, PIDController)
 end
-Serialization.exclude(::Type{T}) where {T <: CurrentController} = (:errors, :smoothed_value)
+Serialization.exclude(::Type{T}) where {T <: CurrentController} =
+    (:errors, :previous_dt, :previous_error_slope, :smoothed_value)
 
 #=============================================================================
  Definitions
@@ -54,13 +57,14 @@ function apply_controller(pid::PIDController, present_value, control_value, dt)
 
         u(t) - u(t-dt) = K_p (e(t) - e(t-dt)) + K_i e(t) dt + K_d (e'(t) - e'(t-dt)).
 
-    Take derivatives again and rearrange: 
+    For unequal timesteps h and h_prev, the derivative contribution is
 
         u(t) = u(t-dt) +
             K_p (e(t) - e(t-dt)) + 
             K_i e(t) dt +
-            K_d (e(t) - 2 e(t-dt) _ e(t-2dt))/dt.
+            K_d ((e(t) - e(t-h))/h - (e(t-h) - e(t-h-h_prev))/h_prev).
     =#
+    isfinite(dt) && dt > 0 || throw(ArgumentError("Controller timestep must be positive and finite."))
     pid.smoothed_value = if pid.smoothing_frequency > 0
         K_smooth = exp(-dt * pid.smoothing_frequency)
         K_smooth * pid.smoothed_value + (-expm1(-dt * pid.smoothing_frequency)) * present_value
@@ -72,7 +76,14 @@ function apply_controller(pid::PIDController, present_value, control_value, dt)
 
     P = pid.proportional_constant * (pid.errors[1] - pid.errors[2])
     I = pid.integral_constant * pid.errors[1] * dt
-    D = pid.derivative_constant * (pid.errors[1] - 2 * pid.errors[2] + pid.errors[3]) / dt
+    # The first measurement has no preceding sample. Seed the derivative at
+    # zero instead of differentiating the fictitious initial zero error over
+    # the tiny setup interval. Later updates use their actual sample spacing.
+    present_slope = pid.previous_dt > 0 ?
+        (pid.errors[1] - pid.errors[2]) / dt : 0.0
+    D = pid.derivative_constant * (present_slope - pid.previous_error_slope)
+    pid.previous_error_slope = present_slope
+    pid.previous_dt = dt
 
     return control_value + P + I + D
 end

@@ -157,7 +157,10 @@ function setup_simulation(
     # make values in params available for first timestep
     initialize_plume_geometry(params)
     update_heavy_species!(params)
+    # Initial starting step with tiny dt
+    params.dt[] = min(dt, 100 * eps(Float64))
     update_electrons!(params, config)
+    params.dt[] = dt
 
     params.iteration[] = 1
     return params

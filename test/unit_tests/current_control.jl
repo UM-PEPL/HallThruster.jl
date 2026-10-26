@@ -1,6 +1,41 @@
 using HallThruster: HallThruster as het
 using Test
 
+@testset "PID derivative with unequal timesteps" begin
+    for error_function in (t -> 3t, t -> t^2)
+        pid = het.PIDController(
+            target_value = 0.0, proportional_constant = 0.0,
+            derivative_constant = 2.0,
+        )
+        control = 0.0
+        time = 0.0
+        previous_error = 0.0
+        # Establish the initial measurement before measuring a time derivative.
+        control = het.apply_controller(pid, 0.0, control, 0.1)
+        for dt in (0.1, 0.3, 0.005, 0.2)
+            time += dt
+            error = error_function(time)
+            control = het.apply_controller(pid, -error, control, dt)
+            # A derivative-only controller returns Kd times the latest slope,
+            # independently of how the preceding interval was subdivided.
+            @test control ≈ 2.0 * (error - previous_error) / dt rtol = 1e-11
+            previous_error = error
+        end
+        encoded = het.serialize(pid)
+        @test !haskey(encoded, "previous_dt")
+        @test !haskey(encoded, "previous_error_slope")
+        restored = het.deserialize(het.CurrentController, encoded)
+        @test restored.previous_dt == 0.0
+        @test restored.previous_error_slope == 0.0
+        @test restored.errors == (0.0, 0.0, 0.0)
+    end
+
+    pid = het.PIDController(target_value = 4.0, derivative_constant = 1.0)
+    control = het.apply_controller(pid, 0.0, 0.0, 100 * eps(Float64))
+    @test control == 4.0
+    @test het.apply_controller(pid, 0.0, control, 1e-9) == control
+end
+
 @testset "PID measurement smoothing" begin
     pid = het.PIDController(target_value = 0.0, smoothing_frequency = log(2.0))
     control = het.apply_controller(pid, 4.0, 0.0, 1.0)
@@ -274,8 +309,9 @@ function test_integral_current_control_bohmlike()
         params = het.setup_simulation(config, sim)
         base = config.anom_model(zeros(length(params.grid.cell_centers)), params)
         # Setup invokes the controller once, starting with zero current and unit multiplier.
+        setup_dt = min(het.initial_timestep(sim), 100 * eps(Float64))
         @test log(params.cache.anom_multiplier[]) ≈
-            controller.integral_constant * controller.target_value * sim.dt atol = 1e-14
+            controller.integral_constant * controller.target_value * setup_dt atol = 1e-14
         solver = het.SolverState(params; tspan = (0.0, sim.duration))
 
         for _ in 1:50
