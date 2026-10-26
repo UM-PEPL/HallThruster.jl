@@ -511,7 +511,7 @@ function (model::StepTroughBohm2)(νan::Vector{Float64}, z::Vector{Float64}, B::
         z_norm = (z0 - L) / w
 
         # Bump (trough)
-        bump = bump_function(z_norm, model.trough_exponent, model.trough_roundness)
+        bump = bump_function(z_norm, model.trough_roundness, model.trough_exponent)
 
         # Smootherstep part
         step = S * (s + (1 - s) * smootherstep(0.5 * (z_norm + 1)))

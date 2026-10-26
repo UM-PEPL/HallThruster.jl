@@ -539,153 +539,178 @@ function Base.getindex(sol::Solution, field::Symbol)
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
 end
 
+mutable struct SolverState
+    t::Float64
+    saveat::Vector{Float64}
+    save_ind::Int
+    frames::Vector{Frame}
+    times::Vector{Float64}
+    last_save_time::Float64
+    small_step_count::Int
+    uniform_steps::Bool
+    retcode::Symbol
 
-function solve(params, config, tspan; num_save = -1)
-    # Initialize starting time and iterations
-    iteration = params.iteration
-    t = tspan[1]
-    iteration[] = 1
+    function SolverState(params; tspan, num_save = -1)
+        # Initialize starting time and iterations
+        t = tspan[1]
 
-    # Yield to signals only every few iterations
-    yield_interval = 100
+        # Error handling
+        retcode = :success
 
-    # Error handling
-    errstring = ""
-    retcode = :success
+        # Frame saving setup
+        saveat = collect(range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save))
+        save_ind = 2
+        frames = [Frame(params, 0.0)]
+        times = zeros(length(saveat))
+        times[1] = t
+        last_save_time = t
 
-    # Frame saving setup
-    saveat = range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save)
-    save_ind = 2
-    frames = [Frame(params, 0.0)]
-    times = zeros(length(saveat))
-    times[1] = t
-    last_save_time = t
+        # Parameters for adaptive timestep escape hatch
+        small_step_count = 0
+        uniform_steps = false
 
-    # Parameters for adaptive timestep escape hatch
-    small_step_count = 0
-    uniform_steps = false
+        return new(
+            t,
+            saveat,
+            save_ind,
+            frames,
+            times,
+            last_save_time,
+            small_step_count,
+            uniform_steps,
+            retcode,
+        )
+    end
+end
 
+function step_solver!(params, config, solver::SolverState)
+    any_nan = integrate_heavy_species!(params.fluid_containers, params, config.source_heavy_species, params.dt[])
     sim = params.simulation
 
-    # Extract stuff from config
-    (; source_heavy_species) = config
+    if any_nan
+        if sim.print_errors
+            # Find which fluids/cells have NaN or Inf
+            for (i, fluid) in enumerate(params.fluid_array)
+                nan_density = findall(x -> !isfinite(x), fluid.density)
+                nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
+                if !isempty(nan_density)
+                    @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
+                end
+                if !isempty(nan_momentum)
+                    @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
+                end
+            end
+            # Report timestep and time context
+            @warn(
+                "NaN/Inf detected in heavy species solver",
+                time = solver.t,
+                dt = params.dt[],
+                iteration = params.iteration[],
+            )
+        end
+        solver.retcode = :failure
+        return false
+    end
+
+    # Update electron quantities
+    update_electrons!(params, config, solver.t)
+
+    # Update plume geometry
+    config.solve_plume && update_plume_geometry!(params)
+
+    # Update the current iteration and time
+    params.iteration[] += 1
+    solver.t += params.dt[]
+
+    # Allow for system interrupts at pre-determined intervals
+    if params.iteration[] % 100 == 0
+        yield()
+    end
+
+    #====
+    Save the current simulation state if we jumped over or landed on a checkpoint time.
+    This should always be a direct hit, but just in case we allow for a miss.
+    ====#
+    if solver.t >= solver.saveat[solver.save_ind]
+        push!(solver.frames, Frame(params, solver.t - solver.last_save_time))
+        reset_radiative_emissions!(
+            params.radiative_emission_counts, params.radiative_networks,
+        )
+        solver.times[solver.save_ind] = solver.t
+        solver.last_save_time = solver.t
+        solver.save_ind += 1
+    end
+
+    solver.t >= solver.saveat[end] && return false
+
+    #====
+    Compute the new timestep
+    If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
+    minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
+    (see below).
+    We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
+    so that we land on it exactly.
+    ====#
+    if sim.adaptive
+        if solver.uniform_steps
+            params.dt[] = sim.dt
+            solver.small_step_count -= 1
+        else
+            params.dt[] = clamp(params.cache.dt[], sim.min_dt, sim.max_dt)
+        end
+    end
+
+    # TODO: check this over for bugs
+    if solver.t + params.dt[] > solver.saveat[solver.save_ind]
+        params.dt[] = solver.saveat[solver.save_ind] - solver.t
+    end
+
+    #====
+    Count how many times we've taken the minimum allowable timestep.
+    If we exceed the threshold, then start taking longer uniform steps for a bit.
+    This helps break out of cases where adaptive timestepping gets stuck ---
+    either by resolving the situation or by causing the simulation to fail fast
+    ====#
+    if params.dt[] == sim.min_dt
+        solver.small_step_count += 1
+    elseif !solver.uniform_steps
+        solver.small_step_count = 0
+    end
+
+    if solver.small_step_count >= sim.max_small_steps
+        solver.uniform_steps = true
+    elseif solver.small_step_count == 0
+        solver.uniform_steps = false
+    end
+
+    return true
+end
+
+function solve(params, config, tspan; num_save = -1)
+    # Initialze solver state
+    solver = SolverState(params; tspan, num_save)
+    errstring = ""
 
     try
         while true
-            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
-
-            if any_nan
-                if sim.print_errors
-                    # Find which fluids/cells have NaN or Inf
-                    for (i, fluid) in enumerate(params.fluid_array)
-                        nan_density = findall(x -> !isfinite(x), fluid.density)
-                        nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
-                        if !isempty(nan_density)
-                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
-                        end
-                        if !isempty(nan_momentum)
-                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
-                        end
-                    end
-                    # Report timestep and time context
-                    @warn(
-                        "NaN/Inf detected in heavy species solver",
-                        time = t,
-                        dt = params.dt[],
-                        iteration = params.iteration[],
-                    )
-                end
-                retcode = :failure
-                break
-            end
-
-            # Update electron quantities
-            update_electrons!(params, config, t)
-
-            # Update plume geometry
-            config.solve_plume && update_plume_geometry!(params)
-
-            # Update the current iteration and time
-            iteration[] += 1
-            t += params.dt[]
-
-            # Allow for system interrupts at pre-determined intervals
-            if iteration[] % yield_interval == 0
-                yield()
-            end
-
-            #====
-            Save the current simulation state if we jumped over or landed on a checkpoint time.
-            This should always be a direct hit, but just in case we allow for a miss.
-            ====#
-            if t >= saveat[save_ind]
-                push!(frames, Frame(params, t - last_save_time))
-                reset_radiative_emissions!(
-                    params.radiative_emission_counts, params.radiative_networks,
-                )
-                times[save_ind] = t
-                last_save_time = t
-                save_ind += 1
-            end
-
-            t >= saveat[end] && break
-
-            #====
-            Compute the new timestep
-            If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
-            minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
-            (see below).
-            We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
-            so that we land on it exactly.
-            ====#
-            if sim.adaptive
-                if uniform_steps
-                    params.dt[] = sim.dt
-                    small_step_count -= 1
-                else
-                    params.dt[] = clamp(params.cache.dt[], sim.min_dt, sim.max_dt)
-                end
-            end
-
-            if t + params.dt[] > saveat[save_ind]
-                params.dt[] = saveat[save_ind] - t
-            end
-
-            #====
-            Count how many times we've taken the minimum allowable timestep.
-            If we exceed the threshold, then start taking longer uniform steps for a bit.
-            This helps break out of cases where adaptive timestepping gets stuck ---
-            either by resolving the situation or by causing the simulation to fail fast
-            ====#
-            if params.dt[] == sim.min_dt
-                small_step_count += 1
-            elseif !uniform_steps
-                small_step_count = 0
-            end
-
-            if small_step_count >= sim.max_small_steps
-                uniform_steps = true
-            elseif small_step_count == 0
-                uniform_steps = false
-            end
-
+            step_solver!(params, config, solver) || break
         end
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
-        retcode = :error
-        if sim.print_errors
+        solver.retcode = :error
+        if params.simulation.print_errors
             @warn "Error detected in solution: $(errstring)"
         end
     end
 
     return Solution(
-        times,
-        frames,
+        solver.times,
+        solver.frames,
         copy_and_remove_ghosts(params.grid.cell_centers),
         config,
         params.simulation,
         params.postprocess,
-        retcode,
+        solver.retcode,
         errstring,
     )
 end

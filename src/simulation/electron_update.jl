@@ -1,6 +1,6 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
+    (; Tev, ne, nϵ, νan, νan_base,  νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update collision frequencies
@@ -23,8 +23,12 @@ function update_electrons!(params, config, t = 0)
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
     update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
-    # Update anomalous transport
-    t > 0 && anom_model(νan, params)
+    # Update anomalous transport into νan_base, then copy it into νan
+    # This ensures static models (which stop updating after a few iters)
+    # get a fresh collision frequency which can be modified by current control or smoothing later
+    # without having these compound over multiple iterations
+    t > 0 && anom_model(νan_base, params)
+    @. νan = νan_base
 
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)

@@ -201,6 +201,95 @@ function test_pid_springmass()
     end
 end
 
+function test_current_control_bohmlike()
+    return @testset "Bohm current-control multiplier does not compound" begin
+        for multiplier in (0.5, 2.0)
+            @testset "multiplier = $multiplier" begin
+                config = het.Config(
+                    domain = (0.0, 0.08),
+                    discharge_voltage = 300.0,
+                    thruster = het.SPT_100,
+                    anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
+                    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6)],
+                    anom_smoothing_iters = 0,
+                )
+                sim = het.SimParams(
+                    duration = 1e-8,
+                    dt = 1e-10,
+                    adaptive = false,
+                    grid = het.EvenGrid(20),
+                    num_save = 2,
+                    verbose = false,
+                    current_control = het.NoController(),
+                )
+                params = het.setup_simulation(config, sim)
+                # Evaluate the reference before the static model stops updating.
+                base = config.anom_model(zeros(length(params.grid.cell_centers)), params)
+                params.cache.anom_multiplier[] = multiplier
+                solver = het.SolverState(params; tspan = (0.0, sim.duration))
+
+                for _ in 1:50
+                    @test het.step_solver!(params, config, solver)
+                    @test params.cache.anom_multiplier[] ≈ multiplier
+                    @test params.cache.νan_base ≈ base
+                    @test params.cache.νan ≈ multiplier .* base
+                end
+                @test params.iteration[] == 51
+                @test solver.retcode == :success
+            end
+        end
+    end
+end
+
+function test_integral_current_control_bohmlike()
+    return @testset "Integral current control updates the log multiplier" begin
+        config = het.Config(
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            thruster = het.SPT_100,
+            propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6)],
+        )
+        controller = het.PIDController(
+            target_value = 4.5,
+            # Isolate the slow integral response from the proportional startup kick.
+            proportional_constant = 0.0,
+            integral_constant = 1.01 / 1e-4,
+        )
+        sim = het.SimParams(
+            duration = 1e-8,
+            dt = 1e-10,
+            adaptive = false,
+            grid = het.EvenGrid(20),
+            num_save = 2,
+            verbose = false,
+            current_control = controller,
+        )
+        params = het.setup_simulation(config, sim)
+        base = config.anom_model(zeros(length(params.grid.cell_centers)), params)
+        # Setup invokes the controller once, starting with zero current and unit multiplier.
+        @test log(params.cache.anom_multiplier[]) ≈
+            controller.integral_constant * controller.target_value * sim.dt atol = 1e-14
+        solver = het.SolverState(params; tspan = (0.0, sim.duration))
+
+        for _ in 1:50
+            expected_log_multiplier = log(params.cache.anom_multiplier[]) +
+                controller.integral_constant *
+                (controller.target_value - params.cache.Id[]) * params.dt[]
+
+            @test het.step_solver!(params, config, solver)
+            multiplier = params.cache.anom_multiplier[]
+            @test isfinite(multiplier) && multiplier > 0
+            @test log(multiplier) ≈ expected_log_multiplier atol = 1e-14
+            @test params.cache.νan_base ≈ base
+            @test params.cache.νan ≈ multiplier .* base
+        end
+        @test params.iteration[] == 51
+        @test solver.retcode == :success
+    end
+end
+
+test_current_control_bohmlike()
+test_integral_current_control_bohmlike()
 test_controller_serialization()
 test_pid_steady_state()
 test_pid_springmass()

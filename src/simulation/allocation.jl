@@ -12,6 +12,7 @@ function allocate_arrays(ncells::Int, n_anom_vars::Int)
         Aϵ = Tridiagonal(ones(ncells - 1), ones(ncells), ones(ncells - 1)),
         bϵ = zeros(ncells),
         # Collision frequencies
+        νan_base = zeros(ncells),
         νan = zeros(ncells),
         νc = zeros(ncells),
         νei = zeros(ncells),
