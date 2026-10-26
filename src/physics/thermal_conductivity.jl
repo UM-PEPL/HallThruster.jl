@@ -46,7 +46,7 @@ struct Braginskii <: ThermalConductivityModel
     end
 end
 
-Braginskii(;anom_scale::Float64=1.0) = Braginskii(anom_scale)
+Braginskii(; anom_scale::Float64 = 1.0) = Braginskii(anom_scale)
 
 function (model::Braginskii)(κ, params)
     (; νan, νc, ne, Tev, Z_eff, B) = params.cache
@@ -58,7 +58,7 @@ function (model::Braginskii)(κ, params)
         Ω = ωce / ν_eff
         μ = (e / me) / (ν_eff * (1 + Ω^2))
         # final calculation
-        κ[i] = κ_coef *  ne[i] * Tev[i] * μ
+        κ[i] = κ_coef * ne[i] * Tev[i] * μ
     end
     return κ
 end
@@ -75,7 +75,7 @@ struct Mitchner <: ThermalConductivityModel
     end
 end
 
-Mitchner(;anom_scale::Float64=1.0) = Mitchner(anom_scale)
+Mitchner(; anom_scale::Float64 = 1.0) = Mitchner(anom_scale)
 
 
 function (model::Mitchner)(κ, params)
