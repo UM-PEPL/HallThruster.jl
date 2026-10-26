@@ -313,7 +313,7 @@ function load_reactions(
         propellant_config_path = find_file_in_dirs(propellant_config, directories)
         isnothing(propellant_config_path) && error(
             "Propellant config file $(propellant_config) not found in current directory " *
-            "or any of the provided directories ($(directories))"
+                "or any of the provided directories ($(directories))"
         )
         contents = TOML.parsefile(propellant_config_path)
         if haskey(contents, "reactions")

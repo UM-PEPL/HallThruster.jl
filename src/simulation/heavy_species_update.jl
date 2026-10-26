@@ -208,8 +208,8 @@ function update_heavy_species!(params)
 
     # All positive ions see the same electron and negative-ion populations.
     Te_eff_factor = params.landmark ? 1.0 : anode_electron_temperature_factor(
-        propellants, params.fluids_by_propellant, cache.Tev[2], min_number_density,
-    )
+            propellants, params.fluids_by_propellant, cache.Tev[2], min_number_density,
+        )
 
     # Apply left boundary conditions per-propellant
     for (i, (propellant, fluids)) in enumerate(zip(propellants, params.fluids_by_propellant))
@@ -347,8 +347,8 @@ function apply_left_boundary!(
         fluids, propellant, cache, anode_bc, ingestion_flow_rate, landmark,
         min_number_density;
         Te_eff_factor = landmark ? 1.0 : anode_electron_temperature_factor(
-            (propellant,), (fluids,), cache.Tev[2], min_number_density,
-        ),
+                (propellant,), (fluids,), cache.Tev[2], min_number_density,
+            ),
     )
     Te_L = cache.Tev[2]                  # eV
     Ti = propellant.ion_temperature_K    # K

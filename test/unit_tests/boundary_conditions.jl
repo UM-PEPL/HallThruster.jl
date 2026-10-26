@@ -3,12 +3,12 @@ using HallThruster: HallThruster as het
 @testset "Mixture-wide anode electronegativity" begin
     grid = het.Grid1D([0.0, 0.04, 0.08])
     propellants = [
-        het.Propellant(het.Xenon, 4e-6; ion_temperature_K = 800.0),
-        het.Propellant(het.Krypton, 1e-6; ion_temperature_K = 1200.0),
+        het.Propellant(het.Xenon, 4.0e-6; ion_temperature_K = 800.0),
+        het.Propellant(het.Krypton, 1.0e-6; ion_temperature_K = 1200.0),
         het.Propellant(het.Hydrogen, 0.0; allowed_charges = [-1], ion_temperature_K = 300.0),
     ]
     groups = [het.allocate_fluids(prop, grid) for prop in propellants]
-    densities = (2e17, 1e17, 1e17)
+    densities = (2.0e17, 1.0e17, 1.0e17)
     for (group, prop, density) in zip(groups, propellants, densities)
         only(group.isothermal).density .= prop.gas.m * density
     end
@@ -25,7 +25,7 @@ using HallThruster: HallThruster as het
     )
     negative_temperature_eV = het.kB * propellants[3].ion_temperature_K / het.e
     # There is one common electron density, 3e17 - 1e17, despite the three gases.
-    expected_factor = 3e17 / (2e17 + 10.0 * 1e17 / negative_temperature_eV)
+    expected_factor = 3.0e17 / (2.0e17 + 10.0 * 1.0e17 / negative_temperature_eV)
     @test het.anode_electron_temperature_factor(
         propellants, groups, 10.0, 1.0,
     ) ≈ expected_factor
@@ -45,11 +45,11 @@ using HallThruster: HallThruster as het
 
     # Equal-temperature, singly charged species recover (1 + α)/(1 + γ α).
     single_propellant = het.Propellant(
-        het.Xenon, 5e-6; allowed_charges = [-1, 1], ion_temperature_K = 500.0,
+        het.Xenon, 5.0e-6; allowed_charges = [-1, 1], ion_temperature_K = 500.0,
     )
     single_group = het.allocate_fluids(single_propellant, grid)
-    single_group.isothermal[1].density .= single_propellant.gas.m * 1e17
-    single_group.isothermal[2].density .= single_propellant.gas.m * 3e17
+    single_group.isothermal[1].density .= single_propellant.gas.m * 1.0e17
+    single_group.isothermal[2].density .= single_propellant.gas.m * 3.0e17
     gamma = het.e * 10.0 / (het.kB * 500.0)
     @test het.anode_electron_temperature_factor(
         [single_propellant], [single_group], 10.0, 1.0,

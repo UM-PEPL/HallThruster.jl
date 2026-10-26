@@ -116,10 +116,12 @@ end
 
 # Excited neutrals share the excited-state collection with excited ions.
 function ion_states(frame::Frame)
-    return Iterators.flatten((
-        Iterators.flatten(values(frame.ions)),
-        (state for state in values(frame.excited_states) if state.Z != 0),
-    ))
+    return Iterators.flatten(
+        (
+            Iterators.flatten(values(frame.ions)),
+            (state for state in values(frame.excited_states) if state.Z != 0),
+        )
+    )
 end
 
 """

@@ -2,7 +2,7 @@ using Unitful
 using HallThruster: HallThruster as het
 
 @testset "Setup relaxation uses its own tiny timestep" begin
-    for dt in (1e-5, 1e-15)
+    for dt in (1.0e-5, 1.0e-15)
         setup_steps = Float64[]
         source_energy = function (Q, params)
             push!(setup_steps, params.dt[])
@@ -11,11 +11,11 @@ using HallThruster: HallThruster as het
         end
         config = het.Config(;
             thruster = het.SPT_100, domain = (0.0, 0.08),
-            discharge_voltage = 300.0, anode_mass_flow_rate = 5e-6,
+            discharge_voltage = 300.0, anode_mass_flow_rate = 5.0e-6,
             source_energy,
         )
         sim = het.SimParams(;
-            grid = het.EvenGrid(20), dt, duration = 1e-12,
+            grid = het.EvenGrid(20), dt, duration = 1.0e-12,
             adaptive = false, num_save = 2, verbose = false,
         )
         params = het.setup_simulation(config, sim)

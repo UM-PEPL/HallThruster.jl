@@ -41,12 +41,12 @@ end
                 discharge_voltage = 300.0,
                 thruster = het.SPT_100,
                 anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
-                propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6)],
+                propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5.0e-6)],
                 anom_smoothing_iters = iters,
             )
             sim = het.SimParams(
-                duration = 1e-8,
-                dt = 1e-10,
+                duration = 1.0e-8,
+                dt = 1.0e-10,
                 adaptive = false,
                 grid = het.EvenGrid(20),
                 num_save = 2,

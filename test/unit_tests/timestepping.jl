@@ -3,13 +3,13 @@ using Test
 
 @testset "Every requested save time is respected" begin
     cases = (
-        (; name = "first step spans multiple saves", duration = 1e-8, dt = 5e-9, num_save = 6, adaptive = false),
-        (; name = "timestep exceeds duration", duration = 1e-9, dt = 2e-9, num_save = 6, adaptive = false),
-        (; name = "initial and final frames only", duration = 1e-9, dt = 2e-9, num_save = 2, adaptive = false),
-        (; name = "fixed timestep is restored", duration = 1e-9, dt = 3e-10, num_save = 3, adaptive = false),
-        (; name = "nonuniform floating-point save intervals", duration = 1.1e-9, dt = 3e-10, num_save = 8, adaptive = false),
-        (; name = "adaptive steps below min_dt", duration = 1e-12, dt = 1e-9, num_save = 6, adaptive = true),
-        (; name = "adaptive initial step is clipped", duration = 1e-14, dt = 1e-9, num_save = 6, adaptive = true),
+        (; name = "first step spans multiple saves", duration = 1.0e-8, dt = 5.0e-9, num_save = 6, adaptive = false),
+        (; name = "timestep exceeds duration", duration = 1.0e-9, dt = 2.0e-9, num_save = 6, adaptive = false),
+        (; name = "initial and final frames only", duration = 1.0e-9, dt = 2.0e-9, num_save = 2, adaptive = false),
+        (; name = "fixed timestep is restored", duration = 1.0e-9, dt = 3.0e-10, num_save = 3, adaptive = false),
+        (; name = "nonuniform floating-point save intervals", duration = 1.1e-9, dt = 3.0e-10, num_save = 8, adaptive = false),
+        (; name = "adaptive steps below min_dt", duration = 1.0e-12, dt = 1.0e-9, num_save = 6, adaptive = true),
+        (; name = "adaptive initial step is clipped", duration = 1.0e-14, dt = 1.0e-9, num_save = 6, adaptive = true),
     )
 
     for case in cases
@@ -29,7 +29,7 @@ using Test
                 domain = (0.0, 0.08),
                 discharge_voltage = 300.0,
                 thruster = het.SPT_100,
-                anode_mass_flow_rate = 5e-6,
+                anode_mass_flow_rate = 5.0e-6,
                 source_heavy_species = source,
             )
             sim = het.SimParams(
@@ -56,8 +56,8 @@ using Test
             @test all(f -> 0 < f.dt[] <= maximum(diff(expected_times)), sol.frames[2:end])
 
             if case.name == "fixed timestep is restored"
-                @test step_sizes ≈ [3e-10, 2e-10, 3e-10, 2e-10]
-                @test [f.dt[] for f in sol.frames[2:end]] ≈ [2e-10, 2e-10]
+                @test step_sizes ≈ [3.0e-10, 2.0e-10, 3.0e-10, 2.0e-10]
+                @test [f.dt[] for f in sol.frames[2:end]] ≈ [2.0e-10, 2.0e-10]
             elseif case.adaptive
                 @test all(<(sim.min_dt), step_sizes)
             end
@@ -70,14 +70,14 @@ end
         domain = (0.0, 0.08),
         discharge_voltage = 300.0,
         thruster = het.SPT_100,
-        anode_mass_flow_rate = 5e-6,
+        anode_mass_flow_rate = 5.0e-6,
     )
     sim = het.SimParams(
-        grid = het.EvenGrid(20), duration = 1e-9, dt = 5e-10,
+        grid = het.EvenGrid(20), duration = 1.0e-9, dt = 5.0e-10,
         num_save = 2, adaptive = false, verbose = false,
     )
     params = het.setup_simulation(config, sim)
-    tspan = (2e-9, 3e-9)
+    tspan = (2.0e-9, 3.0e-9)
     solver = het.SolverState(params; tspan, num_save = 6)
     for i in 2:6
         previous_time = solver.t
@@ -109,25 +109,25 @@ end
 @testset "Timestep selection keeps the actual step separate from its limit" begin
     config = het.Config(
         domain = (0.0, 0.08), discharge_voltage = 300.0,
-        thruster = het.SPT_100, anode_mass_flow_rate = 5e-6,
+        thruster = het.SPT_100, anode_mass_flow_rate = 5.0e-6,
     )
     sim = het.SimParams(
-        grid = het.EvenGrid(20), duration = 1e-8, dt = 3e-10,
+        grid = het.EvenGrid(20), duration = 1.0e-8, dt = 3.0e-10,
         num_save = 2, adaptive = true, verbose = false,
-        min_dt = 1e-10, max_dt = 1e-9,
+        min_dt = 1.0e-10, max_dt = 1.0e-9,
     )
     params = het.setup_simulation(config, sim)
     solver = het.SolverState(params; tspan = (0.0, sim.duration))
 
-    params.cache.dt_limit[] = 8e-10
+    params.cache.dt_limit[] = 8.0e-10
     selection = het.select_timestep!(params, solver)
     @test params.dt[] == het.initial_timestep(sim)
     @test !selection.at_minimum
-    @test params.cache.dt_limit[] == 8e-10
+    @test params.cache.dt_limit[] == 8.0e-10
 
     # These selections do not advance the simulation or mutate the stability limit.
     params.iteration[] = 2
-    for (limit, expected) in ((1e-12, sim.min_dt), (4e-10, 4e-10), (Inf, sim.max_dt))
+    for (limit, expected) in ((1.0e-12, sim.min_dt), (4.0e-10, 4.0e-10), (Inf, sim.max_dt))
         params.cache.dt_limit[] = limit
         selection = het.select_timestep!(params, solver)
         @test params.dt[] == expected
@@ -139,26 +139,26 @@ end
 
     # Fixed stepping ignores the previous actual step and the adaptive limit.
     params.simulation.adaptive = false
-    params.dt[] = 1e-15
+    params.dt[] = 1.0e-15
     het.select_timestep!(params, solver)
     @test params.dt[] == sim.dt
 
     # Frame output records a copy of the actual timestep, not the stability limit.
     frame = het.Frame(params, sim.dt)
     @test frame.dt[] == sim.dt
-    params.dt[] = 9e-10
+    params.dt[] = 9.0e-10
     @test frame.dt[] == sim.dt
 end
 
 @testset "Adaptive fallback expires even when dt equals min_dt" begin
     config = het.Config(
         domain = (0.0, 0.08), discharge_voltage = 300.0,
-        thruster = het.SPT_100, anode_mass_flow_rate = 5e-6,
+        thruster = het.SPT_100, anode_mass_flow_rate = 5.0e-6,
     )
     sim = het.SimParams(
-        grid = het.EvenGrid(20), duration = 1e-8, dt = 1e-10,
+        grid = het.EvenGrid(20), duration = 1.0e-8, dt = 1.0e-10,
         num_save = 2, adaptive = true, verbose = false,
-        min_dt = 1e-10, max_dt = 1e-9, max_small_steps = 2,
+        min_dt = 1.0e-10, max_dt = 1.0e-9, max_small_steps = 2,
     )
     params = het.setup_simulation(config, sim)
     solver = het.SolverState(params; tspan = (0.0, sim.duration))
@@ -167,8 +167,8 @@ end
     @test solver.fallback_steps_remaining == 0
 
     # Two minimum steps trigger two fallback steps, then adaptation resumes.
-    limits = [sim.min_dt, sim.min_dt, 3e-10, 3e-10, 3e-10]
-    expected_steps = [sim.min_dt, sim.min_dt, sim.dt, sim.dt, 3e-10]
+    limits = [sim.min_dt, sim.min_dt, 3.0e-10, 3.0e-10, 3.0e-10]
+    expected_steps = [sim.min_dt, sim.min_dt, sim.dt, sim.dt, 3.0e-10]
     expected_small_steps = [1, 0, 0, 0, 0]
     expected_remaining = [0, 2, 1, 0, 0]
     for i in eachindex(limits)
@@ -183,10 +183,10 @@ end
 @testset "Checkpoint-shortened steps do not trigger adaptive fallback" begin
     config = het.Config(
         domain = (0.0, 0.08), discharge_voltage = 300.0,
-        thruster = het.SPT_100, anode_mass_flow_rate = 5e-6,
+        thruster = het.SPT_100, anode_mass_flow_rate = 5.0e-6,
     )
     sim = het.SimParams(
-        grid = het.EvenGrid(20), duration = 1e-12, dt = 1e-9,
+        grid = het.EvenGrid(20), duration = 1.0e-12, dt = 1.0e-9,
         num_save = 6, adaptive = true, verbose = false, max_small_steps = 2,
     )
     params = het.setup_simulation(config, sim)
@@ -216,11 +216,11 @@ end
             end
             config = het.Config(
                 domain = (0.0, 0.08), discharge_voltage = 300.0,
-                thruster = het.SPT_100, anode_mass_flow_rate = 5e-6,
+                thruster = het.SPT_100, anode_mass_flow_rate = 5.0e-6,
                 source_heavy_species = source,
             )
             sim = het.SimParams(
-                grid = het.EvenGrid(20), duration = 1e-9, dt = 5e-10,
+                grid = het.EvenGrid(20), duration = 1.0e-9, dt = 5.0e-10,
                 num_save = 6, adaptive = false, verbose = false, print_errors = false,
             )
             sol = het.run_simulation(config, sim)

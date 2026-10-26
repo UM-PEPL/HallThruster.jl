@@ -18,7 +18,7 @@ using Test
             control = het.apply_controller(pid, -error, control, dt)
             # A derivative-only controller returns Kd times the latest slope,
             # independently of how the preceding interval was subdivided.
-            @test control ≈ 2.0 * (error - previous_error) / dt rtol = 1e-11
+            @test control ≈ 2.0 * (error - previous_error) / dt rtol = 1.0e-11
             previous_error = error
         end
         encoded = het.serialize(pid)
@@ -33,7 +33,7 @@ using Test
     pid = het.PIDController(target_value = 4.0, derivative_constant = 1.0)
     control = het.apply_controller(pid, 0.0, 0.0, 100 * eps(Float64))
     @test control == 4.0
-    @test het.apply_controller(pid, 0.0, control, 1e-9) == control
+    @test het.apply_controller(pid, 0.0, control, 1.0e-9) == control
 end
 
 @testset "PID measurement smoothing" begin
@@ -252,12 +252,12 @@ function test_current_control_bohmlike()
                     discharge_voltage = 300.0,
                     thruster = het.SPT_100,
                     anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
-                    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6)],
+                    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5.0e-6)],
                     anom_smoothing_iters = 0,
                 )
                 sim = het.SimParams(
-                    duration = 1e-8,
-                    dt = 1e-10,
+                    duration = 1.0e-8,
+                    dt = 1.0e-10,
                     adaptive = false,
                     grid = het.EvenGrid(20),
                     num_save = 2,
@@ -289,17 +289,17 @@ function test_integral_current_control_bohmlike()
             domain = (0.0, 0.08),
             discharge_voltage = 300.0,
             thruster = het.SPT_100,
-            propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5e-6)],
+            propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5.0e-6)],
         )
         controller = het.PIDController(
             target_value = 4.5,
             # Isolate the slow integral response from the proportional startup kick.
             proportional_constant = 0.0,
-            integral_constant = 1.01 / 1e-4,
+            integral_constant = 1.01 / 1.0e-4,
         )
         sim = het.SimParams(
-            duration = 1e-8,
-            dt = 1e-10,
+            duration = 1.0e-8,
+            dt = 1.0e-10,
             adaptive = false,
             grid = het.EvenGrid(20),
             num_save = 2,
@@ -311,7 +311,7 @@ function test_integral_current_control_bohmlike()
         # Setup invokes the controller once, starting with zero current and unit multiplier.
         setup_dt = min(het.initial_timestep(sim), 100 * eps(Float64))
         @test log(params.cache.anom_multiplier[]) ≈
-            controller.integral_constant * controller.target_value * setup_dt atol = 1e-14
+            controller.integral_constant * controller.target_value * setup_dt atol = 1.0e-14
         solver = het.SolverState(params; tspan = (0.0, sim.duration))
 
         for _ in 1:50
@@ -324,7 +324,7 @@ function test_integral_current_control_bohmlike()
                 (controller.target_value - previous_current) * params.dt[]
             multiplier = params.cache.anom_multiplier[]
             @test isfinite(multiplier) && multiplier > 0
-            @test log(multiplier) ≈ expected_log_multiplier atol = 1e-14
+            @test log(multiplier) ≈ expected_log_multiplier atol = 1.0e-14
             @test params.cache.νan_base ≈ base
             @test params.cache.νan ≈ multiplier .* base
         end
