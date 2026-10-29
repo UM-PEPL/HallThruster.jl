@@ -20,7 +20,7 @@ mutable struct SimParams{C <: CurrentController}
     duration::Float64
     # Optional parameters
     """
-    How many simulation frames to save in the `Solution` struct. **Default:** 1000
+    How many simulation frames to save in the `Solution` struct, including the initial and final frames. Must be at least 2. Timesteps are shortened as needed to reach each save time. **Default:** 1000
     """
     num_save::Int
     """
@@ -40,7 +40,7 @@ mutable struct SimParams{C <: CurrentController}
     """
     CFL::Float64
     """
-    The minimum allowable timestep in adaptive timestepping, in seconds. **Default:** 1e-10
+    The minimum allowable timestep in adaptive timestepping, in seconds. Steps may be shorter to reach a requested save time. **Default:** 1e-10
     """
     min_dt::Float64
     """
@@ -48,7 +48,7 @@ mutable struct SimParams{C <: CurrentController}
     """
     max_dt::Float64
     """
-    The maximum number of minimally-sized timesteps permitted in adaptive timestepping. **Default:** 100
+    The number of consecutive minimum-sized adaptive steps that triggers a temporary fallback to `dt`. The fallback lasts the same number of steps. Startup and steps shortened for saving do not count toward this threshold. **Default:** 100
     """
     max_small_steps::Int
     """
@@ -86,6 +86,9 @@ mutable struct SimParams{C <: CurrentController}
         )
     end
 end
+
+# Keep setup and the first solver step consistent about the adaptive startup step.
+initial_timestep(sim::SimParams) = sim.adaptive ? 100 * eps(Float64) : sim.dt
 
 """
 $(TYPEDEF)

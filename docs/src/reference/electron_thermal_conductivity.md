@@ -15,7 +15,8 @@ This form of the thermal conductivity follows the result of S. I. Braginskii, in
     \nu = \nu_{ei} + \nu_{en} + \alpha \nu_{AN} \\
 \end{aligned}
 
-Where C is a constant that is based on the value of the effective charge for multiple charge states and Table 1 of the Braginskii reference. 
+`C` is a charge-dependent coefficient given by is ``C = 13/4 + \sqrt{2}/Z_{\mathrm{eff}}``, where ``Z_{\mathrm{eff}} = \sum_s n_s Z_s^2 / n_e``.
+This analytic form is given by [Hunana et al. (2022), equation (60)](https://arxiv.org/abs/2201.11561), equations (88)–(94)
 The coefficient $\alpha$ ranges from zero to one and scales the amount that anomalous collisions contribute to heat flux.
 This defaults to 1.0.
 A `Braginskii` model can be initialized in the user-defined configuration as:
@@ -35,7 +36,6 @@ This model employs the form described in Mitchner & Kruger "Partially Ionized Ga
 \end{aligned}
 ```
 
-As in the Braginskii model, the anomalous contribu
 The model can be initialized in the configuration as
 
 ```julia

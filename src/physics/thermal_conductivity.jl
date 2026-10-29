@@ -2,18 +2,9 @@
     Thermal_Conductivity
 The abstract supertype of all types of thermal conductivity models.
 Subtype this to define your own model.
+Models return the coefficient in the heat flux `q = -κ * ∇Tev`.
 """
 abstract type ThermalConductivityModel end
-
-"""
-Lookup for thermal conductivity coefficients, from Table 1 of
-S. I. Braginskii, in Reviews of Plasma Physics (1965), Vol. 1, p. 205.
-"""
-const LOOKUP_ZS = range(1, 5, length = 5)
-const LOOKUP_CONDUCTIVITY_COEFFS = [4.66, 4.0, 3.7, 3.6, 3.2]
-const ELECTRON_CONDUCTIVITY_LOOKUP = LinearInterpolation(
-    LOOKUP_ZS, LOOKUP_CONDUCTIVITY_COEFFS,
-)
 
 #=============================================================================
  Serialization
@@ -51,12 +42,13 @@ Braginskii(; anom_scale::Float64 = 1.0) = Braginskii(anom_scale)
 function (model::Braginskii)(κ, params)
     (; νan, νc, ne, Tev, Z_eff, B) = params.cache
     @inbounds for i in eachindex(κ)
-        # get coefficient from charge states
-        κ_coef = ELECTRON_CONDUCTIVITY_LOOKUP(Z_eff[i])
+        # Hunana et al. (2022), Eq. (60): https://arxiv.org/abs/2201.11561
+        κ_coef = 13 / 4 + sqrt(2) / Z_eff[i]
         ωce = e * B[i] / me
         ν_eff = νc[i] + model.anom_scale * νan[i]
         Ω = ωce / ν_eff
         μ = (e / me) / (ν_eff * (1 + Ω^2))
+    
         # final calculation
         κ[i] = κ_coef * ne[i] * Tev[i] * μ
     end
@@ -91,14 +83,15 @@ function (model::Mitchner)(κ, params)
 end
 
 """
-    LANDMARK, uses 10/9 μnϵ
+    LANDMARK, uses q = -10/9 μnϵ ∇ϵ, where ϵ = 3/2 Tev.
+    Expressed as a temperature-gradient coefficient this is 5/2 μneTev.
 """
 struct LANDMARK_conductivity <: ThermalConductivityModel end
 
 function (model::LANDMARK_conductivity)(κ, params)
     (; μ, ne, Tev) = params.cache
     @inbounds for i in eachindex(κ)
-        κ[i] = (10 / 9) * μ[i] * (3 / 2) * ne[i] * Tev[i]
+        κ[i] = (5 / 2) * μ[i] * ne[i] * Tev[i]
     end
     return κ
 end

@@ -164,10 +164,11 @@ Here, ``T_e`` is in eV.
 Unlike the above types of collisions, electron-ion colulombic collisions are not strongly dependent on the type of gas, as the interaction distance is much larger than the atomic radius. They are thus handled via a simple Boolean flag in the `Config` struct: `electron_ion_collisions = true` or `electron_ion_collisions = false`. These are computed using the classical formulae (see [NRL Plasma Formulary, pg. 33](https://library.psfc.mit.edu/catalog/online_pubs/NRL_FORMULARY_13.pdf)):
 
 ```math
-\nu_{ei} = 2.9 \times 10^{-6}\; Z^2 n_e T_e^{-3/2} \ln{\Lambda}.
+\nu_{ei} = 2.9 \times 10^{-12}\; T_e^{-3/2} \sum_s n_s Z_s^2 \ln{\Lambda_s}.
 ```
 
-Here, ``Z`` is the ion charge state, $n_e$ is the plasma density in m``^{-3}`` and ``T_e`` is the electron temperature in eV. In the above expression, ``\ln\Lambda`` is the well-known Coulomb logarithm, given by
+Here, ``n_s`` is the number density of each charged heavy species in m``^{-3}``, ``Z_s`` is its signed charge number, ``n_e`` is the electron density, and ``T_e`` is the electron temperature in eV.
+In the above expression, ``\ln\Lambda`` is the well-known Coulomb logarithm, given by
 
 ```math
 \begin{aligned}
@@ -177,10 +178,10 @@ Here, ``Z`` is the ion charge state, $n_e$ is the plasma density in m``^{-3}`` a
 ```
 
 
-For plasmas containing multiple charge states, we compute the number-averaged charge state $\langle Z\rangle$ and use that in the above formula:
+The Coulomb logarithm is evaluated separately for each species using ``|Z_s|``. The effective charge used by the thermal-conductivity closure is the charge-squared moment:
 
 ```math
-\langle Z\rangle \equiv \left(\sum_{s} Z_s n_s\right) / n_e.
+Z_{\mathrm{eff}} \equiv \left(\sum_s Z_s^2 n_s\right) / n_e.
 ```
 
 ## Implementing your own collisions

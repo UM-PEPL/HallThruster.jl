@@ -22,22 +22,40 @@ function freq_electron_neutral!(νen::Vector{T}, coll::ElasticCollision, fluid::
 end
 
 """
-    freq_electron_ion(ne, Tev, Z)
-Effective frequency at which electrons are scattered due to collisions with ions with average charge state Z
+    freq_electron_ion(ni, Tev, Z, ne = abs(Z) * ni)
+Effective electron scattering frequency for ions of number density `ni` and
+charge `Z`. `ne` sets electron screening in the Coulomb logarithm.
 """
-@inline function freq_electron_ion(ne::Number, Tev::Number, Z::Number)
-    return 2.9e-12 * Z^2 * ne * coulomb_logarithm(ne, Tev, Z) / sqrt(Tev^3)
+@inline function freq_electron_ion(ni::Number, Tev::Number, Z::Number, ne::Number = abs(Z) * ni)
+    charge = abs(float(Z))
+    return 2.9e-12 * charge^2 * ni * coulomb_logarithm(ne, Tev, charge) / sqrt(Tev^3)
 end
 
 function freq_electron_ion!(
         νei::Vector{T}, ne::Vector{T}, Tev::Vector{T}, Z::Vector{T},
     ) where {T <: Number}
     @inbounds for i in interior_cells(νei)
-        νei[i] = freq_electron_ion(ne[i], Tev[i], Z[i])
+        νei[i] = freq_electron_ion(ne[i] / abs(Z[i]), Tev[i], Z[i], ne[i])
     end
     νei[1] = νei[2]
     νei[end] = νei[end - 1]
     return
+end
+
+function freq_electron_ion!(νei, ne, Tev, fluids::AbstractVector{FluidContainer})
+    fill!(νei, 0.0)
+    @inbounds for fluid in fluids
+        Z = fluid.species.Z
+        iszero(Z) && continue
+        inv_m = inv(fluid.species.element.m)
+        for i in interior_cells(νei)
+            ni = fluid.density[i] * inv_m
+            νei[i] += freq_electron_ion(ni, Tev[i], Z, ne[i])
+        end
+    end
+    νei[1] = νei[2]
+    νei[end] = νei[end - 1]
+    return nothing
 end
 
 """

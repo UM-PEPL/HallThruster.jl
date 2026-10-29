@@ -1,11 +1,11 @@
 # update useful quantities relevant for potential, electron energy and fluid solve
 function update_electrons!(params, config, t = 0)
-    (; Tev, ne, nϵ, νan, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
+    (; Tev, ne, nϵ, νan, νan_base, νc, νen, νei, radial_loss_frequency, Z_eff, νiz, νex, νex_explicit, νew_momentum, κ, pe, ∇pe) = params.cache
     (; source_energy, wall_loss_model, conductivity_model, anom_model) = config
 
     # Update collision frequencies
     if (params.electron_ion_collisions)
-        freq_electron_ion!(νei, ne, Tev, Z_eff)
+        freq_electron_ion!(νei, ne, Tev, params.fluid_containers.isothermal)
     end
 
     # Add electron-neutral MEX collisions
@@ -23,8 +23,12 @@ function update_electrons!(params, config, t = 0)
     freq_electron_classical!(νc, νen, νei, νiz, νex, params.landmark)
     update_walls!(radial_loss_frequency, νew_momentum, wall_loss_model, params)
 
-    # Update anomalous transport
-    t > 0 && anom_model(νan, params)
+    # Update anomalous transport into νan_base, then copy it into νan
+    # This ensures static models (which stop updating after a few iters)
+    # get a fresh collision frequency which can be modified by current control or smoothing later
+    # without having these compound over multiple iterations
+    t > 0 && anom_model(νan_base, params)
+    @. νan = νan_base
 
     # Update mobility, discharge current, potential, and electron velocity
     update_electrical_vars!(params)
@@ -82,17 +86,28 @@ function update_electrical_vars!(params)
     Vs[] = anode_sheath_potential(params)
 
     # Compute the discharge current by integrating the momentum equation over the whole domain
-    V_L = Vd[] + Vs[]
     V_R = params.cathode_coupling_voltage
 
     apply_drag = !landmark && params.iteration[] > 5
 
-    Id[] = integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
+    voltage_offset, plasma_resistance = discharge_current_integrals(grid, cache, apply_drag)
+    open_voltage, circuit_resistance = circuit_voltage_response(
+        params.filter_circuit, params.discharge_voltage, params.dt[],
+    )
+    requested_current = (open_voltage + Vs[] - V_R + voltage_offset) /
+        (plasma_resistance + circuit_resistance)
 
     # Apply discharge current limit (defaults to infinity -> no limiting)
-    Id[] = max(0.0, min(params.filter_circuit.limit_current, Id[]))
+    Id[] = clamp(requested_current, 0.0, params.filter_circuit.limit_current)
 
     Vd[] = update_circuit(params.filter_circuit, params.discharge_voltage, Id[], params.dt[])
+    if Id[] != requested_current
+        # An ideal output current limiter drops the terminal voltage. Keep the
+        # filter's stored energy/state, but use the delivered discharge voltage
+        # required by Ohm's law so the cathode potential remains fixed.
+        Vd[] = V_R + Id[] * plasma_resistance - voltage_offset - Vs[]
+    end
+    V_L = Vd[] + Vs[]
 
     # Compute electric field and potential
     update_electric_field!(∇ϕ, cache, apply_drag, params.min_number_density)
@@ -111,6 +126,11 @@ end
 
 # Compute the axially-constant discharge current using Ohm's law
 function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
+    int1, int2 = discharge_current_integrals(grid, cache, apply_drag)
+    return (V_L - V_R + int1) / int2
+end
+
+function discharge_current_integrals(grid, cache, apply_drag)
     (; ∇pe, μ, ne, ji, channel_area, avg_neutral_vel, avg_ion_vel, νei, νen, νan) = cache
 
     # Compute integrands at all cell centers
@@ -158,10 +178,7 @@ function integrate_discharge_current(grid, cache, V_L, V_R, apply_drag)
         int2 += 0.5 * (zR - zL) * (f2_L + f2_R)
     end
 
-    ΔV = V_L - V_R
-    I = (ΔV + int1) / int2
-
-    return I
+    return int1, int2
 end
 
 function electron_kinetic_energy!(K, νe, B, ue)

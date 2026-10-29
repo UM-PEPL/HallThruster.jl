@@ -61,14 +61,7 @@ function run_simulation(json_file::String; restart::String = "")
         postprocess = deserialize(Postprocess, input["postprocess"])
     end
 
-    sol = run_simulation(cfg, sim; postprocess, include_dirs = dirname(json_file), restart)
-
-    if postprocess !== nothing
-        (; average_start_time, save_time_resolved) = postprocess
-        write_to_json(postprocess.output_file, sol; average_start_time, save_time_resolved)
-    end
-
-    return sol
+    return run_simulation(cfg, sim; postprocess, include_dirs = dirname(json_file), restart)
 end
 
 """

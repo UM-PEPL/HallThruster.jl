@@ -23,6 +23,20 @@ function CircuitElement(type::Char, value::Float64)
     return CircuitElement(value, 0.0, 0.0, 0.0, 0.0, type)
 end
 
+function Serialization.serialize(element::CircuitElement)
+    return OrderedDict("type" => string(element.type), "value" => element.value)
+end
+
+function Serialization.deserialize(::Type{CircuitElement}, dict)
+    type = dict["type"]
+    type isa AbstractString && length(type) == 1 || throw(
+        ArgumentError("Circuit element type must be a single character: R, L, or C.")
+    )
+    # Circuit configuration excludes transient currents and voltages. The
+    # validated constructor initializes those fields to zero on reload.
+    return CircuitElement(only(type), deserialize(Float64, dict["value"]))
+end
+
 """
 $(TYPEDEF)
 
@@ -32,6 +46,11 @@ The voltage commanded by the power supply is denoted as `V0`, the current drawn 
 - `:ParallelRL`: A circuit with a resistor and inductor in parallel between the power supply and the thruster
 - `:ParallelRC`: A circuit with a resistor in series with power supply and a capacitor in parallel with the thruster
 - `:ParallelRLSeriesC`: A circuit with a resistor and inductor in parallel between the power supply and the thruster and capacitor, which are in parallel with each other
+
+`limit_current` represents an ideal output limiter between the filter and the
+discharge. When active, it reduces the delivered discharge voltage to hold the
+current limit; stored capacitor voltages and inductor currents remain circuit
+state rather than being overwritten by the limiting voltage.
 """
 @kwdef struct CircuitModel
     type::Symbol
@@ -82,6 +101,32 @@ function CircuitModel(type::Union{Symbol, Nothing}; R::Float64 = NaN, L::Float64
     return CircuitModel(type, elements, limit_current)
 end
 
+# Terminal-voltage response of the next explicit circuit update, before mutating
+# its state: Vd = open_voltage - resistance * Id. This lets the plasma and
+# circuit satisfy the same current/voltage relation in one solve.
+function circuit_voltage_response(model::CircuitModel, V0, dt)
+    if model.type == :NoCircuit
+        return V0, 0.0
+    elseif model.type == :LoadResistor
+        return V0, model.elements[1].value
+    elseif model.type == :ParallelRL
+        resistor, inductor = model.elements
+        current = inductor.I + inductor.dI_dt * dt
+        return V0 + resistor.value * current, resistor.value
+    elseif model.type == :ParallelRC
+        capacitor = model.elements[2]
+        return capacitor.V + capacitor.dV_dt * dt, 0.0
+    elseif model.type == :ParallelRLSeriesC
+        resistor, inductor, capacitor = model.elements
+        R, L, C = resistor.value, inductor.value, capacitor.value
+        current = inductor.I + inductor.dI_dt * dt
+        derivative = inductor.dI_dt - dt *
+            (current / L + inductor.dI_dt / R) / C
+        return V0 - L * derivative, dt / C
+    end
+    throw(ArgumentError("Unknown circuit type: $(model.type)"))
+end
+
 function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float64)
     Vd = if model.type == :NoCircuit
         V0
@@ -99,7 +144,7 @@ function update_circuit(model::CircuitModel, V0::Float64, Id::Float64, dt::Float
         inductor.dI_dt = R * (Id - inductor.I) / L
 
         # Update discharge voltage
-        Vd = V0 - L * inductor.I
+        Vd = V0 - L * inductor.dI_dt
 
     elseif model.type == :ParallelRC
         resistor, capacitor = model.elements

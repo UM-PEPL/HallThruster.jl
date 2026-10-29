@@ -9,6 +9,20 @@ include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
         @test het.deserialize(het.Gas, name) == gas
     end
 
+    custom_mass = het.Gas("Xe"; M = 129.0)
+    @test het.serialize(custom_mass)["mass"] == 129.0
+    test_roundtrip(het.Gas, custom_mass)
+    test_roundtrip(het.Propellant, het.Propellant(custom_mass, 5.0e-6))
+    restored_mass = het.deserialize(
+        het.Gas, js.parse(js.json(het.serialize(custom_mass))),
+    )
+    @test restored_mass.M == custom_mass.M
+    @test restored_mass.m == custom_mass.m
+    # Older gas dictionaries did not include a mass override.
+    @test het.deserialize(
+        het.Gas, Dict("formula" => "Xe", "gamma" => het.Xenon.γ),
+    ) == het.Xenon
+
     scalar_propellant = het.Propellant(het.Xenon, 5.0e-6; velocity_m_s = 150.0)
     scalar_dict = het.serialize(scalar_propellant)
     @test scalar_dict["velocity_m_s"] == 150.0

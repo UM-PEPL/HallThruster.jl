@@ -77,7 +77,8 @@ struct MyInitialCondition <: HallThruster.InitialCondition end;
 
 ```
 
-We would then add a method to the `initialize!(U, params, model)` function as follows:
+We would then add a method to `initialize!(params, config, model)` as follows.
+Custom initial conditions must also initialize the electrons and their pressure; leaving electron temperature and energy at zero produces invalid collision rates.
 
 ```jldoctest initialization; output=false
 import HallThruster.initialize!
@@ -93,6 +94,21 @@ function HallThruster.initialize!(params, config, model::MyInitialCondition)
         fluid.density .= grid.cell_centers
         fluid.momentum .= grid.cell_centers
     end
+
+    # Compute electron density from the custom ion populations.
+    cache = params.cache
+    fill!(cache.ne, 0.0)
+    for fluid in fluid_containers.isothermal
+        @. cache.ne += fluid.species.Z * fluid.density / fluid.species.element.m
+    end
+    @. cache.ne = max(cache.ne, config.min_number_density)
+
+    # Use the default electron temperature profile with the custom density.
+    HallThruster.initialize_electrons_default!(
+        params, config.anode_Tev, config.cathode_Tev, config.discharge_voltage,
+    )
+    HallThruster.update_pressure!(cache.pe, cache.nϵ, config.LANDMARK)
+    HallThruster.update_pressure_gradient!(cache.∇pe, cache.pe, grid.cell_centers)
 
     return nothing
 end;
