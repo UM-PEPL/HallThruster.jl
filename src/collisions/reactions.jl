@@ -154,6 +154,7 @@ Derive species energies in eV from one-to-one electron-impact reactions. The
 neutral ground state defines zero energy for each gas. Reaction header energies
 provide differences between levels, including ionization thresholds connecting
 different charge-state manifolds.
+TODO: This should be replaced with explicit level energy specification in a future version.
 """
 function derive_species_energies(species, reactions)
     adjacency = Dict{Symbol, Vector{Tuple{Symbol, Float64}}}(
@@ -251,16 +252,20 @@ function _load_electron_impact_reaction(reaction, species_map, directories)
     reactants, reactant_coeffs = reactant_data
     products, product_coeffs = product_data
 
-    length(reactants) == 1 || error(
-        "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
+    length(reactants) == 1 || throw(
+        ArgumentError(
+            "Electron-impact reaction $(reaction) must have exactly one heavy-species reactant."
+        )
     )
-    only(reactant_coeffs) == 1 || error(
-        "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
+    only(reactant_coeffs) == 1 || throw(
+        ArgumentError(
+            "Leading coefficient of species $(only(reactants)) must be one in reaction $(reaction)."
+        )
     )
 
-    energy, rate_coeffs = _load_configured_rate_coefficients(
-        reaction, "electron_impact", directories,
-    )
+
+    energy, rate_coeffs = _load_configured_rate_coefficients(reaction, "electron_impact", directories)
+
     return ElectronImpactReaction(
         only(reactants), products, product_coeffs, rate_coeffs, energy,
     )
@@ -304,9 +309,15 @@ function load_reactions(
         propellant_config, species, iz_model, ex_model, en_model;
         directories = String[],
     )
-    if !isempty(propellant_config) && isfile(propellant_config)
-        contents = TOML.parsefile(propellant_config)
+    if !isempty(propellant_config)
+        propellant_config_path = find_file_in_dirs(propellant_config, directories)
+        isnothing(propellant_config_path) && error(
+            "Propellant config file $(propellant_config) not found in current directory " *
+                "or any of the provided directories ($(directories))"
+        )
+        contents = TOML.parsefile(propellant_config_path)
         if haskey(contents, "reactions")
+            configured_directories = [directories; dirname(abspath(propellant_config_path))]
             ei_reactions = ElectronImpactReaction[]
             ex_reactions = ExcitationReaction[]
             en_reactions = ElasticCollision[]
@@ -317,7 +328,7 @@ function load_reactions(
                 type = reaction["type"]
                 if type == "electron_impact"
                     configured = _load_electron_impact_reaction(
-                        reaction, species_map, directories,
+                        reaction, species_map, configured_directories,
                     )
                     isnothing(configured) || push!(ei_reactions, configured)
                 elseif type == "de-excitation"
@@ -325,7 +336,7 @@ function load_reactions(
                     isnothing(configured) || push!(de_reactions, configured)
                 elseif type == "excitation" || type == "elastic"
                     configured = _load_target_collision(
-                        reaction, type, species_map, directories,
+                        reaction, type, species_map, configured_directories,
                     )
                     if !isnothing(configured)
                         type == "excitation" ?

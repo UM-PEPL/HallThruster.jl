@@ -131,9 +131,7 @@ function RadiativeNetwork(
 end
 
 """
-    build_radiative_networks(
-        fluids, reactions, reactant_indices, product_indices, species_energies_eV,
-    )
+    build_radiative_networks(fluids, reactions, reactant_indices, product_indices, species_energies_eV)
 
 Group radiative transitions by gas and charge state, then construct the linear
 generator for each independent decay network. The returned emission workspace
@@ -270,15 +268,15 @@ end
     apply_radiative_decay!(fluids, networks, dt)
     apply_radiative_decay!(fluids, networks, emission_counts, dt)
 
-Advance every radiative cascade exactly over `dt`. Population and momentum are
-propagated with `exp(Q * dt)`. Photon counts use the matching integrated upper-
-state populations, so branching and multi-step cascades remain conservative and
-timestep-independent. Integrated upper-state residence is accumulated here and
-expanded into individual transition counts only when an output frame is saved.
+Advance every radiative cascade by `dt`seconds.
+Population and momentum are propagated with `exp(Q * dt)`.
+Photon counts use the matching integrated upper-state populations,
+so branching and multi-step cascades remain conservative and timestep-independent.
+Integrated upper-state residence is accumulated here and expanded into individual
+transition counts only when an output frame is saved.
 The four-argument form also materializes counts immediately for standalone use.
 """
-apply_radiative_decay!(fluids, networks, dt) =
-    apply_radiative_decay!(fluids, networks, nothing, dt)
+apply_radiative_decay!(fluids, networks, dt) = apply_radiative_decay!(fluids, networks, nothing, dt)
 
 function apply_radiative_decay!(fluids, networks, emission_counts, dt)
     dt > 0 || return nothing

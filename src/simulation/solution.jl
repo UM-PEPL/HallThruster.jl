@@ -229,13 +229,13 @@ $(TYPEDFIELDS)
     discharge_current::Array{Float64, 0}
     """ Discharge voltage (V)"""
     discharge_voltage::Array{Float64, 0} = fill(0.0) # need to provide default value for backwards compatibility when loading
-    """Simulation timestep (s)"""
+    """Simulation timestep used in the last step before this frame (s)"""
     dt::Array{Float64, 0}
 end
 
 function Frame(
         fluids_by_propellant, cache, species_energies_eV,
-        radiative_transitions, radiative_emission_counts, emission_interval,
+        radiative_transitions, radiative_emission_counts, emission_interval, dt,
     )
     neutrals, ions, excited_states = _get_species_states(
         fluids_by_propellant, species_energies_eV,
@@ -272,11 +272,11 @@ function Frame(
         anom_multiplier = fill(cache.anom_multiplier[]),
         discharge_current = fill(cache.Id[]),
         discharge_voltage = fill(cache.Vd[]),
-        dt = fill(cache.dt[]),
+        dt = fill(dt),
     )
 end
 
-function Frame(params, emission_interval)
+function Frame(params, emission_interval; dt = params.dt[])
     materialize_radiative_emissions!(
         params.radiative_emission_counts, params.radiative_networks,
     )
@@ -287,6 +287,7 @@ function Frame(params, emission_interval)
         params.radiative_transitions,
         params.radiative_emission_counts,
         emission_interval,
+        dt,
     )
 end
 
@@ -471,7 +472,7 @@ $(alternate_field_names())
     ϕ = :potential,
     ∇pe = :grad_pe,
     νan = :nu_an,
-    nu_anom = :nu_a,
+    nu_anom = :nu_an,
     νc = :nu_class,
     νei = :nu_ei,
     νen = :nu_en,
@@ -523,10 +524,6 @@ function Base.getindex(sol::Solution, field::Symbol)
         field = alts[field]
     end
 
-    if field in fieldnames(Frame)
-        return [getproperty(frame, field) for frame in sol.frames]
-    end
-
     # Special cases
     if field == :B
         return sol.frames[1].B
@@ -536,156 +533,188 @@ function Base.getindex(sol::Solution, field::Symbol)
         return sol.grid
     end
 
+    if field in fieldnames(Frame)
+        return [getproperty(frame, field) for frame in sol.frames]
+    end
+
     throw(ArgumentError("Field :$(field) not found! Valid fields are $(valid_fields())"))
 end
 
+mutable struct SolverState
+    t::Float64
+    saveat::Vector{Float64}
+    frames::Vector{Frame}
+    times::Vector{Float64}
+    small_steps::Int
+    fallback_steps_remaining::Int
+    retcode::Symbol
 
-function solve(params, config, tspan; num_save = -1)
-    # Initialize starting time and iterations
-    iteration = params.iteration
-    t = tspan[1]
-    iteration[] = 1
+    function SolverState(params; tspan, num_save = -1)
+        # Initialize starting time and iterations
+        t, t_end = Float64.(tspan)
+        isfinite(t) && isfinite(t_end) && t_end > t || throw(
+            ArgumentError("tspan must have finite, strictly increasing endpoints.")
+        )
 
-    # Yield to signals only every few iterations
-    yield_interval = 100
+        # Error handling
+        retcode = :success
 
-    # Error handling
-    errstring = ""
-    retcode = :success
+        # Frame saving setup
+        num_frames = num_save == -1 ? params.simulation.num_save : num_save
+        num_frames >= 2 || throw(ArgumentError("num_save must be at least 2, including the initial and final frames."))
+        saveat = collect(range(t, t_end, length = num_frames))
+        all(i -> saveat[i] > saveat[i - 1], 2:num_frames) || throw(
+            ArgumentError("Save times must be distinct; reduce num_save or increase tspan.")
+        )
+        frames = [Frame(params, 0.0; dt = 0.0)]
+        times = [t]
 
-    # Frame saving setup
-    saveat = range(tspan[1], tspan[2], length = num_save >= 2 ? num_save : params.simulation.num_save)
-    save_ind = 2
-    frames = [Frame(params, 0.0)]
-    times = zeros(length(saveat))
-    times[1] = t
-    last_save_time = t
+        return new(
+            t,
+            saveat,
+            frames,
+            times,
+            0,
+            0,
+            retcode,
+        )
+    end
+end
 
-    # Parameters for adaptive timestep escape hatch
-    small_step_count = 0
-    uniform_steps = false
+function select_timestep!(params, solver::SolverState)
+    sim = params.simulation
+    first_step = params.iteration[] == 1
+    using_adaptive_limit = sim.adaptive && !first_step && solver.fallback_steps_remaining == 0
+    candidate = if !sim.adaptive || solver.fallback_steps_remaining > 0
+        sim.dt
+    elseif first_step
+        initial_timestep(sim)
+    else
+        clamp(params.cache.dt_limit[], sim.min_dt, sim.max_dt)
+    end
 
+    next_save_time = solver.saveat[length(solver.times) + 1]
+    time_to_save = next_save_time - solver.t
+    dt = min(candidate, time_to_save)
+    isfinite(dt) && dt > 0 || throw(ArgumentError("Selected timestep must be positive and finite; got $dt."))
+    params.dt[] = dt
+
+    return (;
+        next_save_time,
+        reaches_save = dt == time_to_save,
+        at_minimum = using_adaptive_limit && candidate == sim.min_dt && dt == candidate,
+    )
+end
+
+function save_checkpoint!(params, solver::SolverState)
+    next_save_index = length(solver.times) + 1
+    next_save_index > length(solver.saveat) && return nothing
+    solver.t < solver.saveat[next_save_index] && return nothing
+
+    frame = Frame(params, solver.t - solver.times[end])
+    push!(solver.frames, frame)
+    push!(solver.times, solver.t)
+    reset_radiative_emissions!(
+        params.radiative_emission_counts, params.radiative_networks,
+    )
+    return nothing
+end
+
+function step_solver!(params, config, solver::SolverState)
+    solver.retcode != :success && return false
+    length(solver.times) == length(solver.saveat) && return false
+
+    selection = select_timestep!(params, solver)
+    step_dt = params.dt[]
+    any_nan = integrate_heavy_species!(params.fluid_containers, params, config.source_heavy_species, step_dt)
     sim = params.simulation
 
-    # Extract stuff from config
-    (; source_heavy_species) = config
+    if any_nan
+        if sim.print_errors
+            # Find which fluids/cells have NaN or Inf
+            for (i, fluid) in enumerate(params.fluid_array)
+                nan_density = findall(x -> !isfinite(x), fluid.density)
+                nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
+                if !isempty(nan_density)
+                    @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
+                end
+                if !isempty(nan_momentum)
+                    @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
+                end
+            end
+            # Report timestep and time context
+            @warn(
+                "NaN/Inf detected in heavy species solver",
+                time = solver.t,
+                dt = params.dt[],
+                iteration = params.iteration[],
+            )
+        end
+        solver.retcode = :failure
+        return false
+    end
+
+    # Update electron quantities
+    update_electrons!(params, config, solver.t)
+
+    # Update plume geometry
+    config.solve_plume && update_plume_geometry!(params)
+
+    # Update the current iteration and time
+    params.iteration[] += 1
+    # Assign checkpoint times directly to avoid an extra roundoff-sized step.
+    solver.t = selection.reaches_save ? selection.next_save_time : solver.t + step_dt
+
+    # Allow for system interrupts at pre-determined intervals
+    if params.iteration[] % 100 == 0
+        yield()
+    end
+
+    # Count completed minimum-sized adaptive steps independently of the fallback
+    # countdown. Startup and checkpoint-shortened steps cannot trigger fallback.
+    if sim.adaptive
+        if solver.fallback_steps_remaining > 0
+            solver.fallback_steps_remaining -= 1
+        elseif selection.at_minimum
+            solver.small_steps += 1
+            if solver.small_steps >= sim.max_small_steps
+                solver.fallback_steps_remaining = sim.max_small_steps
+                solver.small_steps = 0
+            end
+        else
+            solver.small_steps = 0
+        end
+    end
+
+    save_checkpoint!(params, solver)
+    return length(solver.times) < length(solver.saveat)
+end
+
+function solve(params, config, tspan; num_save = -1)
+    # Initialize solver state
+    solver = SolverState(params; tspan, num_save)
+    errstring = ""
 
     try
         while true
-            any_nan = integrate_heavy_species!(params.fluid_containers, params, source_heavy_species, params.dt[])
-
-            if any_nan
-                if sim.print_errors
-                    # Find which fluids/cells have NaN or Inf
-                    for (i, fluid) in enumerate(params.fluid_array)
-                        nan_density = findall(x -> !isfinite(x), fluid.density)
-                        nan_momentum = findall(x -> !isfinite(x), fluid.momentum)
-                        if !isempty(nan_density)
-                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) density at cells: $nan_density (values: $(fluid.density[nan_density]))")
-                        end
-                        if !isempty(nan_momentum)
-                            @warn("NaN/Inf in ($(fluid.species.symbol), Z=$(fluid.species.Z)) momentum at cells: $nan_momentum (values: $(fluid.momentum[nan_momentum]))")
-                        end
-                    end
-                    # Report timestep and time context
-                    @warn(
-                        "NaN/Inf detected in heavy species solver",
-                        time = t,
-                        dt = params.dt[],
-                        iteration = params.iteration[],
-                    )
-                end
-                retcode = :failure
-                break
-            end
-
-            # Update electron quantities
-            update_electrons!(params, config, t)
-
-            # Update plume geometry
-            config.solve_plume && update_plume_geometry!(params)
-
-            # Update the current iteration and time
-            iteration[] += 1
-            t += params.dt[]
-
-            # Allow for system interrupts at pre-determined intervals
-            if iteration[] % yield_interval == 0
-                yield()
-            end
-
-            #====
-            Save the current simulation state if we jumped over or landed on a checkpoint time.
-            This should always be a direct hit, but just in case we allow for a miss.
-            ====#
-            if t >= saveat[save_ind]
-                push!(frames, Frame(params, t - last_save_time))
-                reset_radiative_emissions!(
-                    params.radiative_emission_counts, params.radiative_networks,
-                )
-                times[save_ind] = t
-                last_save_time = t
-                save_ind += 1
-            end
-
-            t >= saveat[end] && break
-
-            #====
-            Compute the new timestep
-            If using uniform timestepping, we do nothing, but if using adaptive we either use the next computed 
-            minimum allowable timestep or the uniform timestep, depending on the current adaptive timestepping status.
-            (see below).
-            We then check whether we'd step over the next scheduled save checkpoint, and if so, take a smaller step
-            so that we land on it exactly.
-            ====#
-            if sim.adaptive
-                if uniform_steps
-                    params.dt[] = sim.dt
-                    small_step_count -= 1
-                else
-                    params.dt[] = clamp(params.cache.dt[], sim.min_dt, sim.max_dt)
-                end
-            end
-
-            if t + params.dt[] > saveat[save_ind]
-                params.dt[] = saveat[save_ind] - t
-            end
-
-            #====
-            Count how many times we've taken the minimum allowable timestep.
-            If we exceed the threshold, then start taking longer uniform steps for a bit.
-            This helps break out of cases where adaptive timestepping gets stuck ---
-            either by resolving the situation or by causing the simulation to fail fast
-            ====#
-            if params.dt[] == sim.min_dt
-                small_step_count += 1
-            elseif !uniform_steps
-                small_step_count = 0
-            end
-
-            if small_step_count >= sim.max_small_steps
-                uniform_steps = true
-            elseif small_step_count == 0
-                uniform_steps = false
-            end
-
+            step_solver!(params, config, solver) || break
         end
     catch e
         errstring = sprint(showerror, e, catch_backtrace())
-        retcode = :error
-        if sim.print_errors
+        solver.retcode = :error
+        if params.simulation.print_errors
             @warn "Error detected in solution: $(errstring)"
         end
     end
 
     return Solution(
-        times,
-        frames,
+        solver.times,
+        solver.frames,
         copy_and_remove_ghosts(params.grid.cell_centers),
         config,
         params.simulation,
         params.postprocess,
-        retcode,
+        solver.retcode,
         errstring,
     )
 end

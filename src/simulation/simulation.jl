@@ -91,13 +91,7 @@ function setup_simulation(
     # ================================================================================
     # Timestep setup
     # ================================================================================
-    # Make the adaptive timestep independent of input condition
-    dt = sim.dt
-    if sim.adaptive
-        dt = 100 * eps() # small initial timestep to initialize everything
-    end
-
-    cache.dt .= dt
+    dt = initial_timestep(sim)
 
     # ================================================================================
     # Setup simulation parameters
@@ -115,7 +109,7 @@ function setup_simulation(
         # non-concretely-typed, changes based on run, requires recompilation
         params_from_config(config)...,
         # concretely-typed except for PID controller, not too bad
-        simulation = sim,
+        simulation = deepcopy(sim),
         # Remainder is concretely-typed
         iteration = [-1],
         dt = [dt],
@@ -152,7 +146,8 @@ function setup_simulation(
 
     # Initialize the anomalous collision frequency using a
     # two-zone Bohm approximation for the first iteration
-    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan, params)
+    TwoZoneBohm(1 / 160, 1 / 16)(params.cache.νan_base, params)
+    params.cache.νan .= params.cache.νan_base
 
     if !isempty(restart)
         # Initialize the solution from a restart JSON file
@@ -162,8 +157,12 @@ function setup_simulation(
     # make values in params available for first timestep
     initialize_plume_geometry(params)
     update_heavy_species!(params)
+    # Initial starting step with tiny dt
+    params.dt[] = min(dt, 100 * eps(Float64))
     update_electrons!(params, config)
+    params.dt[] = dt
 
+    params.iteration[] = 1
     return params
 end
 
@@ -250,5 +249,10 @@ Returns a `Solution` object.
 """
 function run_simulation(config::Config, sim::SimParams; postprocess = nothing, restart::String = "", kwargs...)
     params = setup_simulation(config, sim; postprocess, restart, kwargs...)
-    return run_from_setup(params, config)
+    sol = run_from_setup(params, config)
+    if !isempty(params.postprocess.output_file)
+        (; output_file, average_start_time, save_time_resolved) = params.postprocess
+        write_to_json(output_file, sol; average_start_time, save_time_resolved)
+    end
+    return sol
 end

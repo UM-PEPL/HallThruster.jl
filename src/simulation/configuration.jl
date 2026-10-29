@@ -361,6 +361,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
         cathode_coupling_voltage = convert_to_float64(cathode_coupling_voltage, units(:V))
 
         anode_Tev = convert_to_float64(anode_Tev, units(:eV))
+        cathode_Tev = convert_to_float64(cathode_Tev, units(:eV))
 
         domain = (
             convert_to_float64(domain[1], units(:m)),
@@ -473,7 +474,8 @@ function params_from_config(config)
     for (i, prop) in enumerate(config.propellants)
         # Number density fraction of a species == its number flow ratio through the anode
         ndot_a = prop.flow_rate_kg_s / prop.gas.m
-        ρn_B = background_neutral_density(prop, config) * ndot_a / ndot_anode
+        ρn_B = iszero(ndot_anode) ? 0.0 :
+            background_neutral_density(prop, config) * ndot_a / ndot_anode
         un_B = background_neutral_velocity(prop, config)
         ingestion_flow_rates[i] = fn * ρn_B * un_B * channel_area
     end
@@ -495,7 +497,7 @@ function params_from_config(config)
         plume_loss_scale = config.electron_plume_loss_scale,
         anom_smoothing_iters = config.anom_smoothing_iters,
         discharge_voltage = config.discharge_voltage,
-        filter_circuit = config.filter_circuit,
+        filter_circuit = deepcopy(config.filter_circuit),
         cathode_coupling_voltage = config.cathode_coupling_voltage,
         electron_ion_collisions = config.electron_ion_collisions,
         min_Te = config.min_Te,

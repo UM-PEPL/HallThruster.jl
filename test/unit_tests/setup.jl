@@ -1,6 +1,32 @@
 using Unitful
 using HallThruster: HallThruster as het
 
+@testset "Setup relaxation uses its own tiny timestep" begin
+    for dt in (1.0e-5, 1.0e-15)
+        setup_steps = Float64[]
+        source_energy = function (Q, params)
+            push!(setup_steps, params.dt[])
+            fill!(Q, 0.0)
+            return nothing
+        end
+        config = het.Config(;
+            thruster = het.SPT_100, domain = (0.0, 0.08),
+            discharge_voltage = 300.0, anode_mass_flow_rate = 5.0e-6,
+            source_energy,
+        )
+        sim = het.SimParams(;
+            grid = het.EvenGrid(20), dt, duration = 1.0e-12,
+            adaptive = false, num_save = 2, verbose = false,
+        )
+        params = het.setup_simulation(config, sim)
+        @test setup_steps == [min(dt, 100 * eps(Float64))]
+        @test params.dt[] == dt
+        @test params.simulation.dt == dt
+        @test params.iteration[] == 1
+        @test all(isfinite, params.cache.nϵ)
+    end
+end
+
 geom = het.Geometry1D(
     channel_length = 2.5u"cm",
     inner_radius = 3.45u"cm",
@@ -27,11 +53,14 @@ config = het.Config(
     discharge_voltage = 300.0u"V",
     anode_mass_flow_rate = 5.0u"mg/s",
     propellant = het.Xenon,
+    cathode_Tev = 2000.0u"meV",
 )
 
 @test config.domain == (0.0, 0.08)
 @test config.propellants[1].flow_rate_kg_s ≈ 5.0e-6
 @test config.discharge_voltage ≈ 300.0
+@test config.anode_Tev ≈ 2.0
+@test config.cathode_Tev ≈ 2.0
 
 profiled_propellant = het.Propellant(
     het.Xenon, 5.0u"mg/s";

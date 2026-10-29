@@ -319,7 +319,7 @@ function write_json(io::IO, value; replace_nan = false, replace_inf = false)
     elseif value isa AbstractString
         write_string(io, value)
     elseif value isa AbstractVector || value isa AbstractSet || value isa Tuple
-        write_array(io, value)
+        write_array(io, value; replace_nan, replace_inf)
     elseif value isa AbstractDict || value isa NamedTuple
         write_object(io, value; replace_nan, replace_inf)
     elseif value isa Symbol || value isa Enum
@@ -355,11 +355,11 @@ function write_string(io::IO, str::AbstractString)
     return print(io, '"')
 end
 
-function write_array(io::IO, arr::Union{AbstractVector, AbstractSet, Tuple})
+function write_array(io::IO, arr::Union{AbstractVector, AbstractSet, Tuple}; replace_nan::Bool = false, replace_inf::Bool = false)
     print(io, '[')
     for (i, item) in enumerate(arr)
         i > 1 && print(io, ',')
-        write_json(io, item)
+        write_json(io, item; replace_nan, replace_inf)
     end
     return print(io, ']')
 end

@@ -528,7 +528,7 @@ const propellants_v0_21_7 = Dict(
 )
 
 function Serialization.serialize(g::Gas)
-    return OrderedDict("formula" => string(g.formula), "gamma" => g.γ)
+    return OrderedDict("formula" => string(g.formula), "gamma" => g.γ, "mass" => g.M)
 end
 
 function Serialization.deserialize(::Type{Gas}, d)
@@ -536,7 +536,12 @@ function Serialization.deserialize(::Type{Gas}, d)
         # backwards-compatible loading of gas from names alone for files written pre-v0.21.7
         return propellants_v0_21_7[d]
     else
-        return Gas(d["formula"]; γ = d["gamma"])
+        mass = get(d, "mass", nothing)
+        return Gas(
+            d["formula"];
+            γ = deserialize(Float64, d["gamma"]),
+            M = isnothing(mass) ? nothing : deserialize(Float64, mass),
+        )
     end
 end
 

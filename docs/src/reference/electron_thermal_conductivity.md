@@ -33,7 +33,7 @@ This form of the thermal conductivity follows the result of S. I. Braginskii, in
     \nu = \nu_{ei} + \nu_{en} + \nu_{AN} \\
 \end{aligned}
 
-Where C is a constant that is based on the value of the effective charge for multiple charge states and Table 1 of the Braginskii reference. A `Braginskii` model can be initialized in the user-defined configuration as:
+The charge-dependent coefficient is ``C = 13/4 + \sqrt{2}/Z_{\mathrm{eff}}``, where ``Z_{\mathrm{eff}} = \sum_s n_s Z_s^2 / n_e``. This analytic form is given by [Hunana et al. (2022), equation (60)](https://arxiv.org/abs/2201.11561), with the mixture extension in equations (88)–(94). A `Braginskii` model can be initialized in the user-defined configuration as:
 
 ```julia
 conductivity_model = Braginskii()

@@ -17,6 +17,15 @@ rxn_I_III = het.ElectronImpactReaction(0.0, Xe_I, [Xe_III], r)
 @test repr(rxn_0_III) == "e(-) + Xe -> 4e(-) + Xe(3+)"
 @test repr(rxn_I_III) == "e(-) + Xe(+) -> 3e(-) + Xe(3+)"
 
+@testset "Unsupported reactant format" begin
+    species_map = Dict(species.symbol => species for species in [Xe_0, Xe_I])
+    for equation in ("2Xe + e -> 2Xe(+) + 3e", "Xe + Xe(+) + e -> 2Xe(+) + 2e")
+        @test_throws ArgumentError het._load_electron_impact_reaction(
+            Dict("equation" => equation), species_map, String[],
+        )
+    end
+end
+
 @test het.rate_coeff_filename(Xe_0, Xe_II, "ionization") ==
     joinpath(het.REACTION_FOLDER, "ionization_Xe_Xe2+.dat")
 @test het.rate_coeff_filename(Xe_0, Xe_II, "excitation") ==
@@ -145,6 +154,58 @@ iz_landmark_rxn = landmark_rxns[1]
 # More complex reactions
 rxn_test = het.ElectronImpactReaction(0.0, het.MolecularNitrogen(0), [het.Nitrogen(0), het.Nitrogen(0)], r)
 @test repr(rxn_test) == "e(-) + N2 -> e(-) + N + N"
+
+@testset "Chemistry file search directories" begin
+    mktempdir() do directory
+        config_name = "searched_chemistry.toml"
+        config_file = joinpath(directory, config_name)
+        rate_file = joinpath(directory, "searched_ionization.dat")
+        write(rate_file, "energy: 12.12\nenergy rate\n0 2.0e-14\n255 2.0e-14\n")
+        write(
+            config_file,
+            """
+            [[species]]
+            symbol = "Xe"
+            max_charge = 1
+            flow_rate_kg_s = 5e-6
+
+            [[reactions]]
+            type = "electron_impact"
+            equation = "Xe + e -> Xe(+) + 2e"
+            rate_coeff_file = "searched_ionization.dat"
+            """,
+        )
+
+        config = het.Config(;
+            thruster = het.SPT_100,
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            propellant_config = config_name,
+            reaction_rate_directories = [directory],
+        )
+        @test only(config.propellants).gas == het.Xenon
+
+        # A basename found through the search path must load its configured
+        # reactions, without adding the built-in excitation or elastic set.
+        # An absolute chemistry path must also find rate files beside it.
+        for (file, search_dirs) in ((config_name, [directory]), (config_file, String[]))
+            ei, ex, en, de = het.load_reactions(
+                file, [het.Xenon(0), het.Xenon(1)], :Lookup, :Lookup, :Lookup;
+                directories = search_dirs,
+            )
+            @test length(ei) == 1
+            @test het.rate_coeff(only(ei), 20.0) ≈ 2.0e-14
+            @test isempty(ex)
+            @test isempty(en)
+            @test isempty(de)
+        end
+
+        @test_throws ErrorException het.load_reactions(
+            "missing_chemistry.toml", [het.Xenon(0), het.Xenon(1)],
+            :Lookup, :Lookup, :Lookup; directories = [directory],
+        )
+    end
+end
 
 @testset "Omitted excited species filter reactions" begin
     # Omitting level 1 should skip reactions involving it and remove only its

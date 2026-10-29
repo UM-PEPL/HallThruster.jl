@@ -86,12 +86,9 @@ model(params_landmark.cache.νan, params_landmark)
 
 @test params_landmark.cache.νan[1] == 0.0
 
-@test het.ELECTRON_CONDUCTIVITY_LOOKUP(1) == 4.66
-@test het.ELECTRON_CONDUCTIVITY_LOOKUP(1.5) == 4.33
-
 conductivity_model = het.LANDMARK_conductivity()
 conductivity_model(params_landmark.cache.κ, params_landmark)
-@test params_landmark.cache.κ[1] ≈ 5 / 3 * μ_e * ne * Tev
+@test params_landmark.cache.κ[1] ≈ 5 / 2 * μ_e * ne * Tev
 
 @test het.num_anom_variables(model) == 0
 

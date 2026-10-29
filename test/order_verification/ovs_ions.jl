@@ -125,7 +125,7 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
 
     # Compute timestep
     amax = maximum(abs.(ui_exact) .+ sqrt.(2 / 3 * e * ϵ_func.(z_cell) / mi))
-    cache.dt[] = 0.1 * minimum(grid.dz_cell) / amax
+    params.dt[] = 0.1 * minimum(grid.dz_cell) / amax
 
     t = 0.0
     while t < t_end
@@ -133,8 +133,8 @@ function solve_ions(ncells, reconstruct; t_end = 1.0e-4)
         fluids.continuity[1].density[end] = fluids.continuity[1].density[end - 1]
         fluids.isothermal[1].density[end] = fluids.isothermal[1].density[end - 1]
         fluids.isothermal[1].momentum[end] = fluids.isothermal[1].momentum[end - 1]
-        het.step_heavy_species!(fluids, params, source_heavy_species, cache.dt[])
-        t += cache.dt[]
+        het.step_heavy_species!(fluids, params, source_heavy_species, params.dt[])
+        t += params.dt[]
     end
 
     ρn_sim = fluids.continuity[1].density

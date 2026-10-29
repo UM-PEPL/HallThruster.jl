@@ -1,6 +1,48 @@
 using HallThruster: HallThruster as het
 using Test
 
+@testset "PID derivative with unequal timesteps" begin
+    for error_function in (t -> 3t, t -> t^2)
+        pid = het.PIDController(
+            target_value = 0.0, proportional_constant = 0.0,
+            derivative_constant = 2.0,
+        )
+        control = 0.0
+        time = 0.0
+        previous_error = 0.0
+        # Establish the initial measurement before measuring a time derivative.
+        control = het.apply_controller(pid, 0.0, control, 0.1)
+        for dt in (0.1, 0.3, 0.005, 0.2)
+            time += dt
+            error = error_function(time)
+            control = het.apply_controller(pid, -error, control, dt)
+            # A derivative-only controller returns Kd times the latest slope,
+            # independently of how the preceding interval was subdivided.
+            @test control ≈ 2.0 * (error - previous_error) / dt rtol = 1.0e-11
+            previous_error = error
+        end
+        encoded = het.serialize(pid)
+        @test !haskey(encoded, "previous_dt")
+        @test !haskey(encoded, "previous_error_slope")
+        restored = het.deserialize(het.CurrentController, encoded)
+        @test restored.previous_dt == 0.0
+        @test restored.previous_error_slope == 0.0
+        @test restored.errors == (0.0, 0.0, 0.0)
+    end
+
+    pid = het.PIDController(target_value = 4.0, derivative_constant = 1.0)
+    control = het.apply_controller(pid, 0.0, 0.0, 100 * eps(Float64))
+    @test control == 4.0
+    @test het.apply_controller(pid, 0.0, control, 1.0e-9) == control
+end
+
+@testset "PID measurement smoothing" begin
+    pid = het.PIDController(target_value = 0.0, smoothing_frequency = log(2.0))
+    control = het.apply_controller(pid, 4.0, 0.0, 1.0)
+    @test control ≈ -2.0
+    @test het.apply_controller(pid, 4.0, control, 1.0) ≈ -3.0
+end
+
 include("$(het.TEST_DIR)/unit_tests/serialization_test_utils.jl")
 
 function test_controller_serialization()
@@ -201,6 +243,98 @@ function test_pid_springmass()
     end
 end
 
+function test_current_control_bohmlike()
+    return @testset "Bohm current-control multiplier does not compound" begin
+        for multiplier in (0.5, 2.0)
+            @testset "multiplier = $multiplier" begin
+                config = het.Config(
+                    domain = (0.0, 0.08),
+                    discharge_voltage = 300.0,
+                    thruster = het.SPT_100,
+                    anom_model = het.TwoZoneBohm(1 / 160, 1 / 16),
+                    propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5.0e-6)],
+                    anom_smoothing_iters = 0,
+                )
+                sim = het.SimParams(
+                    duration = 1.0e-8,
+                    dt = 1.0e-10,
+                    adaptive = false,
+                    grid = het.EvenGrid(20),
+                    num_save = 2,
+                    verbose = false,
+                    current_control = het.NoController(),
+                )
+                params = het.setup_simulation(config, sim)
+                # Evaluate the reference before the static model stops updating.
+                base = config.anom_model(zeros(length(params.grid.cell_centers)), params)
+                params.cache.anom_multiplier[] = multiplier
+                solver = het.SolverState(params; tspan = (0.0, sim.duration))
+
+                for _ in 1:50
+                    @test het.step_solver!(params, config, solver)
+                    @test params.cache.anom_multiplier[] ≈ multiplier
+                    @test params.cache.νan_base ≈ base
+                    @test params.cache.νan ≈ multiplier .* base
+                end
+                @test params.iteration[] == 51
+                @test solver.retcode == :success
+            end
+        end
+    end
+end
+
+function test_integral_current_control_bohmlike()
+    return @testset "Integral current control updates the log multiplier" begin
+        config = het.Config(
+            domain = (0.0, 0.08),
+            discharge_voltage = 300.0,
+            thruster = het.SPT_100,
+            propellants = [het.Propellant(het.Xenon, flow_rate_kg_s = 5.0e-6)],
+        )
+        controller = het.PIDController(
+            target_value = 4.5,
+            # Isolate the slow integral response from the proportional startup kick.
+            proportional_constant = 0.0,
+            integral_constant = 1.01 / 1.0e-4,
+        )
+        sim = het.SimParams(
+            duration = 1.0e-8,
+            dt = 1.0e-10,
+            adaptive = false,
+            grid = het.EvenGrid(20),
+            num_save = 2,
+            verbose = false,
+            current_control = controller,
+        )
+        params = het.setup_simulation(config, sim)
+        base = config.anom_model(zeros(length(params.grid.cell_centers)), params)
+        # Setup invokes the controller once, starting with zero current and unit multiplier.
+        setup_dt = min(het.initial_timestep(sim), 100 * eps(Float64))
+        @test log(params.cache.anom_multiplier[]) ≈
+            controller.integral_constant * controller.target_value * setup_dt atol = 1.0e-14
+        solver = het.SolverState(params; tspan = (0.0, sim.duration))
+
+        for _ in 1:50
+            previous_log_multiplier = log(params.cache.anom_multiplier[])
+            previous_current = params.cache.Id[]
+
+            @test het.step_solver!(params, config, solver)
+            expected_log_multiplier = previous_log_multiplier +
+                controller.integral_constant *
+                (controller.target_value - previous_current) * params.dt[]
+            multiplier = params.cache.anom_multiplier[]
+            @test isfinite(multiplier) && multiplier > 0
+            @test log(multiplier) ≈ expected_log_multiplier atol = 1.0e-14
+            @test params.cache.νan_base ≈ base
+            @test params.cache.νan ≈ multiplier .* base
+        end
+        @test params.iteration[] == 51
+        @test solver.retcode == :success
+    end
+end
+
+test_current_control_bohmlike()
+test_integral_current_control_bohmlike()
 test_controller_serialization()
 test_pid_steady_state()
 test_pid_springmass()
