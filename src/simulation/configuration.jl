@@ -224,7 +224,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             anode_Tev = cathode_Tev,
             anom_model::A = TwoZoneBohm(1 / 160, 1 / 16),
             wall_loss_model::W = WallSheath(BNSiO2, 1.0),
-            conductivity_model::TC = Mitchner(),
+            conductivity_model::TC = Braginskii(),
             electron_ion_collisions = true,
             ion_wall_losses = false,
             background_pressure_Torr = 0.0,
