@@ -48,7 +48,7 @@ function (model::Braginskii)(κ, params)
         ν_eff = νc[i] + model.anom_scale * νan[i]
         Ω = ωce / ν_eff
         μ = (e / me) / (ν_eff * (1 + Ω^2))
-    
+
         # final calculation
         κ[i] = κ_coef * ne[i] * Tev[i] * μ
     end
