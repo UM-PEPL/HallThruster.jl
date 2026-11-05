@@ -133,6 +133,10 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
     """
     electron_plume_loss_scale::Float64
     """
+    Factor by which ohmic heating (E ⋅ j) is multiplied. Defaults to 1.0
+    """
+    ohmic_heating_scale::Float64
+    """
     Factor by which the magnetic field is increased or decreased compared to the one in the provided `Thruster` struct. **Default:** `1.0`.
     """
     magnetic_field_scale::Float64
@@ -233,6 +237,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             solve_plume = false,
             apply_thrust_divergence_correction = false,
             electron_plume_loss_scale = 1.0,
+            ohmic_heating_scale = 1.0,
             magnetic_field_scale::Float64 = 1.0,
             transition_length = 0.1 * thruster.geometry.channel_length,
             reconstruct::Bool = true,
@@ -406,6 +411,7 @@ struct Config{A <: AnomalousTransportModel, TC <: ThermalConductivityModel, W <:
             solve_plume,
             apply_thrust_divergence_correction,
             electron_plume_loss_scale,
+            ohmic_heating_scale,
             magnetic_field_scale,
             transition_length,
             reconstruct,
@@ -495,6 +501,7 @@ function params_from_config(config)
         ion_wall_losses = config.ion_wall_losses,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
+        ohmic_heating_scale = config.ohmic_heating_scale,
         anom_smoothing_iters = config.anom_smoothing_iters,
         discharge_voltage = config.discharge_voltage,
         filter_circuit = deepcopy(config.filter_circuit),

@@ -184,7 +184,7 @@ function add_lumped_excitation_frequency!(
     return nothing
 end
 
-function ohmic_heating!(Q, cache, landmark)
+function ohmic_heating!(Q, cache, scale, landmark)
     (; ne, ue, ∇ϕ, K, νe, ∇pe) = cache
     # Compute ohmic heating term, which is the rate at which energy is transferred out of the electron
     # drift (kinetic energy) into thermal energy
@@ -192,13 +192,13 @@ function ohmic_heating!(Q, cache, landmark)
         # Neglect kinetic energy, so the rate of energy transfer into thermal energy is equivalent to
         # the total input power into the electrons (j⃗ ⋅ E⃗ = -mₑnₑ|uₑ|²νₑ)
         @inbounds for i in 2:(length(Q) - 1)
-            Q[i] = ne[i] * ue[i] * ∇ϕ[i]
+            Q[i] = scale * (ne[i] * ue[i] * ∇ϕ[i])
         end
     else
         # Do not neglect kinetic energy, so ohmic heating term is mₑnₑ|uₑ|²νₑ + ue ∇pe = 2nₑKνₑ + ue ∇pe
         # where K is the electron bulk kinetic energy, 1/2 * mₑ|uₑ|²
         @inbounds for i in 2:(length(Q) - 1)
-            Q[i] = 2 * ne[i] * K[i] * νe[i] + ue[i] * ∇pe[i]
+            Q[i] = scale * (2 * ne[i] * K[i] * νe[i] + ue[i] * ∇pe[i])
         end
     end
     return nothing
@@ -209,7 +209,7 @@ function source_electron_energy!(Q, params, wall_loss_model)
     (; ne, ohmic_heating, wall_losses, inelastic_losses, user_energy_source) = cache
 
     # compute ohmic heating
-    ohmic_heating!(ohmic_heating, cache, landmark)
+    ohmic_heating!(ohmic_heating, cache, params.ohmic_heating_scale, landmark)
 
     # add excitation losses to total inelastic losses
     excitation_losses!(
