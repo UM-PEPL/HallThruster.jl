@@ -39,6 +39,10 @@ Users wishing to implement their own propellant should read [Adding a new propel
 ## `Propellant`
 When specifying the propellant to use in a simulation, you use the `Propellant` struct. This takes both a `Gas` and a flow rate, as well as the neutral gas temperature and/or velocity at the anode.
 
+If neither neutral velocity nor temperature is supplied, the velocity defaults to
+`150 * sqrt(Xenon.m / gas.m)` m/s: 150 m/s for xenon and approximately 188 m/s for
+krypton. The neutral temperature defaults to 500 K.
+
 Neutral velocity and temperature may be scalars or axial profiles. Profile coordinates are
 in meters, values outside the supplied coordinate range clamp to the nearest endpoint, and
 the profiles are sampled onto the simulation grid during setup.

@@ -154,12 +154,15 @@ function compute_fluxes_isothermal!(fluid, grid)
     return
 end
 
-function update_convective_terms_continuity!(fluid, grid)
+function update_convective_terms_continuity!(fluid, grid, dlnA_dz)
     ncells = length(grid.cell_centers)
     @inbounds for i in 2:(ncells - 1)
         left, right = left_edge(i), right_edge(i)
         Δz = grid.dz_cell[i]
-        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz
+        # Neutrals share the expanding cross-section with the ion fluids.
+        ρnun = fluid.density[i] * fluid.vel_prim[i]
+        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz -
+            ρnun * dlnA_dz[i]
     end
     return
 end
@@ -187,7 +190,7 @@ function update_convective_terms!(fluid_containers, grid, reconstruct, dlnA_dz)
     for fluid in fluid_containers.continuity
         compute_edge_states_continuity!(fluid, reconstruct)
         compute_fluxes_continuity!(fluid, grid)
-        update_convective_terms_continuity!(fluid, grid)
+        update_convective_terms_continuity!(fluid, grid, dlnA_dz)
     end
 
     for fluid in fluid_containers.isothermal
