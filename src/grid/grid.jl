@@ -32,3 +32,8 @@ function Grid1D(z_edge)
 end
 
 @inline interior_cells(arr) = 2:(length(arr) - 1)
+
+@inline function face_area(grid, area, face)
+    weight = (grid.edges[face] - grid.cell_centers[face]) / grid.dz_edge[face]
+    return lerp(area[face], area[face + 1], weight)
+end

@@ -499,6 +499,7 @@ function params_from_config(config)
         implicit_energy = config.implicit_energy,
         ingestion_flow_rates,
         ion_wall_losses = config.ion_wall_losses,
+        solve_plume = config.solve_plume,
         wall_loss_scale = wall_loss_scale(config.wall_loss_model),
         plume_loss_scale = config.electron_plume_loss_scale,
         ohmic_heating_scale = config.ohmic_heating_scale,

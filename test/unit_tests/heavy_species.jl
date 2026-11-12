@@ -205,7 +205,6 @@ end
             end
         end
         area = @. 0.004 + area_gradient * grid.cell_centers
-        dlnA_dz = area_gradient ./ area
         cache = het.allocate_arrays(grid.num_cells, 0)
         cache.nϵ .= 30.0 .* only(fluids.isothermal).density ./ gas.m
         reactions = [
@@ -218,7 +217,7 @@ end
             het.product_indices(reactions, fluid_array), fluid_array,
         )
 
-        het.update_convective_terms!(fluids, grid, true, dlnA_dz)
+        het.update_convective_terms!(fluids, grid, true, area)
         mass_rate = sum(
             area[i] * grid.dz_cell[i] * sum(fluid.dens_ddt[i] for fluid in fluid_array)
                 for i in cells

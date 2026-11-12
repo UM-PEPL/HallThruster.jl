@@ -154,50 +154,41 @@ function compute_fluxes_isothermal!(fluid, grid)
     return
 end
 
-function update_convective_terms_continuity!(fluid, grid, dlnA_dz)
-    ncells = length(grid.cell_centers)
-    @inbounds for i in 2:(ncells - 1)
+function update_convective_terms!(fluid::FluidContainer, grid, area)
+    @inbounds for i in interior_cells(grid.cell_centers)
         left, right = left_edge(i), right_edge(i)
-        Δz = grid.dz_cell[i]
-        # Neutrals share the expanding cross-section with the ion fluids.
-        ρnun = fluid.density[i] * fluid.vel_prim[i]
-        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz -
-            ρnun * dlnA_dz[i]
+        A_left = face_area(grid, area, left)
+        A_right = face_area(grid, area, right)
+        inv_volume = inv(area[i] * grid.dz_cell[i])
+        fluid.dens_ddt[i] = inv_volume * (
+            A_left * fluid.flux_dens[left] - A_right * fluid.flux_dens[right]
+        )
+        if fluid.type == _IsothermalEuler
+            # The axial pressure force from the sloping sides cancels the
+            # geometric part of the pressure flux for a uniform state.
+            pressure = fluid.density[i] * fluid.sound_speed^2
+            fluid.mom_ddt[i] = inv_volume * (
+                A_left * fluid.flux_mom[left] - A_right * fluid.flux_mom[right] +
+                    pressure * (A_right - A_left)
+            )
+        end
     end
-    return
+    return nothing
 end
 
-function update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
-    ncells = length(grid.cell_centers)
-
-    @inbounds for i in 2:(ncells - 1)
-        left, right = left_edge(i), right_edge(i)
-        Δz = grid.dz_cell[i]
-
-        # ∂ρ/∂t + ∂/∂z(ρu) = Q - ρu * ∂/∂z(lnA)
-        ρi = fluid.density[i]
-        ρiui = fluid.momentum[i]
-        fluid.dens_ddt[i] = (fluid.flux_dens[left] - fluid.flux_dens[right]) / Δz - ρiui * dlnA_dz[i]
-        fluid.mom_ddt[i] = (fluid.flux_mom[left] - fluid.flux_mom[right]) / Δz -
-            ρiui * fluid.vel_prim[i] * dlnA_dz[i]
-    end
-
-    return
-end
-
-function update_convective_terms!(fluid_containers, grid, reconstruct, dlnA_dz)
+function update_convective_terms!(fluid_containers, grid, reconstruct, area)
 
     for fluid in fluid_containers.continuity
         compute_edge_states_continuity!(fluid, reconstruct)
         compute_fluxes_continuity!(fluid, grid)
-        update_convective_terms_continuity!(fluid, grid, dlnA_dz)
+        update_convective_terms!(fluid, grid, area)
     end
 
     for fluid in fluid_containers.isothermal
         update_primitive_velocity!(fluid)
         compute_edge_states_isothermal!(fluid, reconstruct)
         compute_fluxes_isothermal!(fluid, grid)
-        update_convective_terms_isothermal!(fluid, grid, dlnA_dz)
+        update_convective_terms!(fluid, grid, area)
     end
 
     return
