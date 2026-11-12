@@ -1,22 +1,38 @@
-function integrate_heavy_species!(fluid_containers, params, user_source::S, dt) where {S}
+function integrate_heavy_species!(fluid_containers, params, user_source, dt)
+    (; cache, landmark, min_Te, grid, fluid_array, solve_plume) = params
+
     # Strang-split the stiff, linear radiative subsystem around the SSPRK update.
     # Each half-step is an exact propagation of all coupled decay cascades.
     half_dt = 0.5 * dt
-    apply_radiative_decay!(
-        params.fluid_array,
-        params.radiative_networks,
-        half_dt,
-    )
-    # Do one timestep forward, returning `true` if we found a NaN or Inf
-    step_heavy_species!(fluid_containers, params, user_source, dt) && return true
-    apply_radiative_decay!(
-        params.fluid_array,
-        params.radiative_networks,
-        half_dt,
-    )
-    limit_heavy_species!(fluid_containers, params.min_number_density)
+    apply_radiative_decay!(fluid_array, params.radiative_networks, half_dt)
+
+    # Do one timestep forward and return `true` if we found a NaN or Inf
+    if step_heavy_species!(fluid_containers, params, user_source, dt; solve_plume)
+        return true
+    end
+
+    # Second radiative decay step
+    apply_radiative_decay!(params.fluid_array, params.radiative_networks, half_dt)
+
     # Update properties that interface with electrons
+    limit_heavy_species!(fluid_containers, params.min_number_density)
     update_heavy_species!(params)
+    update_conserved_state!(fluid_containers, cache.channel_area)
+
+    if solve_plume
+        # Update electron energy-related terms to account for
+        # any changes in area during this step
+        apply_plume_energy_change!(cache, landmark)
+        update_energy_state!(
+            cache.Tev, cache.nϵ, cache.ne, cache.pe, min_Te, landmark,
+        )
+        @. cache.conserved_energy = cache.channel_area * cache.nϵ
+        update_pressure_gradient!(cache.∇pe, cache.pe, grid.cell_centers)
+        @inbounds @simd for i in eachindex(cache.ϵ)
+            cache.ϵ[i] = cache.nϵ[i] / cache.ne[i] + (landmark ? 0.0 : cache.K[i])
+        end
+    end
+
     return false
 end
 
@@ -48,60 +64,75 @@ y_{n+1} = y_n / 2 + (y_n + h * k_{n1}) / 2 + h * k_{n2}
 With this, we do not need to store k_{n1} and k_{n2} separately and can instead reuse the same memory.
 
 The implementation is split into two update kernels so each stage traverses every
-fluid field only once. `update_first_stage!` saves y_n in the fluid caches while
-forming the Euler predictor y_{n1}. After evaluating the derivatives at that
-predictor, `update_second_stage!` combines the cached y_n, y_{n1}, and k_{n2} to
-form the final state. Each kernel also performs its finite-value check during the
-same traversal.
+fluid field only once.
+`update_first_stage!` saves y_n in the fluid caches while
+forming y_{n1}.
+After evaluating the derivatives at that point, `update_second_stage!` combines the cached y_n, y_{n1}, and k_{n2} to form the final state.
+
+The integrated states are Aρ and Aρu for both fixed and expanding cross-sections.
+Physical densities are recovered after each stage for the existing physics models.
 """
-function step_heavy_species!(fluid_containers, params, source::S, dt) where {S}
+function step_heavy_species!(
+        fluid_containers, params, source::S, dt;
+        solve_plume = hasproperty(params, :solve_plume) && params.solve_plume,
+    ) where {S}
+    (; cache) = params
+    area = cache.channel_area
+    cache.channel_area_old .= area
+    cache.plume_energy_old .= cache.nϵ
+    @. cache.conserved_energy = area * cache.nϵ
+    update_conserved_state!(fluid_containers, area)
+
     # Evaluate k_{n1} at the initial state.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
-    params.cache.inelastic_losses_stage .= params.cache.inelastic_losses
+    @. cache.inelastic_losses_stage = area * cache.inelastic_losses
 
     # Cache y_n, form the Euler predictor y_{n1}, and validate it in one pass.
-    update_first_stage!(fluid_containers, dt) && return true
+    update_first_stage!(fluid_containers, dt, area) && return true
     # The second derivative evaluation must see a physically admissible predictor.
-    limit_heavy_species!(fluid_containers, params.min_number_density)
+    update_heavy_species_stage!(fluid_containers, params, solve_plume)
 
     # Evaluate k_{n2} at y_{n1}, reusing the derivative arrays that held k_{n1}.
     compute_heavy_species_derivatives!(fluid_containers, params, source)
 
-    # Match the energy sink to the same Heun-averaged reaction rate used for
-    # the species source terms.
-    @. params.cache.inelastic_losses = 0.5 * (
-        params.cache.inelastic_losses_stage + params.cache.inelastic_losses
+    # Average reaction energy per unit length before changing the stage area.
+    @. cache.inelastic_losses = 0.5 * (
+        cache.inelastic_losses_stage + area * cache.inelastic_losses
     )
 
     # Combine cached y_n with y_{n1} and k_{n2}, validating the result in one pass.
-    update_second_stage!(fluid_containers, dt) && return true
-    limit_heavy_species!(fluid_containers, params.min_number_density)
+    update_second_stage!(fluid_containers, dt, area) && return true
+    update_heavy_species_stage!(fluid_containers, params, solve_plume)
+
+    # Match the electron energy sink to the same area-weighted Heun reaction
+    # budget as the species update, expressed per final cell volume.
+    @. cache.inelastic_losses /= area
 
     return false
 end
 
-function update_first_stage!(fluid_containers, dt)
+function update_first_stage!(fluid_containers, dt, area)
     invalid = false
     @inbounds for fluid in fluid_containers.continuity
         @simd for i in eachindex(fluid.density)
-            density = fluid.density[i]
-            new_density = density + dt * fluid.dens_ddt[i]
+            density = fluid.conserved_density[i]
+            new_density = density + dt * area[i] * fluid.dens_ddt[i]
             fluid.dens_cache[i] = density
-            fluid.density[i] = new_density
+            fluid.conserved_density[i] = new_density
             invalid |= !isfinite(new_density)
         end
     end
 
     @inbounds for fluid in fluid_containers.isothermal
         @simd for i in eachindex(fluid.density)
-            density = fluid.density[i]
-            momentum = fluid.momentum[i]
-            new_density = density + dt * fluid.dens_ddt[i]
-            new_momentum = momentum + dt * fluid.mom_ddt[i]
+            density = fluid.conserved_density[i]
+            momentum = fluid.conserved_momentum[i]
+            new_density = density + dt * area[i] * fluid.dens_ddt[i]
+            new_momentum = momentum + dt * area[i] * fluid.mom_ddt[i]
             fluid.dens_cache[i] = density
             fluid.mom_cache[i] = momentum
-            fluid.density[i] = new_density
-            fluid.momentum[i] = new_momentum
+            fluid.conserved_density[i] = new_density
+            fluid.conserved_momentum[i] = new_momentum
             invalid |= !(isfinite(new_density) && isfinite(new_momentum))
         end
     end
@@ -109,15 +140,15 @@ function update_first_stage!(fluid_containers, dt)
     return invalid
 end
 
-function update_second_stage!(fluid_containers, dt)
+function update_second_stage!(fluid_containers, dt, area)
     invalid = false
 
     @inbounds for fluid in fluid_containers.continuity
         @simd for i in eachindex(fluid.density)
             new_density = 0.5 * (
-                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+                fluid.conserved_density[i] + fluid.dens_cache[i] + dt * area[i] * fluid.dens_ddt[i]
             )
-            fluid.density[i] = new_density
+            fluid.conserved_density[i] = new_density
             invalid |= !isfinite(new_density)
         end
     end
@@ -125,18 +156,63 @@ function update_second_stage!(fluid_containers, dt)
     @inbounds for fluid in fluid_containers.isothermal
         @simd for i in eachindex(fluid.density)
             new_density = 0.5 * (
-                fluid.density[i] + fluid.dens_cache[i] + dt * fluid.dens_ddt[i]
+                fluid.conserved_density[i] + fluid.dens_cache[i] + dt * area[i] * fluid.dens_ddt[i]
             )
             new_momentum = 0.5 * (
-                fluid.momentum[i] + fluid.mom_cache[i] + dt * fluid.mom_ddt[i]
+                fluid.conserved_momentum[i] + fluid.mom_cache[i] + dt * area[i] * fluid.mom_ddt[i]
             )
-            fluid.density[i] = new_density
-            fluid.momentum[i] = new_momentum
+            fluid.conserved_density[i] = new_density
+            fluid.conserved_momentum[i] = new_momentum
             invalid |= !(isfinite(new_density) && isfinite(new_momentum))
         end
     end
 
     return invalid
+end
+
+function update_conserved_state!(fluids, area)
+    for fluid in Iterators.flatten((fluids.continuity, fluids.isothermal))
+        @. fluid.conserved_density = area * fluid.density
+        @. fluid.conserved_momentum = area * fluid.momentum
+    end
+    return nothing
+end
+
+function recover_heavy_species!(fluids, area, min_number_density)
+    for fluid in Iterators.flatten((fluids.continuity, fluids.isothermal))
+        min_density = min_number_density * fluid.species.element.m
+        @inbounds for i in eachindex(area)
+            density = fluid.conserved_density[i] / area[i]
+            momentum = fluid.conserved_momentum[i] / area[i]
+            if density < min_density
+                density = min_density
+                momentum = 0.0
+                fluid.conserved_density[i] = area[i] * density
+                fluid.conserved_momentum[i] = 0.0
+            end
+            fluid.density[i] = density
+            fluid.momentum[i] = momentum
+            if fluid.type == _IsothermalEuler
+                fluid.vel_prim[i] = primitive_velocity(momentum, density)
+            end
+        end
+    end
+    return nothing
+end
+
+function update_heavy_species_stage!(fluid_containers, params, solve_plume)
+    (; cache, min_number_density, landmark) = params
+    recover_heavy_species!(fluid_containers, cache.channel_area, min_number_density)
+    if solve_plume
+        update_heavy_species_cache!(fluid_containers, cache, landmark, min_number_density)
+        update_plume_geometry!(params)
+        recover_heavy_species!(fluid_containers, cache.channel_area, min_number_density)
+    end
+    # Geometry dilutes the old electron energy during the heavy stages;
+    # its pressure work is applied after the completed heavy-species step.
+    @. cache.nϵ = cache.conserved_energy / cache.channel_area
+    update_heavy_species_cache!(fluid_containers, cache, landmark, min_number_density)
+    return nothing
 end
 
 # Populate dens_ddt and mom_ddt for all fluid containers
@@ -151,7 +227,7 @@ function compute_heavy_species_derivatives!(
         fluid.species.Z < 0 || continue
         apply_negative_ion_anode_boundary!(fluid, cache.Vs[])
     end
-    update_convective_terms!(fluid_containers, grid, reconstruct, cache.dlnA_dz)
+    update_convective_terms!(fluid_containers, grid, reconstruct, cache.channel_area)
     source_heavy_species(fluid_containers, params)
     apply_reactions!(params.fluid_array, params)
     apply_mutual_neutralization!(params)

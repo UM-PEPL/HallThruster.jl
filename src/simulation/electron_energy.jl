@@ -16,11 +16,20 @@ function update_electron_energy!(params, wall_loss_model, user_source_energy!, d
     # Fill matrix and RHS
     setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit_energy, dt)
 
-    # Solve equation system using the Thomas algorithm
-    tridiagonal_solve!(nϵ, Aϵ, bϵ)
+    # Change the unknown from nϵ to A nϵ, retaining the density-based physics
+    # and boundary coefficients assembled above. This also covers fixed area.
+    area = cache.channel_area
+    @inbounds for i in eachindex(area)
+        i > 1 && (Aϵ.dl[i - 1] *= area[i] / area[i - 1])
+        i < length(area) && (Aϵ.du[i] *= area[i] / area[i + 1])
+        bϵ[i] *= area[i]
+    end
+    tridiagonal_solve!(cache.conserved_energy, Aϵ, bϵ)
+    @. nϵ = cache.conserved_energy / area
 
     # Limit energy and update temperature and pressure in one state traversal.
     update_energy_state!(Tev, nϵ, ne, pe, params.min_Te, landmark)
+    @. cache.conserved_energy = area * nϵ
     update_pressure_gradient!(∇pe, pe, grid.cell_centers)
 
     return
@@ -52,11 +61,6 @@ function energy_flux_coefficients!(grid, cache, anode_bc)
     return nothing
 end
 
-@inline function energy_face_area(grid, area, face)
-    weight = (grid.edges[face] - grid.cell_centers[face]) / grid.dz_edge[face]
-    return lerp(area[face], area[face + 1], weight)
-end
-
 function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     (; channel_area, nϵ, energy_flux_left, energy_flux_right) = cache
     energy_flux_coefficients!(grid, cache, anode_bc)
@@ -65,8 +69,8 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
     @inbounds for i in interior_cells(grid.cell_centers)
         left, right = left_edge(i), right_edge(i)
         volume = channel_area[i] * grid.dz_cell[i]
-        left_scale = energy_face_area(grid, channel_area, left) / volume
-        right_scale = energy_face_area(grid, channel_area, right) / volume
+        left_scale = face_area(grid, channel_area, left) / volume
+        right_scale = face_area(grid, channel_area, right) / volume
 
         # A^-1 ∂z(A F) for the entire flux, including heat conduction. Sharing
         # face areas and fluxes makes internal transfers cancel exactly.
@@ -80,6 +84,20 @@ function setup_energy_system!(Aϵ, bϵ, grid, cache, anode_bc, implicit, dt)
         Aϵ.d[i] = 1.0 + implicit * dt * diagonal
         Aϵ.du[i] = implicit * dt * upper
         bϵ[i] = nϵ[i] + dt * (Q[i] - (1 - implicit) * divergence)
+    end
+    return nothing
+end
+
+function apply_plume_energy_change!(cache, landmark)
+    # Apply changes due to time-varying area changes
+    # d(A nϵ)/dt = -p dA/dt, with p/nϵ given by the expression for the electron pressure
+    # Thus nϵ_new = nϵ_old (A_old/A_new)^(1 + p/W).
+    # nϵ = 3/2 n Te and p = n Te, so the exponent is 5/3.
+    exponent = landmark ? 2.0 : 5 / 3
+    @inbounds @simd for i in eachindex(cache.nϵ)
+        ratio = cache.channel_area_old[i] / cache.channel_area[i]
+        cache.nϵ[i] = cache.plume_energy_old[i] * ratio^exponent
+        cache.conserved_energy[i] = cache.channel_area[i] * cache.nϵ[i]
     end
     return nothing
 end
