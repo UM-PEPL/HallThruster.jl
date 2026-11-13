@@ -188,6 +188,57 @@ end
     @test neutral.max_timestep[] ≈ minimum(grid.dz_edge ./ neutral.wave_speed)
 end
 
+@testset "Plume expansion mass balance with ionization" begin
+    # Uniform states in a linearly expanding duct have an exact integrated
+    # mass budget, including on a nonuniform mesh. Ionization must only move
+    # mass between the ground/excited neutral and ion populations.
+    grid = het.Grid1D([0.0, 0.01, 0.04, 0.08])
+    cells = het.interior_cells(grid.cell_centers)
+    for gas in (het.Xenon, het.Krypton), area_gradient in (0.0, 0.02)
+        propellant = het.Propellant(gas, 0.0; excited_levels = [1])
+        fluids = het.allocate_fluids(propellant, grid)
+        fluid_array = [fluids.continuity; fluids.isothermal]
+        for (j, fluid) in enumerate(fluid_array)
+            fluid.density .= gas.m * j * 1.0e18
+            if fluid.species.Z != 0
+                fluid.momentum .= fluid.density .* 1.0e4
+            end
+        end
+        area = @. 0.004 + area_gradient * grid.cell_centers
+        cache = het.allocate_arrays(grid.num_cells, 0)
+        cache.nϵ .= 30.0 .* only(fluids.isothermal).density ./ gas.m
+        reactions = [
+            het.ElectronImpactReaction(
+                14.0, neutral.species, [gas(1)], fill(1.0e-14, 256),
+            ) for neutral in fluids.continuity
+        ]
+        groups = het.build_electron_impact_groups(
+            reactions, het.reactant_indices(reactions, fluid_array),
+            het.product_indices(reactions, fluid_array), fluid_array,
+        )
+
+        het.update_convective_terms!(fluids, grid, true, area)
+        mass_rate = sum(
+            area[i] * grid.dz_cell[i] * sum(fluid.dens_ddt[i] for fluid in fluid_array)
+                for i in cells
+        )
+        left_area = 0.004 + area_gradient * first(grid.edges)
+        right_area = 0.004 + area_gradient * last(grid.edges)
+        boundary_mass_rate = sum(
+            left_area * fluid.flux_dens[1] - right_area * fluid.flux_dens[end]
+                for fluid in fluid_array
+        )
+        @test mass_rate ≈ boundary_mass_rate
+
+        het.apply_reaction_groups!(fluid_array, groups, cache, false, 1.0, Dict())
+        mass_rate_with_ionization = sum(
+            area[i] * grid.dz_cell[i] * sum(fluid.dens_ddt[i] for fluid in fluid_array)
+                for i in cells
+        )
+        @test mass_rate_with_ionization ≈ boundary_mass_rate atol = 1.0e-20
+    end
+end
+
 @testset "Isothermal ion flux" begin
     grid = het.Grid1D([0.0, 0.4, 1.0])
     temperature = 900.0

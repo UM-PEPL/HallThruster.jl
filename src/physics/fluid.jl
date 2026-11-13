@@ -17,6 +17,10 @@ struct FluidContainer
     density::Vector{Float64}
     """Momentum density in kg/m^2 s"""
     momentum::Vector{Float64}
+    """Area-weighted density"""
+    conserved_density::Vector{Float64}
+    """Area-weighted momentum density"""
+    conserved_momentum::Vector{Float64}
     dens_ddt::Vector{Float64}
     mom_ddt::Vector{Float64}
     dens_cache::Vector{Float64}
@@ -71,6 +75,7 @@ struct FluidContainer
 
         return new(
             # Conservative variables, caches, and time derivatives
+            zeros(num_cells), zeros(num_cells),
             zeros(num_cells), zeros(num_cells),
             zeros(num_cells), zeros(num_cells),
             zeros(num_cells), zeros(num_cells),

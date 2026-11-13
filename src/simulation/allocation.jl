@@ -13,6 +13,7 @@ function allocate_arrays(ncells::Int, n_anom_vars::Int)
         bϵ = zeros(ncells),
         energy_flux_left = zeros(ncells - 1),
         energy_flux_right = zeros(ncells - 1),
+        conserved_energy = zeros(ncells), # Electron energy per unit axial length, A nϵ
         # Collision frequencies
         νan_base = zeros(ncells),
         νan = zeros(ncells),
@@ -95,6 +96,8 @@ function allocate_arrays(ncells::Int, n_anom_vars::Int)
 
         # Plume divergence variables
         channel_area = zeros(ncells),       # Area of channel / plume
+        channel_area_old = zeros(ncells),   # Area at the beginning of the heavy-species step
+        plume_energy_old = zeros(ncells),   # Electron energy density before the area changes
         dA_dz = zeros(ncells),              # derivative of area w.r.t. axial coordinate
         dlnA_dz = zeros(ncells),            # derivative of log area w.r.t. axial coordinate
         channel_height = zeros(ncells),     # Height of channel / plume (outer - inner)

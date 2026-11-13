@@ -157,6 +157,11 @@ function setup_simulation(
     # make values in params available for first timestep
     initialize_plume_geometry(params)
     update_heavy_species!(params)
+    if config.solve_plume
+        update_plume_geometry!(params)
+        params.cache.channel_area_old .= params.cache.channel_area
+    end
+    update_conserved_state!(fluid_containers, params.cache.channel_area)
     # Initial starting step with tiny dt
     params.dt[] = min(dt, 100 * eps(Float64))
     update_electrons!(params, config)

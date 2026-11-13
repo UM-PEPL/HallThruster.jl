@@ -365,8 +365,9 @@ struct Propellant
     """
     Neutral velocity in m/s as a `LinearInterpolation` over axial position. Scalar inputs
     are accepted and stored as constant interpolations. **Default:**
-    `$(DEFAULT_NEUTRAL_VELOCITY_M_S)`, or if `temperature_K` is set, that parameter is
-    used to compute the velocity using a one-sided Maxwellian flux approximation.
+    `$(DEFAULT_NEUTRAL_VELOCITY_M_S) * sqrt(Xenon.m / gas.m)` (150 m/s for xenon),
+    or if `temperature_K` is set, that parameter is used to compute the velocity
+    using a one-sided Maxwellian flux approximation.
     """
     velocity_m_s::LinearInterpolation{Vector{Float64}, Vector{Float64}}
     """
@@ -406,9 +407,10 @@ struct Propellant
         end
 
         if isnothing(velocity_m_s) && isnothing(temperature_K)
-            # Use default values
+            # Preserve the xenon default and the same neutral kinetic energy
+            # across propellants.
             velocity_m_s = _normalize_spatial_profile(
-                DEFAULT_NEUTRAL_VELOCITY_M_S, units(:m) / units(:s),
+                DEFAULT_NEUTRAL_VELOCITY_M_S * sqrt(Xenon.m / gas.m), units(:m) / units(:s),
             )
             temperature_K = _normalize_spatial_profile(
                 DEFAULT_NEUTRAL_TEMPERATURE_K, units(:K),

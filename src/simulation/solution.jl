@@ -657,9 +657,6 @@ function step_solver!(params, config, solver::SolverState)
     # Update electron quantities
     update_electrons!(params, config, solver.t)
 
-    # Update plume geometry
-    config.solve_plume && update_plume_geometry!(params)
-
     # Update the current iteration and time
     params.iteration[] += 1
     # Assign checkpoint times directly to avoid an extra roundoff-sized step.

@@ -131,8 +131,10 @@ Base.@kwdef mutable struct SimulationParameters{S <: SimParams, C <: NamedTuple}
     implicit_energy::Float64
     ingestion_flow_rates::Vector{Float64}
     ion_wall_losses::Bool
+    solve_plume::Bool
     wall_loss_scale::Float64
     plume_loss_scale::Float64
+    ohmic_heating_scale::Float64
     last_wall_cell::Int
     anom_smoothing_iters::Int
     discharge_voltage::Float64
