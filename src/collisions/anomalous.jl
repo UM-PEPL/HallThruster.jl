@@ -313,7 +313,7 @@ function (model::ScaledGaussianBohm)(νan, params, z_shift::Float64 = 0.0)
 end
 
 """
-    StepTroughBohm1(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent) <: AnomalousTransportModel
+    StepTroughBohm1(anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent) <: AnomalousTransportModel
 Model in which the anomalous collision frequency is Bohm-like (`νan ~ ω_ce`),
 with a shape function defined by a product of a logistic "step" function and an inverted generalized Gaussian near the exit plane.
 Parameterization is similar to the ScaledGaussianBohm, with all quantities chosen to be O(1).
@@ -327,8 +327,8 @@ struct StepTroughBohm1 <: AnomalousTransportModel
     anom_scale::Float64
     """The axial position of the co-located center of the generalized Gaussian trough and logistic step, in channel lengths. Must be positive."""
     anom_center::Float64
-    """The size of the logistic step. Zero removes the step; one makes its upstream limit zero. Must be in [0, 1]."""
-    step_scale::Float64
+    """The magnitude of the inverse Hall parameter at the anode, as a fraction of `anom_scale`. Must be positive."""
+    anode_scale::Float64
     """Dimensionless logistic sharpness parameter. The step sharpens as this approaches zero. Must be in (0, 1)."""
     step_width::Float64
     """Fraction of the baseline transport retained at the trough center. Must be in [0, 1]."""
@@ -338,38 +338,39 @@ struct StepTroughBohm1 <: AnomalousTransportModel
     """Scaled generalized-Gaussian exponent. It maps 0 to 1 and 0.5 to 2, and approaches infinity as it approaches 1. Must be in [0, 1)."""
     trough_exponent::Float64
 
-    function StepTroughBohm1(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+    function StepTroughBohm1(anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent)
         anom_scale = Float64(anom_scale)
         anom_center = Float64(anom_center)
-        step_scale = Float64(step_scale)
+        anode_scale = Float64(anode_scale)
         step_width = Float64(step_width)
         trough_floor = Float64(trough_floor)
         trough_width = Float64(trough_width)
         trough_exponent = Float64(trough_exponent)
         @check_positive anom_scale
         @check_positive anom_center
-        @check_in_interval step_scale 0 1
+        @check_positive anode_scale
         @check_in_interval step_width 0 1 false
         @check_positive step_width
         @check_in_interval trough_floor 0 1
         @check_positive trough_width
         @check_in_interval trough_exponent 0 1 false
-        return new(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+        return new(anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent)
     end
 end
 
-function StepTroughBohm1(; anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
-    return StepTroughBohm1(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent)
+function StepTroughBohm1(; anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent)
+    return StepTroughBohm1(anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent)
 end
 
 function (model::StepTroughBohm1)(νan::Vector{Float64}, z::Vector{Float64}, B::Vector{Float64}, L_ch::Float64 = 1.0, z_shift::Float64 = 0.0)
-    (; anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent) = model
+    (; anom_scale, anom_center, anode_scale, step_width, trough_floor, trough_width, trough_exponent) = model
 
     @inbounds for i in eachindex(νan)
         z0 = (z[i] - z_shift) / L_ch
         z_aux = (z0 / anom_center) - 1
 
         # logistic part
+        step_scale = 1 - anode_scale
         step = (1 - step_scale) + step_scale / (1 + exp(-z_aux * (1 - step_width) / step_width))
 
         # exponential part
@@ -393,7 +394,7 @@ function (model::StepTroughBohm1)(νan::Vector{Float64}, params, z_shift::Float6
 end
 
 """
-    StepTroughBohm2(anom_scale, anom_center, step_scale, step_width, trough_floor, trough_width, trough_exponent) <: AnomalousTransportModel
+    StepTroughBohm2(anom_scale, anom_center, anom_width, step_width, trough_floor, trough_roundness, trough_exponent) <: AnomalousTransportModel
 Similar concept to StepTroughBohm1, but the step is a smoothstep and the trough is a bump function with compact support.
 These ensure that the trough has a finite extent in space.
 

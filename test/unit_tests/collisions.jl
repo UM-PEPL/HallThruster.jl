@@ -142,7 +142,7 @@ model2 = Model2()
     @test step_trough_1 == het.StepTroughBohm1(
         anom_scale = 0.05,
         anom_center = 1,
-        step_scale = 0.8,
+        anode_scale = 0.8,
         step_width = 0.5,
         trough_floor = 0.1,
         trough_width = 0.2,
@@ -228,7 +228,7 @@ end
     gaussian(νan, params_landmark)
     @test νan[1] ≈ 0.1 * 0.05 * het.e * B / het.me
 
-    step_trough = het.StepTroughBohm1(0.05, 1, 0.8, 0.5, 0.1, 0.2, 0.5)
+    step_trough = het.StepTroughBohm1(0.05, 1, 0.2, 0.5, 0.1, 0.2, 0.5)
     step_trough(νan, [1.0], [B])
     @test νan[1] ≈ 0.05 * (1 - 0.8 / 2) * 0.1 * het.e * B / het.me
 
