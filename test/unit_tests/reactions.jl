@@ -207,6 +207,40 @@ rxn_test = het.ElectronImpactReaction(0.0, het.MolecularNitrogen(0), [het.Nitrog
     end
 end
 
+@testset "Mixed configured and lookup chemistry" begin
+    mktempdir() do directory
+        config_file = joinpath(directory, "water.toml")
+        write(joinpath(directory, "water_rates.dat"), "energy: 12.6\nenergy rate\n0 2.0e-14\n255 2.0e-14\n")
+        write(
+            config_file,
+            """
+            [[species]]
+            symbol = "H2O"
+            gamma = 1.3
+
+            [[reactions]]
+            type = "electron_impact"
+            equation = "H2O + e -> H2O(+) + 2e"
+            rate_coeff_file = "water_rates.dat"
+            """,
+        )
+
+        config = het.Config(;
+            thruster = het.SPT_100, domain = (0.0, 0.08), discharge_voltage = 300.0,
+            propellants = [het.Propellant(het.Krypton, 4.0e-6), het.Propellant(het.Water, 1.0e-6)],
+            propellant_config = config_file,
+        )
+        sim = het.SimParams(; grid = het.EvenGrid(20), verbose = false)
+        params = het.setup_simulation(config, sim)
+        ionizations = [channel.reaction for group in params.reaction_groups for channel in group.channels]
+        @test Set(rxn.reactant for rxn in ionizations) == Set([het.Krypton(0), het.Water(0)])
+        @test length(ionizations) == 2
+        @test params.species_energies_eV[het.Water(1).symbol] == 12.6
+        @test only(params.excitation_reactions).reactant == het.Krypton(0)
+        @test only(params.electron_neutral_collisions).reactant == het.Krypton(0)
+    end
+end
+
 @testset "Omitted excited species filter reactions" begin
     # Omitting level 1 should skip reactions involving it and remove only its
     # entries from branched radiative decays, keeping branch/rate pairs aligned.

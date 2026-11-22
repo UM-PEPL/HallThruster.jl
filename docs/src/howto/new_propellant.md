@@ -100,10 +100,11 @@ See [Configuration](@ref) for more details about these options.
 
 Hallthruster.jl also supports molecular propellants.
 These are handled through a `propellant_config` TOML file passed to the `Config`.
-This disables the automatic filename-based reaction rate lookup described above. A matching
-entry in `propellants` may override operating properties such as flow rate and velocity;
-default charge (`[1]`) and empty excited-state options are inherited from
-`propellant_config`, while non-default values override the file.
+When the file supplies a reaction list, it replaces the automatic filename-based lookup for
+gases listed in its `[[species]]` entries. Other gases in `propellants` still use automatic
+lookup. A matching entry in `propellants` may override operating properties such as flow
+rate and velocity. Default charge (`[1]`) and empty excited-state options are inherited
+from `propellant_config`, while non-default values override the file.
 The `propellant_config` file is a TOML file with two arrays: one for the species you expect to be present, and another for the reactions between those species.
 We suport three types of reactions: elastic/momentum transfer collisions, excitation reactions, and electron-impact reactions.
 These latter include dissociation, ionization, and dissociative ionization.
