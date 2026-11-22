@@ -350,6 +350,20 @@ function load_reactions(
                     )
                 end
             end
+
+            # Reaction-only files supply the full reaction set.
+            if haskey(contents, "species")
+                configured_formulas = Set(
+                    Symbol(molecule_formula(parse_chemical_formula(entry["symbol"])))
+                        for entry in contents["species"]
+                )
+                lookup_species = filter(s -> s.element.formula ∉ configured_formulas, species)
+                if !isempty(lookup_species)
+                    append!(ei_reactions, load_electron_impact_reactions(iz_model, lookup_species; directories))
+                    append!(ex_reactions, load_excitation_reactions(ex_model, lookup_species; directories))
+                    append!(en_reactions, load_elastic_collisions(en_model, lookup_species; directories))
+                end
+            end
             return ei_reactions, ex_reactions, en_reactions, de_reactions
         end
     end

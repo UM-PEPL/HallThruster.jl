@@ -32,7 +32,7 @@ function setup_simulation(
     fluid_array = vcat([[fluid.continuity..., fluid.isothermal...] for fluid in fluids_by_propellant]...)
     species = unique([fl.species for fl in fluid_array])
 
-    # Load reactions and collisions either from file or generate from species list
+    # Load configured reactions and look up rates for the remaining species.
     ei_reactions, excitation_reactions, electron_neutral_collisions, deexcitation_reactions = load_reactions(
         config.propellant_config, species,
         config.ionization_model, config.excitation_model, config.electron_neutral_model;
